@@ -26,6 +26,15 @@ uint32_t OcctKernel::pipe(uint32_t profileId, uint32_t spineId) {
     }
 }
 
+uint32_t OcctKernel::simplePipe(uint32_t profileId, uint32_t spineId) {
+    return pipe(profileId, spineId);
+}
+
+uint32_t OcctKernel::revolveVec(uint32_t shapeId, double cx, double cy, double cz, double dx,
+                                double dy, double dz, double angle) {
+    return revolve(shapeId, cx, cy, cz, dx, dy, dz, angle);
+}
+
 uint32_t OcctKernel::loft(std::vector<uint32_t> wireIds, bool isSolid) {
     try {
         BRepOffsetAPI_ThruSections maker(isSolid);

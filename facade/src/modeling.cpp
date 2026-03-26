@@ -4,11 +4,13 @@
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRepOffsetAPI_DraftAngle.hxx>
+#include <BRepOffsetAPI_MakeOffset.hxx>
 #include <BRepOffsetAPI_MakeOffsetShape.hxx>
 #include <BRepOffsetAPI_MakeThickSolid.hxx>
 #include <BRepOffset_Mode.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepPrimAPI_MakeRevol.hxx>
+#include <GeomAbs_JoinType.hxx>
 #include <NCollection_List.hxx>
 #include <Standard_Failure.hxx>
 #include <TopExp_Explorer.hxx>
@@ -18,6 +20,7 @@
 #include <gp_Pnt.hxx>
 #include <gp_Vec.hxx>
 
+#include <cmath>
 #include <stdexcept>
 #include <string>
 
@@ -91,6 +94,42 @@ uint32_t OcctKernel::chamfer(uint32_t solidId, std::vector<uint32_t> edgeIds, do
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamfer: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::chamferDistAngle(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                                      double distance, double angleDeg) {
+    try {
+        double angleRad = angleDeg * M_PI / 180.0;
+        const auto& solid = get(solidId);
+        BRepFilletAPI_MakeChamfer maker(TopoDS::Solid(solid));
+        for (uint32_t eid : edgeIds) {
+            const TopoDS_Edge& edge = TopoDS::Edge(get(eid));
+            // Find an adjacent face for this edge
+            TopoDS_Face adjFace;
+            for (TopExp_Explorer ex(solid, TopAbs_FACE); ex.More(); ex.Next()) {
+                const TopoDS_Face& f = TopoDS::Face(ex.Current());
+                for (TopExp_Explorer ex2(f, TopAbs_EDGE); ex2.More(); ex2.Next()) {
+                    if (ex2.Current().IsSame(edge)) {
+                        adjFace = f;
+                        break;
+                    }
+                }
+                if (!adjFace.IsNull())
+                    break;
+            }
+            if (adjFace.IsNull()) {
+                throw std::runtime_error("chamferDistAngle: no adjacent face found for edge");
+            }
+            maker.AddDA(distance, angleRad, edge, adjFace);
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("chamferDistAngle: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("chamferDistAngle: ") + e.what());
     }
 }
 
@@ -192,4 +231,44 @@ uint32_t OcctKernel::reverseShape(uint32_t id) {
 uint32_t OcctKernel::simplify(uint32_t id) {
     // Alias for unifySameDomain
     return unifySameDomain(id);
+}
+
+uint32_t OcctKernel::filletVariable(uint32_t solidId, uint32_t edgeId, double startRadius,
+                                    double endRadius) {
+    try {
+        BRepFilletAPI_MakeFillet maker(TopoDS::Solid(get(solidId)));
+        maker.Add(startRadius, endRadius, TopoDS::Edge(get(edgeId)));
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("filletVariable: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("filletVariable: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::offsetWire2D(uint32_t wireId, double offset, int joinType) {
+    try {
+        GeomAbs_JoinType jt;
+        switch (joinType) {
+        case 1:
+            jt = GeomAbs_Intersection;
+            break;
+        case 2:
+            jt = GeomAbs_Tangent;
+            break;
+        default:
+            jt = GeomAbs_Arc;
+            break;
+        }
+        BRepOffsetAPI_MakeOffset maker(TopoDS::Wire(get(wireId)), jt);
+        maker.Perform(offset);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("offsetWire2D: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("offsetWire2D: ") + e.what());
+    }
 }

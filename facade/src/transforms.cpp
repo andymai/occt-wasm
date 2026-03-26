@@ -1,6 +1,7 @@
 #include "occt_kernel.h"
 
 #include <BRepBuilderAPI_Copy.hxx>
+#include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <Standard_Failure.hxx>
 #include <TopoDS_Builder.hxx>
@@ -8,8 +9,10 @@
 #include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Dir.hxx>
+#include <gp_GTrsf.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
+#include <gp_Vec.hxx>
 
 #include <stdexcept>
 #include <string>
@@ -118,5 +121,68 @@ uint32_t OcctKernel::circularPattern(uint32_t id, double cx, double cy, double c
         return store(compound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("circularPattern: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::transform(uint32_t id, std::vector<double> matrix) {
+    try {
+        if (matrix.size() != 12) {
+            throw std::runtime_error("transform: matrix must have 12 elements (3x4)");
+        }
+        gp_Trsf trsf;
+        // matrix is row-major: [r00, r01, r02, tx, r10, r11, r12, ty, r20, r21, r22, tz]
+        trsf.SetValues(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5], matrix[6],
+                       matrix[7], matrix[8], matrix[9], matrix[10], matrix[11]);
+        BRepBuilderAPI_Transform maker(get(id), trsf, true);
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("transform: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::generalTransform(uint32_t id, std::vector<double> matrix) {
+    try {
+        if (matrix.size() != 12) {
+            throw std::runtime_error("generalTransform: matrix must have 12 elements (3x4)");
+        }
+        gp_GTrsf gt;
+        gt.SetValue(1, 1, matrix[0]);
+        gt.SetValue(1, 2, matrix[1]);
+        gt.SetValue(1, 3, matrix[2]);
+        gt.SetValue(1, 4, matrix[3]);
+        gt.SetValue(2, 1, matrix[4]);
+        gt.SetValue(2, 2, matrix[5]);
+        gt.SetValue(2, 3, matrix[6]);
+        gt.SetValue(2, 4, matrix[7]);
+        gt.SetValue(3, 1, matrix[8]);
+        gt.SetValue(3, 2, matrix[9]);
+        gt.SetValue(3, 3, matrix[10]);
+        gt.SetValue(3, 4, matrix[11]);
+        BRepBuilderAPI_GTransform maker(get(id), gt, true);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("generalTransform: transform failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("generalTransform: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::composeTransform(std::vector<double> m1, std::vector<double> m2) {
+    try {
+        if (m1.size() != 12 || m2.size() != 12) {
+            throw std::runtime_error("composeTransform: each matrix must have 12 elements");
+        }
+        gp_Trsf t1, t2;
+        t1.SetValues(m1[0], m1[1], m1[2], m1[3], m1[4], m1[5], m1[6], m1[7], m1[8], m1[9], m1[10],
+                     m1[11]);
+        t2.SetValues(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5], m2[6], m2[7], m2[8], m2[9], m2[10],
+                     m2[11]);
+        gp_Trsf result = t1.Multiplied(t2);
+        return {result.Value(1, 1), result.Value(1, 2), result.Value(1, 3), result.Value(1, 4),
+                result.Value(2, 1), result.Value(2, 2), result.Value(2, 3), result.Value(2, 4),
+                result.Value(3, 1), result.Value(3, 2), result.Value(3, 3), result.Value(3, 4)};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("composeTransform: ") + e.what());
     }
 }

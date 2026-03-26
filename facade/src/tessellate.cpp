@@ -126,6 +126,10 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
     }
 }
 
+MeshData OcctKernel::meshShape(uint32_t id, double linearDeflection, double angularDeflection) {
+    return tessellate(id, linearDeflection, angularDeflection);
+}
+
 EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
     try {
         const auto& shape = get(id);
