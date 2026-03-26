@@ -149,6 +149,14 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("fuseWithHistory", &OcctKernel::fuseWithHistory)
         .function("cutWithHistory", &OcctKernel::cutWithHistory)
         .function("filletWithHistory", &OcctKernel::filletWithHistory)
+        .function("rotateWithHistory", &OcctKernel::rotateWithHistory)
+        .function("mirrorWithHistory", &OcctKernel::mirrorWithHistory)
+        .function("scaleWithHistory", &OcctKernel::scaleWithHistory)
+        .function("intersectWithHistory", &OcctKernel::intersectWithHistory)
+        .function("chamferWithHistory", &OcctKernel::chamferWithHistory)
+        .function("shellWithHistory", &OcctKernel::shellWithHistory)
+        .function("offsetWithHistory", &OcctKernel::offsetWithHistory)
+        .function("thickenWithHistory", &OcctKernel::thickenWithHistory)
 
         // Modifiers (expanded)
         .function("thicken", &OcctKernel::thicken)
@@ -159,6 +167,18 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // Transform (expanded)
         .function("linearPattern", &OcctKernel::linearPattern)
         .function("circularPattern", &OcctKernel::circularPattern)
+
+        // Curve ops
+        .function("curveType", &OcctKernel::curveType)
+        .function("curvePointAtParam", &OcctKernel::curvePointAtParam)
+        .function("curveTangent", &OcctKernel::curveTangent)
+        .function("curveParameters", &OcctKernel::curveParameters)
+        .function("curveIsClosed", &OcctKernel::curveIsClosed)
+        .function("curveLength", &OcctKernel::curveLength)
+        .function("interpolatePoints", &OcctKernel::interpolatePoints)
+
+        // Mesh
+        .function("hasTriangulation", &OcctKernel::hasTriangulation)
 
         // Healing
         .function("fixShape", &OcctKernel::fixShape)
