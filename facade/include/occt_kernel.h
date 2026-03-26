@@ -71,6 +71,9 @@ class OcctKernel {
     uint32_t cut(uint32_t a, uint32_t b);
     uint32_t common(uint32_t a, uint32_t b);
     uint32_t section(uint32_t a, uint32_t b);
+    uint32_t fuseAll(std::vector<uint32_t> shapeIds);
+    uint32_t cutAll(uint32_t shapeId, std::vector<uint32_t> toolIds);
+    uint32_t split(uint32_t shapeId, std::vector<uint32_t> toolIds);
 
     // --- Modeling operations ---
     uint32_t extrude(uint32_t shapeId, double dx, double dy, double dz);
@@ -108,6 +111,12 @@ class OcctKernel {
     std::string getShapeType(uint32_t id);
     std::vector<uint32_t> getSubShapes(uint32_t id, const std::string& shapeType);
     double distanceBetween(uint32_t a, uint32_t b);
+    bool isSame(uint32_t a, uint32_t b);
+    bool isEqual(uint32_t a, uint32_t b);
+    bool isNull(uint32_t id);
+    int hashCode(uint32_t id, int upperBound);
+    std::string shapeOrientation(uint32_t id);
+    std::vector<uint32_t> sharedEdges(uint32_t faceA, uint32_t faceB);
 
     // --- Tessellation ---
     MeshData tessellate(uint32_t id, double linearDeflection, double angularDeflection);
@@ -117,11 +126,22 @@ class OcctKernel {
     uint32_t importStep(const std::string& data);
     std::string exportStep(uint32_t id);
     std::string exportStl(uint32_t id, double linearDeflection);
+    std::string toBREP(uint32_t id);
+    uint32_t fromBREP(const std::string& data);
 
     // --- Query ---
     BBoxData getBoundingBox(uint32_t id);
     double getVolume(uint32_t id);
     double getSurfaceArea(uint32_t id);
+    double getLength(uint32_t id);
+    std::vector<double> getCenterOfMass(uint32_t id);
+
+    // --- Vertex/surface query ---
+    std::vector<double> vertexPosition(uint32_t vertexId);
+    std::string surfaceType(uint32_t faceId);
+    std::vector<double> surfaceNormal(uint32_t faceId, double u, double v);
+    std::vector<double> pointOnSurface(uint32_t faceId, double u, double v);
+    uint32_t outerWire(uint32_t faceId);
 
     // --- Healing ---
     uint32_t fixShape(uint32_t id);

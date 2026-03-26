@@ -29,6 +29,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
 
     // Vector types for Embind
     register_vector<uint32_t>("VectorUint32");
+    register_vector<double>("VectorDouble");
 
     // OcctKernel
     class_<OcctKernel>("OcctKernel")
@@ -51,6 +52,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("cut", &OcctKernel::cut)
         .function("common", &OcctKernel::common)
         .function("section", &OcctKernel::section)
+        .function("fuseAll", &OcctKernel::fuseAll)
+        .function("cutAll", &OcctKernel::cutAll)
+        .function("split", &OcctKernel::split)
 
         // Modeling
         .function("extrude", &OcctKernel::extrude)
@@ -85,6 +89,12 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("getShapeType", &OcctKernel::getShapeType)
         .function("getSubShapes", &OcctKernel::getSubShapes)
         .function("distanceBetween", &OcctKernel::distanceBetween)
+        .function("isSame", &OcctKernel::isSame)
+        .function("isEqual", &OcctKernel::isEqual)
+        .function("isNull", &OcctKernel::isNull)
+        .function("hashCode", &OcctKernel::hashCode)
+        .function("shapeOrientation", &OcctKernel::shapeOrientation)
+        .function("sharedEdges", &OcctKernel::sharedEdges)
 
         // Tessellation
         .function("tessellate", &OcctKernel::tessellate)
@@ -94,11 +104,22 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("importStep", &OcctKernel::importStep)
         .function("exportStep", &OcctKernel::exportStep)
         .function("exportStl", &OcctKernel::exportStl)
+        .function("toBREP", &OcctKernel::toBREP)
+        .function("fromBREP", &OcctKernel::fromBREP)
 
         // Query
         .function("getBoundingBox", &OcctKernel::getBoundingBox)
         .function("getVolume", &OcctKernel::getVolume)
         .function("getSurfaceArea", &OcctKernel::getSurfaceArea)
+        .function("getLength", &OcctKernel::getLength)
+        .function("getCenterOfMass", &OcctKernel::getCenterOfMass)
+
+        // Vertex/surface query
+        .function("vertexPosition", &OcctKernel::vertexPosition)
+        .function("surfaceType", &OcctKernel::surfaceType)
+        .function("surfaceNormal", &OcctKernel::surfaceNormal)
+        .function("pointOnSurface", &OcctKernel::pointOnSurface)
+        .function("outerWire", &OcctKernel::outerWire)
 
         // Healing
         .function("fixShape", &OcctKernel::fixShape)

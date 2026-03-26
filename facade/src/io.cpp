@@ -7,6 +7,9 @@
 #include <Standard_Failure.hxx>
 
 #include <BRepMesh_IncrementalMesh.hxx>
+#include <BRepTools.hxx>
+#include <BRep_Builder.hxx>
+#include <Message_ProgressRange.hxx>
 #include <StlAPI_Writer.hxx>
 
 #include <sstream>
@@ -111,5 +114,32 @@ std::string OcctKernel::exportStl(uint32_t id, double linearDeflection) {
         return result;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("exportStl: ") + e.what());
+    }
+}
+
+std::string OcctKernel::toBREP(uint32_t id) {
+    try {
+        std::ostringstream oss(std::ios::binary);
+        oss << std::setprecision(17);
+        BRepTools::Write(get(id), oss);
+        return oss.str();
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("toBREP: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::fromBREP(const std::string& data) {
+    try {
+        std::istringstream iss(data, std::ios::binary);
+        TopoDS_Shape shape;
+        BRep_Builder builder;
+        Message_ProgressRange progress;
+        BRepTools::Read(shape, iss, builder, progress);
+        if (shape.IsNull()) {
+            throw std::runtime_error("fromBREP: failed to read shape");
+        }
+        return store(shape);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("fromBREP: ") + e.what());
     }
 }
