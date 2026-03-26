@@ -32,7 +32,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
     // EdgeData
     class_<EdgeData>("EdgeData")
         .function("getPointsPtr", &EdgeData::getPointsPtr)
-        .property("pointCount", &EdgeData::pointCount);
+        .function("getEdgeGroupsPtr", &EdgeData::getEdgeGroupsPtr)
+        .property("pointCount", &EdgeData::pointCount)
+        .property("edgeGroupCount", &EdgeData::edgeGroupCount);
 
     // EvolutionData
     class_<EvolutionData>("EvolutionData")

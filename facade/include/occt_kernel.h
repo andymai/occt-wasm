@@ -36,13 +36,16 @@ struct BBoxData {
 /// Edge line data for wireframe rendering.
 struct EdgeData {
     float* points = nullptr;
+    int32_t* edgeGroups = nullptr; // [pointStart, pointCount] per edge
     int pointCount = 0;
+    int edgeGroupCount = 0; // number of int32s (edgeCount * 2)
 
     EdgeData() = default;
     ~EdgeData();
     EdgeData(const EdgeData& other);
     EdgeData& operator=(const EdgeData&) = delete;
     int getPointsPtr() const;
+    int getEdgeGroupsPtr() const;
 };
 
 /// Evolution data from an operation.

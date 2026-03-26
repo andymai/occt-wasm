@@ -82,13 +82,21 @@ uint32_t OcctKernel::getShapeCount() const {
 
 EdgeData::~EdgeData() {
     std::free(points);
+    std::free(edgeGroups);
 }
 
-EdgeData::EdgeData(const EdgeData& other) : points(other.points), pointCount(other.pointCount) {
+EdgeData::EdgeData(const EdgeData& other)
+    : points(other.points), edgeGroups(other.edgeGroups), pointCount(other.pointCount),
+      edgeGroupCount(other.edgeGroupCount) {
     auto& mut = const_cast<EdgeData&>(other);
     mut.points = nullptr;
+    mut.edgeGroups = nullptr;
 }
 
 int EdgeData::getPointsPtr() const {
     return static_cast<int>(reinterpret_cast<uintptr_t>(points));
+}
+
+int EdgeData::getEdgeGroupsPtr() const {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(edgeGroups));
 }
