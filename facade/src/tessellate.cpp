@@ -11,6 +11,7 @@
 #include <TopAbs_Orientation.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
+#include <TopTools_ShapeMapHasher.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 
@@ -30,6 +31,7 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
         // Count totals
         int totalNodes = 0;
         int totalTris = 0;
+        int totalFaces = 0;
         for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
             TopLoc_Location loc;
             auto tri = BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc);
@@ -37,6 +39,7 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
                 continue;
             totalNodes += tri->NbNodes();
             totalTris += tri->NbTriangles();
+            totalFaces++;
         }
 
         MeshData result;
@@ -47,15 +50,20 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
         result.positions = static_cast<float*>(std::malloc(result.positionCount * sizeof(float)));
         result.normals = static_cast<float*>(std::malloc(result.normalCount * sizeof(float)));
         result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(uint32_t)));
+        result.faceGroupCount = totalFaces * 3;
+        result.faceGroups =
+            static_cast<int32_t*>(std::malloc(result.faceGroupCount * sizeof(int32_t)));
 
         if ((!result.positions && result.positionCount > 0) ||
             (!result.normals && result.normalCount > 0) ||
-            (!result.indices && result.indexCount > 0)) {
+            (!result.indices && result.indexCount > 0) ||
+            (!result.faceGroups && result.faceGroupCount > 0)) {
             throw std::runtime_error("tessellate: memory allocation failed");
         }
 
         int vertexOffset = 0;
         int triOffset = 0;
+        int faceGroupIdx = 0;
 
         for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
             const auto& face = TopoDS::Face(ex.Current());
@@ -116,6 +124,14 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
                 result.indices[triOffset + 2] = static_cast<uint32_t>(n3 - 1 + vertexOffset);
                 triOffset += 3;
             }
+
+            // Record face group: [triStart (in index units), triCount (indices), faceHash]
+            int faceTriStart = triOffset - nbTri * 3;
+            int faceHash = static_cast<int>(TopTools_ShapeMapHasher{}(face) % 2147483647);
+            result.faceGroups[faceGroupIdx + 0] = faceTriStart;
+            result.faceGroups[faceGroupIdx + 1] = nbTri * 3;
+            result.faceGroups[faceGroupIdx + 2] = faceHash;
+            faceGroupIdx += 3;
 
             vertexOffset += nbNodes;
         }
