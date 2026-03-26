@@ -1,5 +1,6 @@
 #include "occt_kernel.h"
 
+#include <BRepCheck_Analyzer.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <Standard_Failure.hxx>
@@ -24,5 +25,14 @@ uint32_t OcctKernel::unifySameDomain(uint32_t id) {
         return store(upgrader.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("unifySameDomain: ") + e.what());
+    }
+}
+
+bool OcctKernel::isValid(uint32_t id) {
+    try {
+        BRepCheck_Analyzer checker(get(id));
+        return checker.IsValid();
+    } catch (const Standard_Failure&) {
+        return false;
     }
 }

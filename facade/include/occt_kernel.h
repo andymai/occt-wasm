@@ -89,6 +89,9 @@ class OcctKernel {
     // --- Sweep operations ---
     uint32_t pipe(uint32_t profileId, uint32_t spineId);
     uint32_t loft(std::vector<uint32_t> wireIds, bool isSolid);
+    uint32_t sweep(uint32_t wireId, uint32_t spineId, int transitionMode);
+    uint32_t sweepPipeShell(uint32_t profileId, uint32_t spineId, bool freenet, bool smooth);
+    uint32_t draftPrism(uint32_t shapeId, double dx, double dy, double dz, double angleDeg);
 
     // --- Shape construction ---
     uint32_t makeVertex(double x, double y, double z);
@@ -160,9 +163,21 @@ class OcctKernel {
     std::vector<double> pointOnSurface(uint32_t faceId, double u, double v);
     uint32_t outerWire(uint32_t faceId);
 
+    // --- Modifier (expanded) ---
+    uint32_t thicken(uint32_t shapeId, double thickness);
+    uint32_t defeature(uint32_t shapeId, std::vector<uint32_t> faceIds);
+    uint32_t reverseShape(uint32_t id);
+    uint32_t simplify(uint32_t id);
+
+    // --- Transform (expanded) ---
+    uint32_t linearPattern(uint32_t id, double dx, double dy, double dz, double spacing, int count);
+    uint32_t circularPattern(uint32_t id, double cx, double cy, double cz, double ax, double ay,
+                             double az, double angle, int count);
+
     // --- Healing ---
     uint32_t fixShape(uint32_t id);
     uint32_t unifySameDomain(uint32_t id);
+    bool isValid(uint32_t id);
 
   private:
     uint32_t store(const TopoDS_Shape& shape);

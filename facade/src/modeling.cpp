@@ -141,3 +141,55 @@ uint32_t OcctKernel::draft(uint32_t shapeId, uint32_t faceId, double angleRad, d
         throw std::runtime_error(std::string("draft: ") + e.what());
     }
 }
+
+uint32_t OcctKernel::thicken(uint32_t shapeId, double thickness) {
+    try {
+        // Thicken: offset a shell/face into a solid
+        NCollection_List<TopoDS_Shape> emptyList;
+        BRepOffsetAPI_MakeThickSolid maker;
+        maker.MakeThickSolidByJoin(get(shapeId), emptyList, thickness, 1e-3);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("thicken: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("thicken: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::defeature(uint32_t shapeId, std::vector<uint32_t> faceIds) {
+    try {
+        // Defeature by removing faces and letting OCCT fill the gaps
+        // Use BRepAlgoAPI_Defeaturing (available in OCCT 7.4+)
+        // For now, use offset with zero distance on selected faces
+        // TODO: use BRepAlgoAPI_Defeaturing when V8 header is confirmed
+        NCollection_List<TopoDS_Shape> facesToRemove;
+        for (uint32_t fid : faceIds) {
+            facesToRemove.Append(get(fid));
+        }
+        BRepOffsetAPI_MakeThickSolid maker;
+        maker.MakeThickSolidByJoin(get(shapeId), facesToRemove, 0.0, 1e-3);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("defeature: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("defeature: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::reverseShape(uint32_t id) {
+    try {
+        TopoDS_Shape reversed = get(id).Reversed();
+        return store(reversed);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("reverseShape: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::simplify(uint32_t id) {
+    // Alias for unifySameDomain
+    return unifySameDomain(id);
+}

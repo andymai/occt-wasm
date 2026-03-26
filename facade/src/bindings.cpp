@@ -68,6 +68,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // Sweeps
         .function("pipe", &OcctKernel::pipe)
         .function("loft", &OcctKernel::loft)
+        .function("sweep", &OcctKernel::sweep)
+        .function("sweepPipeShell", &OcctKernel::sweepPipeShell)
+        .function("draftPrism", &OcctKernel::draftPrism)
 
         // Construction
         .function("makeVertex", &OcctKernel::makeVertex)
@@ -133,7 +136,18 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("pointOnSurface", &OcctKernel::pointOnSurface)
         .function("outerWire", &OcctKernel::outerWire)
 
+        // Modifiers (expanded)
+        .function("thicken", &OcctKernel::thicken)
+        .function("defeature", &OcctKernel::defeature)
+        .function("reverseShape", &OcctKernel::reverseShape)
+        .function("simplify", &OcctKernel::simplify)
+
+        // Transform (expanded)
+        .function("linearPattern", &OcctKernel::linearPattern)
+        .function("circularPattern", &OcctKernel::circularPattern)
+
         // Healing
         .function("fixShape", &OcctKernel::fixShape)
-        .function("unifySameDomain", &OcctKernel::unifySameDomain);
+        .function("unifySameDomain", &OcctKernel::unifySameDomain)
+        .function("isValid", &OcctKernel::isValid);
 }
