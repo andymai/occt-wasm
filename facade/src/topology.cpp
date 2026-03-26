@@ -114,6 +114,53 @@ std::string OcctKernel::shapeOrientation(uint32_t id) {
     }
 }
 
+uint32_t OcctKernel::downcast(uint32_t id, const std::string& targetType) {
+    // In our arena, shapes are already stored as TopoDS_Shape which can be any sub-type.
+    // downcast just re-stores the same shape (OCCT's TopoDS::Vertex etc. are just casts).
+    // This ensures the arena has a separate ID for the downcast reference.
+    try {
+        const auto& shape = get(id);
+        TopAbs_ShapeEnum target = parseShapeType(targetType);
+        if (shape.ShapeType() != target) {
+            throw std::runtime_error("downcast: shape type mismatch — expected " + targetType +
+                                     ", got " + shapeTypeToString(shape.ShapeType()));
+        }
+        return store(shape);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("downcast: ") + e.what());
+    }
+}
+
+std::vector<uint32_t> OcctKernel::adjacentFaces(uint32_t shapeId, uint32_t faceId) {
+    try {
+        const auto& shape = get(shapeId);
+        const auto& targetFace = get(faceId);
+        std::vector<uint32_t> result;
+
+        // Find faces that share an edge with targetFace
+        for (TopExp_Explorer exF(shape, TopAbs_FACE); exF.More(); exF.Next()) {
+            if (exF.Current().IsSame(targetFace))
+                continue;
+            bool adjacent = false;
+            for (TopExp_Explorer exE1(targetFace, TopAbs_EDGE); exE1.More() && !adjacent;
+                 exE1.Next()) {
+                for (TopExp_Explorer exE2(exF.Current(), TopAbs_EDGE); exE2.More(); exE2.Next()) {
+                    if (exE1.Current().IsSame(exE2.Current())) {
+                        adjacent = true;
+                        break;
+                    }
+                }
+            }
+            if (adjacent) {
+                result.push_back(store(exF.Current()));
+            }
+        }
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("adjacentFaces: ") + e.what());
+    }
+}
+
 std::vector<uint32_t> OcctKernel::sharedEdges(uint32_t faceA, uint32_t faceB) {
     try {
         const auto& fa = get(faceA);

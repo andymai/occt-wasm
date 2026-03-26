@@ -6,10 +6,24 @@
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
+#include <BRepOffsetAPI_MakeFilling.hxx>
+#include <GC_MakeArcOfCircle.hxx>
+#include <GeomAbs_Shape.hxx>
+#include <Geom_BezierCurve.hxx>
+#include <Geom_Circle.hxx>
+#include <Geom_Ellipse.hxx>
+#include <Geom_TrimmedCurve.hxx>
+#include <NCollection_Array1.hxx>
 #include <Standard_Failure.hxx>
+#include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Builder.hxx>
 #include <TopoDS_Compound.hxx>
+#include <gp_Ax2.hxx>
+#include <gp_Circ.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Elips.hxx>
+#include <gp_Pnt.hxx>
 
 #include <stdexcept>
 #include <string>
@@ -98,5 +112,181 @@ uint32_t OcctKernel::makeCompound(std::vector<uint32_t> shapeIds) {
         return store(compound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeCompound: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeLineEdge(double x1, double y1, double z1, double x2, double y2,
+                                  double z2) {
+    try {
+        BRepBuilderAPI_MakeEdge maker(gp_Pnt(x1, y1, z1), gp_Pnt(x2, y2, z2));
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeLineEdge: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeLineEdge: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeCircleEdge(double cx, double cy, double cz, double nx, double ny,
+                                    double nz, double radius) {
+    try {
+        gp_Ax2 axis(gp_Pnt(cx, cy, cz), gp_Dir(nx, ny, nz));
+        gp_Circ circle(axis, radius);
+        BRepBuilderAPI_MakeEdge maker(circle);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeCircleEdge: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeCircleEdge: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeCircleArc(double cx, double cy, double cz, double nx, double ny, double nz,
+                                   double radius, double startAngle, double endAngle) {
+    try {
+        gp_Ax2 axis(gp_Pnt(cx, cy, cz), gp_Dir(nx, ny, nz));
+        gp_Circ circle(axis, radius);
+        Handle(Geom_TrimmedCurve) arc =
+            new Geom_TrimmedCurve(new Geom_Circle(circle), startAngle, endAngle);
+        BRepBuilderAPI_MakeEdge maker(arc);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeCircleArc: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeCircleArc: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeArcEdge(double x1, double y1, double z1, double x2, double y2, double z2,
+                                 double x3, double y3, double z3) {
+    try {
+        GC_MakeArcOfCircle arc(gp_Pnt(x1, y1, z1), gp_Pnt(x2, y2, z2), gp_Pnt(x3, y3, z3));
+        if (!arc.IsDone()) {
+            throw std::runtime_error("makeArcEdge: construction failed");
+        }
+        BRepBuilderAPI_MakeEdge maker(arc.Value());
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeArcEdge: edge construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeArcEdge: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeEllipseEdge(double cx, double cy, double cz, double nx, double ny,
+                                     double nz, double majorRadius, double minorRadius) {
+    try {
+        gp_Ax2 axis(gp_Pnt(cx, cy, cz), gp_Dir(nx, ny, nz));
+        gp_Elips ellipse(axis, majorRadius, minorRadius);
+        BRepBuilderAPI_MakeEdge maker(ellipse);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeEllipseEdge: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeEllipseEdge: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeBezierEdge(std::vector<double> flatPoints) {
+    try {
+        int nPts = static_cast<int>(flatPoints.size()) / 3;
+        if (nPts < 2) {
+            throw std::runtime_error("makeBezierEdge: need at least 2 points");
+        }
+        NCollection_Array1<gp_Pnt> poles(1, nPts);
+        for (int i = 0; i < nPts; i++) {
+            poles.SetValue(i + 1,
+                           gp_Pnt(flatPoints[i * 3], flatPoints[i * 3 + 1], flatPoints[i * 3 + 2]));
+        }
+        Handle(Geom_BezierCurve) curve = new Geom_BezierCurve(poles);
+        BRepBuilderAPI_MakeEdge maker(curve);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeBezierEdge: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeBezierEdge: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeNonPlanarFace(uint32_t wireId) {
+    try {
+        BRepOffsetAPI_MakeFilling filler;
+        for (TopExp_Explorer ex(get(wireId), TopAbs_EDGE); ex.More(); ex.Next()) {
+            filler.Add(TopoDS::Edge(ex.Current()), GeomAbs_C0);
+        }
+        filler.Build();
+        if (!filler.IsDone()) {
+            throw std::runtime_error("makeNonPlanarFace: construction failed");
+        }
+        return store(filler.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeNonPlanarFace: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::addHolesInFace(uint32_t faceId, std::vector<uint32_t> holeWireIds) {
+    try {
+        TopoDS_Face face = TopoDS::Face(get(faceId));
+        BRepBuilderAPI_MakeFace maker(face);
+        for (uint32_t wid : holeWireIds) {
+            // Holes must be reversed orientation
+            TopoDS_Wire hole = TopoDS::Wire(get(wid));
+            hole.Reverse();
+            maker.Add(hole);
+        }
+        if (!maker.IsDone()) {
+            throw std::runtime_error("addHolesInFace: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("addHolesInFace: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::sewAndSolidify(std::vector<uint32_t> faceIds, double tolerance) {
+    try {
+        BRepBuilderAPI_Sewing sewer(tolerance);
+        for (uint32_t fid : faceIds) {
+            sewer.Add(get(fid));
+        }
+        sewer.Perform();
+        TopoDS_Shape sewn = sewer.SewedShape();
+        // Try to make a solid from the sewn shell
+        if (sewn.ShapeType() == TopAbs_SHELL) {
+            BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(sewn));
+            if (maker.IsDone()) {
+                return store(maker.Shape());
+            }
+        }
+        return store(sewn);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("sewAndSolidify: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::buildTriFace(double ax, double ay, double az, double bx, double by, double bz,
+                                  double cx2, double cy2, double cz2) {
+    try {
+        gp_Pnt pa(ax, ay, az), pb(bx, by, bz), pc(cx2, cy2, cz2);
+        BRepBuilderAPI_MakeWire wireMaker;
+        wireMaker.Add(BRepBuilderAPI_MakeEdge(pa, pb).Edge());
+        wireMaker.Add(BRepBuilderAPI_MakeEdge(pb, pc).Edge());
+        wireMaker.Add(BRepBuilderAPI_MakeEdge(pc, pa).Edge());
+        if (!wireMaker.IsDone()) {
+            throw std::runtime_error("buildTriFace: wire construction failed");
+        }
+        BRepBuilderAPI_MakeFace faceMaker(wireMaker.Wire());
+        if (!faceMaker.IsDone()) {
+            throw std::runtime_error("buildTriFace: face construction failed");
+        }
+        return store(faceMaker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("buildTriFace: ") + e.what());
     }
 }
