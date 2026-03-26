@@ -1,9 +1,10 @@
 #include "occt_kernel.h"
 
 #include <BRepBuilderAPI_Copy.hxx>
-#include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <Standard_Failure.hxx>
+#include <TopoDS_Builder.hxx>
+#include <TopoDS_Compound.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Dir.hxx>
@@ -65,5 +66,57 @@ uint32_t OcctKernel::copy(uint32_t id) {
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("copy: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::linearPattern(uint32_t id, double dx, double dy, double dz, double spacing,
+                                   int count) {
+    try {
+        TopoDS_Compound compound;
+        TopoDS_Builder builder;
+        builder.MakeCompound(compound);
+
+        const auto& original = get(id);
+        builder.Add(compound, original);
+
+        gp_Vec step(dx, dy, dz);
+        step.Normalize();
+        step.Multiply(spacing);
+
+        for (int i = 1; i < count; i++) {
+            gp_Trsf trsf;
+            gp_Vec offset = step.Multiplied(static_cast<double>(i));
+            trsf.SetTranslation(offset);
+            BRepBuilderAPI_Transform xform(original, trsf, true);
+            builder.Add(compound, xform.Shape());
+        }
+        return store(compound);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("linearPattern: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::circularPattern(uint32_t id, double cx, double cy, double cz, double ax,
+                                     double ay, double az, double angle, int count) {
+    try {
+        TopoDS_Compound compound;
+        TopoDS_Builder builder;
+        builder.MakeCompound(compound);
+
+        const auto& original = get(id);
+        builder.Add(compound, original);
+
+        gp_Ax1 axis(gp_Pnt(cx, cy, cz), gp_Dir(ax, ay, az));
+        double stepAngle = angle / static_cast<double>(count);
+
+        for (int i = 1; i < count; i++) {
+            gp_Trsf trsf;
+            trsf.SetRotation(axis, stepAngle * static_cast<double>(i));
+            BRepBuilderAPI_Transform xform(original, trsf, true);
+            builder.Add(compound, xform.Shape());
+        }
+        return store(compound);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("circularPattern: ") + e.what());
     }
 }
