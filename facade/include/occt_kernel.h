@@ -195,6 +195,38 @@ class OcctKernel {
                                  int hashUpperBound);
     EvolutionData filletWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds, double radius,
                                     std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData rotateWithHistory(uint32_t id, double px, double py, double pz, double dx,
+                                    double dy, double dz, double angle,
+                                    std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData mirrorWithHistory(uint32_t id, double px, double py, double pz, double nx,
+                                    double ny, double nz, std::vector<int> inputFaceHashes,
+                                    int hashUpperBound);
+    EvolutionData scaleWithHistory(uint32_t id, double cx, double cy, double cz, double factor,
+                                   std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData intersectWithHistory(uint32_t a, uint32_t b, std::vector<int> inputFaceHashes,
+                                       int hashUpperBound);
+    EvolutionData chamferWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                                     double distance, std::vector<int> inputFaceHashes,
+                                     int hashUpperBound);
+    EvolutionData shellWithHistory(uint32_t solidId, std::vector<uint32_t> faceIds,
+                                   double thickness, std::vector<int> inputFaceHashes,
+                                   int hashUpperBound);
+    EvolutionData offsetWithHistory(uint32_t solidId, double distance,
+                                    std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData thickenWithHistory(uint32_t shapeId, double thickness,
+                                     std::vector<int> inputFaceHashes, int hashUpperBound);
+
+    // --- Curve ops ---
+    std::string curveType(uint32_t edgeId);
+    std::vector<double> curvePointAtParam(uint32_t edgeId, double param);
+    std::vector<double> curveTangent(uint32_t edgeId, double param);
+    std::vector<double> curveParameters(uint32_t edgeId);
+    bool curveIsClosed(uint32_t edgeId);
+    double curveLength(uint32_t edgeId);
+    uint32_t interpolatePoints(std::vector<double> flatPoints, bool periodic);
+
+    // --- Mesh ops (expanded) ---
+    bool hasTriangulation(uint32_t id);
 
     // --- Healing ---
     uint32_t fixShape(uint32_t id);
