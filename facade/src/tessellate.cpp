@@ -168,18 +168,29 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
         EdgeData result;
         result.pointCount = totalPoints * 3;
         result.points = static_cast<float*>(std::malloc(result.pointCount * sizeof(float)));
+        int numEdges = static_cast<int>(edgePoints.size());
+        result.edgeGroupCount = numEdges * 2;
+        result.edgeGroups =
+            static_cast<int32_t*>(std::malloc(result.edgeGroupCount * sizeof(int32_t)));
         if (!result.points && result.pointCount > 0) {
             throw std::runtime_error("wireframe: allocation failed");
         }
 
         int offset = 0;
+        int edgeIdx = 0;
         for (const auto& pts : edgePoints) {
+            int edgeStart = offset;
             for (const auto& p : pts) {
                 result.points[offset + 0] = static_cast<float>(p.X());
                 result.points[offset + 1] = static_cast<float>(p.Y());
                 result.points[offset + 2] = static_cast<float>(p.Z());
                 offset += 3;
             }
+            if (result.edgeGroups) {
+                result.edgeGroups[edgeIdx * 2] = edgeStart;
+                result.edgeGroups[edgeIdx * 2 + 1] = offset - edgeStart;
+            }
+            edgeIdx++;
         }
 
         return result;
