@@ -47,6 +47,18 @@ struct EdgeData {
     int getPointsPtr() const;
 };
 
+/// Evolution data from an operation — tracks how faces changed.
+/// Serialized as flat vectors for Embind transfer.
+struct EvolutionData {
+    uint32_t resultId = 0;
+    // modified: [inputHash, count, outHash1, outHash2, ..., inputHash, count, ...]
+    std::vector<int> modified;
+    // generated: same format as modified
+    std::vector<int> generated;
+    // deleted: flat list of input face hashes that were removed
+    std::vector<int> deleted;
+};
+
 /// Arena-based OCCT kernel. All shapes are stored by u32 ID.
 /// JS/TS never interacts with OCCT types directly.
 class OcctKernel {
@@ -173,6 +185,16 @@ class OcctKernel {
     uint32_t linearPattern(uint32_t id, double dx, double dy, double dz, double spacing, int count);
     uint32_t circularPattern(uint32_t id, double cx, double cy, double cz, double ax, double ay,
                              double az, double angle, int count);
+
+    // --- Evolution (operations with shape history) ---
+    EvolutionData translateWithHistory(uint32_t id, double dx, double dy, double dz,
+                                       std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData fuseWithHistory(uint32_t a, uint32_t b, std::vector<int> inputFaceHashes,
+                                  int hashUpperBound);
+    EvolutionData cutWithHistory(uint32_t a, uint32_t b, std::vector<int> inputFaceHashes,
+                                 int hashUpperBound);
+    EvolutionData filletWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds, double radius,
+                                    std::vector<int> inputFaceHashes, int hashUpperBound);
 
     // --- Healing ---
     uint32_t fixShape(uint32_t id);
