@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "component": "occt-wasm",
+      "include-component-in-tag": false,
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "ts/package.json",
+          "jsonpath": "$.version"
+        }
+      ],
+      "bump-patch-for-minor-pre-major": true,
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" },
+        { "type": "perf", "section": "Performance" },
+        { "type": "docs", "section": "Documentation", "hidden": true },
+        { "type": "chore", "section": "Miscellaneous", "hidden": true }
+      ],
+      "exclude-paths": [
+        ".github",
+        "scripts",
+        "test"
+      ]
+    }
+  }
+}

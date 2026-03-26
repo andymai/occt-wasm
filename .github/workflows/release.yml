@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs['release_created'] }}
+      tag_name: ${{ steps.release.outputs['tag_name'] }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          manifest-file: .release-please-manifest.json
+          config-file: release-please-config.json
+
+  # TODO: Add publish job when WASM build pipeline is working.
+  # It will:
+  # 1. Build Docker image
+  # 2. Compile OCCT + facade to WASM inside Docker
+  # 3. Run wasm-opt
+  # 4. Run integration tests
+  # 5. Publish @occt-wasm/core to npm
