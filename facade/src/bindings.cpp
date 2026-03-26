@@ -30,6 +30,14 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
     // Vector types for Embind
     register_vector<uint32_t>("VectorUint32");
     register_vector<double>("VectorDouble");
+    register_vector<int>("VectorInt");
+
+    // EvolutionData
+    class_<EvolutionData>("EvolutionData")
+        .property("resultId", &EvolutionData::resultId)
+        .property("modified", &EvolutionData::modified)
+        .property("generated", &EvolutionData::generated)
+        .property("deleted", &EvolutionData::deleted);
 
     // OcctKernel
     class_<OcctKernel>("OcctKernel")
@@ -135,6 +143,12 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("surfaceNormal", &OcctKernel::surfaceNormal)
         .function("pointOnSurface", &OcctKernel::pointOnSurface)
         .function("outerWire", &OcctKernel::outerWire)
+
+        // Evolution (history tracking)
+        .function("translateWithHistory", &OcctKernel::translateWithHistory)
+        .function("fuseWithHistory", &OcctKernel::fuseWithHistory)
+        .function("cutWithHistory", &OcctKernel::cutWithHistory)
+        .function("filletWithHistory", &OcctKernel::filletWithHistory)
 
         // Modifiers (expanded)
         .function("thicken", &OcctKernel::thicken)
