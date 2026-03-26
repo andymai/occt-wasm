@@ -16,7 +16,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("getIndicesPtr", &MeshData::getIndicesPtr)
         .property("positionCount", &MeshData::positionCount)
         .property("normalCount", &MeshData::normalCount)
-        .property("indexCount", &MeshData::indexCount);
+        .property("indexCount", &MeshData::indexCount)
+        .function("getFaceGroupsPtr", &MeshData::getFaceGroupsPtr)
+        .property("faceGroupCount", &MeshData::faceGroupCount);
 
     // BBoxData
     value_object<BBoxData>("BBoxData")

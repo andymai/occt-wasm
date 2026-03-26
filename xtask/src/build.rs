@@ -186,7 +186,7 @@ fn link_wasm(sh: &Shell, root: &Path, objects: &[PathBuf], release: bool) -> Res
         "-sWASM_BIGINT".into(),
         "-sMODULARIZE=1".into(),
         "-sEXPORT_NAME=createOcctWasm".into(),
-        "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"HEAPF32\",\"HEAPU32\"]".into(),
+        "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"HEAP32\",\"HEAPF32\",\"HEAPU32\"]".into(),
         "--no-entry".into(),
         format!("--post-js={post_js_str}"),
     ];

@@ -12,9 +12,11 @@ struct MeshData {
     float* positions = nullptr;
     float* normals = nullptr;
     uint32_t* indices = nullptr;
+    int32_t* faceGroups = nullptr; // [triStart, triCount, faceHash] per face
     int positionCount = 0;
     int normalCount = 0;
     int indexCount = 0;
+    int faceGroupCount = 0; // number of int32s (faceCount * 3)
 
     MeshData() = default;
     ~MeshData();
@@ -23,6 +25,7 @@ struct MeshData {
     int getPositionsPtr() const;
     int getNormalsPtr() const;
     int getIndicesPtr() const;
+    int getFaceGroupsPtr() const;
 };
 
 /// Bounding box result.

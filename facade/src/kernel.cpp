@@ -10,17 +10,19 @@ MeshData::~MeshData() {
     std::free(positions);
     std::free(normals);
     std::free(indices);
+    std::free(faceGroups);
 }
 
 MeshData::MeshData(const MeshData& other)
     : positions(other.positions), normals(other.normals), indices(other.indices),
-      positionCount(other.positionCount), normalCount(other.normalCount),
-      indexCount(other.indexCount) {
-    // Ownership transfer (Embind copy ctor requirement)
+      faceGroups(other.faceGroups), positionCount(other.positionCount),
+      normalCount(other.normalCount), indexCount(other.indexCount),
+      faceGroupCount(other.faceGroupCount) {
     auto& mut = const_cast<MeshData&>(other);
     mut.positions = nullptr;
     mut.normals = nullptr;
     mut.indices = nullptr;
+    mut.faceGroups = nullptr;
 }
 
 int MeshData::getPositionsPtr() const {
@@ -33,6 +35,10 @@ int MeshData::getNormalsPtr() const {
 
 int MeshData::getIndicesPtr() const {
     return static_cast<int>(reinterpret_cast<uintptr_t>(indices));
+}
+
+int MeshData::getFaceGroupsPtr() const {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(faceGroups));
 }
 
 // --- OcctKernel implementation ---
