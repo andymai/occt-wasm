@@ -4,7 +4,7 @@
 using namespace emscripten;
 
 EMSCRIPTEN_BINDINGS(occt_wasm) {
-    // MeshData — returned from tessellate()
+    // MeshData
     class_<MeshData>("MeshData")
         .function("getPositionsPtr", &MeshData::getPositionsPtr)
         .function("getNormalsPtr", &MeshData::getNormalsPtr)
@@ -13,7 +13,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("normalCount", &MeshData::normalCount)
         .property("indexCount", &MeshData::indexCount);
 
-    // BBoxData — returned from getBoundingBox()
+    // BBoxData
     value_object<BBoxData>("BBoxData")
         .field("xmin", &BBoxData::xmin)
         .field("ymin", &BBoxData::ymin)
@@ -22,7 +22,15 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .field("ymax", &BBoxData::ymax)
         .field("zmax", &BBoxData::zmax);
 
-    // OcctKernel — the main API
+    // EdgeData
+    class_<EdgeData>("EdgeData")
+        .function("getPointsPtr", &EdgeData::getPointsPtr)
+        .property("pointCount", &EdgeData::pointCount);
+
+    // Vector types for Embind
+    register_vector<uint32_t>("VectorUint32");
+
+    // OcctKernel
     class_<OcctKernel>("OcctKernel")
         .constructor<>()
 
@@ -42,16 +50,57 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("fuse", &OcctKernel::fuse)
         .function("cut", &OcctKernel::cut)
         .function("common", &OcctKernel::common)
+        .function("section", &OcctKernel::section)
+
+        // Modeling
+        .function("extrude", &OcctKernel::extrude)
+        .function("revolve", &OcctKernel::revolve)
+        .function("fillet", &OcctKernel::fillet)
+        .function("chamfer", &OcctKernel::chamfer)
+        .function("shell", &OcctKernel::shell)
+        .function("offset", &OcctKernel::offset)
+        .function("draft", &OcctKernel::draft)
+
+        // Sweeps
+        .function("pipe", &OcctKernel::pipe)
+        .function("loft", &OcctKernel::loft)
+
+        // Construction
+        .function("makeVertex", &OcctKernel::makeVertex)
+        .function("makeEdge", &OcctKernel::makeEdge)
+        .function("makeWire", &OcctKernel::makeWire)
+        .function("makeFace", &OcctKernel::makeFace)
+        .function("makeSolid", &OcctKernel::makeSolid)
+        .function("sew", &OcctKernel::sew)
+        .function("makeCompound", &OcctKernel::makeCompound)
+
+        // Transforms
+        .function("translate", &OcctKernel::translate)
+        .function("rotate", &OcctKernel::rotate)
+        .function("scale", &OcctKernel::scale)
+        .function("mirror", &OcctKernel::mirror)
+        .function("copy", &OcctKernel::copy)
+
+        // Topology query
+        .function("getShapeType", &OcctKernel::getShapeType)
+        .function("getSubShapes", &OcctKernel::getSubShapes)
+        .function("distanceBetween", &OcctKernel::distanceBetween)
 
         // Tessellation
         .function("tessellate", &OcctKernel::tessellate)
+        .function("wireframe", &OcctKernel::wireframe)
 
         // I/O
         .function("importStep", &OcctKernel::importStep)
         .function("exportStep", &OcctKernel::exportStep)
+        .function("exportStl", &OcctKernel::exportStl)
 
         // Query
         .function("getBoundingBox", &OcctKernel::getBoundingBox)
         .function("getVolume", &OcctKernel::getVolume)
-        .function("getSurfaceArea", &OcctKernel::getSurfaceArea);
+        .function("getSurfaceArea", &OcctKernel::getSurfaceArea)
+
+        // Healing
+        .function("fixShape", &OcctKernel::fixShape)
+        .function("unifySameDomain", &OcctKernel::unifySameDomain);
 }
