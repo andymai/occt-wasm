@@ -93,11 +93,26 @@ class OcctKernel {
     // --- Shape construction ---
     uint32_t makeVertex(double x, double y, double z);
     uint32_t makeEdge(uint32_t v1, uint32_t v2);
+    uint32_t makeLineEdge(double x1, double y1, double z1, double x2, double y2, double z2);
+    uint32_t makeCircleEdge(double cx, double cy, double cz, double nx, double ny, double nz,
+                            double radius);
+    uint32_t makeCircleArc(double cx, double cy, double cz, double nx, double ny, double nz,
+                           double radius, double startAngle, double endAngle);
+    uint32_t makeArcEdge(double x1, double y1, double z1, double x2, double y2, double z2,
+                         double x3, double y3, double z3);
+    uint32_t makeEllipseEdge(double cx, double cy, double cz, double nx, double ny, double nz,
+                             double majorRadius, double minorRadius);
+    uint32_t makeBezierEdge(std::vector<double> flatPoints);
     uint32_t makeWire(std::vector<uint32_t> edgeIds);
     uint32_t makeFace(uint32_t wireId);
+    uint32_t makeNonPlanarFace(uint32_t wireId);
+    uint32_t addHolesInFace(uint32_t faceId, std::vector<uint32_t> holeWireIds);
     uint32_t makeSolid(uint32_t shellId);
     uint32_t sew(std::vector<uint32_t> shapeIds, double tolerance);
+    uint32_t sewAndSolidify(std::vector<uint32_t> faceIds, double tolerance);
     uint32_t makeCompound(std::vector<uint32_t> shapeIds);
+    uint32_t buildTriFace(double ax, double ay, double az, double bx, double by, double bz,
+                          double cx2, double cy2, double cz2);
 
     // --- Transforms ---
     uint32_t translate(uint32_t id, double dx, double dy, double dz);
@@ -110,6 +125,7 @@ class OcctKernel {
     // --- Topology query ---
     std::string getShapeType(uint32_t id);
     std::vector<uint32_t> getSubShapes(uint32_t id, const std::string& shapeType);
+    uint32_t downcast(uint32_t id, const std::string& targetType);
     double distanceBetween(uint32_t a, uint32_t b);
     bool isSame(uint32_t a, uint32_t b);
     bool isEqual(uint32_t a, uint32_t b);
@@ -117,6 +133,7 @@ class OcctKernel {
     int hashCode(uint32_t id, int upperBound);
     std::string shapeOrientation(uint32_t id);
     std::vector<uint32_t> sharedEdges(uint32_t faceA, uint32_t faceB);
+    std::vector<uint32_t> adjacentFaces(uint32_t shapeId, uint32_t faceId);
 
     // --- Tessellation ---
     MeshData tessellate(uint32_t id, double linearDeflection, double angularDeflection);
