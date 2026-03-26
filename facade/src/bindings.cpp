@@ -135,6 +135,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("shapeOrientation", &OcctKernel::shapeOrientation)
         .function("sharedEdges", &OcctKernel::sharedEdges)
         .function("adjacentFaces", &OcctKernel::adjacentFaces)
+        .function("iterShapes", &OcctKernel::iterShapes)
+        .function("edgeToFaceMap", &OcctKernel::edgeToFaceMap)
 
         // Mesh / Tessellation
         .function("tessellate", &OcctKernel::tessellate)
@@ -145,6 +147,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // I/O
         .function("importStep", &OcctKernel::importStep)
         .function("exportStep", &OcctKernel::exportStep)
+        .function("importIges", &OcctKernel::importIges)
+        .function("exportIges", &OcctKernel::exportIges)
         .function("exportStl", &OcctKernel::exportStl)
         .function("toBREP", &OcctKernel::toBREP)
         .function("fromBREP", &OcctKernel::fromBREP)

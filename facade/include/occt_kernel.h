@@ -162,6 +162,8 @@ class OcctKernel {
     std::string shapeOrientation(uint32_t id);
     std::vector<uint32_t> sharedEdges(uint32_t faceA, uint32_t faceB);
     std::vector<uint32_t> adjacentFaces(uint32_t shapeId, uint32_t faceId);
+    std::vector<uint32_t> iterShapes(uint32_t id);
+    std::vector<int> edgeToFaceMap(uint32_t id, int hashUpperBound);
 
     // --- Tessellation / Mesh ---
     MeshData tessellate(uint32_t id, double linearDeflection, double angularDeflection);
@@ -172,6 +174,8 @@ class OcctKernel {
     // --- I/O ---
     uint32_t importStep(const std::string& data);
     std::string exportStep(uint32_t id);
+    uint32_t importIges(const std::string& data);
+    std::string exportIges(uint32_t id);
     std::string exportStl(uint32_t id, double linearDeflection);
     std::string toBREP(uint32_t id);
     uint32_t fromBREP(const std::string& data);
