@@ -5,10 +5,12 @@
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRep_Tool.hxx>
 #include <GCPnts_TangentialDeflection.hxx>
+#include <NCollection_IndexedMap.hxx>
 #include <NCollection_Vec3.hxx>
 #include <Poly_Triangulation.hxx>
 #include <Standard_Failure.hxx>
 #include <TopAbs_Orientation.hxx>
+#include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
 #include <TopTools_ShapeMapHasher.hxx>
@@ -150,26 +152,33 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
     try {
         const auto& shape = get(id);
 
-        // First pass: count points via GCPnts_TangentialDeflection per edge
-        std::vector<std::vector<gp_Pnt>> edgePoints;
+        struct EdgeSample {
+            std::vector<gp_Pnt> pts;
+            int hash;
+        };
+        std::vector<EdgeSample> edgeSamples;
         int totalPoints = 0;
 
-        for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
-            BRepAdaptor_Curve curve(TopoDS::Edge(ex.Current()));
+        // Use IndexedMap to avoid duplicate edges (shared between faces)
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+        for (int ei = 1; ei <= edgeMap.Extent(); ei++) {
+            BRepAdaptor_Curve curve(TopoDS::Edge(edgeMap.FindKey(ei)));
             GCPnts_TangentialDeflection sampler(curve, deflection, 0.5);
-            std::vector<gp_Pnt> pts;
+            EdgeSample es;
             for (int i = 1; i <= sampler.NbPoints(); i++) {
-                pts.push_back(sampler.Value(i));
+                es.pts.push_back(sampler.Value(i));
             }
-            totalPoints += static_cast<int>(pts.size());
-            edgePoints.push_back(std::move(pts));
+            es.hash = static_cast<int>(TopTools_ShapeMapHasher{}(edgeMap.FindKey(ei)) % 2147483647);
+            totalPoints += static_cast<int>(es.pts.size());
+            edgeSamples.push_back(std::move(es));
         }
 
         EdgeData result;
         result.pointCount = totalPoints * 3;
         result.points = static_cast<float*>(std::malloc(result.pointCount * sizeof(float)));
-        int numEdges = static_cast<int>(edgePoints.size());
-        result.edgeGroupCount = numEdges * 2;
+        int numEdges = static_cast<int>(edgeSamples.size());
+        result.edgeGroupCount = numEdges * 3;
         result.edgeGroups =
             static_cast<int32_t*>(std::malloc(result.edgeGroupCount * sizeof(int32_t)));
         if (!result.points && result.pointCount > 0) {
@@ -178,17 +187,18 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
 
         int offset = 0;
         int edgeIdx = 0;
-        for (const auto& pts : edgePoints) {
+        for (const auto& es : edgeSamples) {
             int edgeStart = offset;
-            for (const auto& p : pts) {
+            for (const auto& p : es.pts) {
                 result.points[offset + 0] = static_cast<float>(p.X());
                 result.points[offset + 1] = static_cast<float>(p.Y());
                 result.points[offset + 2] = static_cast<float>(p.Z());
                 offset += 3;
             }
             if (result.edgeGroups) {
-                result.edgeGroups[edgeIdx * 2] = edgeStart;
-                result.edgeGroups[edgeIdx * 2 + 1] = offset - edgeStart;
+                result.edgeGroups[edgeIdx * 3] = edgeStart;
+                result.edgeGroups[edgeIdx * 3 + 1] = offset - edgeStart;
+                result.edgeGroups[edgeIdx * 3 + 2] = es.hash;
             }
             edgeIdx++;
         }

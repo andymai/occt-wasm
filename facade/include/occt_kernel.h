@@ -36,9 +36,9 @@ struct BBoxData {
 /// Edge line data for wireframe rendering.
 struct EdgeData {
     float* points = nullptr;
-    int32_t* edgeGroups = nullptr; // [pointStart, pointCount] per edge
+    int32_t* edgeGroups = nullptr; // [pointStart, pointCount, edgeHash] per edge
     int pointCount = 0;
-    int edgeGroupCount = 0; // number of int32s (edgeCount * 2)
+    int edgeGroupCount = 0; // number of int32s (edgeCount * 3)
 
     EdgeData() = default;
     ~EdgeData();
