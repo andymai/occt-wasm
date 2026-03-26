@@ -1,41 +1,102 @@
 # occt-wasm
 
-A better OCCT-to-WASM compilation pipeline. Compiles the [OpenCascade](https://www.opencascade.com/) C++ CAD library to WebAssembly with smaller bundle size, cleaner TypeScript bindings, and a modern build system.
+A better OCCT-to-WASM compilation pipeline. Compiles [OpenCascade](https://www.opencascade.com/) V8 C++ to WebAssembly with smaller bundle size, cleaner TypeScript bindings, and a modern build system.
 
-## Status
+## Highlights
 
-**Work in progress** — research complete, scaffolding underway.
-
-## Goals
-
-- Compile OCCT C++ to WASM via Emscripten with smaller output (~8-9MB raw, ~2-3MB Brotli)
-- Clean TypeScript API with arena-based shape handles (no `Handle_*` naming, no manual `.delete()`)
-- Rust-based build orchestration (`cargo xtask build`)
-- Docker-based reproducible builds (pinned emsdk 5.0.3)
+- **17MB WASM** (5.5MB gzip) — 43% smaller than opencascade.js (30MB+)
+- **40 typed methods** — primitives, booleans, fillets, extrude, revolve, STEP I/O, tessellation
+- **Arena-based API** — u32 shape handles, no manual `.delete()`, `Symbol.dispose` support
+- **TypeScript-first** — branded `ShapeHandle` type, `OcctError` with operation context
+- **37 integration tests** — all passing
 
 ## Quick Start
 
 ```bash
-# Prerequisites: Rust 1.85+, Docker
+# Prerequisites: Rust 1.85+, emsdk 5.0.3 (or Docker)
 
-# Clone with OCCT submodule
 git clone --recurse-submodules https://github.com/andymai/occt-wasm
 cd occt-wasm
+npm install && cd ts && npm install && cd ..
 
-# Install Node dependencies (for commit hooks)
-npm install
+# Build OCCT + facade → WASM
+cargo xtask build
 
-# Build OCCT static libraries (inside Docker)
-docker build -t occt-wasm-builder .
-docker run -it --rm -v $(pwd):/workspace occt-wasm-builder bash scripts/build.sh
+# Run tests
+cargo xtask test
 
-# Or via xtask (once inside Docker)
-cargo xtask build-occt
+# View the Three.js example
+npx serve .
+# Open http://localhost:3000/examples/three-js/
 ```
+
+## API
+
+```typescript
+const kernel = new Module.OcctKernel();
+
+// Create shapes
+const box = kernel.makeBox(20, 20, 20);
+const cyl = kernel.makeCylinder(8, 30);
+
+// Boolean operations
+const fused = kernel.fuse(box, cyl);
+
+// Modeling
+const filleted = kernel.fillet(fused, edgeIds, 2.0);
+const extruded = kernel.extrude(face, 0, 0, 20);
+const revolved = kernel.revolve(face, 0, 0, 0, 0, 0, 1, Math.PI);
+
+// Transforms
+const moved = kernel.translate(shape, 10, 0, 0);
+const rotated = kernel.rotate(shape, 0, 0, 0, 0, 0, 1, Math.PI / 4);
+
+// Tessellation → Three.js
+const mesh = kernel.tessellate(shape, 0.1, 0.5);
+// mesh.positions (Float32Array), mesh.normals, mesh.indices
+
+// STEP I/O
+const imported = kernel.importStep(stepString);
+const exported = kernel.exportStep(shape);
+
+// Query
+const volume = kernel.getVolume(shape);
+const bbox = kernel.getBoundingBox(shape);
+
+// Memory management
+kernel.release(shape);
+kernel.releaseAll();
+```
+
+## All 40 Methods
+
+| Category | Methods |
+|----------|---------|
+| **Primitives** | makeBox, makeCylinder, makeSphere, makeCone, makeTorus |
+| **Booleans** | fuse, cut, common, section |
+| **Modeling** | extrude, revolve, fillet, chamfer, shell, offset, draft |
+| **Sweeps** | pipe, loft |
+| **Construction** | makeVertex, makeEdge, makeWire, makeFace, makeSolid, sew, makeCompound |
+| **Transforms** | translate, rotate, scale, mirror, copy |
+| **Topology** | getShapeType, getSubShapes, distanceBetween |
+| **Tessellation** | tessellate, wireframe |
+| **I/O** | importStep, exportStep, exportStl |
+| **Query** | getBoundingBox, getVolume, getSurfaceArea |
+| **Healing** | fixShape, unifySameDomain |
+| **Arena** | release, releaseAll, getShapeCount |
 
 ## Architecture
 
-See [architecture docs](https://github.com/andymai/occt-wasm/wiki) for details.
+```
+OCCT V8.0.0-rc4 C++ (git submodule)
+    → emcmake cmake (48 static libs)
+    → C++ facade (OcctKernel class, arena-based u32 IDs)
+    → Embind bindings
+    → emcc link → 17MB .wasm
+    → wasm-opt -O4 → dist/
+```
+
+Built with Rust xtask (`cargo xtask build`), tested with Vitest.
 
 ## License
 
