@@ -1,0 +1,29 @@
+# Rust
+target/
+
+# Node
+node_modules/
+
+# C++ / CMake build
+occt/build/
+facade/generated/
+*.o
+*.a
+
+# WASM build output
+dist/
+*.wasm
+*.wasm.map
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+
+# Env
+.env
+.env.local

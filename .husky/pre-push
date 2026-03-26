@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Pre-push: full tests
+echo "Running pre-push checks..."
+
+cargo test --workspace || {
+  echo "Rust tests failed."
+  exit 1
+}
+
+if [ -f dist/occt-wasm.wasm ] && [ -d ts/node_modules ]; then
+  cd ts && npx vitest run || {
+    echo "Integration tests failed."
+    exit 1
+  }
+fi
+
+echo "Pre-push checks passed."

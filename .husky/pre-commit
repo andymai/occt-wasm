@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+# Pre-commit: fast checks only (parallel)
+echo "Running pre-commit checks..."
+
+cargo fmt --all -- --check &
+FMT_PID=$!
+
+cargo clippy --all-targets -- -D warnings &
+CLIPPY_PID=$!
+
+# C++ formatting (skip if no facade files exist yet)
+CLANG_PID=""
+if ls facade/include/*.h facade/src/*.cpp >/dev/null 2>&1; then
+  clang-format --dry-run --Werror facade/include/*.h facade/src/*.cpp 2>/dev/null &
+  CLANG_PID=$!
+fi
+
+# TypeScript (skip if ts/node_modules doesn't exist)
+ESLINT_PID=""
+TSC_PID=""
+if [ -d "ts/node_modules" ]; then
+  (cd ts && npx eslint src/) &
+  ESLINT_PID=$!
+  (cd ts && npx tsc --noEmit) &
+  TSC_PID=$!
+fi
+
+FMT_EXIT=0
+CLIPPY_EXIT=0
+CLANG_EXIT=0
+ESLINT_EXIT=0
+TSC_EXIT=0
+
+wait $FMT_PID || FMT_EXIT=$?
+wait $CLIPPY_PID || CLIPPY_EXIT=$?
+[ -n "$CLANG_PID" ] && { wait $CLANG_PID || CLANG_EXIT=$?; }
+[ -n "$ESLINT_PID" ] && { wait $ESLINT_PID || ESLINT_EXIT=$?; }
+[ -n "$TSC_PID" ] && { wait $TSC_PID || TSC_EXIT=$?; }
+
+if [ $FMT_EXIT -ne 0 ]; then
+  echo "cargo fmt failed. Run 'cargo fmt --all' to fix."
+  exit 1
+fi
+if [ $CLIPPY_EXIT -ne 0 ]; then
+  echo "clippy failed. Fix warnings before committing."
+  exit 1
+fi
+if [ $CLANG_EXIT -ne 0 ]; then
+  echo "clang-format failed. Run 'clang-format -i facade/include/*.h facade/src/*.cpp' to fix."
+  exit 1
+fi
+if [ $ESLINT_EXIT -ne 0 ]; then
+  echo "eslint failed. Run 'cd ts && npx eslint --fix src/' to fix."
+  exit 1
+fi
+if [ $TSC_EXIT -ne 0 ]; then
+  echo "tsc failed. Fix TypeScript errors."
+  exit 1
+fi
+
+echo "Pre-commit checks passed."

@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "husky",
+    "build": "cargo xtask build",
+    "build:occt": "cargo xtask build-occt",
+    "test": "cd ts && npx vitest run",
+    "lint": "cd ts && npx eslint src/",
+    "typecheck": "cd ts && npx tsc --noEmit"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19",
+    "@commitlint/config-conventional": "^19",
+    "husky": "^9"
+  }
+}

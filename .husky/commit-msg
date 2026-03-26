@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+npx --no -- commitlint --edit "$1" 2>/dev/null || {
+  echo "commitlint not available, skipping commit message check."
+  echo "Run 'npm install' to enable conventional commit enforcement."
+}
