@@ -9,6 +9,7 @@
 #include <TopExp_Explorer.hxx>
 #include <TopTools_ShapeMapHasher.hxx>
 #include <TopoDS.hxx>
+#include <TopoDS_Iterator.hxx>
 
 #include <stdexcept>
 #include <string>
@@ -111,6 +112,49 @@ std::string OcctKernel::shapeOrientation(uint32_t id) {
         return "external";
     default:
         return "unknown";
+    }
+}
+
+std::vector<uint32_t> OcctKernel::iterShapes(uint32_t id) {
+    try {
+        std::vector<uint32_t> result;
+        for (TopoDS_Iterator it(get(id)); it.More(); it.Next()) {
+            result.push_back(store(it.Value()));
+        }
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("iterShapes: ") + e.what());
+    }
+}
+
+std::vector<int> OcctKernel::edgeToFaceMap(uint32_t id, int hashUpperBound) {
+    try {
+        const auto& shape = get(id);
+        std::vector<int> result;
+        auto hashShape = [&](const TopoDS_Shape& s) -> int {
+            return static_cast<int>(TopTools_ShapeMapHasher{}(s) %
+                                    static_cast<size_t>(hashUpperBound));
+        };
+        for (TopExp_Explorer exE(shape, TopAbs_EDGE); exE.More(); exE.Next()) {
+            int edgeHash = hashShape(exE.Current());
+            std::vector<int> faceHashes;
+            for (TopExp_Explorer exF(shape, TopAbs_FACE); exF.More(); exF.Next()) {
+                for (TopExp_Explorer exFE(exF.Current(), TopAbs_EDGE); exFE.More(); exFE.Next()) {
+                    if (exFE.Current().IsSame(exE.Current())) {
+                        faceHashes.push_back(hashShape(exF.Current()));
+                        break;
+                    }
+                }
+            }
+            if (!faceHashes.empty()) {
+                result.push_back(edgeHash);
+                result.push_back(static_cast<int>(faceHashes.size()));
+                result.insert(result.end(), faceHashes.begin(), faceHashes.end());
+            }
+        }
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("edgeToFaceMap: ") + e.what());
     }
 }
 
