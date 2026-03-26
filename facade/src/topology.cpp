@@ -2,6 +2,7 @@
 
 #include <BRepExtrema_DistShapeShape.hxx>
 #include <BRep_Tool.hxx>
+#include <NCollection_IndexedMap.hxx>
 #include <Standard_Failure.hxx>
 #include <TopAbs_Orientation.hxx>
 #include <TopAbs_ShapeEnum.hxx>
@@ -63,8 +64,12 @@ std::vector<uint32_t> OcctKernel::getSubShapes(uint32_t id, const std::string& s
     try {
         TopAbs_ShapeEnum toExplore = parseShapeType(shapeType);
         std::vector<uint32_t> result;
-        for (TopExp_Explorer ex(get(id), toExplore); ex.More(); ex.Next()) {
-            result.push_back(store(ex.Current()));
+        // Use TopExp::MapShapes for unique sub-shapes (TopExp_Explorer visits shared shapes
+        // multiple times)
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
+        TopExp::MapShapes(get(id), toExplore, map);
+        for (int i = 1; i <= map.Extent(); i++) {
+            result.push_back(store(map.FindKey(i)));
         }
         return result;
     } catch (const Standard_Failure& e) {
