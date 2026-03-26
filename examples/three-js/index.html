@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>occt-wasm — Three.js Example</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #1a1a2e; font-family: 'SF Mono', 'Fira Code', monospace; }
+        canvas { display: block; }
+        #status {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #667788;
+            font-size: 12px;
+            line-height: 1.6;
+            z-index: 10;
+            white-space: pre;
+        }
+        #title {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            color: #445566;
+            font-size: 11px;
+            z-index: 10;
+        }
+        #title a { color: #667788; text-decoration: none; }
+        #title a:hover { color: #99aabb; }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #556677;
+            font-size: 14px;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading OCCT WASM...</div>
+    <div id="status"></div>
+    <div id="title">
+        <a href="https://github.com/andymai/occt-wasm">occt-wasm</a> — Three.js example
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const statusEl = document.getElementById('status');
+        const loadingEl = document.getElementById('loading');
+
+        // --- Load OCCT WASM ---
+        const t0 = performance.now();
+
+        const createOcctWasm = (await import('../../dist/occt-wasm.js')).default;
+        const Module = await createOcctWasm({
+            locateFile: (path) => {
+                if (path.endsWith('.wasm')) return '../../dist/occt-wasm.wasm';
+                return path;
+            }
+        });
+
+        const wasmLoadMs = (performance.now() - t0).toFixed(0);
+
+        // --- Create geometry ---
+        const t1 = performance.now();
+        const kernel = new Module.OcctKernel();
+
+        // Box + cylinder fuse + fillet
+        const box = kernel.makeBox(20, 20, 20);
+        const cyl = kernel.makeCylinder(8, 30);
+        const cylCentered = kernel.translate(cyl, 10, 10, -5);
+        const fused = kernel.fuse(box, cylCentered);
+
+        // Get edges and fillet
+        const edges = kernel.getSubShapes(fused, 'edge');
+        const edgeVec = new Module.VectorUint32();
+        for (let i = 0; i < edges.size(); i++) {
+            edgeVec.push_back(edges.get(i));
+        }
+
+        let result;
+        try {
+            result = kernel.fillet(fused, edgeVec, 1.5);
+        } catch {
+            result = fused; // Fallback if fillet fails on complex edges
+        }
+
+        const shapeMs = (performance.now() - t1).toFixed(0);
+
+        // --- Tessellate ---
+        const t2 = performance.now();
+        const meshData = kernel.tessellate(result, 0.1, 0.5);
+        const tessMs = (performance.now() - t2).toFixed(0);
+
+        const vertexCount = meshData.positionCount / 3;
+        const triCount = meshData.indexCount / 3;
+
+        // Copy mesh data from WASM heap
+        const positions = new Float32Array(
+            Module.HEAPF32.buffer.slice(
+                meshData.getPositionsPtr(),
+                meshData.getPositionsPtr() + meshData.positionCount * 4
+            )
+        );
+        const normals = new Float32Array(
+            Module.HEAPF32.buffer.slice(
+                meshData.getNormalsPtr(),
+                meshData.getNormalsPtr() + meshData.normalCount * 4
+            )
+        );
+        const indices = new Uint32Array(
+            Module.HEAPU32.buffer.slice(
+                meshData.getIndicesPtr(),
+                meshData.getIndicesPtr() + meshData.indexCount * 4
+            )
+        );
+
+        meshData.delete();
+        edgeVec.delete();
+        edges.delete();
+        loadingEl.remove();
+
+        // --- Three.js scene ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(40, 30, 40);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(30, 50, 40);
+        scene.add(dirLight);
+        const backLight = new THREE.DirectionalLight(0x4466aa, 0.3);
+        backLight.position.set(-20, -10, -30);
+        scene.add(backLight);
+
+        // Grid
+        const grid = new THREE.GridHelper(60, 30, 0x222244, 0x222244);
+        grid.position.y = -0.01;
+        scene.add(grid);
+
+        // Build geometry
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        geometry.computeBoundingBox();
+        const center = new THREE.Vector3();
+        geometry.boundingBox.getCenter(center);
+        geometry.translate(-center.x, -center.y, -center.z);
+
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x8899aa,
+            metalness: 0.3,
+            roughness: 0.7,
+        });
+
+        scene.add(new THREE.Mesh(geometry, material));
+
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Status overlay (safe: all values are local numbers, not user input)
+        statusEl.textContent = [
+            `wasm load  ${wasmLoadMs}ms`,
+            `shape ops  ${shapeMs}ms`,
+            `tessellate ${tessMs}ms`,
+            `triangles  ${triCount.toLocaleString()}`,
+            `vertices   ${vertexCount.toLocaleString()}`,
+        ].join('\n');
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        kernel.releaseAll();
+    </script>
+</body>
+</html>
