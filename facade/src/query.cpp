@@ -2,16 +2,23 @@
 
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepClass_FaceClassifier.hxx>
 #include <BRepGProp.hxx>
+#include <BRepLProp_SLProps.hxx>
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
+#include <GeomAPI_ProjectPointOnSurf.hxx>
 #include <GeomAbs_SurfaceType.hxx>
+#include <Geom_Surface.hxx>
 #include <ShapeAnalysis.hxx>
+#include <ShapeAnalysis_Surface.hxx>
 #include <Standard_Failure.hxx>
+#include <TopAbs_State.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Wire.hxx>
 #include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
 #include <gp_Vec.hxx>
 
 #include <stdexcept>
@@ -154,5 +161,88 @@ uint32_t OcctKernel::outerWire(uint32_t faceId) {
         return store(wire);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("outerWire: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::getLinearCenterOfMass(uint32_t id) {
+    try {
+        const auto& shape = get(id);
+        GProp_GProps props;
+        BRepGProp::LinearProperties(shape, props);
+        gp_Pnt com = props.CentreOfMass();
+        return {com.X(), com.Y(), com.Z()};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("getLinearCenterOfMass: ") + e.what());
+    }
+}
+
+double OcctKernel::surfaceCurvature(uint32_t faceId, double u, double v) {
+    try {
+        BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+        BRepLProp_SLProps props(surf, u, v, 2, 1e-6);
+        if (!props.IsCurvatureDefined()) {
+            throw std::runtime_error("surfaceCurvature: curvature not defined at point");
+        }
+        return props.MeanCurvature();
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("surfaceCurvature: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::uvBounds(uint32_t faceId) {
+    try {
+        BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+        return {surf.FirstUParameter(), surf.LastUParameter(), surf.FirstVParameter(),
+                surf.LastVParameter()};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("uvBounds: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::uvFromPoint(uint32_t faceId, double x, double y, double z) {
+    try {
+        TopoDS_Face face = TopoDS::Face(get(faceId));
+        Handle(Geom_Surface) geomSurf = BRep_Tool::Surface(face);
+        ShapeAnalysis_Surface sas(geomSurf);
+        gp_Pnt2d uv = sas.ValueOfUV(gp_Pnt(x, y, z), 1e-6);
+        return {uv.X(), uv.Y()};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("uvFromPoint: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::projectPointOnFace(uint32_t faceId, double x, double y, double z) {
+    try {
+        TopoDS_Face face = TopoDS::Face(get(faceId));
+        Handle(Geom_Surface) geomSurf = BRep_Tool::Surface(face);
+        GeomAPI_ProjectPointOnSurf proj(gp_Pnt(x, y, z), geomSurf);
+        if (proj.NbPoints() == 0) {
+            throw std::runtime_error("projectPointOnFace: no projection found");
+        }
+        gp_Pnt nearest = proj.NearestPoint();
+        double u, v;
+        proj.LowerDistanceParameters(u, v);
+        return {nearest.X(), nearest.Y(), nearest.Z(), u, v, proj.LowerDistance()};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("projectPointOnFace: ") + e.what());
+    }
+}
+
+std::string OcctKernel::classifyPointOnFace(uint32_t faceId, double u, double v) {
+    try {
+        TopoDS_Face face = TopoDS::Face(get(faceId));
+        BRepClass_FaceClassifier classifier(face, gp_Pnt2d(u, v), 1e-6);
+        switch (classifier.State()) {
+        case TopAbs_IN:
+            return "in";
+        case TopAbs_OUT:
+            return "out";
+        case TopAbs_ON:
+            return "on";
+        default:
+            return "unknown";
+        }
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("classifyPointOnFace: ") + e.what());
     }
 }

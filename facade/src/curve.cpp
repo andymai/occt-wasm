@@ -6,8 +6,10 @@
 #include <BRep_Tool.hxx>
 #include <GCPnts_AbscissaPoint.hxx>
 #include <GeomAPI_Interpolate.hxx>
+#include <GeomAPI_PointsToBSpline.hxx>
 #include <GeomAbs_CurveType.hxx>
 #include <Geom_Curve.hxx>
+#include <NCollection_Array1.hxx>
 #include <NCollection_HArray1.hxx>
 #include <Poly_Triangulation.hxx>
 #include <Standard_Failure.hxx>
@@ -123,6 +125,43 @@ uint32_t OcctKernel::interpolatePoints(std::vector<double> flatPoints, bool peri
         return store(edgeMaker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("interpolatePoints: ") + e.what());
+    }
+}
+
+bool OcctKernel::curveIsPeriodic(uint32_t edgeId) {
+    try {
+        BRepAdaptor_Curve curve(TopoDS::Edge(get(edgeId)));
+        return curve.IsPeriodic();
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("curveIsPeriodic: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::approximatePoints(std::vector<double> flatPoints, double tolerance) {
+    try {
+        int nPts = static_cast<int>(flatPoints.size()) / 3;
+        if (nPts < 2) {
+            throw std::runtime_error("approximatePoints: need at least 2 points");
+        }
+
+        NCollection_Array1<gp_Pnt> pts(1, nPts);
+        for (int i = 0; i < nPts; i++) {
+            pts.SetValue(i + 1,
+                         gp_Pnt(flatPoints[i * 3], flatPoints[i * 3 + 1], flatPoints[i * 3 + 2]));
+        }
+
+        GeomAPI_PointsToBSpline approx(pts, 3, 8, GeomAbs_C2, tolerance);
+        if (!approx.IsDone()) {
+            throw std::runtime_error("approximatePoints: approximation failed");
+        }
+
+        BRepBuilderAPI_MakeEdge edgeMaker(approx.Curve());
+        if (!edgeMaker.IsDone()) {
+            throw std::runtime_error("approximatePoints: edge construction failed");
+        }
+        return store(edgeMaker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("approximatePoints: ") + e.what());
     }
 }
 

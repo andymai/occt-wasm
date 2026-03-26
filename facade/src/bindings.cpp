@@ -4,6 +4,11 @@
 using namespace emscripten;
 
 EMSCRIPTEN_BINDINGS(occt_wasm) {
+    // Vector types
+    register_vector<uint32_t>("VectorUint32");
+    register_vector<double>("VectorDouble");
+    register_vector<int>("VectorInt");
+
     // MeshData
     class_<MeshData>("MeshData")
         .function("getPositionsPtr", &MeshData::getPositionsPtr)
@@ -27,11 +32,6 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("getPointsPtr", &EdgeData::getPointsPtr)
         .property("pointCount", &EdgeData::pointCount);
 
-    // Vector types for Embind
-    register_vector<uint32_t>("VectorUint32");
-    register_vector<double>("VectorDouble");
-    register_vector<int>("VectorInt");
-
     // EvolutionData
     class_<EvolutionData>("EvolutionData")
         .property("resultId", &EvolutionData::resultId)
@@ -50,15 +50,19 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
 
         // Primitives
         .function("makeBox", &OcctKernel::makeBox)
+        .function("makeBoxFromCorners", &OcctKernel::makeBoxFromCorners)
         .function("makeCylinder", &OcctKernel::makeCylinder)
         .function("makeSphere", &OcctKernel::makeSphere)
         .function("makeCone", &OcctKernel::makeCone)
         .function("makeTorus", &OcctKernel::makeTorus)
+        .function("makeEllipsoid", &OcctKernel::makeEllipsoid)
+        .function("makeRectangle", &OcctKernel::makeRectangle)
 
         // Booleans
         .function("fuse", &OcctKernel::fuse)
         .function("cut", &OcctKernel::cut)
         .function("common", &OcctKernel::common)
+        .function("intersect", &OcctKernel::intersect)
         .function("section", &OcctKernel::section)
         .function("fuseAll", &OcctKernel::fuseAll)
         .function("cutAll", &OcctKernel::cutAll)
@@ -69,16 +73,19 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("revolve", &OcctKernel::revolve)
         .function("fillet", &OcctKernel::fillet)
         .function("chamfer", &OcctKernel::chamfer)
+        .function("chamferDistAngle", &OcctKernel::chamferDistAngle)
         .function("shell", &OcctKernel::shell)
         .function("offset", &OcctKernel::offset)
         .function("draft", &OcctKernel::draft)
 
         // Sweeps
         .function("pipe", &OcctKernel::pipe)
+        .function("simplePipe", &OcctKernel::simplePipe)
         .function("loft", &OcctKernel::loft)
         .function("sweep", &OcctKernel::sweep)
         .function("sweepPipeShell", &OcctKernel::sweepPipeShell)
         .function("draftPrism", &OcctKernel::draftPrism)
+        .function("revolveVec", &OcctKernel::revolveVec)
 
         // Construction
         .function("makeVertex", &OcctKernel::makeVertex)
@@ -88,14 +95,19 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("makeCircleArc", &OcctKernel::makeCircleArc)
         .function("makeArcEdge", &OcctKernel::makeArcEdge)
         .function("makeEllipseEdge", &OcctKernel::makeEllipseEdge)
+        .function("makeEllipseArc", &OcctKernel::makeEllipseArc)
         .function("makeBezierEdge", &OcctKernel::makeBezierEdge)
+        .function("makeHelixWire", &OcctKernel::makeHelixWire)
         .function("makeWire", &OcctKernel::makeWire)
         .function("makeFace", &OcctKernel::makeFace)
         .function("makeNonPlanarFace", &OcctKernel::makeNonPlanarFace)
         .function("addHolesInFace", &OcctKernel::addHolesInFace)
+        .function("removeHolesFromFace", &OcctKernel::removeHolesFromFace)
+        .function("solidFromShell", &OcctKernel::solidFromShell)
         .function("makeSolid", &OcctKernel::makeSolid)
         .function("sew", &OcctKernel::sew)
         .function("sewAndSolidify", &OcctKernel::sewAndSolidify)
+        .function("buildSolidFromFaces", &OcctKernel::buildSolidFromFaces)
         .function("makeCompound", &OcctKernel::makeCompound)
         .function("buildTriFace", &OcctKernel::buildTriFace)
 
@@ -105,23 +117,30 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("scale", &OcctKernel::scale)
         .function("mirror", &OcctKernel::mirror)
         .function("copy", &OcctKernel::copy)
+        .function("transform", &OcctKernel::transform)
+        .function("generalTransform", &OcctKernel::generalTransform)
+        .function("linearPattern", &OcctKernel::linearPattern)
+        .function("circularPattern", &OcctKernel::circularPattern)
+        .function("composeTransform", &OcctKernel::composeTransform)
 
-        // Topology query
+        // Topology
         .function("getShapeType", &OcctKernel::getShapeType)
         .function("getSubShapes", &OcctKernel::getSubShapes)
-        .function("distanceBetween", &OcctKernel::distanceBetween)
         .function("downcast", &OcctKernel::downcast)
-        .function("adjacentFaces", &OcctKernel::adjacentFaces)
+        .function("distanceBetween", &OcctKernel::distanceBetween)
         .function("isSame", &OcctKernel::isSame)
         .function("isEqual", &OcctKernel::isEqual)
         .function("isNull", &OcctKernel::isNull)
         .function("hashCode", &OcctKernel::hashCode)
         .function("shapeOrientation", &OcctKernel::shapeOrientation)
         .function("sharedEdges", &OcctKernel::sharedEdges)
+        .function("adjacentFaces", &OcctKernel::adjacentFaces)
 
-        // Tessellation
+        // Mesh / Tessellation
         .function("tessellate", &OcctKernel::tessellate)
         .function("wireframe", &OcctKernel::wireframe)
+        .function("hasTriangulation", &OcctKernel::hasTriangulation)
+        .function("meshShape", &OcctKernel::meshShape)
 
         // I/O
         .function("importStep", &OcctKernel::importStep)
@@ -130,21 +149,46 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("toBREP", &OcctKernel::toBREP)
         .function("fromBREP", &OcctKernel::fromBREP)
 
-        // Query
+        // Query / Measure
         .function("getBoundingBox", &OcctKernel::getBoundingBox)
         .function("getVolume", &OcctKernel::getVolume)
         .function("getSurfaceArea", &OcctKernel::getSurfaceArea)
         .function("getLength", &OcctKernel::getLength)
         .function("getCenterOfMass", &OcctKernel::getCenterOfMass)
+        .function("getLinearCenterOfMass", &OcctKernel::getLinearCenterOfMass)
+        .function("surfaceCurvature", &OcctKernel::surfaceCurvature)
 
-        // Vertex/surface query
+        // Vertex/Surface query
         .function("vertexPosition", &OcctKernel::vertexPosition)
         .function("surfaceType", &OcctKernel::surfaceType)
         .function("surfaceNormal", &OcctKernel::surfaceNormal)
         .function("pointOnSurface", &OcctKernel::pointOnSurface)
         .function("outerWire", &OcctKernel::outerWire)
+        .function("uvBounds", &OcctKernel::uvBounds)
+        .function("uvFromPoint", &OcctKernel::uvFromPoint)
+        .function("projectPointOnFace", &OcctKernel::projectPointOnFace)
+        .function("classifyPointOnFace", &OcctKernel::classifyPointOnFace)
 
-        // Evolution (history tracking)
+        // Curve ops
+        .function("curveType", &OcctKernel::curveType)
+        .function("curvePointAtParam", &OcctKernel::curvePointAtParam)
+        .function("curveTangent", &OcctKernel::curveTangent)
+        .function("curveParameters", &OcctKernel::curveParameters)
+        .function("curveIsClosed", &OcctKernel::curveIsClosed)
+        .function("curveIsPeriodic", &OcctKernel::curveIsPeriodic)
+        .function("curveLength", &OcctKernel::curveLength)
+        .function("interpolatePoints", &OcctKernel::interpolatePoints)
+        .function("approximatePoints", &OcctKernel::approximatePoints)
+
+        // Modifiers (expanded)
+        .function("thicken", &OcctKernel::thicken)
+        .function("defeature", &OcctKernel::defeature)
+        .function("reverseShape", &OcctKernel::reverseShape)
+        .function("simplify", &OcctKernel::simplify)
+        .function("filletVariable", &OcctKernel::filletVariable)
+        .function("offsetWire2D", &OcctKernel::offsetWire2D)
+
+        // Evolution
         .function("translateWithHistory", &OcctKernel::translateWithHistory)
         .function("fuseWithHistory", &OcctKernel::fuseWithHistory)
         .function("cutWithHistory", &OcctKernel::cutWithHistory)
@@ -158,30 +202,13 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("offsetWithHistory", &OcctKernel::offsetWithHistory)
         .function("thickenWithHistory", &OcctKernel::thickenWithHistory)
 
-        // Modifiers (expanded)
-        .function("thicken", &OcctKernel::thicken)
-        .function("defeature", &OcctKernel::defeature)
-        .function("reverseShape", &OcctKernel::reverseShape)
-        .function("simplify", &OcctKernel::simplify)
-
-        // Transform (expanded)
-        .function("linearPattern", &OcctKernel::linearPattern)
-        .function("circularPattern", &OcctKernel::circularPattern)
-
-        // Curve ops
-        .function("curveType", &OcctKernel::curveType)
-        .function("curvePointAtParam", &OcctKernel::curvePointAtParam)
-        .function("curveTangent", &OcctKernel::curveTangent)
-        .function("curveParameters", &OcctKernel::curveParameters)
-        .function("curveIsClosed", &OcctKernel::curveIsClosed)
-        .function("curveLength", &OcctKernel::curveLength)
-        .function("interpolatePoints", &OcctKernel::interpolatePoints)
-
-        // Mesh
-        .function("hasTriangulation", &OcctKernel::hasTriangulation)
-
-        // Healing
+        // Healing / Repair
         .function("fixShape", &OcctKernel::fixShape)
         .function("unifySameDomain", &OcctKernel::unifySameDomain)
-        .function("isValid", &OcctKernel::isValid);
+        .function("isValid", &OcctKernel::isValid)
+        .function("healSolid", &OcctKernel::healSolid)
+        .function("healFace", &OcctKernel::healFace)
+        .function("healWire", &OcctKernel::healWire)
+        .function("fixFaceOrientations", &OcctKernel::fixFaceOrientations)
+        .function("removeDegenerateEdges", &OcctKernel::removeDegenerateEdges);
 }

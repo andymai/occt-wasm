@@ -7,26 +7,38 @@
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepOffsetAPI_MakeFilling.hxx>
+#include <BRep_Tool.hxx>
 #include <GC_MakeArcOfCircle.hxx>
+#include <Geom2d_Line.hxx>
 #include <GeomAbs_Shape.hxx>
 #include <Geom_BezierCurve.hxx>
 #include <Geom_Circle.hxx>
+#include <Geom_CylindricalSurface.hxx>
 #include <Geom_Ellipse.hxx>
+#include <Geom_Surface.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <NCollection_Array1.hxx>
+#include <ShapeAnalysis.hxx>
 #include <Standard_Failure.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Builder.hxx>
 #include <TopoDS_Compound.hxx>
 #include <gp_Ax2.hxx>
+#include <gp_Ax3.hxx>
 #include <gp_Circ.hxx>
 #include <gp_Dir.hxx>
+#include <gp_Dir2d.hxx>
 #include <gp_Elips.hxx>
 #include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
 
+#include <algorithm>
+#include <cmath>
+#include <set>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 uint32_t OcctKernel::makeVertex(double x, double y, double z) {
     try {
@@ -214,6 +226,51 @@ uint32_t OcctKernel::makeBezierEdge(std::vector<double> flatPoints) {
     }
 }
 
+uint32_t OcctKernel::makeEllipseArc(double cx, double cy, double cz, double nx, double ny,
+                                    double nz, double majorRadius, double minorRadius,
+                                    double startAngle, double endAngle) {
+    try {
+        gp_Ax2 axis(gp_Pnt(cx, cy, cz), gp_Dir(nx, ny, nz));
+        gp_Elips ellipse(axis, majorRadius, minorRadius);
+        Handle(Geom_TrimmedCurve) arc =
+            new Geom_TrimmedCurve(new Geom_Ellipse(ellipse), startAngle, endAngle);
+        BRepBuilderAPI_MakeEdge maker(arc);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeEllipseArc: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeEllipseArc: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeHelixWire(double px, double py, double pz, double dx, double dy, double dz,
+                                   double pitch, double height, double radius) {
+    try {
+        gp_Ax3 ax3(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz));
+        Handle(Geom_CylindricalSurface) cylinder = new Geom_CylindricalSurface(ax3, radius);
+
+        // A helix on a cylindrical surface is a 2D line: u = t, v = pitch/(2*pi) * t
+        double slope = pitch / (2.0 * M_PI);
+        double nTurns = height / pitch;
+        double uMax = nTurns * 2.0 * M_PI;
+
+        Handle(Geom2d_Line) line2d = new Geom2d_Line(gp_Pnt2d(0, 0), gp_Dir2d(1, slope));
+
+        BRepBuilderAPI_MakeEdge edgeMaker(line2d, cylinder, 0.0, uMax);
+        if (!edgeMaker.IsDone()) {
+            throw std::runtime_error("makeHelixWire: edge construction failed");
+        }
+        BRepBuilderAPI_MakeWire wireMaker(edgeMaker.Edge());
+        if (!wireMaker.IsDone()) {
+            throw std::runtime_error("makeHelixWire: wire construction failed");
+        }
+        return store(wireMaker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeHelixWire: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::makeNonPlanarFace(uint32_t wireId) {
     try {
         BRepOffsetAPI_MakeFilling filler;
@@ -247,6 +304,45 @@ uint32_t OcctKernel::addHolesInFace(uint32_t faceId, std::vector<uint32_t> holeW
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("addHolesInFace: ") + e.what());
     }
+}
+
+uint32_t OcctKernel::removeHolesFromFace(uint32_t faceId, std::vector<int> holeIndices) {
+    try {
+        TopoDS_Face face = TopoDS::Face(get(faceId));
+        // Collect inner wires (all wires except the outer wire)
+        TopoDS_Wire outer = ShapeAnalysis::OuterWire(face);
+        std::vector<TopoDS_Wire> innerWires;
+        for (TopExp_Explorer ex(face, TopAbs_WIRE); ex.More(); ex.Next()) {
+            TopoDS_Wire w = TopoDS::Wire(ex.Current());
+            if (!w.IsSame(outer)) {
+                innerWires.push_back(w);
+            }
+        }
+        // Build set of indices to remove
+        std::set<int> removeSet(holeIndices.begin(), holeIndices.end());
+        // Rebuild face: start from outer wire on the same surface
+        Handle(Geom_Surface) geomSurf = BRep_Tool::Surface(face);
+        BRepBuilderAPI_MakeFace maker(geomSurf, outer, true);
+        for (int i = 0; i < static_cast<int>(innerWires.size()); i++) {
+            if (removeSet.find(i) == removeSet.end()) {
+                maker.Add(innerWires[i]);
+            }
+        }
+        if (!maker.IsDone()) {
+            throw std::runtime_error("removeHolesFromFace: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("removeHolesFromFace: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::solidFromShell(uint32_t shellId) {
+    return makeSolid(shellId);
+}
+
+uint32_t OcctKernel::buildSolidFromFaces(std::vector<uint32_t> faceIds, double tolerance) {
+    return sewAndSolidify(faceIds, tolerance);
 }
 
 uint32_t OcctKernel::sewAndSolidify(std::vector<uint32_t> faceIds, double tolerance) {

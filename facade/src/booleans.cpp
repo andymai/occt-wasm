@@ -57,6 +57,10 @@ uint32_t OcctKernel::common(uint32_t a, uint32_t b) {
     }
 }
 
+uint32_t OcctKernel::intersect(uint32_t a, uint32_t b) {
+    return common(a, b);
+}
+
 uint32_t OcctKernel::fuseAll(std::vector<uint32_t> shapeIds) {
     try {
         if (shapeIds.empty()) {
