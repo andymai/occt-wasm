@@ -1,9 +1,13 @@
 #include "occt_kernel.h"
 
 #include <BRepExtrema_DistShapeShape.hxx>
+#include <BRep_Tool.hxx>
 #include <Standard_Failure.hxx>
+#include <TopAbs_Orientation.hxx>
 #include <TopAbs_ShapeEnum.hxx>
+#include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopTools_ShapeMapHasher.hxx>
 #include <TopoDS.hxx>
 
 #include <stdexcept>
@@ -76,5 +80,55 @@ double OcctKernel::distanceBetween(uint32_t a, uint32_t b) {
         return dist.Value();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("distanceBetween: ") + e.what());
+    }
+}
+
+bool OcctKernel::isSame(uint32_t a, uint32_t b) {
+    return get(a).IsSame(get(b));
+}
+
+bool OcctKernel::isEqual(uint32_t a, uint32_t b) {
+    return get(a).IsEqual(get(b));
+}
+
+bool OcctKernel::isNull(uint32_t id) {
+    return get(id).IsNull();
+}
+
+int OcctKernel::hashCode(uint32_t id, int upperBound) {
+    return static_cast<int>(TopTools_ShapeMapHasher{}(get(id)) % static_cast<size_t>(upperBound));
+}
+
+std::string OcctKernel::shapeOrientation(uint32_t id) {
+    switch (get(id).Orientation()) {
+    case TopAbs_FORWARD:
+        return "forward";
+    case TopAbs_REVERSED:
+        return "reversed";
+    case TopAbs_INTERNAL:
+        return "internal";
+    case TopAbs_EXTERNAL:
+        return "external";
+    default:
+        return "unknown";
+    }
+}
+
+std::vector<uint32_t> OcctKernel::sharedEdges(uint32_t faceA, uint32_t faceB) {
+    try {
+        const auto& fa = get(faceA);
+        const auto& fb = get(faceB);
+        std::vector<uint32_t> result;
+        for (TopExp_Explorer exA(fa, TopAbs_EDGE); exA.More(); exA.Next()) {
+            for (TopExp_Explorer exB(fb, TopAbs_EDGE); exB.More(); exB.Next()) {
+                if (exA.Current().IsSame(exB.Current())) {
+                    result.push_back(store(exA.Current()));
+                    break;
+                }
+            }
+        }
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("sharedEdges: ") + e.what());
     }
 }
