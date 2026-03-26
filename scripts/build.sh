@@ -30,12 +30,12 @@ emcmake cmake .. \
   -DBUILD_MODULE_ApplicationFramework=TRUE \
   -DBUILD_MODULE_Visualization=FALSE \
   -DBUILD_MODULE_Draw=FALSE \
-  -DBUILD_MODULE_DETools=FALSE \
   -DBUILD_LIBRARY_TYPE=Static \
-  -DUSE_FREETYPE=ON \
-  -DUSE_RAPIDJSON=ON \
+  -DUSE_FREETYPE=OFF \
+  -DUSE_RAPIDJSON=OFF \
   -DCMAKE_C_FLAGS="-fwasm-exceptions -O2 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS" \
-  -DCMAKE_CXX_FLAGS="-fwasm-exceptions -O2 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS"
+  -DCMAKE_CXX_FLAGS="-fwasm-exceptions -O2 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS" \
+  -Wno-dev
 
 echo "=== Building OCCT ==="
 cmake --build . --parallel
