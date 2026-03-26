@@ -1,8 +1,10 @@
 #include "occt_kernel.h"
 
+#include <BRepAdaptor_Curve.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRep_Tool.hxx>
+#include <GCPnts_TangentialDeflection.hxx>
 #include <NCollection_Vec3.hxx>
 #include <Poly_Triangulation.hxx>
 #include <Standard_Failure.hxx>
@@ -121,5 +123,47 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
         return result;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("tessellate: ") + e.what());
+    }
+}
+
+EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
+    try {
+        const auto& shape = get(id);
+
+        // First pass: count points via GCPnts_TangentialDeflection per edge
+        std::vector<std::vector<gp_Pnt>> edgePoints;
+        int totalPoints = 0;
+
+        for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
+            BRepAdaptor_Curve curve(TopoDS::Edge(ex.Current()));
+            GCPnts_TangentialDeflection sampler(curve, deflection, 0.5);
+            std::vector<gp_Pnt> pts;
+            for (int i = 1; i <= sampler.NbPoints(); i++) {
+                pts.push_back(sampler.Value(i));
+            }
+            totalPoints += static_cast<int>(pts.size());
+            edgePoints.push_back(std::move(pts));
+        }
+
+        EdgeData result;
+        result.pointCount = totalPoints * 3;
+        result.points = static_cast<float*>(std::malloc(result.pointCount * sizeof(float)));
+        if (!result.points && result.pointCount > 0) {
+            throw std::runtime_error("wireframe: allocation failed");
+        }
+
+        int offset = 0;
+        for (const auto& pts : edgePoints) {
+            for (const auto& p : pts) {
+                result.points[offset + 0] = static_cast<float>(p.X());
+                result.points[offset + 1] = static_cast<float>(p.Y());
+                result.points[offset + 2] = static_cast<float>(p.Z());
+                offset += 3;
+            }
+        }
+
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("wireframe: ") + e.what());
     }
 }

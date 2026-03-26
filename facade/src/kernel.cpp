@@ -71,3 +71,18 @@ void OcctKernel::releaseAll() {
 uint32_t OcctKernel::getShapeCount() const {
     return static_cast<uint32_t>(arena_.size());
 }
+
+// --- EdgeData implementation ---
+
+EdgeData::~EdgeData() {
+    std::free(points);
+}
+
+EdgeData::EdgeData(const EdgeData& other) : points(other.points), pointCount(other.pointCount) {
+    auto& mut = const_cast<EdgeData&>(other);
+    mut.points = nullptr;
+}
+
+int EdgeData::getPointsPtr() const {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(points));
+}

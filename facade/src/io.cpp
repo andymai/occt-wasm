@@ -6,6 +6,9 @@
 #include <STEPControl_Writer.hxx>
 #include <Standard_Failure.hxx>
 
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <StlAPI_Writer.hxx>
+
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -76,5 +79,37 @@ std::string OcctKernel::exportStep(uint32_t id) {
         return result;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("exportStep: ") + e.what());
+    }
+}
+
+std::string OcctKernel::exportStl(uint32_t id, double linearDeflection) {
+    try {
+        const auto& shape = get(id);
+
+        // Mesh the shape first
+        BRepMesh_IncrementalMesh mesher(shape, linearDeflection, false, 0.5, false);
+
+        StlAPI_Writer writer;
+        writer.ASCIIMode() = false; // binary STL
+
+        const char* tmpPath = "/tmp/export.stl";
+        if (!writer.Write(shape, tmpPath)) {
+            throw std::runtime_error("exportStl: write failed");
+        }
+
+        FILE* f = fopen(tmpPath, "rb");
+        if (!f) {
+            throw std::runtime_error("exportStl: cannot read temp file");
+        }
+        fseek(f, 0, SEEK_END);
+        long size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        std::string result(size, '\0');
+        fread(&result[0], 1, size, f);
+        fclose(f);
+
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("exportStl: ") + e.what());
     }
 }
