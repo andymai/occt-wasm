@@ -127,7 +127,22 @@ uint32_t OcctKernel::makeFaceOnSurface(uint32_t faceId, uint32_t wireId) {
 
 uint32_t OcctKernel::makeSolid(uint32_t shellId) {
     try {
-        BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(get(shellId)));
+        const auto& shape = get(shellId);
+        // If already a solid, return as-is
+        if (shape.ShapeType() == TopAbs_SOLID) {
+            return store(shape);
+        }
+        // If a compound, try to find a shell inside
+        if (shape.ShapeType() == TopAbs_COMPOUND) {
+            for (TopExp_Explorer ex(shape, TopAbs_SHELL); ex.More(); ex.Next()) {
+                BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(ex.Current()));
+                if (maker.IsDone()) {
+                    return store(maker.Shape());
+                }
+            }
+            throw std::runtime_error("makeSolid: compound has no valid shell");
+        }
+        BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(shape));
         if (!maker.IsDone()) {
             throw std::runtime_error("makeSolid: construction failed");
         }
