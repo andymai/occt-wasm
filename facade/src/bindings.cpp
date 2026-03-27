@@ -36,6 +36,25 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("pointCount", &EdgeData::pointCount)
         .property("edgeGroupCount", &EdgeData::edgeGroupCount);
 
+    // ProjectionData
+    value_object<ProjectionData>("ProjectionData")
+        .field("visibleOutline", &ProjectionData::visibleOutline)
+        .field("visibleSmooth", &ProjectionData::visibleSmooth)
+        .field("visibleSharp", &ProjectionData::visibleSharp)
+        .field("hiddenOutline", &ProjectionData::hiddenOutline)
+        .field("hiddenSmooth", &ProjectionData::hiddenSmooth)
+        .field("hiddenSharp", &ProjectionData::hiddenSharp);
+
+    // NurbsCurveData
+    class_<NurbsCurveData>("NurbsCurveData")
+        .property("degree", &NurbsCurveData::degree)
+        .property("rational", &NurbsCurveData::rational)
+        .property("periodic", &NurbsCurveData::periodic)
+        .property("knots", &NurbsCurveData::knots)
+        .property("multiplicities", &NurbsCurveData::multiplicities)
+        .property("poles", &NurbsCurveData::poles)
+        .property("weights", &NurbsCurveData::weights);
+
     // EvolutionData
     class_<EvolutionData>("EvolutionData")
         .property("resultId", &EvolutionData::resultId)
@@ -187,6 +206,15 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("curveLength", &OcctKernel::curveLength)
         .function("interpolatePoints", &OcctKernel::interpolatePoints)
         .function("approximatePoints", &OcctKernel::approximatePoints)
+
+        // Projection (HLR)
+        .function("projectEdges", &OcctKernel::projectEdges)
+
+        // NURBS introspection
+        .function("getNurbsCurveData", &OcctKernel::getNurbsCurveData)
+
+        // 2D→3D curve lifting
+        .function("liftCurve2dToPlane", &OcctKernel::liftCurve2dToPlane)
 
         // Modifiers (expanded)
         .function("thicken", &OcctKernel::thicken)

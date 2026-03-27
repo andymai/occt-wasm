@@ -56,6 +56,27 @@ struct EvolutionData {
     std::vector<int> deleted;
 };
 
+/// Projection result (hidden line removal).
+struct ProjectionData {
+    uint32_t visibleOutline = 0;
+    uint32_t visibleSmooth = 0;
+    uint32_t visibleSharp = 0;
+    uint32_t hiddenOutline = 0;
+    uint32_t hiddenSmooth = 0;
+    uint32_t hiddenSharp = 0;
+};
+
+/// NURBS/BSpline curve data extracted from an edge.
+struct NurbsCurveData {
+    int degree = 0;
+    bool rational = false;
+    bool periodic = false;
+    std::vector<double> knots;
+    std::vector<int> multiplicities;
+    std::vector<double> poles; // flat [x,y,z, x,y,z, ...]
+    std::vector<double> weights;
+};
+
 /// Arena-based OCCT kernel — full brepjs KernelAdapter coverage.
 class OcctKernel {
   public:
@@ -255,6 +276,19 @@ class OcctKernel {
                                     std::vector<int> inputFaceHashes, int hashUpperBound);
     EvolutionData thickenWithHistory(uint32_t shapeId, double thickness,
                                      std::vector<int> inputFaceHashes, int hashUpperBound);
+
+    // --- Projection (HLR) ---
+    ProjectionData projectEdges(uint32_t shapeId, double ox, double oy, double oz, double dx,
+                                double dy, double dz, double xx, double xy, double xz,
+                                bool hasXAxis);
+
+    // --- NURBS introspection ---
+    NurbsCurveData getNurbsCurveData(uint32_t edgeId);
+
+    // --- 2D→3D curve lifting ---
+    uint32_t liftCurve2dToPlane(std::vector<double> flatPoints2d, double planeOx, double planeOy,
+                                double planeOz, double planeZx, double planeZy, double planeZz,
+                                double planeXx, double planeXy, double planeXz);
 
     // --- Healing / Repair ---
     uint32_t fixShape(uint32_t id);
