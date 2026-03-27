@@ -147,6 +147,8 @@ class OcctKernel {
                             double majorRadius, double minorRadius, double startAngle,
                             double endAngle);
     uint32_t makeBezierEdge(std::vector<double> flatPoints);
+    uint32_t makeTangentArc(double x1, double y1, double z1, double tx, double ty, double tz,
+                            double x2, double y2, double z2);
     uint32_t makeHelixWire(double px, double py, double pz, double dx, double dy, double dz,
                            double pitch, double height, double radius);
     uint32_t makeWire(std::vector<uint32_t> edgeIds);

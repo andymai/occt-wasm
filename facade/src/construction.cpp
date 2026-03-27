@@ -39,6 +39,7 @@
 #include <gp_Elips.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Pnt2d.hxx>
+#include <gp_Vec.hxx>
 
 #include <algorithm>
 #include <cmath>
@@ -406,6 +407,28 @@ uint32_t OcctKernel::buildTriFace(double ax, double ay, double az, double bx, do
         return store(faceMaker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("buildTriFace: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeTangentArc(double x1, double y1, double z1, double tx, double ty,
+                                    double tz, double x2, double y2, double z2) {
+    try {
+        gp_Pnt startPt(x1, y1, z1);
+        gp_Vec tangent(tx, ty, tz);
+        gp_Pnt endPt(x2, y2, z2);
+
+        GC_MakeArcOfCircle arcMaker(startPt, tangent, endPt);
+        if (!arcMaker.IsDone()) {
+            throw std::runtime_error("makeTangentArc: arc construction failed");
+        }
+
+        BRepBuilderAPI_MakeEdge edgeMaker(arcMaker.Value());
+        if (!edgeMaker.IsDone()) {
+            throw std::runtime_error("makeTangentArc: edge construction failed");
+        }
+        return store(edgeMaker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeTangentArc: ") + e.what());
     }
 }
 

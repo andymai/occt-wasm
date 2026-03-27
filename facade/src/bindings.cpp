@@ -120,6 +120,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("makeEllipseEdge", &OcctKernel::makeEllipseEdge)
         .function("makeEllipseArc", &OcctKernel::makeEllipseArc)
         .function("makeBezierEdge", &OcctKernel::makeBezierEdge)
+        .function("makeTangentArc", &OcctKernel::makeTangentArc)
         .function("makeHelixWire", &OcctKernel::makeHelixWire)
         .function("makeWire", &OcctKernel::makeWire)
         .function("makeFace", &OcctKernel::makeFace)
