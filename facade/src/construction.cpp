@@ -5,13 +5,16 @@
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_NurbsConvert.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepOffsetAPI_MakeFilling.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <GC_MakeArcOfCircle.hxx>
 #include <Geom2d_Line.hxx>
+#include <GeomAPI_PointsToBSplineSurface.hxx>
 #include <GeomAbs_Shape.hxx>
+#include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierCurve.hxx>
 #include <Geom_Circle.hxx>
 #include <Geom_CylindricalSurface.hxx>
@@ -19,6 +22,7 @@
 #include <Geom_Surface.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <NCollection_Array1.hxx>
+#include <NCollection_Array2.hxx>
 #include <ShapeAnalysis.hxx>
 #include <ShapeFix_Wire.hxx>
 #include <Standard_Failure.hxx>
@@ -402,5 +406,40 @@ uint32_t OcctKernel::buildTriFace(double ax, double ay, double az, double bx, do
         return store(faceMaker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("buildTriFace: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::bsplineSurface(std::vector<double> flatPoints, int rows, int cols) {
+    try {
+        if (rows < 2 || cols < 2) {
+            throw std::runtime_error("bsplineSurface: need at least 2x2 grid");
+        }
+        int nPts = static_cast<int>(flatPoints.size()) / 3;
+        if (nPts != rows * cols) {
+            throw std::runtime_error("bsplineSurface: point count mismatch");
+        }
+
+        // Build a 2D array of gp_Pnt (1-based indexing)
+        NCollection_Array2<gp_Pnt> points(1, rows, 1, cols);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                int idx = (r * cols + c) * 3;
+                points.SetValue(r + 1, c + 1,
+                                gp_Pnt(flatPoints[idx], flatPoints[idx + 1], flatPoints[idx + 2]));
+            }
+        }
+
+        GeomAPI_PointsToBSplineSurface approx(points, 3, 8, GeomAbs_C2, 1e-3);
+        if (!approx.IsDone()) {
+            throw std::runtime_error("bsplineSurface: approximation failed");
+        }
+
+        BRepBuilderAPI_MakeFace faceMaker(approx.Surface(), 1e-3);
+        if (!faceMaker.IsDone()) {
+            throw std::runtime_error("bsplineSurface: face construction failed");
+        }
+        return store(faceMaker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("bsplineSurface: ") + e.what());
     }
 }

@@ -285,6 +285,9 @@ class OcctKernel {
     // --- NURBS introspection ---
     NurbsCurveData getNurbsCurveData(uint32_t edgeId);
 
+    // --- Surface construction ---
+    uint32_t bsplineSurface(std::vector<double> flatPoints, int rows, int cols);
+
     // --- 2D→3D curve lifting ---
     uint32_t liftCurve2dToPlane(std::vector<double> flatPoints2d, double planeOx, double planeOy,
                                 double planeOz, double planeZx, double planeZy, double planeZz,

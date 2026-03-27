@@ -207,6 +207,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("interpolatePoints", &OcctKernel::interpolatePoints)
         .function("approximatePoints", &OcctKernel::approximatePoints)
 
+        // Surface construction
+        .function("bsplineSurface", &OcctKernel::bsplineSurface)
+
         // Projection (HLR)
         .function("projectEdges", &OcctKernel::projectEdges)
 
