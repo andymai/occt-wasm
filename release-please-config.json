@@ -22,7 +22,6 @@
         { "type": "chore", "section": "Miscellaneous", "hidden": true }
       ],
       "exclude-paths": [
-        ".github",
         "scripts",
         "test"
       ]
