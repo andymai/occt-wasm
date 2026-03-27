@@ -38,10 +38,7 @@ jobs:
 
       - name: Fetch RapidJSON headers
         if: steps.occt-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p 3rdparty/rapidjson
-          curl -sL https://github.com/Tencent/rapidjson/archive/refs/tags/v1.1.0.tar.gz | \
-            tar xz --strip-components=2 -C 3rdparty/rapidjson rapidjson-1.1.0/include
+        run: ./scripts/fetch-rapidjson.sh
 
       - name: Build OCCT static libs
         if: steps.occt-cache.outputs.cache-hit != 'true'
