@@ -126,6 +126,8 @@ class OcctKernel {
     uint32_t pipe(uint32_t profileId, uint32_t spineId);
     uint32_t simplePipe(uint32_t profileId, uint32_t spineId);
     uint32_t loft(std::vector<uint32_t> wireIds, bool isSolid);
+    uint32_t loftWithVertices(std::vector<uint32_t> wireIds, bool isSolid, uint32_t startVertexId,
+                              uint32_t endVertexId);
     uint32_t sweep(uint32_t wireId, uint32_t spineId, int transitionMode);
     uint32_t sweepPipeShell(uint32_t profileId, uint32_t spineId, bool freenet, bool smooth);
     uint32_t draftPrism(uint32_t shapeId, double dx, double dy, double dz, double angleDeg);
@@ -305,6 +307,11 @@ class OcctKernel {
 
     // --- Surface-based edge/face ---
     uint32_t makeFaceOnSurface(uint32_t faceId, uint32_t wireId);
+
+    // --- Extrusion law ---
+    uint32_t buildExtrusionLaw(const std::string& profile, double length, double endFactor);
+    uint32_t trimLaw(uint32_t lawId, double first, double last);
+    uint32_t sweepWithLaw(uint32_t profileId, uint32_t spineId, uint32_t lawId);
 
     // --- Wire/curve repair ---
     void buildCurves3d(uint32_t wireId);

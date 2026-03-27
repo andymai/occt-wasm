@@ -105,6 +105,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("pipe", &OcctKernel::pipe)
         .function("simplePipe", &OcctKernel::simplePipe)
         .function("loft", &OcctKernel::loft)
+        .function("loftWithVertices", &OcctKernel::loftWithVertices)
         .function("sweep", &OcctKernel::sweep)
         .function("sweepPipeShell", &OcctKernel::sweepPipeShell)
         .function("draftPrism", &OcctKernel::draftPrism)

@@ -51,6 +51,29 @@ uint32_t OcctKernel::loft(std::vector<uint32_t> wireIds, bool isSolid) {
     }
 }
 
+uint32_t OcctKernel::loftWithVertices(std::vector<uint32_t> wireIds, bool isSolid,
+                                      uint32_t startVertexId, uint32_t endVertexId) {
+    try {
+        BRepOffsetAPI_ThruSections maker(isSolid);
+        if (startVertexId != 0) {
+            maker.AddVertex(TopoDS::Vertex(get(startVertexId)));
+        }
+        for (uint32_t wid : wireIds) {
+            maker.AddWire(TopoDS::Wire(get(wid)));
+        }
+        if (endVertexId != 0) {
+            maker.AddVertex(TopoDS::Vertex(get(endVertexId)));
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("loftWithVertices: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("loftWithVertices: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::sweep(uint32_t wireId, uint32_t spineId, int transitionMode) {
     try {
         BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
