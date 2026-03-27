@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.6](https://github.com/andymai/occt-wasm/compare/v0.1.5...v0.1.6) (2026-03-27)
+
+
+### Features
+
+* **ci:** switch to local publishing, simplify release workflow ([b23821c](https://github.com/andymai/occt-wasm/commit/b23821c9be4e0018099ec6a1b643604b5343b5ae))
+* v0.2 WASM size optimization — drop IGES, filter unused libs ([7dade20](https://github.com/andymai/occt-wasm/commit/7dade20c6754273b7353480e1c9719792c8599f0))
+
 ## [0.1.5](https://github.com/andymai/occt-wasm/compare/v0.1.4...v0.1.5) (2026-03-27)
 
 
