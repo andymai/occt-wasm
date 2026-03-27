@@ -9,6 +9,8 @@
 #include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRepOffsetAPI_MakeOffsetShape.hxx>
 #include <BRepOffsetAPI_MakeThickSolid.hxx>
+#include <BRepOffset_MakeOffset.hxx>
+#include <GeomAbs_JoinType.hxx>
 #include <NCollection_List.hxx>
 #include <Standard_Failure.hxx>
 #include <TopAbs_ShapeEnum.hxx>
@@ -290,6 +292,24 @@ EvolutionData OcctKernel::thickenWithHistory(uint32_t shapeId, double thickness,
                                              std::vector<int> inputFaceHashes, int hashUpperBound) {
     try {
         const auto& shape = get(shapeId);
+
+        // For faces/shells: use BRepOffset_MakeOffset (MakeThickSolid only works for solid
+        // hollowing)
+        if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
+            BRepOffset_MakeOffset offsetMaker;
+            offsetMaker.Initialize(shape, thickness, 1e-3, BRepOffset_Skin, false, false,
+                                   GeomAbs_Arc, true);
+            offsetMaker.MakeOffsetShape();
+            if (!offsetMaker.IsDone()) {
+                throw std::runtime_error("thickenWithHistory: offset operation failed");
+            }
+            uint32_t resultId = store(offsetMaker.Shape());
+            // No evolution tracking for BRepOffset_MakeOffset (different API)
+            EvolutionData result{};
+            result.resultId = resultId;
+            return result;
+        }
+
         NCollection_List<TopoDS_Shape> emptyList;
         BRepOffsetAPI_MakeThickSolid maker;
         maker.MakeThickSolidByJoin(shape, emptyList, thickness, 1e-3);
