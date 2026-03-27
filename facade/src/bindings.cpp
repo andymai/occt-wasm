@@ -62,6 +62,18 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("generated", &EvolutionData::generated)
         .property("deleted", &EvolutionData::deleted);
 
+    // XCAFLabelInfo
+    value_object<XCAFLabelInfo>("XCAFLabelInfo")
+        .field("labelId", &XCAFLabelInfo::labelId)
+        .field("name", &XCAFLabelInfo::name)
+        .field("hasColor", &XCAFLabelInfo::hasColor)
+        .field("r", &XCAFLabelInfo::r)
+        .field("g", &XCAFLabelInfo::g)
+        .field("b", &XCAFLabelInfo::b)
+        .field("isAssembly", &XCAFLabelInfo::isAssembly)
+        .field("isComponent", &XCAFLabelInfo::isComponent)
+        .field("shapeId", &XCAFLabelInfo::shapeId);
+
     // OcctKernel
     class_<OcctKernel>("OcctKernel")
         .constructor<>()
@@ -212,10 +224,19 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // Surface-based construction
         .function("makeFaceOnSurface", &OcctKernel::makeFaceOnSurface)
 
-        // XCAF
-        .function("createXCAFDocument", &OcctKernel::createXCAFDocument)
-        .function("writeXCAFToSTEP", &OcctKernel::writeXCAFToSTEP)
-        .function("exportStepWithXCAF", &OcctKernel::exportStepWithXCAF)
+        // XCAF (real XDE)
+        .function("xcafNewDocument", &OcctKernel::xcafNewDocument)
+        .function("xcafClose", &OcctKernel::xcafClose)
+        .function("xcafAddShape", &OcctKernel::xcafAddShape)
+        .function("xcafAddComponent", &OcctKernel::xcafAddComponent)
+        .function("xcafSetColor", &OcctKernel::xcafSetColor)
+        .function("xcafSetName", &OcctKernel::xcafSetName)
+        .function("xcafGetLabelInfo", &OcctKernel::xcafGetLabelInfo)
+        .function("xcafGetChildLabels", &OcctKernel::xcafGetChildLabels)
+        .function("xcafGetRootLabels", &OcctKernel::xcafGetRootLabels)
+        .function("xcafExportSTEP", &OcctKernel::xcafExportSTEP)
+        .function("xcafImportSTEP", &OcctKernel::xcafImportSTEP)
+        .function("xcafExportGLTF", &OcctKernel::xcafExportGLTF)
 
         // Surface construction
         .function("bsplineSurface", &OcctKernel::bsplineSurface)
