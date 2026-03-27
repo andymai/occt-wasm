@@ -58,6 +58,7 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
         const statusEl = document.getElementById('status');
         const loadingEl = document.getElementById('loading');
@@ -207,6 +208,48 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        // --- XCAF + glTF demo: colored assembly ---
+        try {
+            const docId = kernel.xcafNewDocument();
+            const redBox = kernel.makeBox(8, 8, 8);
+            const blueCyl = kernel.makeCylinder(3, 15);
+            const greenSphere = kernel.makeSphere(4);
+
+            const boxLabel = kernel.xcafAddShape(docId, redBox);
+            kernel.xcafSetColor(docId, boxLabel, 0.9, 0.2, 0.1);
+            kernel.xcafSetName(docId, boxLabel, "red-box");
+
+            const cylLabel = kernel.xcafAddComponent(docId, boxLabel, blueCyl, 12, 4, 4, 0, 0, 0);
+            kernel.xcafSetColor(docId, cylLabel, 0.1, 0.3, 0.9);
+            kernel.xcafSetName(docId, cylLabel, "blue-cylinder");
+
+            const sphLabel = kernel.xcafAddComponent(docId, boxLabel, greenSphere, 4, 4, 14, 0, 0, 0);
+            kernel.xcafSetColor(docId, sphLabel, 0.1, 0.8, 0.3);
+            kernel.xcafSetName(docId, sphLabel, "green-sphere");
+
+            const glbPath = kernel.xcafExportGLTF(docId, 0.05, 0.3);
+            const glbBytes = Module.FS.readFile(glbPath);
+            Module.FS.unlink(glbPath);
+
+            // Load glTF into Three.js (offset to the right)
+            const blob = new Blob([glbBytes], { type: 'model/gltf-binary' });
+            const url = URL.createObjectURL(blob);
+            const loader = new GLTFLoader();
+            loader.load(url, (gltf) => {
+                gltf.scene.position.set(25, 0, 0);
+                scene.add(gltf.scene);
+                URL.revokeObjectURL(url);
+                statusEl.textContent += '\nglTF loaded ✓';
+            });
+
+            kernel.release(redBox);
+            kernel.release(blueCyl);
+            kernel.release(greenSphere);
+            kernel.xcafClose(docId);
+        } catch (e) {
+            console.warn('XCAF/glTF demo skipped:', e);
+        }
 
         kernel.releaseAll();
     </script>
