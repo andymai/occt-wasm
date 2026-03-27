@@ -3,7 +3,7 @@
  *
  * @example
  * ```ts
- * const doc = kernel.createXCAFDocument();
+ * const doc = XCAFDocument.create(rawKernel);
  * const root = doc.addShape(box, { name: 'housing', color: [0.8, 0.2, 0.1] });
  * doc.addChild(root, gear, {
  *   name: 'gear-1',
@@ -62,8 +62,8 @@ export interface RawXCAFKernel {
     xcafGetChildLabels(
         docId: number,
         parentTag: number,
-    ): { size(): number; get(i: number): number };
-    xcafGetRootLabels(docId: number): { size(): number; get(i: number): number };
+    ): { size(): number; get(i: number): number; delete(): void };
+    xcafGetRootLabels(docId: number): { size(): number; get(i: number): number; delete(): void };
     xcafExportSTEP(docId: number): string;
     xcafImportSTEP(stepData: string): number;
     xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;
@@ -113,13 +113,7 @@ export class XCAFDocument {
     addShape(shape: ShapeHandle, options?: AddShapeOptions): LabelTag {
         this.#ensureOpen();
         const t = wrap("xcafAddShape", () => this.#raw.xcafAddShape(this.#docId, shape));
-        if (options?.name) {
-            this.#raw.xcafSetName(this.#docId, t, options.name);
-        }
-        if (options?.color) {
-            const [r, g, b] = options.color;
-            this.#raw.xcafSetColor(this.#docId, t, r, g, b);
-        }
+        this.#applyOptions(t, options);
         return tag(t);
     }
 
@@ -140,13 +134,7 @@ export class XCAFDocument {
                 loc.rz ?? 0,
             ),
         );
-        if (options?.name) {
-            this.#raw.xcafSetName(this.#docId, t, options.name);
-        }
-        if (options?.color) {
-            const [r, g, b] = options.color;
-            this.#raw.xcafSetColor(this.#docId, t, r, g, b);
-        }
+        this.#applyOptions(t, options);
         return tag(t);
     }
 
@@ -163,7 +151,10 @@ export class XCAFDocument {
         wrap("xcafSetName", () => this.#raw.xcafSetName(this.#docId, label, name));
     }
 
-    /** Get info about a label. */
+    /**
+     * Get info about a label.
+     * If `shapeHandle` is non-null, the caller owns it and must release it.
+     */
     getLabelInfo(label: LabelTag): LabelInfo {
         this.#ensureOpen();
         const raw = wrap("xcafGetLabelInfo", () =>
@@ -183,27 +174,17 @@ export class XCAFDocument {
     /** Get child label tags of a parent. */
     getChildren(parent: LabelTag): LabelTag[] {
         this.#ensureOpen();
-        const vec = wrap("xcafGetChildLabels", () =>
-            this.#raw.xcafGetChildLabels(this.#docId, parent),
+        return this.#vecToTags(
+            wrap("xcafGetChildLabels", () => this.#raw.xcafGetChildLabels(this.#docId, parent)),
         );
-        const result: LabelTag[] = [];
-        for (let i = 0; i < vec.size(); i++) {
-            result.push(tag(vec.get(i)));
-        }
-        return result;
     }
 
     /** Get root (free) shape label tags. */
     getRoots(): LabelTag[] {
         this.#ensureOpen();
-        const vec = wrap("xcafGetRootLabels", () =>
-            this.#raw.xcafGetRootLabels(this.#docId),
+        return this.#vecToTags(
+            wrap("xcafGetRootLabels", () => this.#raw.xcafGetRootLabels(this.#docId)),
         );
-        const result: LabelTag[] = [];
-        for (let i = 0; i < vec.size(); i++) {
-            result.push(tag(vec.get(i)));
-        }
-        return result;
     }
 
     /** Export as STEP with colors and names preserved. */
@@ -241,6 +222,28 @@ export class XCAFDocument {
 
     [Symbol.dispose](): void {
         this.close();
+    }
+
+    #applyOptions(labelId: number, options?: AddShapeOptions): void {
+        if (options?.name) {
+            wrap("xcafSetName", () => this.#raw.xcafSetName(this.#docId, labelId, options.name!));
+        }
+        if (options?.color) {
+            const [r, g, b] = options.color;
+            wrap("xcafSetColor", () => this.#raw.xcafSetColor(this.#docId, labelId, r, g, b));
+        }
+    }
+
+    #vecToTags(vec: { size(): number; get(i: number): number; delete(): void }): LabelTag[] {
+        try {
+            const result: LabelTag[] = [];
+            for (let i = 0; i < vec.size(); i++) {
+                result.push(tag(vec.get(i)));
+            }
+            return result;
+        } finally {
+            vec.delete();
+        }
     }
 
     #ensureOpen(): void {

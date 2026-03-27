@@ -40,7 +40,7 @@
 
 // --- Helpers ---
 
-static Handle(TDocStd_Application) getXCAFApp() {
+static const Handle(TDocStd_Application) & getXCAFApp() {
     static Handle(TDocStd_Application) app;
     if (app.IsNull()) {
         app = XCAFApp_Application::GetApplication();
@@ -55,6 +55,10 @@ static TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int label
     }
     return it->second;
 }
+
+// Doc lookup helper is inlined since XCAFDocRecord is private.
+// Pattern: auto& rec = xcafDocs_.at(docId) — but at() gives unhelpful errors,
+// so each method does: auto it = xcafDocs_.find(docId); if (it == end) throw;
 
 // --- Document lifecycle ---
 
@@ -326,11 +330,13 @@ uint32_t OcctKernel::xcafImportSTEP(const std::string& stepData) {
 
         if (reader.ReadFile(tmpPath.c_str()) != IFSelect_RetDone) {
             std::remove(tmpPath.c_str());
+            getXCAFApp()->Close(doc);
             throw std::runtime_error("xcafImportSTEP: read failed");
         }
         std::remove(tmpPath.c_str());
 
         if (!reader.Transfer(doc)) {
+            getXCAFApp()->Close(doc);
             throw std::runtime_error("xcafImportSTEP: transfer failed");
         }
 

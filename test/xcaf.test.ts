@@ -77,6 +77,7 @@ describe("XCAF", () => {
 
         const roots = kernel.xcafGetRootLabels(docId);
         expect(roots.size()).toBeGreaterThanOrEqual(1);
+        roots.delete();
 
         kernel.release(box);
         kernel.release(cyl);
@@ -101,6 +102,7 @@ describe("XCAF", () => {
 
         // Verify structure survived roundtrip (colors may be on sub-labels)
         const tag2 = roots.get(0);
+        roots.delete();
         const info = kernel.xcafGetLabelInfo(docId2, tag2);
         expect(info.shapeId).toBeGreaterThan(0);
 
@@ -176,6 +178,7 @@ describe("XCAF", () => {
         expect(roots.size()).toBeGreaterThanOrEqual(1);
 
         const rootTag = roots.get(0);
+        roots.delete();
         const info = kernel.xcafGetLabelInfo(docId2, rootTag);
         expect(info.shapeId).toBeGreaterThan(0);
 
