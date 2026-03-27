@@ -64,8 +64,7 @@ std::vector<uint32_t> OcctKernel::getSubShapes(uint32_t id, const std::string& s
     try {
         TopAbs_ShapeEnum toExplore = parseShapeType(shapeType);
         std::vector<uint32_t> result;
-        // Use TopExp::MapShapes for unique sub-shapes (TopExp_Explorer visits shared shapes
-        // multiple times)
+        // Use TopExp::MapShapes for deduplicated sub-shapes.
         NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
         TopExp::MapShapes(get(id), toExplore, map);
         for (int i = 1; i <= map.Extent(); i++) {
