@@ -7,6 +7,7 @@ use anyhow::Result;
 use clap::Parser;
 
 mod build;
+mod codegen;
 
 /// occt-wasm build tool.
 #[derive(Parser)]
@@ -37,10 +38,7 @@ fn main() -> Result<()> {
     match cli {
         Cli::Build { release, size } => build::build(release, size),
         Cli::BuildOcct => build::build_occt(),
-        Cli::Codegen => {
-            eprintln!("codegen: not yet implemented (v0.1.1)");
-            Ok(())
-        }
+        Cli::Codegen => codegen::run::run(),
         Cli::Clean => build::clean(),
         Cli::Test => build::test(),
     }
