@@ -111,6 +111,20 @@ uint32_t OcctKernel::makeFace(uint32_t wireId) {
     }
 }
 
+uint32_t OcctKernel::makeFaceOnSurface(uint32_t faceId, uint32_t wireId) {
+    try {
+        // Extract surface from existing face, build new face with wire on that surface
+        Handle(Geom_Surface) surface = BRep_Tool::Surface(TopoDS::Face(get(faceId)));
+        BRepBuilderAPI_MakeFace maker(surface, TopoDS::Wire(get(wireId)), true);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeFaceOnSurface: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeFaceOnSurface: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::makeSolid(uint32_t shellId) {
     try {
         BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(get(shellId)));

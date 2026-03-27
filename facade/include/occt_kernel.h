@@ -303,6 +303,9 @@ class OcctKernel {
     std::string exportStepWithXCAF(std::vector<uint32_t> shapeIds, const std::string& joinedNames,
                                    std::vector<double> flatColors);
 
+    // --- Surface-based edge/face ---
+    uint32_t makeFaceOnSurface(uint32_t faceId, uint32_t wireId);
+
     // --- Null shape (for test support) ---
     uint32_t makeNullShape();
 

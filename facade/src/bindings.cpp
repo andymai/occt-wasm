@@ -208,6 +208,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("interpolatePoints", &OcctKernel::interpolatePoints)
         .function("approximatePoints", &OcctKernel::approximatePoints)
 
+        // Surface-based construction
+        .function("makeFaceOnSurface", &OcctKernel::makeFaceOnSurface)
+
         // XCAF
         .function("createXCAFDocument", &OcctKernel::createXCAFDocument)
         .function("writeXCAFToSTEP", &OcctKernel::writeXCAFToSTEP)
