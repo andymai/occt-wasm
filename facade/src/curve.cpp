@@ -1,5 +1,6 @@
 #include "occt_kernel.h"
 
+#include <BRepAdaptor_CompCurve.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
@@ -56,22 +57,35 @@ std::string OcctKernel::curveType(uint32_t edgeId) {
     }
 }
 
-std::vector<double> OcctKernel::curvePointAtParam(uint32_t edgeId, double param) {
+std::vector<double> OcctKernel::curvePointAtParam(uint32_t id, double param) {
     try {
-        BRepAdaptor_Curve curve(TopoDS::Edge(get(edgeId)));
-        gp_Pnt pt = curve.Value(param);
+        const auto& shape = get(id);
+        gp_Pnt pt;
+        if (shape.ShapeType() == TopAbs_WIRE) {
+            BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+            pt = comp.Value(param);
+        } else {
+            BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+            pt = curve.Value(param);
+        }
         return {pt.X(), pt.Y(), pt.Z()};
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curvePointAtParam: ") + e.what());
     }
 }
 
-std::vector<double> OcctKernel::curveTangent(uint32_t edgeId, double param) {
+std::vector<double> OcctKernel::curveTangent(uint32_t id, double param) {
     try {
-        BRepAdaptor_Curve curve(TopoDS::Edge(get(edgeId)));
+        const auto& shape = get(id);
         gp_Pnt pt;
         gp_Vec tangent;
-        curve.D1(param, pt, tangent);
+        if (shape.ShapeType() == TopAbs_WIRE) {
+            BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+            comp.D1(param, pt, tangent);
+        } else {
+            BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+            curve.D1(param, pt, tangent);
+        }
         if (tangent.Magnitude() > 1e-10) {
             tangent.Normalize();
         }
@@ -81,9 +95,14 @@ std::vector<double> OcctKernel::curveTangent(uint32_t edgeId, double param) {
     }
 }
 
-std::vector<double> OcctKernel::curveParameters(uint32_t edgeId) {
+std::vector<double> OcctKernel::curveParameters(uint32_t id) {
     try {
-        BRepAdaptor_Curve curve(TopoDS::Edge(get(edgeId)));
+        const auto& shape = get(id);
+        if (shape.ShapeType() == TopAbs_WIRE) {
+            BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+            return {comp.FirstParameter(), comp.LastParameter()};
+        }
+        BRepAdaptor_Curve curve(TopoDS::Edge(shape));
         return {curve.FirstParameter(), curve.LastParameter()};
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curveParameters: ") + e.what());
