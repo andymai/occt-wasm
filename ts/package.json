@@ -1,6 +1,7 @@
 {
-  "name": "@occt-wasm/core",
+  "name": "occt-wasm",
   "version": "0.1.1",
+  "description": "OpenCascade (OCCT) compiled to WebAssembly with a clean TypeScript API",
   "type": "module",
   "exports": {
     ".": {
@@ -13,10 +14,28 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prebuild": "cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/ 2>/dev/null || true",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "keywords": [
+    "opencascade",
+    "occt",
+    "wasm",
+    "webassembly",
+    "cad",
+    "brep",
+    "solid-modeling",
+    "step",
+    "gltf"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andymai/occt-wasm.git",
+    "directory": "ts"
+  },
+  "license": "MIT OR Apache-2.0",
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8",
     "@typescript-eslint/parser": "^8",
