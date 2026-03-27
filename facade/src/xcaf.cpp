@@ -63,12 +63,15 @@ uint32_t OcctKernel::xcafNewDocument() {
         Handle(TDocStd_Application) app = getXCAFApp();
         Handle(TDocStd_Document) doc;
         app->NewDocument("BinXCAF", doc);
-
-        uint32_t id = nextXcafId_++;
+        uint32_t id = ++nextXcafId_; // pre-increment; default init may be 0 in WASM
         xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
         return id;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafNewDocument: ") + e.what());
+    } catch (const std::exception& e) {
+        throw std::runtime_error(std::string("xcafNewDocument(std): ") + e.what());
+    } catch (...) {
+        throw std::runtime_error("xcafNewDocument: unknown exception");
     }
 }
 
@@ -331,7 +334,7 @@ uint32_t OcctKernel::xcafImportSTEP(const std::string& stepData) {
             throw std::runtime_error("xcafImportSTEP: transfer failed");
         }
 
-        uint32_t id = nextXcafId_++;
+        uint32_t id = ++nextXcafId_;
         xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
         return id;
     } catch (const Standard_Failure& e) {
