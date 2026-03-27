@@ -20,6 +20,11 @@ pub enum MethodKind {
     /// with `Add(value, TopoDS::Edge(...))`.
     FilletLike,
 
+    /// Arbitrary setup code before OCCT class instantiation. Uses
+    /// `setup_code` for pre-constructor statements, then constructs with
+    /// `ctor_args` and stores the result. No `Build()`/`IsDone()` check.
+    SetupShape,
+
     /// Not auto-generated — the hand-written implementation uses complex
     /// multi-step logic that doesn't fit a template.
     Skip,
@@ -91,6 +96,10 @@ pub struct MethodSpec {
 
     /// C++ expression passed to the OCCT constructor.
     pub ctor_args: &'static str,
+
+    /// C++ statements emitted before the OCCT constructor (e.g. `gp_Trsf` setup).
+    /// Used by `SetupShape`. Empty string for other kinds.
+    pub setup_code: &'static str,
 
     /// `#include` directives required beyond the OCCT class header.
     pub includes: &'static [&'static str],

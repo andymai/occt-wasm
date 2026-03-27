@@ -153,6 +153,40 @@ fn emit_fillet_like(buf: &mut String, spec: &MethodSpec) {
     let _ = writeln!(buf, "}}");
 }
 
+/// Emit a `SetupShape` method body.
+///
+/// Emits `setup_code` verbatim, then constructs the OCCT class with `ctor_args`,
+/// and stores the result. No `Build()`/`IsDone()` check.
+fn emit_setup_shape(buf: &mut String, spec: &MethodSpec) {
+    let name = spec.name;
+    let cls = spec.occt_class;
+    let args = spec.ctor_args;
+
+    let _ = writeln!(
+        buf,
+        "uint32_t OcctKernel::{name}({params}) {{",
+        params = param_list(spec.params)
+    );
+    let _ = writeln!(buf, "    try {{");
+
+    // Emit setup code lines with proper indentation.
+    if !spec.setup_code.is_empty() {
+        for line in spec.setup_code.lines() {
+            let _ = writeln!(buf, "        {line}");
+        }
+    }
+
+    let _ = writeln!(buf, "        {cls} maker({args});");
+    let _ = writeln!(buf, "        return store(maker.Shape());");
+    let _ = writeln!(buf, "    }} catch (const Standard_Failure& e) {{");
+    let _ = writeln!(
+        buf,
+        "        throw std::runtime_error(std::string(\"{name}: \") + e.what());"
+    );
+    let _ = writeln!(buf, "    }}");
+    let _ = writeln!(buf, "}}");
+}
+
 /// Derive the OCCT include header for a class name (e.g. `BRepPrimAPI_MakeBox`
 /// becomes `<BRepPrimAPI_MakeBox.hxx>`).
 fn class_to_include(cls: &str) -> String {
@@ -236,6 +270,7 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
                 MethodKind::SimpleShape => emit_simple_shape(&mut buf, spec),
                 MethodKind::BooleanOp => emit_boolean_op(&mut buf, spec),
                 MethodKind::FilletLike => emit_fillet_like(&mut buf, spec),
+                MethodKind::SetupShape => emit_setup_shape(&mut buf, spec),
                 MethodKind::Skip => {}
             }
             let _ = writeln!(buf);
@@ -300,6 +335,7 @@ mod tests {
         return_type: ReturnType::ShapeId,
         occt_class: "BRepPrimAPI_MakeBox",
         ctor_args: "dx, dy, dz",
+        setup_code: "",
         includes: &[],
         category: "Primitives",
     };
@@ -311,6 +347,7 @@ mod tests {
         return_type: ReturnType::ShapeId,
         occt_class: "BRepAlgoAPI_Fuse",
         ctor_args: "get(a), get(b)",
+        setup_code: "",
         includes: &[],
         category: "Booleans",
     };
@@ -326,6 +363,7 @@ mod tests {
         return_type: ReturnType::ShapeId,
         occt_class: "BRepFilletAPI_MakeFillet",
         ctor_args: "TopoDS::Solid(get(solidId))",
+        setup_code: "",
         includes: &["TopoDS.hxx"],
         category: "Modeling",
     };
@@ -383,6 +421,7 @@ mod tests {
             return_type: ReturnType::ShapeId,
             occt_class: "",
             ctor_args: "",
+            setup_code: "",
             includes: &[],
             category: "Primitives",
         };
