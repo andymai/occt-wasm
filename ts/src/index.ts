@@ -202,8 +202,8 @@ export class OcctKernel {
      */
     static async init(options?: InitOptions): Promise<OcctKernel> {
         // Dynamic import of the Emscripten-generated module.
-        // @ts-expect-error -- dist/occt-wasm.js is generated at build time, no .d.ts
-        const imported = await import(/* webpackIgnore: true */ "../../dist/occt-wasm.js");
+        // @ts-expect-error -- occt-wasm.js is generated at build time, no .d.ts
+        const imported = await import(/* webpackIgnore: true */ "./occt-wasm.js");
         const createModule = imported.default as (
             opts: Record<string, unknown>,
         ) => Promise<EmscriptenModule>;

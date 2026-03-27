@@ -22,10 +22,57 @@ jobs:
           manifest-file: .release-please-manifest.json
           config-file: release-please-config.json
 
-  # TODO: Add publish job when WASM build pipeline is working.
-  # It will:
-  # 1. Build Docker image
-  # 2. Compile OCCT + facade to WASM inside Docker
-  # 3. Run wasm-opt
-  # 4. Run integration tests
-  # 5. Publish @occt-wasm/core to npm
+  publish:
+    name: Build & Publish to npm
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup emsdk
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.74
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85"
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm (trusted publishing requires >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd ts && npm ci
+
+      - name: Build OCCT + facade → WASM
+        run: cargo xtask build --release
+
+      - name: Build TypeScript
+        run: |
+          cd ts
+          npm run build
+          cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/
+
+      - name: Run tests
+        run: cd ts && npx vitest run
+
+      - name: Publish to npm (OIDC trusted publishing)
+        run: cd ts && npm publish --provenance --access public
