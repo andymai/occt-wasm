@@ -9,8 +9,6 @@
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
-#include <IGESControl_Reader.hxx>
-#include <IGESControl_Writer.hxx>
 #include <Message_ProgressRange.hxx>
 #include <StlAPI_Writer.hxx>
 
@@ -49,53 +47,6 @@ uint32_t OcctKernel::importStep(const std::string& data) {
         return store(reader.OneShape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("importStep: ") + e.what());
-    }
-}
-
-uint32_t OcctKernel::importIges(const std::string& data) {
-    try {
-        {
-            FILE* f = fopen("/tmp/import.iges", "w");
-            if (!f)
-                throw std::runtime_error("importIges: cannot create temp file");
-            fwrite(data.c_str(), 1, data.size(), f);
-            fclose(f);
-        }
-        IGESControl_Reader reader;
-        if (reader.ReadFile("/tmp/import.iges") != IFSelect_RetDone) {
-            throw std::runtime_error("importIges: failed to read IGES data");
-        }
-        reader.TransferRoots();
-        if (reader.NbShapes() == 0) {
-            throw std::runtime_error("importIges: no shapes found");
-        }
-        return store(reader.OneShape());
-    } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("importIges: ") + e.what());
-    }
-}
-
-std::string OcctKernel::exportIges(uint32_t id) {
-    try {
-        IGESControl_Writer writer;
-        writer.AddShape(get(id));
-        writer.ComputeModel();
-        const char* tmpPath = "/tmp/export.iges";
-        if (!writer.Write(tmpPath)) {
-            throw std::runtime_error("exportIges: write failed");
-        }
-        FILE* f = fopen(tmpPath, "r");
-        if (!f)
-            throw std::runtime_error("exportIges: cannot read temp file");
-        fseek(f, 0, SEEK_END);
-        long size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        std::string result(size, '\0');
-        fread(&result[0], 1, size, f);
-        fclose(f);
-        return result;
-    } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("exportIges: ") + e.what());
     }
 }
 

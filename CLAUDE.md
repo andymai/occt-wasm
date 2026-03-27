@@ -31,9 +31,12 @@ TS wrapper (ts/) → tsc → @occt-wasm/core
 ```bash
 cargo xtask build-occt    # Build OCCT static libs (Milestone 0)
 cargo xtask build         # Full build: OCCT + facade → .wasm
+cargo xtask build --release  # Release build with LTO + wasm-opt
 cargo xtask clean         # Remove build artifacts
 cargo xtask test          # Run Vitest integration tests
 cargo xtask codegen       # Generate facade from OCCT headers (v0.1.1)
+./scripts/publish.sh      # Local npm publish (requires tagged commit)
+./scripts/publish.sh --dry-run  # Verify build without publishing
 ```
 
 ## Conventions

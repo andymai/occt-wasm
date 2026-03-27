@@ -13,6 +13,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19",
     "@commitlint/config-conventional": "^19",
-    "husky": "^9"
+    "husky": "^9",
+    "opencascade.js": "^1.1.1"
   }
 }

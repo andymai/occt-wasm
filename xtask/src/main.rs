@@ -17,6 +17,9 @@ enum Cli {
         /// Enable release optimizations (LTO, wasm-opt -O4)
         #[arg(long)]
         release: bool,
+        /// Optimize for size (-Oz) instead of speed (-O3); requires --release
+        #[arg(long)]
+        size: bool,
     },
     /// Build only OCCT static libraries (Milestone 0)
     BuildOcct,
@@ -32,7 +35,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli {
-        Cli::Build { release } => build::build(release),
+        Cli::Build { release, size } => build::build(release, size),
         Cli::BuildOcct => build::build_occt(),
         Cli::Codegen => {
             eprintln!("codegen: not yet implemented (v0.1.1)");

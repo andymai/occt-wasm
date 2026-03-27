@@ -152,20 +152,67 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
     Ok(objects)
 }
 
+/// OCCT static libraries not used by the facade — excluded from linking.
+const EXCLUDED_LIBS: &[&str] = &[
+    // IGES exchange
+    "libTKDEIGES.a",
+    // Persistence / serialization
+    "libTKStd.a",
+    "libTKStdL.a",
+    "libTKBin.a",
+    "libTKBinL.a",
+    "libTKBinXCAF.a",
+    "libTKBinTObj.a",
+    "libTKXml.a",
+    "libTKXmlL.a",
+    "libTKXmlXCAF.a",
+    "libTKXmlTObj.a",
+    "libTKTObj.a",
+    // Note: TKVCAF NOT excluded — TKXCAF depends on TPrsStd_Driver from TKVCAF
+    // Unused exchange formats
+    "libTKDEVRML.a",
+    "libTKDEOBJ.a",
+    "libTKDEPLY.a",
+    "libTKDECascade.a",
+    "libTKXMesh.a",
+    // Note: TKV3d and TKService NOT excluded — TKXCAF depends on Graphic3d_* from TKService
+    // Features not used by facade
+    "libTKFeat.a",
+    "libTKHelix.a",
+];
+
 /// Step 3: Link facade objects + OCCT static libs → .wasm + .js
-fn link_wasm(sh: &Shell, root: &Path, objects: &[PathBuf], release: bool) -> Result<()> {
+fn link_wasm(
+    sh: &Shell,
+    root: &Path,
+    objects: &[PathBuf],
+    release: bool,
+    size: bool,
+) -> Result<()> {
     let dist_dir = root.join("dist");
     sh.create_dir(&dist_dir)?;
 
     let occt_lib_dir = find_occt_lib_dir(&root.join("occt/build"))?;
 
-    // Collect all OCCT static lib paths
-    let occt_libs: Vec<String> = std::fs::read_dir(&occt_lib_dir)?
+    // Collect all OCCT static lib paths, filtering out unused libraries
+    let all_libs: Vec<PathBuf> = std::fs::read_dir(&occt_lib_dir)?
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|e| e == "a"))
+        .collect();
+    let total = all_libs.len();
+
+    let occt_libs: Vec<String> = all_libs
+        .into_iter()
+        .filter(|p| {
+            let name = p.file_name().map(|n| n.to_string_lossy().into_owned());
+            !name.is_some_and(|n| EXCLUDED_LIBS.contains(&n.as_str()))
+        })
         .map(|p| p.display().to_string())
         .collect();
+
+    let excluded = total - occt_libs.len();
+    eprintln!("  Excluded {excluded}/{total} unused OCCT libs from link.");
 
     let obj_strs: Vec<String> = objects.iter().map(|p| p.display().to_string()).collect();
     let output = dist_dir.join("occt-wasm.js");
@@ -173,7 +220,13 @@ fn link_wasm(sh: &Shell, root: &Path, objects: &[PathBuf], release: bool) -> Res
     let post_js = root.join("scripts/symbol_dispose.js");
     let post_js_str = post_js.display().to_string();
 
-    let opt_level = if release { "-O3" } else { "-O2" };
+    let opt_level = if release && size {
+        "-Oz"
+    } else if release {
+        "-O3"
+    } else {
+        "-O2"
+    };
 
     // Build the full args list
     let mut args: Vec<String> = vec![
@@ -257,7 +310,7 @@ fn home_dir() -> Option<PathBuf> {
 }
 
 /// Full build: OCCT + facade + link + wasm-opt.
-pub fn build(release: bool) -> Result<()> {
+pub fn build(release: bool, size: bool) -> Result<()> {
     let root = project_root()?;
     let sh = Shell::new()?;
 
@@ -276,7 +329,7 @@ pub fn build(release: bool) -> Result<()> {
     eprintln!("  {} object files ready.", objects.len());
 
     // Step 3: Link
-    link_wasm(&sh, &root, &objects, release)?;
+    link_wasm(&sh, &root, &objects, release, size)?;
 
     // Step 4: wasm-opt (release only)
     if release {
