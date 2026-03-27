@@ -4,11 +4,10 @@ A better OCCT-to-WASM compilation pipeline. Compiles [OpenCascade](https://www.o
 
 ## Highlights
 
-- **17MB WASM** (5.5MB gzip) — 43% smaller than opencascade.js (30MB+)
-- **40 typed methods** — primitives, booleans, fillets, extrude, revolve, STEP I/O, tessellation
+- **20MB WASM** (4.3MB brotli) — 3x smaller than opencascade.js
+- **40+ typed methods** — primitives, booleans, fillets, sweeps, STEP/STL/glTF I/O, XCAF assemblies
 - **Arena-based API** — u32 shape handles, no manual `.delete()`, `Symbol.dispose` support
 - **TypeScript-first** — branded `ShapeHandle` type, `OcctError` with operation context
-- **37 integration tests** — all passing
 
 ## Quick Start
 
@@ -92,11 +91,33 @@ OCCT V8.0.0-rc4 C++ (git submodule)
     → emcmake cmake (48 static libs)
     → C++ facade (OcctKernel class, arena-based u32 IDs)
     → Embind bindings
-    → emcc link → 17MB .wasm
-    → wasm-opt -O4 → dist/
+    → emcc link (30 of 49 libs, unused filtered) → .wasm
+    → wasm-opt -O4 → dist/ (20.3 MB)
 ```
 
 Built with Rust xtask (`cargo xtask build`), tested with Vitest.
+
+## Size & Performance
+
+Compared against other OCCT-to-WASM builds (all include STEP, XCAF, glTF):
+
+| Build | Raw | gzip | brotli |
+|-------|-----|------|--------|
+| **occt-wasm** (release) | 20.3 MB | 6.4 MB | 4.3 MB |
+| opencascade.js 1.1.1 | 62.8 MB | 13.3 MB | 8.7 MB |
+| brepjs-opencascade | 24.7 MB | 7.5 MB | 5.0 MB |
+
+Node.js benchmarks (median of 10 runs):
+
+| Operation | Time |
+|-----------|------|
+| WASM init | 37 ms |
+| makeBox | <0.1 ms |
+| fuse(box, cylinder) | 10.6 ms |
+| cut(box, cylinder) | 8.1 ms |
+| tessellate | 0.3 ms |
+
+Run benchmarks locally: `npx tsx test/benchmark.ts`
 
 ## License
 
