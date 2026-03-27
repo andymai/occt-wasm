@@ -47,6 +47,53 @@ export interface InitOptions {
     wasmPath?: string | undefined;
 }
 
+// --- XCAF types ---
+
+/** RGB color as [r, g, b], each 0..1. */
+export type Color3 = [number, number, number];
+
+/** Branded label ID for type safety within an XCAF document. */
+declare const LabelTagBrand: unique symbol;
+export type LabelTag = number & { readonly [LabelTagBrand]: never };
+
+/** Position + rotation for assembly component placement. */
+export interface Location {
+    tx?: number | undefined;
+    ty?: number | undefined;
+    tz?: number | undefined;
+    rx?: number | undefined;
+    ry?: number | undefined;
+    rz?: number | undefined;
+}
+
+/** Options for adding a shape to an XCAF document. */
+export interface AddShapeOptions {
+    name?: string | undefined;
+    color?: Color3 | undefined;
+}
+
+/** Options for adding a child component. */
+export interface AddChildOptions extends AddShapeOptions {
+    location?: Location | undefined;
+}
+
+/** Info about a label in an XCAF document. */
+export interface LabelInfo {
+    labelId: number;
+    name: string;
+    hasColor: boolean;
+    color: Color3;
+    isAssembly: boolean;
+    isComponent: boolean;
+    shapeHandle: ShapeHandle | null;
+}
+
+/** Options for glTF export. */
+export interface GLTFExportOptions {
+    linearDeflection?: number | undefined;
+    angularDeflection?: number | undefined;
+}
+
 /** Typed error from OCCT operations. */
 export class OcctError extends Error {
     readonly operation: string;

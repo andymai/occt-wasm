@@ -15,13 +15,22 @@
 
 export {
     OcctError,
+    type AddChildOptions,
+    type AddShapeOptions,
     type BoundingBox,
+    type Color3,
+    type GLTFExportOptions,
     type InitOptions,
+    type LabelInfo,
+    type LabelTag,
+    type Location,
     type Mesh,
     type ShapeHandle,
     type TessellateOptions,
     type Vec3,
 } from "./types.js";
+
+export { XCAFDocument, type EmscriptenFS } from "./xcaf-document.js";
 
 import type {
     BoundingBox,

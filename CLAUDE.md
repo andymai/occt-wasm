@@ -20,8 +20,10 @@ TS wrapper (ts/) → tsc → @occt-wasm/core
 - `ts/` — TypeScript wrapper (@occt-wasm/core npm package)
 - `xtask/` — Rust build orchestration (clap + anyhow + xshell)
 - `occt/` — OCCT V8.0.0-rc4 (git submodule)
+- `3rdparty/` — Isolated third-party headers (RapidJSON for glTF, gitignored)
 - `scripts/` — build.sh (Milestone 0), symbol_dispose.js (post-link)
-- `test/` — Vitest integration tests
+- `test/` — Vitest integration tests (integration, expanded, xcaf)
+- `examples/` — Browser demos (Three.js with tessellation + glTF)
 - `dist/` — Build output (gitignored)
 
 ## Commands
@@ -42,6 +44,8 @@ cargo xtask codegen       # Generate facade from OCCT headers (v0.1.1)
 - Commits: Conventional Commits (scopes: facade, xtask, ts, docker, ci, docs)
 - Errors: facade catches Standard_Failure, re-throws as std::runtime_error
 - Memory: arena-based u32 IDs, Symbol.dispose support, FinalizationRegistry safety net
+- XCAF: per-document label registry (facade IDs), real OCCT XDE for assembly/color/glTF
+- Dependencies: RapidJSON headers isolated in 3rdparty/ to avoid Emscripten/glibc conflicts
 
 ## Key References
 

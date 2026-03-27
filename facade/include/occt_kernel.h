@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <TDF_Label.hxx>
+#include <TDocStd_Document.hxx>
 #include <TopoDS_Shape.hxx>
 
 /// Mesh data returned from tessellation.
@@ -76,6 +78,17 @@ struct NurbsCurveData {
     std::vector<int> multiplicities;
     std::vector<double> poles; // flat [x,y,z, x,y,z, ...]
     std::vector<double> weights;
+};
+
+/// XCAF label info returned from queries.
+struct XCAFLabelInfo {
+    int labelId = 0;
+    std::string name;
+    bool hasColor = false;
+    double r = 0, g = 0, b = 0;
+    bool isAssembly = false;
+    bool isComponent = false;
+    uint32_t shapeId = 0;
 };
 
 /// Arena-based OCCT kernel — full brepjs KernelAdapter coverage.
@@ -298,12 +311,20 @@ class OcctKernel {
                                 double planeOz, double planeZx, double planeZy, double planeZz,
                                 double planeXx, double planeXy, double planeXz);
 
-    // --- XCAF (assembly/color support) ---
-    uint32_t createXCAFDocument(std::vector<uint32_t> shapeIds, const std::string& joinedNames,
-                                std::vector<double> flatColors);
-    std::string writeXCAFToSTEP(uint32_t docId);
-    std::string exportStepWithXCAF(std::vector<uint32_t> shapeIds, const std::string& joinedNames,
-                                   std::vector<double> flatColors);
+    // --- XCAF (assembly/color/glTF support) ---
+    uint32_t xcafNewDocument();
+    void xcafClose(uint32_t docId);
+    int xcafAddShape(uint32_t docId, uint32_t shapeId);
+    int xcafAddComponent(uint32_t docId, int parentLabelId, uint32_t shapeId, double tx, double ty,
+                         double tz, double rx, double ry, double rz);
+    void xcafSetColor(uint32_t docId, int labelId, double r, double g, double b);
+    void xcafSetName(uint32_t docId, int labelId, const std::string& name);
+    XCAFLabelInfo xcafGetLabelInfo(uint32_t docId, int labelId);
+    std::vector<int> xcafGetChildLabels(uint32_t docId, int parentLabelId);
+    std::vector<int> xcafGetRootLabels(uint32_t docId);
+    std::string xcafExportSTEP(uint32_t docId);
+    uint32_t xcafImportSTEP(const std::string& stepData);
+    std::string xcafExportGLTF(uint32_t docId, double linDeflection, double angDeflection);
 
     // --- Surface-based edge/face ---
     uint32_t makeFaceOnSurface(uint32_t faceId, uint32_t wireId);
@@ -338,10 +359,11 @@ class OcctKernel {
     uint32_t nextId_ = 1;
 
     // XCAF document storage
-    struct XCAFDocData {
-        std::vector<uint32_t> shapeIds;
-        std::string joinedNames;
-        std::vector<double> colors;
+    struct XCAFDocRecord {
+        Handle(TDocStd_Document) doc;
+        std::map<int, TDF_Label> labelRegistry;
+        int nextLabelId = 1;
     };
-    std::map<uint32_t, XCAFDocData> xcafDocs_;
+    std::map<uint32_t, XCAFDocRecord> xcafDocs_;
+    uint32_t nextXcafId_ = 1;
 };

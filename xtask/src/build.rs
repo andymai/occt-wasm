@@ -63,6 +63,7 @@ pub fn build_occt() -> Result<()> {
 
         let c_flags = "-fwasm-exceptions -O2 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS";
         let cxx_flags = c_flags;
+        let rapidjson_inc = root.join("3rdparty/rapidjson").display().to_string();
 
         cmd!(
             sh,
@@ -78,7 +79,8 @@ pub fn build_occt() -> Result<()> {
             -DBUILD_MODULE_Draw=FALSE
             -DBUILD_LIBRARY_TYPE=Static
             -DUSE_FREETYPE=OFF
-            -DUSE_RAPIDJSON=OFF
+            -DUSE_RAPIDJSON=ON
+            -D3RDPARTY_RAPIDJSON_INCLUDE_DIR={rapidjson_inc}
             -DCMAKE_C_FLAGS={c_flags}
             -DCMAKE_CXX_FLAGS={cxx_flags}
             -Wno-dev"
