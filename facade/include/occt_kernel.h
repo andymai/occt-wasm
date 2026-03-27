@@ -193,7 +193,7 @@ class OcctKernel {
     double getLength(uint32_t id);
     std::vector<double> getCenterOfMass(uint32_t id);
     std::vector<double> getLinearCenterOfMass(uint32_t id);
-    double surfaceCurvature(uint32_t faceId, double u, double v);
+    std::vector<double> surfaceCurvature(uint32_t faceId, double u, double v);
 
     // --- Vertex/Surface query ---
     std::vector<double> vertexPosition(uint32_t vertexId);

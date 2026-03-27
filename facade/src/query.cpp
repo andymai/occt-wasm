@@ -176,14 +176,18 @@ std::vector<double> OcctKernel::getLinearCenterOfMass(uint32_t id) {
     }
 }
 
-double OcctKernel::surfaceCurvature(uint32_t faceId, double u, double v) {
+std::vector<double> OcctKernel::surfaceCurvature(uint32_t faceId, double u, double v) {
     try {
         BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
         BRepLProp_SLProps props(surf, u, v, 2, 1e-6);
         if (!props.IsCurvatureDefined()) {
             throw std::runtime_error("surfaceCurvature: curvature not defined at point");
         }
-        return props.MeanCurvature();
+        double mean = props.MeanCurvature();
+        double gaussian = props.GaussianCurvature();
+        double maxK = props.MaxCurvature();
+        double minK = props.MinCurvature();
+        return {mean, gaussian, maxK, minK};
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("surfaceCurvature: ") + e.what());
     }
