@@ -1,9 +1,9 @@
 /**
- * @occt-wasm/core — OCCT compiled to WASM with clean TypeScript bindings.
+ * occt-wasm — OCCT compiled to WASM with clean TypeScript bindings.
  *
  * @example
  * ```ts
- * import { OcctKernel } from '@occt-wasm/core';
+ * import { OcctKernel } from 'occt-wasm';
  *
  * const kernel = await OcctKernel.init();
  * const box = kernel.makeBox(10, 20, 30);
@@ -212,7 +212,7 @@ export class OcctKernel {
      *
      * // Node.js with explicit path:
      * const kernel = await OcctKernel.init({
-     *   wasmPath: './node_modules/@occt-wasm/core/dist/occt-wasm.wasm'
+     *   wasmPath: './node_modules/occt-wasm/dist/occt-wasm.wasm'
      * });
      * ```
      */

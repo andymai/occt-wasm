@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish @occt-wasm/core to npm from a local release build.
+# Publish occt-wasm to npm from a local release build.
 # Usage: ./scripts/publish.sh [--dry-run]
 set -euo pipefail
 
@@ -25,7 +25,7 @@ if [ "$VERSION" != "$PKG_VERSION" ]; then
   exit 1
 fi
 
-echo "Publishing @occt-wasm/core@$VERSION from tag $TAG"
+echo "Publishing occt-wasm@$VERSION from tag $TAG"
 
 # Build
 echo "Building WASM (release)..."
@@ -46,5 +46,5 @@ if [ "${1:-}" = "--dry-run" ]; then
   npm publish --dry-run $PUBLISH_ARGS
 else
   npm publish $PUBLISH_ARGS
-  echo "Published @occt-wasm/core@$VERSION"
+  echo "Published occt-wasm@$VERSION"
 fi
