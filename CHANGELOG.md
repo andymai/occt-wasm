@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.4](https://github.com/andymai/occt-wasm/compare/v0.1.3...v0.1.4) (2026-03-27)
+
+
+### Features
+
+* **ci:** add WASM build + test job with OCCT caching ([0e80e5e](https://github.com/andymai/occt-wasm/commit/0e80e5e2626aa6064bc79c7705f7a2460bfacb3c))
+* **ci:** cache OCCT static libs across CI runs ([720c34d](https://github.com/andymai/occt-wasm/commit/720c34d20b658cf24065ab992fe4e4628fb89aeb))
+
+
+### Bug Fixes
+
+* **ci:** patch RapidJSON const-member assignment bug in CI ([b278fe7](https://github.com/andymai/occt-wasm/commit/b278fe7a3f8325834c70bd6213d3ec5c8fec0933))
+
 ## [0.1.3](https://github.com/andymai/occt-wasm/compare/v0.1.2...v0.1.3) (2026-03-27)
 
 
