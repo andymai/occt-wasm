@@ -9,30 +9,18 @@ A better OCCT-to-WASM compilation pipeline. Compiles [OpenCascade](https://www.o
 - **Arena-based API** — u32 shape handles, no manual `.delete()`, `Symbol.dispose` support
 - **TypeScript-first** — branded `ShapeHandle` type, `OcctError` with operation context
 
-## Quick Start
+## Install
 
 ```bash
-# Prerequisites: Rust 1.85+, emsdk 5.0.3 (or Docker)
-
-git clone --recurse-submodules https://github.com/andymai/occt-wasm
-cd occt-wasm
-npm install && cd ts && npm install && cd ..
-
-# Build OCCT + facade → WASM
-cargo xtask build
-
-# Run tests
-cargo xtask test
-
-# View the Three.js example
-npx serve .
-# Open http://localhost:3000/examples/three-js/
+npm install occt-wasm
 ```
 
-## API
+## Quick Start
 
 ```typescript
-const kernel = new Module.OcctKernel();
+import { OcctKernel } from 'occt-wasm';
+
+const kernel = await OcctKernel.init();
 
 // Create shapes
 const box = kernel.makeBox(20, 20, 20);
@@ -65,6 +53,29 @@ const bbox = kernel.getBoundingBox(shape);
 // Memory management
 kernel.release(shape);
 kernel.releaseAll();
+
+// Deterministic cleanup (recommended)
+{
+  using k = await OcctKernel.init();
+  const box = k.makeBox(10, 10, 10);
+  // k is disposed at end of block
+}
+```
+
+## Building from Source
+
+```bash
+# Prerequisites: Rust 1.85+, emsdk 5.0.3
+git clone --recurse-submodules https://github.com/andymai/occt-wasm
+cd occt-wasm
+npm install && cd ts && npm install && cd ..
+
+cargo xtask build       # Build OCCT + facade → WASM
+cargo xtask test        # Run tests
+
+# View the Three.js example
+npx serve .
+# Open http://localhost:3000/examples/three-js/
 ```
 
 ## All 40 Methods

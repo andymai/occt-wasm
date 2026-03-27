@@ -4,20 +4,20 @@ OCCT-to-WASM build pipeline. Compiles OpenCascade C++ to WebAssembly with a clea
 
 ## Architecture
 
-Emscripten compiles OCCT C++ to WASM. A hand-written C++ facade (`OcctKernel` class) wraps OCCT with an arena-based API (u32 shape IDs). Embind bridges C++ to JS. A TypeScript wrapper (`@occt-wasm/core`) provides the public API.
+Emscripten compiles OCCT C++ to WASM. A hand-written C++ facade (`OcctKernel` class) wraps OCCT with an arena-based API (u32 shape IDs). Embind bridges C++ to JS. A TypeScript wrapper (`occt-wasm`) provides the public API.
 
 ```
 OCCT C++ (submodule) → emcmake cmake → static libs
 C++ facade (facade/)  → emcc → .o files
 Link (static libs + facade) → emcc -lembind → .wasm + .js
 Post-optimize → wasm-opt -O4 → dist/
-TS wrapper (ts/) → tsc → @occt-wasm/core
+TS wrapper (ts/) → tsc → occt-wasm
 ```
 
 ## Repo Layout
 
 - `facade/` — C++ facade (OcctKernel class + Embind bindings)
-- `ts/` — TypeScript wrapper (@occt-wasm/core npm package)
+- `ts/` — TypeScript wrapper (occt-wasm npm package)
 - `xtask/` — Rust build orchestration (clap + anyhow + xshell)
 - `occt/` — OCCT V8.0.0-rc4 (git submodule)
 - `3rdparty/` — Isolated third-party headers (RapidJSON for glTF, gitignored)
