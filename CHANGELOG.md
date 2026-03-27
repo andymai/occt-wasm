@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/andymai/occt-wasm/compare/v0.1.4...v0.1.5) (2026-03-27)
+
+
+### Bug Fixes
+
+* **xtask:** find wasm-opt via EMSDK env var in CI ([e572bf1](https://github.com/andymai/occt-wasm/commit/e572bf160f95f3dc32dba0cf4e5ce95346ca0002))
+
 ## [0.1.4](https://github.com/andymai/occt-wasm/compare/v0.1.3...v0.1.4) (2026-03-27)
 
 
