@@ -73,7 +73,7 @@ uint32_t OcctKernel::makeSphere(double radius) {
 
 uint32_t OcctKernel::makeCone(double r1, double r2, double height) {
     try {
-        BRepPrimAPI_MakeCone maker(r1, height, r2);
+        BRepPrimAPI_MakeCone maker(r1, r2, height);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("makeCone: construction failed");
