@@ -8,7 +8,9 @@
     "build:occt": "cargo xtask build-occt",
     "test": "cd ts && npx vitest run",
     "lint": "cd ts && npx eslint src/",
-    "typecheck": "cd ts && npx tsc --noEmit"
+    "typecheck": "cd ts && npx tsc --noEmit",
+    "publish:dry": "./scripts/publish.sh --dry-run",
+    "publish:npm": "./scripts/publish.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
