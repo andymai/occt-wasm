@@ -340,6 +340,13 @@ pub fn build(release: bool, size: bool) -> Result<()> {
         eprintln!("Step 1: OCCT static libs found, skipping.");
     }
 
+    // Step 1b: Run codegen if generated facade is missing
+    let gen_kernel = root.join("facade/generated/kernel.cpp");
+    if !gen_kernel.exists() {
+        eprintln!("Step 1b: Generated facade not found, running codegen...");
+        crate::codegen::run::run()?;
+    }
+
     // Step 2: Compile facade
     eprintln!("Step 2: Compiling facade...");
     let objects = compile_facade(&sh, &root)?;
