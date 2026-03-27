@@ -68,6 +68,17 @@ jobs:
           curl -sL https://github.com/Tencent/rapidjson/archive/refs/tags/v1.1.0.tar.gz | \
             tar xz --strip-components=2 -C 3rdparty/rapidjson rapidjson-1.1.0/include
 
+      - name: Compute OCCT cache key
+        id: occt-key
+        run: echo "hash=$(git rev-parse HEAD:occt)-$(sha256sum xtask/src/build.rs | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache OCCT static libs
+        id: occt-cache
+        uses: actions/cache@v4
+        with:
+          path: occt/build
+          key: occt-${{ steps.occt-key.outputs.hash }}
+
       - name: Build OCCT + facade → WASM
         run: cargo xtask build --release
 
