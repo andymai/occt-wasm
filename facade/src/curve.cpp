@@ -90,9 +90,13 @@ std::vector<double> OcctKernel::curveParameters(uint32_t edgeId) {
     }
 }
 
-bool OcctKernel::curveIsClosed(uint32_t edgeId) {
+bool OcctKernel::curveIsClosed(uint32_t id) {
     try {
-        BRepAdaptor_Curve curve(TopoDS::Edge(get(edgeId)));
+        const auto& shape = get(id);
+        if (shape.ShapeType() == TopAbs_WIRE) {
+            return BRep_Tool::IsClosed(shape);
+        }
+        BRepAdaptor_Curve curve(TopoDS::Edge(shape));
         return curve.IsClosed();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curveIsClosed: ") + e.what());
