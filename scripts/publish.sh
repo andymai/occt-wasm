@@ -40,10 +40,11 @@ echo "Running tests..."
 npx vitest run
 
 # Publish
+PUBLISH_ARGS="--access public --provenance=false"
 if [ "${1:-}" = "--dry-run" ]; then
   echo "Dry run — skipping publish."
-  npm publish --dry-run --access public
+  npm publish --dry-run $PUBLISH_ARGS
 else
-  npm publish --access public
+  npm publish $PUBLISH_ARGS
   echo "Published @occt-wasm/core@$VERSION"
 fi
