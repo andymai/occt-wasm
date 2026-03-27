@@ -134,7 +134,7 @@ std::string OcctKernel::exportStep(uint32_t id) {
     }
 }
 
-std::string OcctKernel::exportStl(uint32_t id, double linearDeflection) {
+std::string OcctKernel::exportStl(uint32_t id, double linearDeflection, bool ascii) {
     try {
         const auto& shape = get(id);
 
@@ -142,7 +142,7 @@ std::string OcctKernel::exportStl(uint32_t id, double linearDeflection) {
         BRepMesh_IncrementalMesh mesher(shape, linearDeflection, false, 0.5, false);
 
         StlAPI_Writer writer;
-        writer.ASCIIMode() = false; // binary STL
+        writer.ASCIIMode() = ascii;
 
         const char* tmpPath = "/tmp/export.stl";
         if (!writer.Write(shape, tmpPath)) {
