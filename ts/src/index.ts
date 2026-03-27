@@ -171,11 +171,26 @@ function wrap<T>(operation: string, fn: () => T): T {
 }
 
 /**
+ * Safety net: releases the raw Embind kernel if an OcctKernel instance is
+ * garbage-collected without being disposed. Prefer `using` or explicit
+ * `kernel[Symbol.dispose]()` — the FinalizationRegistry is a last resort.
+ */
+const kernelRegistry = new FinalizationRegistry<RawKernel>((raw) => {
+    try {
+        raw.releaseAll();
+        raw.delete();
+    } catch {
+        // Already disposed — ignore.
+    }
+});
+
+/**
  * OCCT kernel compiled to WASM. Arena-based shape management
  * with branded handle types for type safety.
  *
  * Create via `OcctKernel.init()`. Dispose via `kernel[Symbol.dispose]()` or
- * the `using` keyword.
+ * the `using` keyword. A FinalizationRegistry safety net catches leaked
+ * instances, but deterministic disposal is strongly preferred.
  */
 export class OcctKernel {
     readonly #raw: RawKernel;
@@ -184,6 +199,7 @@ export class OcctKernel {
     private constructor(module: EmscriptenModule) {
         this.#module = module;
         this.#raw = new module.OcctKernel();
+        kernelRegistry.register(this, this.#raw, this);
     }
 
     /**
@@ -557,6 +573,7 @@ export class OcctKernel {
     }
 
     [Symbol.dispose](): void {
+        kernelRegistry.unregister(this);
         this.#raw.releaseAll();
         this.#raw.delete();
     }
