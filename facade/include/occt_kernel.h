@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -295,6 +296,13 @@ class OcctKernel {
                                 double planeOz, double planeZx, double planeZy, double planeZz,
                                 double planeXx, double planeXy, double planeXz);
 
+    // --- XCAF (assembly/color support) ---
+    uint32_t createXCAFDocument(std::vector<uint32_t> shapeIds, const std::string& joinedNames,
+                                std::vector<double> flatColors);
+    std::string writeXCAFToSTEP(uint32_t docId);
+    std::string exportStepWithXCAF(std::vector<uint32_t> shapeIds, const std::string& joinedNames,
+                                   std::vector<double> flatColors);
+
     // --- Null shape (for test support) ---
     uint32_t makeNullShape();
 
@@ -314,4 +322,12 @@ class OcctKernel {
 
     std::unordered_map<uint32_t, TopoDS_Shape> arena_;
     uint32_t nextId_ = 1;
+
+    // XCAF document storage
+    struct XCAFDocData {
+        std::vector<uint32_t> shapeIds;
+        std::string joinedNames;
+        std::vector<double> colors;
+    };
+    std::map<uint32_t, XCAFDocData> xcafDocs_;
 };
