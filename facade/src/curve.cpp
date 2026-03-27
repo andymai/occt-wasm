@@ -29,10 +29,18 @@
 #include <stdexcept>
 #include <string>
 
-std::string OcctKernel::curveType(uint32_t edgeId) {
+std::string OcctKernel::curveType(uint32_t id) {
     try {
-        BRepAdaptor_Curve curve(TopoDS::Edge(get(edgeId)));
-        switch (curve.GetType()) {
+        const auto& shape = get(id);
+        GeomAbs_CurveType ctype;
+        if (shape.ShapeType() == TopAbs_WIRE) {
+            BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+            ctype = comp.GetType();
+        } else {
+            BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+            ctype = curve.GetType();
+        }
+        switch (ctype) {
         case GeomAbs_Line:
             return "line";
         case GeomAbs_Circle:
@@ -122,9 +130,14 @@ bool OcctKernel::curveIsClosed(uint32_t id) {
     }
 }
 
-double OcctKernel::curveLength(uint32_t edgeId) {
+double OcctKernel::curveLength(uint32_t id) {
     try {
-        BRepAdaptor_Curve curve(TopoDS::Edge(get(edgeId)));
+        const auto& shape = get(id);
+        if (shape.ShapeType() == TopAbs_WIRE) {
+            BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+            return GCPnts_AbscissaPoint::Length(comp);
+        }
+        BRepAdaptor_Curve curve(TopoDS::Edge(shape));
         return GCPnts_AbscissaPoint::Length(curve);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curveLength: ") + e.what());
@@ -160,9 +173,14 @@ uint32_t OcctKernel::interpolatePoints(std::vector<double> flatPoints, bool peri
     }
 }
 
-bool OcctKernel::curveIsPeriodic(uint32_t edgeId) {
+bool OcctKernel::curveIsPeriodic(uint32_t id) {
     try {
-        BRepAdaptor_Curve curve(TopoDS::Edge(get(edgeId)));
+        const auto& shape = get(id);
+        if (shape.ShapeType() == TopAbs_WIRE) {
+            BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+            return comp.IsPeriodic();
+        }
+        BRepAdaptor_Curve curve(TopoDS::Edge(shape));
         return curve.IsPeriodic();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curveIsPeriodic: ") + e.what());
