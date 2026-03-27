@@ -7,11 +7,14 @@
 #include <BRepOffsetAPI_MakeOffset.hxx>
 #include <BRepOffsetAPI_MakeOffsetShape.hxx>
 #include <BRepOffsetAPI_MakeThickSolid.hxx>
+#include <BRepOffset_MakeOffset.hxx>
 #include <BRepOffset_Mode.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepPrimAPI_MakeRevol.hxx>
+#include <BRep_Tool.hxx>
 #include <GeomAbs_JoinType.hxx>
 #include <NCollection_List.hxx>
+#include <ShapeAnalysis.hxx>
 #include <Standard_Failure.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
@@ -183,10 +186,24 @@ uint32_t OcctKernel::draft(uint32_t shapeId, uint32_t faceId, double angleRad, d
 
 uint32_t OcctKernel::thicken(uint32_t shapeId, double thickness) {
     try {
-        // Thicken: offset a shell/face into a solid
+        const auto& shape = get(shapeId);
+
+        // For faces/shells: use BRepOffset_MakeOffset to produce a solid
+        if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
+            BRepOffset_MakeOffset offsetMaker;
+            offsetMaker.Initialize(shape, thickness, 1e-3, BRepOffset_Skin, false, false,
+                                   GeomAbs_Arc, true);
+            offsetMaker.MakeOffsetShape();
+            if (!offsetMaker.IsDone()) {
+                throw std::runtime_error("thicken: offset operation failed");
+            }
+            return store(offsetMaker.Shape());
+        }
+
+        // For solids: use MakeThickSolid (hollow)
         NCollection_List<TopoDS_Shape> emptyList;
         BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(get(shapeId), emptyList, thickness, 1e-3);
+        maker.MakeThickSolidByJoin(shape, emptyList, thickness, 1e-3);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("thicken: operation failed");

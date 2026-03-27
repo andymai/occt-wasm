@@ -238,6 +238,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("offsetWithHistory", &OcctKernel::offsetWithHistory)
         .function("thickenWithHistory", &OcctKernel::thickenWithHistory)
 
+        // Null shape (test support)
+        .function("makeNullShape", &OcctKernel::makeNullShape)
+
         // Healing / Repair
         .function("fixShape", &OcctKernel::fixShape)
         .function("unifySameDomain", &OcctKernel::unifySameDomain)

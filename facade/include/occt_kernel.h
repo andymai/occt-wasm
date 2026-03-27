@@ -290,6 +290,9 @@ class OcctKernel {
                                 double planeOz, double planeZx, double planeZy, double planeZz,
                                 double planeXx, double planeXy, double planeXz);
 
+    // --- Null shape (for test support) ---
+    uint32_t makeNullShape();
+
     // --- Healing / Repair ---
     uint32_t fixShape(uint32_t id);
     uint32_t unifySameDomain(uint32_t id);

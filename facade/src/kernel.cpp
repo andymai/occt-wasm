@@ -78,6 +78,10 @@ uint32_t OcctKernel::getShapeCount() const {
     return static_cast<uint32_t>(arena_.size());
 }
 
+uint32_t OcctKernel::makeNullShape() {
+    return store(TopoDS_Shape());
+}
+
 // --- EdgeData implementation ---
 
 EdgeData::~EdgeData() {
