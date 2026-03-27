@@ -128,13 +128,18 @@ std::string OcctKernel::surfaceType(uint32_t faceId) {
 
 std::vector<double> OcctKernel::surfaceNormal(uint32_t faceId, double u, double v) {
     try {
-        BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+        TopoDS_Face face = TopoDS::Face(get(faceId));
+        BRepAdaptor_Surface surf(face);
         gp_Pnt pt;
         gp_Vec d1u, d1v;
         surf.D1(u, v, pt, d1u, d1v);
         gp_Vec normal = d1u.Crossed(d1v);
         if (normal.Magnitude() > 1e-10) {
             normal.Normalize();
+        }
+        // Flip normal for reversed faces (matches OCCT convention)
+        if (face.Orientation() == TopAbs_REVERSED) {
+            normal.Reverse();
         }
         return {normal.X(), normal.Y(), normal.Z()};
     } catch (const Standard_Failure& e) {
