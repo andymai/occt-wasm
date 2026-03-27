@@ -78,6 +78,15 @@ npx serve .
 # Open http://localhost:3000/examples/three-js/
 ```
 
+### Docker Build
+
+No local emsdk or Rust needed — everything runs in the container.
+
+```bash
+npm run docker:build    # Build image (OCCT layer cached after first run)
+npm run docker:dist     # Build + copy dist/ artifacts to host
+```
+
 ## All 40 Methods
 
 | Category | Methods |
