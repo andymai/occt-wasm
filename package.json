@@ -10,7 +10,9 @@
     "lint": "cd ts && npx eslint src/",
     "typecheck": "cd ts && npx tsc --noEmit",
     "publish:dry": "./scripts/publish.sh --dry-run",
-    "publish:npm": "./scripts/publish.sh"
+    "publish:npm": "./scripts/publish.sh",
+    "docker:build": "DOCKER_BUILDKIT=1 docker build --progress=plain -t occt-wasm .",
+    "docker:dist": "DOCKER_BUILDKIT=1 docker build --progress=plain -t occt-wasm . && docker run --rm -v \"$(pwd)/dist:/out\" occt-wasm sh -c 'cp dist/* /out/'"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",

@@ -1,0 +1,18 @@
+# Build artifacts
+dist/
+build/
+occt/build/
+target/
+node_modules/
+ts/node_modules/
+ts/dist/
+
+# IDE / OS
+.git/modules/
+*.swp
+.DS_Store
+.idea/
+.vscode/
+
+# 3rdparty (fetched at build time)
+3rdparty/rapidjson/

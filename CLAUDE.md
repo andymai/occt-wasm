@@ -37,6 +37,8 @@ cargo xtask test          # Run Vitest integration tests
 cargo xtask codegen       # Generate facade from OCCT headers (v0.1.1)
 ./scripts/publish.sh      # Local npm publish (requires tagged commit)
 ./scripts/publish.sh --dry-run  # Verify build without publishing
+npm run docker:build             # Docker: full build + test
+npm run docker:dist              # Docker: build + copy dist/ to host
 ```
 
 ## Conventions
