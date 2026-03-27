@@ -227,9 +227,15 @@ fn optimize_wasm(sh: &Shell, root: &Path) -> Result<()> {
     let wasm_str = wasm.display().to_string();
 
     // Try emsdk's wasm-opt first (has correct feature support), fall back to PATH
-    let wasm_opt_bin = home_dir()
-        .map(|h| h.join("emsdk/upstream/bin/wasm-opt"))
+    let wasm_opt_bin = std::env::var("EMSDK")
+        .ok()
+        .map(|e| PathBuf::from(e).join("upstream/bin/wasm-opt"))
         .filter(|p| p.exists())
+        .or_else(|| {
+            home_dir()
+                .map(|h| h.join("emsdk/upstream/bin/wasm-opt"))
+                .filter(|p| p.exists())
+        })
         .map_or_else(|| "wasm-opt".into(), |p| p.display().to_string());
 
     eprintln!("Step 4: Running wasm-opt...");
