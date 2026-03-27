@@ -306,6 +306,10 @@ class OcctKernel {
     // --- Surface-based edge/face ---
     uint32_t makeFaceOnSurface(uint32_t faceId, uint32_t wireId);
 
+    // --- Wire/curve repair ---
+    void buildCurves3d(uint32_t wireId);
+    uint32_t fixWireOnFace(uint32_t wireId, uint32_t faceId, double tolerance);
+
     // --- Null shape (for test support) ---
     uint32_t makeNullShape();
 

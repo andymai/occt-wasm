@@ -254,6 +254,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("makeNullShape", &OcctKernel::makeNullShape)
 
         // Healing / Repair
+        .function("buildCurves3d", &OcctKernel::buildCurves3d)
+        .function("fixWireOnFace", &OcctKernel::fixWireOnFace)
         .function("fixShape", &OcctKernel::fixShape)
         .function("unifySameDomain", &OcctKernel::unifySameDomain)
         .function("isValid", &OcctKernel::isValid)

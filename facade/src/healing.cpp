@@ -1,6 +1,7 @@
 #include "occt_kernel.h"
 
 #include <BRepCheck_Analyzer.hxx>
+#include <BRepLib.hxx>
 #include <ShapeFix_Face.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <ShapeFix_Solid.hxx>
@@ -82,6 +83,24 @@ uint32_t OcctKernel::fixFaceOrientations(uint32_t id) {
         return store(fixer.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("fixFaceOrientations: ") + e.what());
+    }
+}
+
+void OcctKernel::buildCurves3d(uint32_t wireId) {
+    try {
+        BRepLib::BuildCurves3d(get(wireId));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("buildCurves3d: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::fixWireOnFace(uint32_t wireId, uint32_t faceId, double tolerance) {
+    try {
+        ShapeFix_Wire fixer(TopoDS::Wire(get(wireId)), TopoDS::Face(get(faceId)), tolerance);
+        fixer.FixEdgeCurves();
+        return store(fixer.Wire());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("fixWireOnFace: ") + e.what());
     }
 }
 
