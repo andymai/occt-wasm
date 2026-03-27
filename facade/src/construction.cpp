@@ -7,6 +7,7 @@
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepOffsetAPI_MakeFilling.hxx>
+#include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <GC_MakeArcOfCircle.hxx>
 #include <Geom2d_Line.hxx>
@@ -19,11 +20,13 @@
 #include <Geom_TrimmedCurve.hxx>
 #include <NCollection_Array1.hxx>
 #include <ShapeAnalysis.hxx>
+#include <ShapeFix_Wire.hxx>
 #include <Standard_Failure.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Builder.hxx>
 #include <TopoDS_Compound.hxx>
+#include <TopoDS_Wire.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Ax3.hxx>
 #include <gp_Circ.hxx>
@@ -66,11 +69,26 @@ uint32_t OcctKernel::makeWire(std::vector<uint32_t> edgeIds) {
         BRepBuilderAPI_MakeWire maker;
         for (uint32_t eid : edgeIds) {
             maker.Add(TopoDS::Edge(get(eid)));
+            // If Add fails partway, try continuing — the wire may still be usable
         }
-        if (!maker.IsDone()) {
-            throw std::runtime_error("makeWire: construction failed");
+        if (maker.IsDone()) {
+            return store(maker.Shape());
         }
-        return store(maker.Shape());
+        // Fallback: try with increased tolerance via ShapeFix_Wire
+        // Build a wire from edges directly and let ShapeFix close gaps
+        BRep_Builder builder;
+        TopoDS_Wire rawWire;
+        builder.MakeWire(rawWire);
+        for (uint32_t eid : edgeIds) {
+            builder.Add(rawWire, TopoDS::Edge(get(eid)));
+        }
+        ShapeFix_Wire fixer(rawWire, TopoDS_Face(), 1e-3);
+        fixer.FixConnected();
+        fixer.FixReorder();
+        if (fixer.Wire().IsNull()) {
+            throw std::runtime_error("makeWire: construction failed (even with ShapeFix)");
+        }
+        return store(fixer.Wire());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeWire: ") + e.what());
     }
