@@ -1,6 +1,9 @@
 # Rust
 target/
 
+# Third-party deps (copied headers for Emscripten isolation)
+3rdparty/
+
 # Node
 node_modules/
 
