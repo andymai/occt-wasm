@@ -433,6 +433,155 @@ return store(faceMaker.Shape());",
         category: "transforms",
         return_type: ReturnType::ShapeId,
     },
+    MethodSpec {
+        name: "linearPattern",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("dx"), FacadeParam::Double("dy"), FacadeParam::Double("dz"),
+            FacadeParam::Double("spacing"),
+            FacadeParam::Int("count"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Compound compound;
+TopoDS_Builder builder;
+builder.MakeCompound(compound);
+const auto& original = get(id);
+builder.Add(compound, original);
+gp_Vec step(dx, dy, dz);
+step.Normalize();
+step.Multiply(spacing);
+for (int i = 1; i < count; i++) {
+    gp_Trsf trsf;
+    gp_Vec offset = step.Multiplied(static_cast<double>(i));
+    trsf.SetTranslation(offset);
+    BRepBuilderAPI_Transform xform(original, trsf, true);
+    builder.Add(compound, xform.Shape());
+}
+return store(compound);",
+        includes: &["TopoDS_Compound.hxx", "TopoDS_Builder.hxx", "gp_Vec.hxx", "gp_Trsf.hxx", "BRepBuilderAPI_Transform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "circularPattern",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("cx"), FacadeParam::Double("cy"), FacadeParam::Double("cz"),
+            FacadeParam::Double("ax"), FacadeParam::Double("ay"), FacadeParam::Double("az"),
+            FacadeParam::Double("angle"),
+            FacadeParam::Int("count"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Compound compound;
+TopoDS_Builder builder;
+builder.MakeCompound(compound);
+const auto& original = get(id);
+builder.Add(compound, original);
+gp_Ax1 axis(gp_Pnt(cx, cy, cz), gp_Dir(ax, ay, az));
+double stepAngle = angle / static_cast<double>(count);
+for (int i = 1; i < count; i++) {
+    gp_Trsf trsf;
+    trsf.SetRotation(axis, stepAngle * static_cast<double>(i));
+    BRepBuilderAPI_Transform xform(original, trsf, true);
+    builder.Add(compound, xform.Shape());
+}
+return store(compound);",
+        includes: &["TopoDS_Compound.hxx", "TopoDS_Builder.hxx", "gp_Ax1.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "gp_Trsf.hxx", "BRepBuilderAPI_Transform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "transform",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::VectorDouble("matrix")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (matrix.size() != 12) {
+    throw std::runtime_error(\"transform: matrix must have 12 elements (3x4)\");
+}
+gp_Trsf trsf;
+trsf.SetValues(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5], matrix[6],
+               matrix[7], matrix[8], matrix[9], matrix[10], matrix[11]);
+BRepBuilderAPI_Transform maker(get(id), trsf, true);
+return store(maker.Shape());",
+        includes: &["gp_Trsf.hxx", "BRepBuilderAPI_Transform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "generalTransform",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::VectorDouble("matrix")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (matrix.size() != 12) {
+    throw std::runtime_error(\"generalTransform: matrix must have 12 elements (3x4)\");
+}
+gp_GTrsf gt;
+gt.SetValue(1, 1, matrix[0]); gt.SetValue(1, 2, matrix[1]); gt.SetValue(1, 3, matrix[2]); gt.SetValue(1, 4, matrix[3]);
+gt.SetValue(2, 1, matrix[4]); gt.SetValue(2, 2, matrix[5]); gt.SetValue(2, 3, matrix[6]); gt.SetValue(2, 4, matrix[7]);
+gt.SetValue(3, 1, matrix[8]); gt.SetValue(3, 2, matrix[9]); gt.SetValue(3, 3, matrix[10]); gt.SetValue(3, 4, matrix[11]);
+BRepBuilderAPI_GTransform maker(get(id), gt, true);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"generalTransform: transform failed\");
+}
+return store(maker.Shape());",
+        includes: &["gp_GTrsf.hxx", "BRepBuilderAPI_GTransform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "translateBatch",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("ids"), FacadeParam::VectorDouble("offsets")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (offsets.size() != ids.size() * 3) {
+    throw std::runtime_error(\"translateBatch: offsets must have 3 * ids.size() elements\");
+}
+std::vector<uint32_t> results;
+results.reserve(ids.size());
+for (size_t i = 0; i < ids.size(); i++) {
+    gp_Trsf trsf;
+    trsf.SetTranslation(gp_Vec(offsets[i * 3], offsets[i * 3 + 1], offsets[i * 3 + 2]));
+    BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
+    results.push_back(store(maker.Shape()));
+}
+return results;",
+        includes: &["gp_Trsf.hxx", "gp_Vec.hxx", "BRepBuilderAPI_Transform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::VectorUint32,
+    },
+    MethodSpec {
+        name: "composeTransform",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorDouble("m1"), FacadeParam::VectorDouble("m2")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (m1.size() != 12 || m2.size() != 12) {
+    throw std::runtime_error(\"composeTransform: each matrix must have 12 elements\");
+}
+gp_Trsf t1, t2;
+t1.SetValues(m1[0], m1[1], m1[2], m1[3], m1[4], m1[5], m1[6], m1[7], m1[8], m1[9], m1[10], m1[11]);
+t2.SetValues(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5], m2[6], m2[7], m2[8], m2[9], m2[10], m2[11]);
+gp_Trsf result = t1.Multiplied(t2);
+return {result.Value(1, 1), result.Value(1, 2), result.Value(1, 3), result.Value(1, 4),
+        result.Value(2, 1), result.Value(2, 2), result.Value(2, 3), result.Value(2, 4),
+        result.Value(3, 1), result.Value(3, 2), result.Value(3, 3), result.Value(3, 4)};",
+        includes: &["gp_Trsf.hxx"],
+        category: "transforms",
+        return_type: ReturnType::VectorDouble,
+    },
     // ── Sweeps ──────────────────────────────────────────────────
     MethodSpec {
         name: "pipe",
@@ -795,7 +944,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 39, "expected 39 generable methods");
+        assert_eq!(count, 45, "expected 45 generable methods");
     }
 
     #[test]

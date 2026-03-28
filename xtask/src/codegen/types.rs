@@ -55,6 +55,9 @@ pub enum FacadeParam {
 
     /// `std::string` value.
     String(&'static str),
+
+    /// `std::vector<double>` of double values.
+    VectorDouble(&'static str),
 }
 
 impl FacadeParam {
@@ -67,7 +70,8 @@ impl FacadeParam {
             | Self::VectorShapeIds(n)
             | Self::Bool(n)
             | Self::Int(n)
-            | Self::String(n) => n,
+            | Self::String(n)
+            | Self::VectorDouble(n) => n,
         }
     }
 }
@@ -81,6 +85,10 @@ pub enum ReturnType {
     Bool,
     /// `void` return.
     Void,
+    /// `std::vector<uint32_t>` return.
+    VectorUint32,
+    /// `std::vector<double>` return.
+    VectorDouble,
 }
 
 /// A complete facade method specification.

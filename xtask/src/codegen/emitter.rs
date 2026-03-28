@@ -17,6 +17,7 @@ fn param_to_cpp(param: &FacadeParam) -> String {
         FacadeParam::Bool(name) => format!("bool {name}"),
         FacadeParam::Int(name) => format!("int {name}"),
         FacadeParam::String(name) => format!("const std::string& {name}"),
+        FacadeParam::VectorDouble(name) => format!("std::vector<double> {name}"),
     }
 }
 
@@ -194,6 +195,8 @@ fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
         ReturnType::ShapeId => "uint32_t",
         ReturnType::Bool => "bool",
         ReturnType::Void => "void",
+        ReturnType::VectorUint32 => "std::vector<uint32_t>",
+        ReturnType::VectorDouble => "std::vector<double>",
     };
 
     let _ = writeln!(
