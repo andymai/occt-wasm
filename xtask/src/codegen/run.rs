@@ -27,8 +27,7 @@ fn project_root() -> Result<PathBuf> {
 /// the output to `facade/generated/kernel.cpp` and `bindings.cpp`.
 pub fn run() -> Result<()> {
     let root = project_root()?;
-    // Write to facade/codegen-preview/ (not facade/generated/ which gets compiled)
-    let out_dir = root.join("facade/codegen-preview");
+    let out_dir = root.join("facade/generated");
 
     std::fs::create_dir_all(&out_dir).context("failed to create facade/generated/")?;
 

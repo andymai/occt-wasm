@@ -110,11 +110,25 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         );
     }
 
-    let sources: Vec<PathBuf> = std::fs::read_dir(root.join("facade/src"))?
+    let mut sources: Vec<PathBuf> = std::fs::read_dir(root.join("facade/src"))?
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|e| e == "cpp"))
         .collect();
+
+    // Also compile generated facade files if present (skip reference-only bindings).
+    let gen_dir = root.join("facade/generated");
+    if gen_dir.is_dir() {
+        let gen_sources: Vec<PathBuf> = std::fs::read_dir(&gen_dir)?
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| {
+                p.extension().is_some_and(|e| e == "cpp")
+                    && p.file_name().is_some_and(|n| n != "bindings.cpp")
+            })
+            .collect();
+        sources.extend(gen_sources);
+    }
 
     let mut objects = Vec::new();
     let occt_inc_str = occt_inc.display().to_string();
@@ -122,7 +136,9 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
 
     for src in &sources {
         let name = src.file_stem().context("no file stem")?.to_string_lossy();
-        let obj = build_dir.join(format!("{name}.o"));
+        let is_generated = src.starts_with(&gen_dir);
+        let prefix = if is_generated { "gen_" } else { "" };
+        let obj = build_dir.join(format!("{prefix}{name}.o"));
 
         // Skip if .o is newer than .cpp
         if obj.exists() {
@@ -328,9 +344,12 @@ pub fn build(release: bool, size: bool) -> Result<()> {
         eprintln!("Step 1: OCCT static libs found, skipping.");
     }
 
-    // Step 1b: Run codegen to preview dir (not compiled — for comparison only)
-    eprintln!("Step 1b: Running codegen (preview only)...");
-    crate::codegen::run::run()?;
+    // Step 1b: Run codegen if generated facade is missing
+    let gen_kernel = root.join("facade/generated/kernel.cpp");
+    if !gen_kernel.exists() {
+        eprintln!("Step 1b: Generated facade not found, running codegen...");
+        crate::codegen::run::run()?;
+    }
 
     // Step 2: Compile facade
     eprintln!("Step 2: Compiling facade...");

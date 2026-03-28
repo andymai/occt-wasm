@@ -10,7 +10,6 @@ node_modules/
 # C++ / CMake build
 occt/build/
 facade/generated/
-facade/codegen-preview/
 *.o
 *.a
 
