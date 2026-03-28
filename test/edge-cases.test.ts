@@ -300,15 +300,21 @@ describe("degenerate geometry", () => {
     it("loft with a single wire (needs at least 2) throws", () => {
         const wire = makeSquareWire(5);
         const wireVec = new Module.VectorUint32();
-        wireVec.push_back(wire);
-        expectThrows(() => kernel.loft(wireVec, true), "loft with 1 wire");
-        wireVec.delete();
+        try {
+            wireVec.push_back(wire);
+            expectThrows(() => kernel.loft(wireVec, true), "loft with 1 wire");
+        } finally {
+            wireVec.delete();
+        }
     });
 
     it("loft with an empty wire vector throws", () => {
         const wireVec = new Module.VectorUint32();
-        expectThrows(() => kernel.loft(wireVec, true), "loft with 0 wires");
-        wireVec.delete();
+        try {
+            expectThrows(() => kernel.loft(wireVec, true), "loft with 0 wires");
+        } finally {
+            wireVec.delete();
+        }
     });
 });
 
@@ -353,8 +359,7 @@ describe("empty/null shapes", () => {
         } catch {
             return;
         }
-        // If it returned, the result should not be a well-formed solid with volume > 0
-        // (OCCT may give back the real shape unchanged — that is also acceptable)
+        // If it returned, we only assert the kernel did not crash (id >= 0)
         expect(result).toBeGreaterThanOrEqual(0);
     });
 
@@ -433,9 +438,7 @@ describe("I/O edge cases", () => {
         expectThrows(() => kernel.importStep(""), "importStep(empty)");
     });
 
-    it("exportStep(99999) — non-existent shape throws", () => {
-        expectThrows(() => kernel.exportStep(99999), "exportStep(bogus)");
-    });
+    // exportStep(bogus) covered in "invalid IDs" section
 
     it("fromBREP with garbage data throws", () => {
         expectThrows(() => kernel.fromBREP("garbage data"), "fromBREP(garbage)");
@@ -520,11 +523,14 @@ describe("type mismatches", () => {
     it("shell on an edge (not a solid) throws", () => {
         const edge = kernel.makeLineEdge(0, 0, 0, 10, 0, 0);
         const faceVec = new Module.VectorUint32();
-        expectThrows(
-            () => kernel.shell(edge, faceVec, 1.0),
-            "shell on edge",
-        );
-        faceVec.delete();
+        try {
+            expectThrows(
+                () => kernel.shell(edge, faceVec, 1.0),
+                "shell on edge",
+            );
+        } finally {
+            faceVec.delete();
+        }
     });
 
     it("makeFace on a solid (not a wire) throws or returns null", () => {
