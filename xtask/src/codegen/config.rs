@@ -207,45 +207,136 @@ return store(faceMaker.Shape());",
     },
     MethodSpec {
         name: "intersect",
-        kind: MethodKind::Skip,
-        params: &[],
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("a"), FacadeParam::ShapeId("b")],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
+        setup_code: "return common(a, b);",
         includes: &[],
         category: "booleans",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
         name: "fuseAll",
-        kind: MethodKind::Skip,
-        params: &[],
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("shapeIds")],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
-        includes: &[],
+        setup_code: "\
+if (shapeIds.empty()) {
+    throw std::runtime_error(\"fuseAll: no shapes provided\");
+}
+if (shapeIds.size() == 1) {
+    return store(get(shapeIds[0]));
+}
+NCollection_List<TopoDS_Shape> args;
+for (uint32_t sid : shapeIds) {
+    args.Append(get(sid));
+}
+BRepAlgoAPI_BuilderAlgo builder;
+builder.SetArguments(args);
+builder.SetRunParallel(true);
+builder.SetUseOBB(true);
+builder.Build();
+if (!builder.IsDone() || builder.HasErrors()) {
+    throw std::runtime_error(\"fuseAll: operation failed\");
+}
+return store(builder.Shape());",
+        includes: &["BRepAlgoAPI_BuilderAlgo.hxx", "NCollection_List.hxx", "TopoDS_Shape.hxx"],
         category: "booleans",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
         name: "cutAll",
-        kind: MethodKind::Skip,
-        params: &[],
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("shapeId"), FacadeParam::VectorShapeIds("toolIds")],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
-        includes: &[],
+        setup_code: "\
+if (toolIds.empty()) {
+    return store(get(shapeId));
+}
+NCollection_List<TopoDS_Shape> args;
+args.Append(get(shapeId));
+NCollection_List<TopoDS_Shape> tools;
+for (uint32_t tid : toolIds) {
+    tools.Append(get(tid));
+}
+BRepAlgoAPI_Cut cutter;
+cutter.SetArguments(args);
+cutter.SetTools(tools);
+cutter.SetRunParallel(true);
+cutter.SetUseOBB(true);
+cutter.Build();
+if (!cutter.IsDone() || cutter.HasErrors()) {
+    throw std::runtime_error(\"cutAll: operation failed\");
+}
+return store(cutter.Shape());",
+        includes: &["BRepAlgoAPI_Cut.hxx", "NCollection_List.hxx", "TopoDS_Shape.hxx"],
+        category: "booleans",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "booleanPipeline",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("baseId"),
+            FacadeParam::VectorInt("opCodes"),
+            FacadeParam::VectorShapeIds("toolIds"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (opCodes.size() != toolIds.size()) {
+    throw std::runtime_error(\"booleanPipeline: opCodes and toolIds must have same length\");
+}
+TopoDS_Shape current = get(baseId);
+for (size_t i = 0; i < opCodes.size(); i++) {
+    const auto& tool = get(toolIds[i]);
+    bool isLast = (i == opCodes.size() - 1);
+    Message_ProgressRange progress;
+    switch (opCodes[i]) {
+    case 0: { BRepAlgoAPI_Fuse op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: fuse step failed\"); current = op.Shape(); break; }
+    case 1: { BRepAlgoAPI_Cut op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: cut step failed\"); current = op.Shape(); break; }
+    case 2: { BRepAlgoAPI_Common op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: intersect step failed\"); current = op.Shape(); break; }
+    default: throw std::runtime_error(\"booleanPipeline: unknown opCode\");
+    }
+    if (isLast) {
+        ShapeUpgrade_UnifySameDomain upgrader(current, Standard_True, Standard_True, Standard_False);
+        upgrader.Build();
+        current = upgrader.Shape();
+    }
+}
+return store(current);",
+        includes: &[
+            "BRepAlgoAPI_Fuse.hxx", "BRepAlgoAPI_Cut.hxx", "BRepAlgoAPI_Common.hxx",
+            "ShapeUpgrade_UnifySameDomain.hxx", "Message_ProgressRange.hxx",
+        ],
         category: "booleans",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
         name: "split",
-        kind: MethodKind::Skip,
-        params: &[],
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("shapeId"), FacadeParam::VectorShapeIds("toolIds")],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
-        includes: &[],
+        setup_code: "\
+NCollection_List<TopoDS_Shape> args;
+args.Append(get(shapeId));
+NCollection_List<TopoDS_Shape> tools;
+for (uint32_t tid : toolIds) {
+    tools.Append(get(tid));
+}
+BRepAlgoAPI_Splitter splitter;
+splitter.SetArguments(args);
+splitter.SetTools(tools);
+splitter.Build();
+if (!splitter.IsDone() || splitter.HasErrors()) {
+    throw std::runtime_error(\"split: operation failed\");
+}
+return store(splitter.Shape());",
+        includes: &["BRepAlgoAPI_Splitter.hxx", "NCollection_List.hxx", "TopoDS_Shape.hxx"],
         category: "booleans",
         return_type: ReturnType::ShapeId,
     },
@@ -317,35 +408,229 @@ return store(faceMaker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
-        name: "shell",
-        kind: MethodKind::Skip,
-        params: &[],
+        name: "chamferDistAngle",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::Double("distance"), FacadeParam::Double("angleDeg"),
+        ],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
-        includes: &[],
+        setup_code: "\
+double angleRad = angleDeg * M_PI / 180.0;
+const auto& solid = get(solidId);
+BRepFilletAPI_MakeChamfer maker(TopoDS::Solid(solid));
+for (uint32_t eid : edgeIds) {
+    const TopoDS_Edge& edge = TopoDS::Edge(get(eid));
+    TopoDS_Face adjFace;
+    for (TopExp_Explorer ex(solid, TopAbs_FACE); ex.More(); ex.Next()) {
+        const TopoDS_Face& f = TopoDS::Face(ex.Current());
+        for (TopExp_Explorer ex2(f, TopAbs_EDGE); ex2.More(); ex2.Next()) {
+            if (ex2.Current().IsSame(edge)) { adjFace = f; break; }
+        }
+        if (!adjFace.IsNull()) break;
+    }
+    if (adjFace.IsNull()) {
+        throw std::runtime_error(\"chamferDistAngle: no adjacent face found for edge\");
+    }
+    maker.AddDA(distance, angleRad, edge, adjFace);
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"chamferDistAngle: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopExp_Explorer.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "shell",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::Double("thickness"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+NCollection_List<TopoDS_Shape> facesToRemove;
+for (uint32_t fid : faceIds) {
+    facesToRemove.Append(get(fid));
+}
+BRepOffsetAPI_MakeThickSolid maker;
+maker.MakeThickSolidByJoin(get(solidId), facesToRemove, thickness, 1e-3);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"shell: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
         name: "offset",
-        kind: MethodKind::Skip,
-        params: &[],
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("solidId"), FacadeParam::Double("distance")],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
-        includes: &[],
+        setup_code: "\
+BRepOffsetAPI_MakeOffsetShape maker;
+maker.PerformByJoin(get(solidId), distance, 1e-3);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"offset: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_MakeOffsetShape.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
         name: "draft",
-        kind: MethodKind::Skip,
-        params: &[],
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"), FacadeParam::ShapeId("faceId"),
+            FacadeParam::Double("angleRad"),
+            FacadeParam::Double("dx"), FacadeParam::Double("dy"), FacadeParam::Double("dz"),
+        ],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
+        setup_code: "\
+gp_Dir pullDir(dx, dy, dz);
+BRepOffsetAPI_DraftAngle maker(get(shapeId));
+maker.Add(TopoDS::Face(get(faceId)), pullDir, angleRad, gp_Pln());
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"draft: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_DraftAngle.hxx", "TopoDS.hxx", "gp_Dir.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "thicken",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("shapeId"), FacadeParam::Double("thickness")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(shapeId);
+if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
+    BRepOffset_MakeOffset offsetMaker;
+    offsetMaker.Initialize(shape, thickness, 1e-3, BRepOffset_Skin, false, false, GeomAbs_Arc, true);
+    offsetMaker.MakeOffsetShape();
+    if (!offsetMaker.IsDone()) {
+        throw std::runtime_error(\"thicken: offset operation failed\");
+    }
+    return store(offsetMaker.Shape());
+}
+NCollection_List<TopoDS_Shape> emptyList;
+BRepOffsetAPI_MakeThickSolid maker;
+maker.MakeThickSolidByJoin(shape, emptyList, thickness, 1e-3);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"thicken: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepOffset_MakeOffset.hxx", "BRepOffset_Mode.hxx",
+            "BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx",
+            "GeomAbs_JoinType.hxx",
+        ],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "defeature",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("shapeId"), FacadeParam::VectorShapeIds("faceIds")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+NCollection_List<TopoDS_Shape> facesToRemove;
+for (uint32_t fid : faceIds) {
+    facesToRemove.Append(get(fid));
+}
+BRepOffsetAPI_MakeThickSolid maker;
+maker.MakeThickSolidByJoin(get(shapeId), facesToRemove, 0.0, 1e-3);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"defeature: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "reverseShape",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return store(get(id).Reversed());",
         includes: &[],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "simplify",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return unifySameDomain(id);",
+        includes: &[],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "filletVariable",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::ShapeId("edgeId"),
+            FacadeParam::Double("startRadius"), FacadeParam::Double("endRadius"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepFilletAPI_MakeFillet maker(TopoDS::Solid(get(solidId)));
+maker.Add(startRadius, endRadius, TopoDS::Edge(get(edgeId)));
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"filletVariable: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "offsetWire2D",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("wireId"), FacadeParam::Double("offset"),
+            FacadeParam::Int("joinType"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+GeomAbs_JoinType jt;
+switch (joinType) {
+case 1: jt = GeomAbs_Intersection; break;
+case 2: jt = GeomAbs_Tangent; break;
+default: jt = GeomAbs_Arc; break;
+}
+BRepOffsetAPI_MakeOffset maker(TopoDS::Wire(get(wireId)), jt);
+maker.Perform(offset);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"offsetWire2D: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_MakeOffset.hxx", "GeomAbs_JoinType.hxx", "TopoDS.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
@@ -944,7 +1229,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 45, "expected 45 generable methods");
+        assert_eq!(count, 60, "expected 60 generable methods");
     }
 
     #[test]

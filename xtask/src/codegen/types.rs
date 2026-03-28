@@ -58,6 +58,9 @@ pub enum FacadeParam {
 
     /// `std::vector<double>` of double values.
     VectorDouble(&'static str),
+
+    /// `std::vector<int>` of integer values.
+    VectorInt(&'static str),
 }
 
 impl FacadeParam {
@@ -71,7 +74,8 @@ impl FacadeParam {
             | Self::Bool(n)
             | Self::Int(n)
             | Self::String(n)
-            | Self::VectorDouble(n) => n,
+            | Self::VectorDouble(n)
+            | Self::VectorInt(n) => n,
         }
     }
 }

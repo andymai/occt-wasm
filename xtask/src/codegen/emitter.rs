@@ -18,6 +18,7 @@ fn param_to_cpp(param: &FacadeParam) -> String {
         FacadeParam::Int(name) => format!("int {name}"),
         FacadeParam::String(name) => format!("const std::string& {name}"),
         FacadeParam::VectorDouble(name) => format!("std::vector<double> {name}"),
+        FacadeParam::VectorInt(name) => format!("std::vector<int> {name}"),
     }
 }
 
