@@ -98,23 +98,65 @@ static TARGET_METHODS: &[MethodSpec] = &[
     },
     MethodSpec {
         name: "makeEllipsoid",
-        kind: MethodKind::Skip,
-        params: &[],
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("rx"),
+            FacadeParam::Double("ry"),
+            FacadeParam::Double("rz"),
+        ],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
-        includes: &[],
+        setup_code: "\
+double maxR = std::max({rx, ry, rz});
+BRepPrimAPI_MakeSphere sphereMaker(maxR);
+sphereMaker.Build();
+if (!sphereMaker.IsDone()) {
+    throw std::runtime_error(\"makeEllipsoid: sphere construction failed\");
+}
+gp_GTrsf gt;
+gt.SetValue(1, 1, rx / maxR);
+gt.SetValue(2, 2, ry / maxR);
+gt.SetValue(3, 3, rz / maxR);
+BRepBuilderAPI_GTransform xform(sphereMaker.Shape(), gt, true);
+if (!xform.IsDone()) {
+    throw std::runtime_error(\"makeEllipsoid: transform failed\");
+}
+return store(xform.Shape());",
+        includes: &[
+            "BRepPrimAPI_MakeSphere.hxx",
+            "BRepBuilderAPI_GTransform.hxx",
+            "gp_GTrsf.hxx",
+        ],
         category: "primitives",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
         name: "makeRectangle",
-        kind: MethodKind::Skip,
-        params: &[],
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::Double("width"), FacadeParam::Double("height")],
         occt_class: "",
         ctor_args: "",
-        setup_code: "",
-        includes: &[],
+        setup_code: "\
+gp_Pnt p0(0, 0, 0), p1(width, 0, 0), p2(width, height, 0), p3(0, height, 0);
+BRepBuilderAPI_MakeWire wireMaker;
+wireMaker.Add(BRepBuilderAPI_MakeEdge(p0, p1).Edge());
+wireMaker.Add(BRepBuilderAPI_MakeEdge(p1, p2).Edge());
+wireMaker.Add(BRepBuilderAPI_MakeEdge(p2, p3).Edge());
+wireMaker.Add(BRepBuilderAPI_MakeEdge(p3, p0).Edge());
+if (!wireMaker.IsDone()) {
+    throw std::runtime_error(\"makeRectangle: wire construction failed\");
+}
+BRepBuilderAPI_MakeFace faceMaker(wireMaker.Wire());
+if (!faceMaker.IsDone()) {
+    throw std::runtime_error(\"makeRectangle: face construction failed\");
+}
+return store(faceMaker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx",
+            "BRepBuilderAPI_MakeFace.hxx",
+            "BRepBuilderAPI_MakeWire.hxx",
+            "gp_Pnt.hxx",
+        ],
         category: "primitives",
         return_type: ReturnType::ShapeId,
     },
@@ -391,6 +433,202 @@ static TARGET_METHODS: &[MethodSpec] = &[
         category: "transforms",
         return_type: ReturnType::ShapeId,
     },
+    // ── Sweeps ──────────────────────────────────────────────────
+    MethodSpec {
+        name: "pipe",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("profileId"),
+            FacadeParam::ShapeId("spineId"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepOffsetAPI_MakePipe maker(TopoDS::Wire(get(spineId)), get(profileId));
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"pipe: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_MakePipe.hxx", "TopoDS.hxx"],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "simplePipe",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("profileId"),
+            FacadeParam::ShapeId("spineId"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return pipe(profileId, spineId);",
+        includes: &[],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "revolveVec",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::Double("cx"),
+            FacadeParam::Double("cy"),
+            FacadeParam::Double("cz"),
+            FacadeParam::Double("dx"),
+            FacadeParam::Double("dy"),
+            FacadeParam::Double("dz"),
+            FacadeParam::Double("angle"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return revolve(shapeId, cx, cy, cz, dx, dy, dz, angle);",
+        includes: &[],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "loft",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorShapeIds("wireIds"),
+            FacadeParam::Bool("isSolid"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepOffsetAPI_ThruSections maker(isSolid);
+for (uint32_t wid : wireIds) {
+    maker.AddWire(TopoDS::Wire(get(wid)));
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"loft: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_ThruSections.hxx", "TopoDS.hxx"],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "loftWithVertices",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorShapeIds("wireIds"),
+            FacadeParam::Bool("isSolid"),
+            FacadeParam::ShapeId("startVertexId"),
+            FacadeParam::ShapeId("endVertexId"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepOffsetAPI_ThruSections maker(isSolid);
+if (startVertexId != 0) {
+    maker.AddVertex(TopoDS::Vertex(get(startVertexId)));
+}
+for (uint32_t wid : wireIds) {
+    maker.AddWire(TopoDS::Wire(get(wid)));
+}
+if (endVertexId != 0) {
+    maker.AddVertex(TopoDS::Vertex(get(endVertexId)));
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"loftWithVertices: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_ThruSections.hxx", "TopoDS.hxx"],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "sweep",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("wireId"),
+            FacadeParam::ShapeId("spineId"),
+            FacadeParam::Int("transitionMode"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
+maker.SetTransitionMode(static_cast<BRepBuilderAPI_TransitionMode>(transitionMode));
+maker.Add(get(wireId));
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"sweep: operation failed\");
+}
+if (maker.MakeSolid()) {
+    return store(maker.Shape());
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepOffsetAPI_MakePipeShell.hxx",
+            "BRepBuilderAPI_TransitionMode.hxx",
+            "TopoDS.hxx",
+        ],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "sweepPipeShell",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("profileId"),
+            FacadeParam::ShapeId("spineId"),
+            FacadeParam::Bool("freenet"),
+            FacadeParam::Bool("smooth"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
+if (freenet) {
+    maker.SetMode(true);
+}
+if (smooth) {
+    maker.SetTransitionMode(BRepBuilderAPI_RoundCorner);
+}
+maker.Add(get(profileId));
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"sweepPipeShell: operation failed\");
+}
+maker.MakeSolid();
+return store(maker.Shape());",
+        includes: &[
+            "BRepOffsetAPI_MakePipeShell.hxx",
+            "BRepBuilderAPI_TransitionMode.hxx",
+            "TopoDS.hxx",
+        ],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "draftPrism",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::Double("dx"),
+            FacadeParam::Double("dy"),
+            FacadeParam::Double("dz"),
+            FacadeParam::Double("angleDeg"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepPrimAPI_MakePrism maker(get(shapeId), gp_Vec(dx, dy, dz));
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"draftPrism: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepPrimAPI_MakePrism.hxx", "gp_Vec.hxx"],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
     // ── Healing ──────────────────────────────────────────────────
     MethodSpec {
         name: "fixShape",
@@ -557,7 +795,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 29, "expected 29 generable methods");
+        assert_eq!(count, 39, "expected 39 generable methods");
     }
 
     #[test]
