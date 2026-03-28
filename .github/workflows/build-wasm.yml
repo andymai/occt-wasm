@@ -88,9 +88,9 @@ jobs:
         shell: bash
         run: set -o pipefail; npx vitest run test/bench.test.ts 2>&1 | node scripts/bench-check.js
 
-      - name: Upload WASM artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: occt-wasm-dist
-          path: dist/
+          path: ts/dist/
           retention-days: 7
