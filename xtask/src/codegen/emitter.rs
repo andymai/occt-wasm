@@ -324,6 +324,7 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf);
 
     // Standard C++ includes.
+    let _ = writeln!(buf, "#include <set>");
     let _ = writeln!(buf, "#include <stdexcept>");
     let _ = writeln!(buf, "#include <string>");
     let _ = writeln!(buf);

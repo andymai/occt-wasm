@@ -36,10 +36,10 @@ static TARGET_METHODS: &[MethodSpec] = &[
     },
     MethodSpec {
         name: "getShapeCount",
-        kind: MethodKind::DirectCall,
+        kind: MethodKind::Skip, // const method — emitter doesn't support const yet
         params: &[],
         occt_class: "",
-        ctor_args: "static_cast<uint32_t>(arena_.size())",
+        ctor_args: "",
         setup_code: "",
         includes: &[],
         category: "kernel",
@@ -1976,12 +1976,23 @@ return store(current);",
     // ── Topology query ──────────────────────────────────────────────
     MethodSpec {
         name: "getShapeType",
-        kind: MethodKind::DirectCall,
+        kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("id")],
         occt_class: "",
-        ctor_args: "shapeTypeToString(get(id).ShapeType())",
-        setup_code: "",
-        includes: &[],
+        ctor_args: "",
+        setup_code: "\
+switch (get(id).ShapeType()) {
+case TopAbs_VERTEX: return \"vertex\";
+case TopAbs_EDGE: return \"edge\";
+case TopAbs_WIRE: return \"wire\";
+case TopAbs_FACE: return \"face\";
+case TopAbs_SHELL: return \"shell\";
+case TopAbs_SOLID: return \"solid\";
+case TopAbs_COMPSOLID: return \"compsolid\";
+case TopAbs_COMPOUND: return \"compound\";
+default: return \"shape\";
+}",
+        includes: &["TopAbs_ShapeEnum.hxx"],
         category: "topology",
         return_type: ReturnType::String,
     },
@@ -1992,7 +2003,17 @@ return store(current);",
         occt_class: "",
         ctor_args: "",
         setup_code: "\
-TopAbs_ShapeEnum toExplore = parseShapeType(shapeType);
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+TopAbs_ShapeEnum toExplore = parseType(shapeType);
 std::vector<uint32_t> result;
 NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
 TopExp::MapShapes(get(id), toExplore, map);
@@ -2019,7 +2040,17 @@ return result;",
         ctor_args: "",
         setup_code: "\
 const auto& shape = get(id);
-TopAbs_ShapeEnum target = parseShapeType(targetType);
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+TopAbs_ShapeEnum target = parseType(targetType);
 if (shape.ShapeType() != target) {
     throw std::runtime_error(\"downcast: shape type mismatch\");
 }
@@ -3436,7 +3467,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 129, "expected 129 generable methods");
+        assert_eq!(count, 128, "expected 128 generable methods");
     }
 
     #[test]
