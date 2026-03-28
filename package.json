@@ -12,7 +12,9 @@
     "publish:dry": "./scripts/publish.sh --dry-run",
     "publish:npm": "./scripts/publish.sh",
     "docker:build": "DOCKER_BUILDKIT=1 docker build --progress=plain -t occt-wasm .",
-    "docker:dist": "DOCKER_BUILDKIT=1 docker build --progress=plain -t occt-wasm . && docker run --rm -v \"$(pwd)/dist:/out\" occt-wasm sh -c 'cp dist/* /out/'"
+    "docker:dist": "DOCKER_BUILDKIT=1 docker build --progress=plain -t occt-wasm . && docker run --rm -v \"$(pwd)/dist:/out\" occt-wasm sh -c 'cp dist/* /out/'",
+    "builder:build": "./scripts/builder-image.sh --build",
+    "builder:push": "./scripts/builder-image.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
@@ -20,6 +22,7 @@
     "@playwright/test": "^1.58.2",
     "husky": "^9",
     "opencascade.js": "^1.1.1",
-    "serve": "^14.2.6"
+    "serve": "^14.2.6",
+    "vitest": "^4.1.2"
   }
 }

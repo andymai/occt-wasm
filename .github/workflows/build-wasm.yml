@@ -1,0 +1,63 @@
+name: Build WASM
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        description: Build in release mode (LTO + wasm-opt)
+        type: boolean
+        default: false
+    outputs:
+      artifact-name:
+        description: Name of the uploaded dist artifact
+        value: occt-wasm-dist
+
+jobs:
+  build:
+    name: WASM Build & Test
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/andymai/occt-wasm-builder:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Link pre-built OCCT libs
+        run: |
+          cp -r /workspace/occt/build occt/build
+          cp -r /workspace/3rdparty 3rdparty
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd ts && npm ci
+
+      - name: Build facade + link WASM
+        run: cargo xtask build ${{ inputs.release && '--release' || '' }}
+
+      - name: Build TypeScript
+        run: |
+          cd ts
+          npm run build
+          cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/
+
+      - name: Run tests
+        run: npx vitest run
+
+      - name: Run benchmarks & check for regressions
+        if: ${{ !inputs.release }}
+        shell: bash
+        run: set -o pipefail; npx vitest run test/bench.test.ts 2>&1 | node scripts/bench-check.js
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: occt-wasm-dist
+          path: ts/dist/
+          retention-days: 7

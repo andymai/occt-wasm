@@ -1,10 +1,15 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
 
 jobs:
   lint:
@@ -31,7 +36,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ts/package-lock.json
 
       - name: Install TS dependencies
         run: cd ts && npm ci
@@ -43,70 +52,7 @@ jobs:
         run: cd ts && npx eslint src/
 
   build-test:
-    name: WASM Build & Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup emsdk
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: 5.0.3
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.85"
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: |
-          npm ci
-          cd ts && npm ci
-
-      - name: Fetch RapidJSON headers
-        run: ./scripts/fetch-rapidjson.sh
-
-      - name: Compute OCCT cache key
-        id: occt-key
-        run: echo "hash=$(git rev-parse HEAD:occt)-$(sha256sum xtask/src/build.rs | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache OCCT static libs
-        uses: actions/cache@v4
-        with:
-          path: occt/build
-          key: occt-${{ steps.occt-key.outputs.hash }}
-
-      - name: Build OCCT + facade → WASM
-        run: cargo xtask build
-
-      - name: Build TypeScript
-        run: |
-          cd ts
-          npm run build
-          cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/
-
-      - name: Run tests
-        run: cd ts && npx vitest run
-
-      - name: Run benchmarks & check for regressions
-        run: cd ts && npx vitest run ../test/bench.test.ts 2>&1 | node ../scripts/bench-check.js
-
-      - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: occt-wasm-dist
-          path: dist/
-          retention-days: 7
+    uses: ./.github/workflows/build-wasm.yml
 
   browser-smoke:
     name: Browser Smoke Test
@@ -118,19 +64,24 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Download WASM artifact
+      - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: occt-wasm-dist
           path: dist/
 
+      - name: Copy WASM to ts/dist for test imports
+        run: mkdir -p ts/dist && cp dist/occt-wasm.js dist/occt-wasm.wasm ts/dist/
+
       - name: Install dependencies
-        run: |
-          npm ci
-          cd ts && npm ci
-          npx playwright install chromium --with-deps
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install chromium --with-deps
 
       - name: Run browser smoke test
         run: npx playwright test
