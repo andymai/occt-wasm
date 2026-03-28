@@ -8,10 +8,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  packages: read
-  contents: read
-
 env:
   NODE_VERSION: "22"
 
