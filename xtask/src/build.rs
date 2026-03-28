@@ -136,7 +136,6 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
 
     for src in &sources {
         let name = src.file_stem().context("no file stem")?.to_string_lossy();
-        // Prefix generated files to avoid name collisions (e.g., kernel.o vs gen_kernel.o).
         let is_generated = src.starts_with(&gen_dir);
         let prefix = if is_generated { "gen_" } else { "" };
         let obj = build_dir.join(format!("{prefix}{name}.o"));

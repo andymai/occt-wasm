@@ -17,7 +17,8 @@
     "prebuild": "cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/ 2>/dev/null || true",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "docs": "typedoc"
   },
   "keywords": [
     "opencascade",
@@ -40,6 +41,7 @@
     "@typescript-eslint/eslint-plugin": "^8",
     "@typescript-eslint/parser": "^8",
     "eslint": "^9",
+    "typedoc": "^0.28.18",
     "typescript": "^5.7",
     "vitest": "^3"
   }

@@ -18,6 +18,9 @@ dist/
 *.wasm
 *.wasm.map
 
+# Generated docs
+ts/docs/
+
 # Editor
 .vscode/
 .idea/
