@@ -1,8 +1,0 @@
-name: Warm OCCT Cache
-
-on:
-  workflow_dispatch:
-
-jobs:
-  warm:
-    uses: ./.github/workflows/build-wasm.yml

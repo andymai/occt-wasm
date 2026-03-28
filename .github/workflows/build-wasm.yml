@@ -12,66 +12,33 @@ on:
         description: Name of the uploaded dist artifact
         value: occt-wasm-dist
 
-env:
-  EMSDK_VERSION: "5.0.3"
-  NODE_VERSION: "22"
-  RUST_TOOLCHAIN: "1.85"
-
 jobs:
   build:
     name: WASM Build & Test
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/andymai/occt-wasm-builder:latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup emsdk
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: ${{ env.EMSDK_VERSION }}
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+      - name: Link pre-built OCCT libs
+        run: |
+          cp -r /workspace/occt/build occt/build
+          cp -r /workspace/3rdparty 3rdparty
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          registry-url: https://registry.npmjs.org
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            ts/package-lock.json
+          node-version: "22"
 
       - name: Install dependencies
         run: |
           npm ci
           cd ts && npm ci
 
-      - name: Fetch RapidJSON headers
-        run: ./scripts/fetch-rapidjson.sh
-
-      - name: Compute OCCT cache key
-        id: occt-key
-        run: |
-          OCCT_REV=$(git rev-parse HEAD:occt)
-          BUILD_HASH=$(sha256sum xtask/src/build.rs | cut -d' ' -f1)
-          RAPID_HASH=$(sha256sum scripts/fetch-rapidjson.sh | cut -d' ' -f1)
-          echo "hash=${OCCT_REV}-${BUILD_HASH}-${RAPID_HASH}-emsdk${{ env.EMSDK_VERSION }}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache OCCT static libs
-        uses: actions/cache@v4
-        with:
-          path: occt/build
-          key: occt-${{ steps.occt-key.outputs.hash }}
-
-      - name: Build OCCT + facade -> WASM
+      - name: Build facade + link WASM
         run: cargo xtask build ${{ inputs.release && '--release' || '' }}
 
       - name: Build TypeScript
