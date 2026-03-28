@@ -160,6 +160,10 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("circularPattern", &OcctKernel::circularPattern)
         .function("composeTransform", &OcctKernel::composeTransform)
 
+        // Batch operations
+        .function("translateBatch", &OcctKernel::translateBatch)
+        .function("booleanPipeline", &OcctKernel::booleanPipeline)
+
         // Topology
         .function("getShapeType", &OcctKernel::getShapeType)
         .function("getSubShapes", &OcctKernel::getSubShapes)

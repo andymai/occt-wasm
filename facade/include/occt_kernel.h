@@ -195,6 +195,11 @@ class OcctKernel {
                              double az, double angle, int count);
     std::vector<double> composeTransform(std::vector<double> m1, std::vector<double> m2);
 
+    // --- Batch operations ---
+    std::vector<uint32_t> translateBatch(std::vector<uint32_t> ids, std::vector<double> offsets);
+    uint32_t booleanPipeline(uint32_t baseId, std::vector<int> opCodes,
+                             std::vector<uint32_t> toolIds);
+
     // --- Topology query ---
     std::string getShapeType(uint32_t id);
     std::vector<uint32_t> getSubShapes(uint32_t id, const std::string& shapeType);

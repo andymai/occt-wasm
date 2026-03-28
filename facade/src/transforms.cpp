@@ -115,6 +115,26 @@ uint32_t OcctKernel::generalTransform(uint32_t id, std::vector<double> matrix) {
     }
 }
 
+std::vector<uint32_t> OcctKernel::translateBatch(std::vector<uint32_t> ids,
+                                                 std::vector<double> offsets) {
+    try {
+        if (offsets.size() != ids.size() * 3) {
+            throw std::runtime_error("translateBatch: offsets must have 3 * ids.size() elements");
+        }
+        std::vector<uint32_t> results;
+        results.reserve(ids.size());
+        for (size_t i = 0; i < ids.size(); i++) {
+            gp_Trsf trsf;
+            trsf.SetTranslation(gp_Vec(offsets[i * 3], offsets[i * 3 + 1], offsets[i * 3 + 2]));
+            BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
+            results.push_back(store(maker.Shape()));
+        }
+        return results;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("translateBatch: ") + e.what());
+    }
+}
+
 std::vector<double> OcctKernel::composeTransform(std::vector<double> m1, std::vector<double> m2) {
     try {
         if (m1.size() != 12 || m2.size() != 12) {

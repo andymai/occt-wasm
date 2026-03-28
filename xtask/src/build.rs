@@ -61,7 +61,7 @@ pub fn build_occt() -> Result<()> {
     } else {
         eprintln!("Step 1a: Configuring OCCT with emcmake cmake...");
 
-        let c_flags = "-fwasm-exceptions -O2 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS";
+        let c_flags = "-fwasm-exceptions -O3 -msimd128 -mrelaxed-simd -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS";
         let cxx_flags = c_flags;
         let rapidjson_inc = root.join("3rdparty/rapidjson").display().to_string();
 
@@ -156,7 +156,7 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         let obj_str = obj.display().to_string();
         cmd!(
             sh,
-            "em++ -std=c++17 -fwasm-exceptions -O2
+            "em++ -std=c++17 -fwasm-exceptions -O3 -msimd128 -mrelaxed-simd
             -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS
             -I{occt_inc_str} -I{facade_inc_str}
             -w -c {src_str} -o {obj_str}"
@@ -249,6 +249,9 @@ fn link_wasm(
     let mut args: Vec<String> = vec![
         "-lembind".into(),
         "-fwasm-exceptions".into(),
+        "-msimd128".into(),
+        "-mrelaxed-simd".into(),
+        "-mtail-call".into(),
         opt_level.into(),
         "-sINITIAL_MEMORY=134217728".into(),
         "-sMAXIMUM_MEMORY=4294967296".into(),
@@ -312,9 +315,11 @@ fn optimize_wasm(sh: &Shell, root: &Path) -> Result<()> {
     cmd!(
         sh,
         "{wasm_opt_bin} -O4 --strip-debug --strip-producers
+        --converge --gufa
         --enable-bulk-memory --enable-sign-ext
         --enable-nontrapping-float-to-int --enable-mutable-globals
-        --enable-exception-handling
+        --enable-exception-handling --enable-simd --enable-tail-call
+        --enable-relaxed-simd
         {wasm_str} -o {wasm_str}"
     )
     .run()?;
