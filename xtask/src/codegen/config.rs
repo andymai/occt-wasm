@@ -867,6 +867,1602 @@ return {result.Value(1, 1), result.Value(1, 2), result.Value(1, 3), result.Value
         category: "transforms",
         return_type: ReturnType::VectorDouble,
     },
+    // ── Construction ────────────────────────────────────────────
+    MethodSpec {
+        name: "makeVertex",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("x"),
+            FacadeParam::Double("y"),
+            FacadeParam::Double("z"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepBuilderAPI_MakeVertex maker(gp_Pnt(x, y, z));
+return store(maker.Shape());",
+        includes: &["BRepBuilderAPI_MakeVertex.hxx", "gp_Pnt.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeEdge",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("v1"), FacadeParam::ShapeId("v2")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepBuilderAPI_MakeEdge maker(TopoDS::Vertex(get(v1)), TopoDS::Vertex(get(v2)));
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeEdge: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepBuilderAPI_MakeEdge.hxx", "TopoDS.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeWire",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("edgeIds")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepBuilderAPI_MakeWire maker;
+for (uint32_t eid : edgeIds) {
+    maker.Add(TopoDS::Edge(get(eid)));
+    // If Add fails partway, try continuing — the wire may still be usable
+}
+if (maker.IsDone()) {
+    return store(maker.Shape());
+}
+// Fallback: try with increased tolerance via ShapeFix_Wire
+// Build a wire from edges directly and let ShapeFix close gaps
+BRep_Builder builder;
+TopoDS_Wire rawWire;
+builder.MakeWire(rawWire);
+for (uint32_t eid : edgeIds) {
+    builder.Add(rawWire, TopoDS::Edge(get(eid)));
+}
+ShapeFix_Wire fixer(rawWire, TopoDS_Face(), 1e-3);
+fixer.FixConnected();
+fixer.FixReorder();
+if (fixer.Wire().IsNull()) {
+    throw std::runtime_error(\"makeWire: construction failed (even with ShapeFix)\");
+}
+return store(fixer.Wire());",
+        includes: &[
+            "BRepBuilderAPI_MakeWire.hxx", "TopoDS.hxx", "BRep_Builder.hxx",
+            "TopoDS_Wire.hxx", "ShapeFix_Wire.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeFace",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("wireId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepBuilderAPI_MakeFace maker(TopoDS::Wire(get(wireId)));
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeFace: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepBuilderAPI_MakeFace.hxx", "TopoDS.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeFaceOnSurface",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceId"), FacadeParam::ShapeId("wireId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+// Extract surface from existing face, build new face with wire on that surface
+Handle(Geom_Surface) surface = BRep_Tool::Surface(TopoDS::Face(get(faceId)));
+BRepBuilderAPI_MakeFace maker(surface, TopoDS::Wire(get(wireId)), true);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeFaceOnSurface: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeFace.hxx", "BRep_Tool.hxx", "Geom_Surface.hxx", "TopoDS.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeSolid",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("shellId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(shellId);
+// If already a solid, return as-is
+if (shape.ShapeType() == TopAbs_SOLID) {
+    return store(shape);
+}
+// If a compound, try to find a shell inside
+if (shape.ShapeType() == TopAbs_COMPOUND) {
+    for (TopExp_Explorer ex(shape, TopAbs_SHELL); ex.More(); ex.Next()) {
+        BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(ex.Current()));
+        if (maker.IsDone()) {
+            return store(maker.Shape());
+        }
+    }
+    throw std::runtime_error(\"makeSolid: compound has no valid shell\");
+}
+BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(shape));
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeSolid: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeSolid.hxx", "TopExp_Explorer.hxx", "TopoDS.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "sew",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorShapeIds("shapeIds"),
+            FacadeParam::Double("tolerance"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepBuilderAPI_Sewing sewer(tolerance);
+for (uint32_t sid : shapeIds) {
+    sewer.Add(get(sid));
+}
+sewer.Perform();
+return store(sewer.SewedShape());",
+        includes: &["BRepBuilderAPI_Sewing.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeCompound",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("shapeIds")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Compound compound;
+TopoDS_Builder builder;
+builder.MakeCompound(compound);
+for (uint32_t sid : shapeIds) {
+    builder.Add(compound, get(sid));
+}
+return store(compound);",
+        includes: &["TopoDS_Compound.hxx", "TopoDS_Builder.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeLineEdge",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("x1"), FacadeParam::Double("y1"), FacadeParam::Double("z1"),
+            FacadeParam::Double("x2"), FacadeParam::Double("y2"), FacadeParam::Double("z2"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepBuilderAPI_MakeEdge maker(gp_Pnt(x1, y1, z1), gp_Pnt(x2, y2, z2));
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeLineEdge: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepBuilderAPI_MakeEdge.hxx", "gp_Pnt.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeCircleEdge",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("cx"), FacadeParam::Double("cy"), FacadeParam::Double("cz"),
+            FacadeParam::Double("nx"), FacadeParam::Double("ny"), FacadeParam::Double("nz"),
+            FacadeParam::Double("radius"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Ax2 axis(gp_Pnt(cx, cy, cz), gp_Dir(nx, ny, nz));
+gp_Circ circle(axis, radius);
+BRepBuilderAPI_MakeEdge maker(circle);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeCircleEdge: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepBuilderAPI_MakeEdge.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "gp_Circ.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeCircleArc",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("cx"), FacadeParam::Double("cy"), FacadeParam::Double("cz"),
+            FacadeParam::Double("nx"), FacadeParam::Double("ny"), FacadeParam::Double("nz"),
+            FacadeParam::Double("radius"),
+            FacadeParam::Double("startAngle"), FacadeParam::Double("endAngle"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Ax2 axis(gp_Pnt(cx, cy, cz), gp_Dir(nx, ny, nz));
+gp_Circ circle(axis, radius);
+Handle(Geom_TrimmedCurve) arc =
+    new Geom_TrimmedCurve(new Geom_Circle(circle), startAngle, endAngle);
+BRepBuilderAPI_MakeEdge maker(arc);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeCircleArc: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx",
+            "gp_Circ.hxx", "Geom_TrimmedCurve.hxx", "Geom_Circle.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeArcEdge",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("x1"), FacadeParam::Double("y1"), FacadeParam::Double("z1"),
+            FacadeParam::Double("x2"), FacadeParam::Double("y2"), FacadeParam::Double("z2"),
+            FacadeParam::Double("x3"), FacadeParam::Double("y3"), FacadeParam::Double("z3"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+GC_MakeArcOfCircle arc(gp_Pnt(x1, y1, z1), gp_Pnt(x2, y2, z2), gp_Pnt(x3, y3, z3));
+if (!arc.IsDone()) {
+    throw std::runtime_error(\"makeArcEdge: construction failed\");
+}
+BRepBuilderAPI_MakeEdge maker(arc.Value());
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeArcEdge: edge construction failed\");
+}
+return store(maker.Shape());",
+        includes: &["GC_MakeArcOfCircle.hxx", "BRepBuilderAPI_MakeEdge.hxx", "gp_Pnt.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeEllipseEdge",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("cx"), FacadeParam::Double("cy"), FacadeParam::Double("cz"),
+            FacadeParam::Double("nx"), FacadeParam::Double("ny"), FacadeParam::Double("nz"),
+            FacadeParam::Double("majorRadius"), FacadeParam::Double("minorRadius"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Ax2 axis(gp_Pnt(cx, cy, cz), gp_Dir(nx, ny, nz));
+gp_Elips ellipse(axis, majorRadius, minorRadius);
+BRepBuilderAPI_MakeEdge maker(ellipse);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeEllipseEdge: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepBuilderAPI_MakeEdge.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "gp_Elips.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeBezierEdge",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorDouble("flatPoints")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+int nPts = static_cast<int>(flatPoints.size()) / 3;
+if (nPts < 2) {
+    throw std::runtime_error(\"makeBezierEdge: need at least 2 points\");
+}
+NCollection_Array1<gp_Pnt> poles(1, nPts);
+for (int i = 0; i < nPts; i++) {
+    poles.SetValue(i + 1,
+                   gp_Pnt(flatPoints[i * 3], flatPoints[i * 3 + 1], flatPoints[i * 3 + 2]));
+}
+Handle(Geom_BezierCurve) curve = new Geom_BezierCurve(poles);
+BRepBuilderAPI_MakeEdge maker(curve);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeBezierEdge: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "NCollection_Array1.hxx",
+            "gp_Pnt.hxx", "Geom_BezierCurve.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeEllipseArc",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("cx"), FacadeParam::Double("cy"), FacadeParam::Double("cz"),
+            FacadeParam::Double("nx"), FacadeParam::Double("ny"), FacadeParam::Double("nz"),
+            FacadeParam::Double("majorRadius"), FacadeParam::Double("minorRadius"),
+            FacadeParam::Double("startAngle"), FacadeParam::Double("endAngle"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Ax2 axis(gp_Pnt(cx, cy, cz), gp_Dir(nx, ny, nz));
+gp_Elips ellipse(axis, majorRadius, minorRadius);
+Handle(Geom_TrimmedCurve) arc =
+    new Geom_TrimmedCurve(new Geom_Ellipse(ellipse), startAngle, endAngle);
+BRepBuilderAPI_MakeEdge maker(arc);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeEllipseArc: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx",
+            "gp_Elips.hxx", "Geom_TrimmedCurve.hxx", "Geom_Ellipse.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeHelixWire",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("px"), FacadeParam::Double("py"), FacadeParam::Double("pz"),
+            FacadeParam::Double("dx"), FacadeParam::Double("dy"), FacadeParam::Double("dz"),
+            FacadeParam::Double("pitch"), FacadeParam::Double("height"), FacadeParam::Double("radius"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Ax3 ax3(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz));
+Handle(Geom_CylindricalSurface) cylinder = new Geom_CylindricalSurface(ax3, radius);
+
+// A helix on a cylindrical surface is a 2D line: u = t, v = pitch/(2*pi) * t
+double slope = pitch / (2.0 * M_PI);
+double nTurns = height / pitch;
+double uMax = nTurns * 2.0 * M_PI;
+
+Handle(Geom2d_Line) line2d = new Geom2d_Line(gp_Pnt2d(0, 0), gp_Dir2d(1, slope));
+
+BRepBuilderAPI_MakeEdge edgeMaker(line2d, cylinder, 0.0, uMax);
+if (!edgeMaker.IsDone()) {
+    throw std::runtime_error(\"makeHelixWire: edge construction failed\");
+}
+BRepBuilderAPI_MakeWire wireMaker(edgeMaker.Edge());
+if (!wireMaker.IsDone()) {
+    throw std::runtime_error(\"makeHelixWire: wire construction failed\");
+}
+return store(wireMaker.Shape());",
+        includes: &[
+            "gp_Ax3.hxx", "gp_Pnt.hxx", "gp_Dir.hxx",
+            "Geom_CylindricalSurface.hxx", "Geom2d_Line.hxx",
+            "gp_Pnt2d.hxx", "gp_Dir2d.hxx",
+            "BRepBuilderAPI_MakeEdge.hxx", "BRepBuilderAPI_MakeWire.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeNonPlanarFace",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("wireId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepOffsetAPI_MakeFilling filler;
+for (TopExp_Explorer ex(get(wireId), TopAbs_EDGE); ex.More(); ex.Next()) {
+    filler.Add(TopoDS::Edge(ex.Current()), GeomAbs_C0);
+}
+filler.Build();
+if (!filler.IsDone()) {
+    throw std::runtime_error(\"makeNonPlanarFace: construction failed\");
+}
+return store(filler.Shape());",
+        includes: &[
+            "BRepOffsetAPI_MakeFilling.hxx", "TopExp_Explorer.hxx",
+            "TopoDS.hxx", "GeomAbs_Shape.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "addHolesInFace",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("faceId"),
+            FacadeParam::VectorShapeIds("holeWireIds"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Face face = TopoDS::Face(get(faceId));
+BRepBuilderAPI_MakeFace maker(face);
+for (uint32_t wid : holeWireIds) {
+    // Holes must be reversed orientation
+    TopoDS_Wire hole = TopoDS::Wire(get(wid));
+    hole.Reverse();
+    maker.Add(hole);
+}
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"addHolesInFace: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepBuilderAPI_MakeFace.hxx", "TopoDS.hxx", "TopoDS_Wire.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "removeHolesFromFace",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("faceId"),
+            FacadeParam::VectorInt("holeIndices"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Face face = TopoDS::Face(get(faceId));
+// Collect inner wires (all wires except the outer wire)
+TopoDS_Wire outer = ShapeAnalysis::OuterWire(face);
+std::vector<TopoDS_Wire> innerWires;
+for (TopExp_Explorer ex(face, TopAbs_WIRE); ex.More(); ex.Next()) {
+    TopoDS_Wire w = TopoDS::Wire(ex.Current());
+    if (!w.IsSame(outer)) {
+        innerWires.push_back(w);
+    }
+}
+// Build set of indices to remove
+std::set<int> removeSet(holeIndices.begin(), holeIndices.end());
+// Rebuild face: start from outer wire on the same surface
+Handle(Geom_Surface) geomSurf = BRep_Tool::Surface(face);
+BRepBuilderAPI_MakeFace maker(geomSurf, outer, true);
+for (int i = 0; i < static_cast<int>(innerWires.size()); i++) {
+    if (removeSet.find(i) == removeSet.end()) {
+        maker.Add(innerWires[i]);
+    }
+}
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"removeHolesFromFace: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeFace.hxx", "BRep_Tool.hxx", "Geom_Surface.hxx",
+            "ShapeAnalysis.hxx", "TopExp_Explorer.hxx", "TopoDS.hxx", "TopoDS_Wire.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "solidFromShell",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("shellId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return makeSolid(shellId);",
+        includes: &[],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "buildSolidFromFaces",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::Double("tolerance"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return sewAndSolidify(faceIds, tolerance);",
+        includes: &[],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "sewAndSolidify",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::Double("tolerance"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepBuilderAPI_Sewing sewer(tolerance);
+for (uint32_t fid : faceIds) {
+    sewer.Add(get(fid));
+}
+sewer.Perform();
+TopoDS_Shape sewn = sewer.SewedShape();
+// Try to make a solid from the sewn shell
+if (sewn.ShapeType() == TopAbs_SHELL) {
+    BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(sewn));
+    if (maker.IsDone()) {
+        return store(maker.Shape());
+    }
+}
+return store(sewn);",
+        includes: &["BRepBuilderAPI_Sewing.hxx", "BRepBuilderAPI_MakeSolid.hxx", "TopoDS.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "buildTriFace",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("ax"), FacadeParam::Double("ay"), FacadeParam::Double("az"),
+            FacadeParam::Double("bx"), FacadeParam::Double("by"), FacadeParam::Double("bz"),
+            FacadeParam::Double("cx2"), FacadeParam::Double("cy2"), FacadeParam::Double("cz2"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Pnt pa(ax, ay, az), pb(bx, by, bz), pc(cx2, cy2, cz2);
+BRepBuilderAPI_MakeWire wireMaker;
+wireMaker.Add(BRepBuilderAPI_MakeEdge(pa, pb).Edge());
+wireMaker.Add(BRepBuilderAPI_MakeEdge(pb, pc).Edge());
+wireMaker.Add(BRepBuilderAPI_MakeEdge(pc, pa).Edge());
+if (!wireMaker.IsDone()) {
+    throw std::runtime_error(\"buildTriFace: wire construction failed\");
+}
+BRepBuilderAPI_MakeFace faceMaker(wireMaker.Wire());
+if (!faceMaker.IsDone()) {
+    throw std::runtime_error(\"buildTriFace: face construction failed\");
+}
+return store(faceMaker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "BRepBuilderAPI_MakeFace.hxx",
+            "BRepBuilderAPI_MakeWire.hxx", "gp_Pnt.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "makeTangentArc",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("x1"), FacadeParam::Double("y1"), FacadeParam::Double("z1"),
+            FacadeParam::Double("tx"), FacadeParam::Double("ty"), FacadeParam::Double("tz"),
+            FacadeParam::Double("x2"), FacadeParam::Double("y2"), FacadeParam::Double("z2"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Pnt startPt(x1, y1, z1);
+gp_Vec tangent(tx, ty, tz);
+gp_Pnt endPt(x2, y2, z2);
+
+GC_MakeArcOfCircle arcMaker(startPt, tangent, endPt);
+if (!arcMaker.IsDone()) {
+    throw std::runtime_error(\"makeTangentArc: arc construction failed\");
+}
+
+BRepBuilderAPI_MakeEdge edgeMaker(arcMaker.Value());
+if (!edgeMaker.IsDone()) {
+    throw std::runtime_error(\"makeTangentArc: edge construction failed\");
+}
+return store(edgeMaker.Shape());",
+        includes: &["GC_MakeArcOfCircle.hxx", "BRepBuilderAPI_MakeEdge.hxx", "gp_Pnt.hxx", "gp_Vec.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "bsplineSurface",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorDouble("flatPoints"),
+            FacadeParam::Int("rows"),
+            FacadeParam::Int("cols"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (rows < 2 || cols < 2) {
+    throw std::runtime_error(\"bsplineSurface: need at least 2x2 grid\");
+}
+int nPts = static_cast<int>(flatPoints.size()) / 3;
+if (nPts != rows * cols) {
+    throw std::runtime_error(\"bsplineSurface: point count mismatch\");
+}
+
+// Build a 2D array of gp_Pnt (1-based indexing)
+NCollection_Array2<gp_Pnt> points(1, rows, 1, cols);
+for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+        int idx = (r * cols + c) * 3;
+        points.SetValue(r + 1, c + 1,
+                        gp_Pnt(flatPoints[idx], flatPoints[idx + 1], flatPoints[idx + 2]));
+    }
+}
+
+GeomAPI_PointsToBSplineSurface approx(points, 3, 8, GeomAbs_C2, 1e-3);
+if (!approx.IsDone()) {
+    throw std::runtime_error(\"bsplineSurface: approximation failed\");
+}
+
+BRepBuilderAPI_MakeFace faceMaker(approx.Surface(), 1e-3);
+if (!faceMaker.IsDone()) {
+    throw std::runtime_error(\"bsplineSurface: face construction failed\");
+}
+return store(faceMaker.Shape());",
+        includes: &[
+            "NCollection_Array2.hxx", "gp_Pnt.hxx",
+            "GeomAPI_PointsToBSplineSurface.hxx", "GeomAbs_Shape.hxx",
+            "Geom_BSplineSurface.hxx", "BRepBuilderAPI_MakeFace.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    // ── Topology ────────────────────────────────────────────────
+    MethodSpec {
+        name: "getShapeType",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+switch (get(id).ShapeType()) {
+case TopAbs_VERTEX: return \"vertex\";
+case TopAbs_EDGE: return \"edge\";
+case TopAbs_WIRE: return \"wire\";
+case TopAbs_FACE: return \"face\";
+case TopAbs_SHELL: return \"shell\";
+case TopAbs_SOLID: return \"solid\";
+case TopAbs_COMPSOLID: return \"compsolid\";
+case TopAbs_COMPOUND: return \"compound\";
+default: return \"shape\";
+}",
+        includes: &["TopAbs_ShapeEnum.hxx"],
+        category: "topology",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "getSubShapes",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::String("shapeType")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+TopAbs_ShapeEnum toExplore = parseType(shapeType);
+std::vector<uint32_t> result;
+NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
+TopExp::MapShapes(get(id), toExplore, map);
+for (int i = 1; i <= map.Extent(); i++) {
+    result.push_back(store(map.FindKey(i)));
+}
+return result;",
+        includes: &[
+            "TopAbs_ShapeEnum.hxx", "TopExp.hxx",
+            "NCollection_IndexedMap.hxx", "TopTools_ShapeMapHasher.hxx",
+        ],
+        category: "topology",
+        return_type: ReturnType::VectorUint32,
+    },
+    MethodSpec {
+        name: "distanceBetween",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("a"), FacadeParam::ShapeId("b")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepExtrema_DistShapeShape dist(get(a), get(b));
+if (!dist.IsDone()) {
+    throw std::runtime_error(\"distanceBetween: computation failed\");
+}
+return dist.Value();",
+        includes: &["BRepExtrema_DistShapeShape.hxx"],
+        category: "topology",
+        return_type: ReturnType::Double,
+    },
+    MethodSpec {
+        name: "isSame",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("a"), FacadeParam::ShapeId("b")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return get(a).IsSame(get(b));",
+        includes: &[],
+        category: "topology",
+        return_type: ReturnType::Bool,
+    },
+    MethodSpec {
+        name: "isEqual",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("a"), FacadeParam::ShapeId("b")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return get(a).IsEqual(get(b));",
+        includes: &[],
+        category: "topology",
+        return_type: ReturnType::Bool,
+    },
+    MethodSpec {
+        name: "isNull",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return get(id).IsNull();",
+        includes: &[],
+        category: "topology",
+        return_type: ReturnType::Bool,
+    },
+    MethodSpec {
+        name: "hashCode",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Int("upperBound")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return static_cast<int>(TopTools_ShapeMapHasher{}(get(id)) % static_cast<size_t>(upperBound));",
+        includes: &["TopTools_ShapeMapHasher.hxx"],
+        category: "topology",
+        return_type: ReturnType::Int,
+    },
+    MethodSpec {
+        name: "shapeOrientation",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+switch (get(id).Orientation()) {
+case TopAbs_FORWARD:
+    return \"forward\";
+case TopAbs_REVERSED:
+    return \"reversed\";
+case TopAbs_INTERNAL:
+    return \"internal\";
+case TopAbs_EXTERNAL:
+    return \"external\";
+default:
+    return \"unknown\";
+}",
+        includes: &["TopAbs_Orientation.hxx"],
+        category: "topology",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "iterShapes",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::vector<uint32_t> result;
+for (TopoDS_Iterator it(get(id)); it.More(); it.Next()) {
+    result.push_back(store(it.Value()));
+}
+return result;",
+        includes: &["TopoDS_Iterator.hxx"],
+        category: "topology",
+        return_type: ReturnType::VectorUint32,
+    },
+    MethodSpec {
+        name: "edgeToFaceMap",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Int("hashUpperBound")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+std::vector<int> result;
+auto hashShape = [&](const TopoDS_Shape& s) -> int {
+    return static_cast<int>(TopTools_ShapeMapHasher{}(s) %
+                            static_cast<size_t>(hashUpperBound));
+};
+for (TopExp_Explorer exE(shape, TopAbs_EDGE); exE.More(); exE.Next()) {
+    int edgeHash = hashShape(exE.Current());
+    std::vector<int> faceHashes;
+    for (TopExp_Explorer exF(shape, TopAbs_FACE); exF.More(); exF.Next()) {
+        for (TopExp_Explorer exFE(exF.Current(), TopAbs_EDGE); exFE.More(); exFE.Next()) {
+            if (exFE.Current().IsSame(exE.Current())) {
+                faceHashes.push_back(hashShape(exF.Current()));
+                break;
+            }
+        }
+    }
+    if (!faceHashes.empty()) {
+        result.push_back(edgeHash);
+        result.push_back(static_cast<int>(faceHashes.size()));
+        result.insert(result.end(), faceHashes.begin(), faceHashes.end());
+    }
+}
+return result;",
+        includes: &["TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "topology",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
+        name: "downcast",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::String("targetType")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+TopAbs_ShapeEnum target = parseType(targetType);
+if (shape.ShapeType() != target) {
+    throw std::runtime_error(\"downcast: shape type mismatch\");
+}
+return store(shape);",
+        includes: &["TopAbs_ShapeEnum.hxx", "TopoDS.hxx"],
+        category: "topology",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "adjacentFaces",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("shapeId"), FacadeParam::ShapeId("faceId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(shapeId);
+const auto& targetFace = get(faceId);
+std::vector<uint32_t> result;
+
+// Find faces that share an edge with targetFace
+for (TopExp_Explorer exF(shape, TopAbs_FACE); exF.More(); exF.Next()) {
+    if (exF.Current().IsSame(targetFace))
+        continue;
+    bool adjacent = false;
+    for (TopExp_Explorer exE1(targetFace, TopAbs_EDGE); exE1.More() && !adjacent;
+         exE1.Next()) {
+        for (TopExp_Explorer exE2(exF.Current(), TopAbs_EDGE); exE2.More(); exE2.Next()) {
+            if (exE1.Current().IsSame(exE2.Current())) {
+                adjacent = true;
+                break;
+            }
+        }
+    }
+    if (adjacent) {
+        result.push_back(store(exF.Current()));
+    }
+}
+return result;",
+        includes: &["TopExp_Explorer.hxx"],
+        category: "topology",
+        return_type: ReturnType::VectorUint32,
+    },
+    MethodSpec {
+        name: "sharedEdges",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceA"), FacadeParam::ShapeId("faceB")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& fa = get(faceA);
+const auto& fb = get(faceB);
+std::vector<uint32_t> result;
+for (TopExp_Explorer exA(fa, TopAbs_EDGE); exA.More(); exA.Next()) {
+    for (TopExp_Explorer exB(fb, TopAbs_EDGE); exB.More(); exB.Next()) {
+        if (exA.Current().IsSame(exB.Current())) {
+            result.push_back(store(exA.Current()));
+            break;
+        }
+    }
+}
+return result;",
+        includes: &["TopExp_Explorer.hxx"],
+        category: "topology",
+        return_type: ReturnType::VectorUint32,
+    },
+    // ── Query ──────────────────────────────────────────────────────
+    MethodSpec {
+        name: "getBoundingBox",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+Bnd_Box box;
+BRepBndLib::Add(shape, box);
+if (box.IsVoid()) {
+    throw std::runtime_error(\"getBoundingBox: shape has no geometry\");
+}
+BBoxData result{};
+box.Get(result.xmin, result.ymin, result.zmin, result.xmax, result.ymax, result.zmax);
+return result;",
+        includes: &["BRepBndLib.hxx", "Bnd_Box.hxx"],
+        category: "query",
+        return_type: ReturnType::BBoxData,
+    },
+    MethodSpec {
+        name: "getVolume",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+GProp_GProps props;
+BRepGProp::VolumeProperties(shape, props);
+return props.Mass();",
+        includes: &["BRepGProp.hxx", "GProp_GProps.hxx"],
+        category: "query",
+        return_type: ReturnType::Double,
+    },
+    MethodSpec {
+        name: "getSurfaceArea",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+GProp_GProps props;
+BRepGProp::SurfaceProperties(shape, props);
+return props.Mass();",
+        includes: &["BRepGProp.hxx", "GProp_GProps.hxx"],
+        category: "query",
+        return_type: ReturnType::Double,
+    },
+    MethodSpec {
+        name: "getLength",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+GProp_GProps props;
+BRepGProp::LinearProperties(shape, props);
+return props.Mass();",
+        includes: &["BRepGProp.hxx", "GProp_GProps.hxx"],
+        category: "query",
+        return_type: ReturnType::Double,
+    },
+    MethodSpec {
+        name: "getCenterOfMass",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+GProp_GProps props;
+BRepGProp::VolumeProperties(shape, props);
+gp_Pnt com = props.CentreOfMass();
+return {com.X(), com.Y(), com.Z()};",
+        includes: &["BRepGProp.hxx", "GProp_GProps.hxx", "gp_Pnt.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "vertexPosition",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("vertexId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Pnt p = BRep_Tool::Pnt(TopoDS::Vertex(get(vertexId)));
+return {p.X(), p.Y(), p.Z()};",
+        includes: &["BRep_Tool.hxx", "TopoDS.hxx", "gp_Pnt.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "surfaceType",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+switch (surf.GetType()) {
+case GeomAbs_Plane:
+    return \"plane\";
+case GeomAbs_Cylinder:
+    return \"cylinder\";
+case GeomAbs_Cone:
+    return \"cone\";
+case GeomAbs_Sphere:
+    return \"sphere\";
+case GeomAbs_Torus:
+    return \"torus\";
+case GeomAbs_BezierSurface:
+    return \"bezier\";
+case GeomAbs_BSplineSurface:
+    return \"bspline\";
+case GeomAbs_SurfaceOfRevolution:
+    return \"revolution\";
+case GeomAbs_SurfaceOfExtrusion:
+    return \"extrusion\";
+case GeomAbs_OffsetSurface:
+    return \"offset\";
+default:
+    return \"other\";
+}",
+        includes: &["BRepAdaptor_Surface.hxx", "GeomAbs_SurfaceType.hxx", "TopoDS.hxx"],
+        category: "query",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "surfaceNormal",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("faceId"), FacadeParam::Double("u"), FacadeParam::Double("v"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Face face = TopoDS::Face(get(faceId));
+BRepAdaptor_Surface surf(face);
+gp_Pnt pt;
+gp_Vec d1u, d1v;
+surf.D1(u, v, pt, d1u, d1v);
+gp_Vec normal = d1u.Crossed(d1v);
+if (normal.Magnitude() > 1e-10) {
+    normal.Normalize();
+}
+// Flip normal for reversed faces (matches OCCT convention)
+if (face.Orientation() == TopAbs_REVERSED) {
+    normal.Reverse();
+}
+return {normal.X(), normal.Y(), normal.Z()};",
+        includes: &["BRepAdaptor_Surface.hxx", "TopoDS.hxx", "gp_Pnt.hxx", "gp_Vec.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "pointOnSurface",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("faceId"), FacadeParam::Double("u"), FacadeParam::Double("v"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+gp_Pnt pt = surf.Value(u, v);
+return {pt.X(), pt.Y(), pt.Z()};",
+        includes: &["BRepAdaptor_Surface.hxx", "TopoDS.hxx", "gp_Pnt.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "outerWire",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Wire wire = ShapeAnalysis::OuterWire(TopoDS::Face(get(faceId)));
+if (wire.IsNull()) {
+    throw std::runtime_error(\"outerWire: face has no outer wire\");
+}
+return store(wire);",
+        includes: &["ShapeAnalysis.hxx", "TopoDS.hxx", "TopoDS_Wire.hxx"],
+        category: "query",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "getLinearCenterOfMass",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+GProp_GProps props;
+BRepGProp::LinearProperties(shape, props);
+gp_Pnt com = props.CentreOfMass();
+return {com.X(), com.Y(), com.Z()};",
+        includes: &["BRepGProp.hxx", "GProp_GProps.hxx", "gp_Pnt.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "surfaceCurvature",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("faceId"), FacadeParam::Double("u"), FacadeParam::Double("v"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+BRepLProp_SLProps props(surf, u, v, 2, 1e-6);
+if (!props.IsCurvatureDefined()) {
+    throw std::runtime_error(\"surfaceCurvature: curvature not defined at point\");
+}
+double mean = props.MeanCurvature();
+double gaussian = props.GaussianCurvature();
+double maxK = props.MaxCurvature();
+double minK = props.MinCurvature();
+return {mean, gaussian, maxK, minK};",
+        includes: &["BRepAdaptor_Surface.hxx", "BRepLProp_SLProps.hxx", "TopoDS.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "uvBounds",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+return {surf.FirstUParameter(), surf.LastUParameter(), surf.FirstVParameter(),
+        surf.LastVParameter()};",
+        includes: &["BRepAdaptor_Surface.hxx", "TopoDS.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "uvFromPoint",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("faceId"),
+            FacadeParam::Double("x"), FacadeParam::Double("y"), FacadeParam::Double("z"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Face face = TopoDS::Face(get(faceId));
+Handle(Geom_Surface) geomSurf = BRep_Tool::Surface(face);
+ShapeAnalysis_Surface sas(geomSurf);
+gp_Pnt2d uv = sas.ValueOfUV(gp_Pnt(x, y, z), 1e-6);
+return {uv.X(), uv.Y()};",
+        includes: &[
+            "BRep_Tool.hxx", "Geom_Surface.hxx", "ShapeAnalysis_Surface.hxx",
+            "TopoDS.hxx", "gp_Pnt.hxx", "gp_Pnt2d.hxx",
+        ],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "projectPointOnFace",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("faceId"),
+            FacadeParam::Double("x"), FacadeParam::Double("y"), FacadeParam::Double("z"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Face face = TopoDS::Face(get(faceId));
+Handle(Geom_Surface) geomSurf = BRep_Tool::Surface(face);
+GeomAPI_ProjectPointOnSurf proj(gp_Pnt(x, y, z), geomSurf);
+if (proj.NbPoints() == 0) {
+    throw std::runtime_error(\"projectPointOnFace: no projection found\");
+}
+gp_Pnt nearest = proj.NearestPoint();
+double u, v;
+proj.LowerDistanceParameters(u, v);
+return {nearest.X(), nearest.Y(), nearest.Z(), u, v, proj.LowerDistance()};",
+        includes: &[
+            "BRep_Tool.hxx", "GeomAPI_ProjectPointOnSurf.hxx", "Geom_Surface.hxx",
+            "TopoDS.hxx", "gp_Pnt.hxx",
+        ],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "classifyPointOnFace",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("faceId"), FacadeParam::Double("u"), FacadeParam::Double("v"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+TopoDS_Face face = TopoDS::Face(get(faceId));
+BRepClass_FaceClassifier classifier(face, gp_Pnt2d(u, v), 1e-6);
+switch (classifier.State()) {
+case TopAbs_IN:
+    return \"in\";
+case TopAbs_OUT:
+    return \"out\";
+case TopAbs_ON:
+    return \"on\";
+default:
+    return \"unknown\";
+}",
+        includes: &["BRepClass_FaceClassifier.hxx", "TopoDS.hxx", "gp_Pnt2d.hxx", "TopAbs_State.hxx"],
+        category: "query",
+        return_type: ReturnType::String,
+    },
+    // ── Curve ──────────────────────────────────────────────────────
+    MethodSpec {
+        name: "curveType",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+GeomAbs_CurveType ctype;
+if (shape.ShapeType() == TopAbs_WIRE) {
+    BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+    ctype = comp.GetType();
+} else {
+    BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+    ctype = curve.GetType();
+}
+switch (ctype) {
+case GeomAbs_Line:
+    return \"line\";
+case GeomAbs_Circle:
+    return \"circle\";
+case GeomAbs_Ellipse:
+    return \"ellipse\";
+case GeomAbs_Hyperbola:
+    return \"hyperbola\";
+case GeomAbs_Parabola:
+    return \"parabola\";
+case GeomAbs_BezierCurve:
+    return \"bezier\";
+case GeomAbs_BSplineCurve:
+    return \"bspline\";
+case GeomAbs_OffsetCurve:
+    return \"offset\";
+default:
+    return \"other\";
+}",
+        includes: &[
+            "BRepAdaptor_CompCurve.hxx", "BRepAdaptor_Curve.hxx",
+            "GeomAbs_CurveType.hxx", "TopoDS.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "curvePointAtParam",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Double("param")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+gp_Pnt pt;
+if (shape.ShapeType() == TopAbs_WIRE) {
+    BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+    pt = comp.Value(param);
+} else {
+    BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+    pt = curve.Value(param);
+}
+return {pt.X(), pt.Y(), pt.Z()};",
+        includes: &[
+            "BRepAdaptor_CompCurve.hxx", "BRepAdaptor_Curve.hxx",
+            "TopoDS.hxx", "gp_Pnt.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "curveTangent",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Double("param")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+gp_Pnt pt;
+gp_Vec tangent;
+if (shape.ShapeType() == TopAbs_WIRE) {
+    BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+    comp.D1(param, pt, tangent);
+} else {
+    BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+    curve.D1(param, pt, tangent);
+}
+if (tangent.Magnitude() > 1e-10) {
+    tangent.Normalize();
+}
+return {tangent.X(), tangent.Y(), tangent.Z()};",
+        includes: &[
+            "BRepAdaptor_CompCurve.hxx", "BRepAdaptor_Curve.hxx",
+            "TopoDS.hxx", "gp_Pnt.hxx", "gp_Vec.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "curveParameters",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+if (shape.ShapeType() == TopAbs_WIRE) {
+    BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+    return {comp.FirstParameter(), comp.LastParameter()};
+}
+BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+return {curve.FirstParameter(), curve.LastParameter()};",
+        includes: &["BRepAdaptor_CompCurve.hxx", "BRepAdaptor_Curve.hxx", "TopoDS.hxx"],
+        category: "curve",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "curveIsClosed",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+if (shape.ShapeType() == TopAbs_WIRE) {
+    return BRep_Tool::IsClosed(shape);
+}
+BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+return curve.IsClosed();",
+        includes: &["BRepAdaptor_Curve.hxx", "BRep_Tool.hxx", "TopoDS.hxx"],
+        category: "curve",
+        return_type: ReturnType::Bool,
+    },
+    MethodSpec {
+        name: "curveLength",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+if (shape.ShapeType() == TopAbs_WIRE) {
+    BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+    return GCPnts_AbscissaPoint::Length(comp);
+}
+BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+return GCPnts_AbscissaPoint::Length(curve);",
+        includes: &[
+            "BRepAdaptor_CompCurve.hxx", "BRepAdaptor_Curve.hxx",
+            "GCPnts_AbscissaPoint.hxx", "TopoDS.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::Double,
+    },
+    MethodSpec {
+        name: "interpolatePoints",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorDouble("flatPoints"), FacadeParam::Bool("periodic")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+int nPts = static_cast<int>(flatPoints.size()) / 3;
+if (nPts < 2) {
+    throw std::runtime_error(\"interpolatePoints: need at least 2 points\");
+}
+
+Handle(NCollection_HArray1<gp_Pnt>) pts = new NCollection_HArray1<gp_Pnt>(1, nPts);
+for (int i = 0; i < nPts; i++) {
+    pts->SetValue(i + 1,
+                  gp_Pnt(flatPoints[i * 3], flatPoints[i * 3 + 1], flatPoints[i * 3 + 2]));
+}
+
+GeomAPI_Interpolate interp(pts, periodic, 1e-6);
+interp.Perform();
+if (!interp.IsDone()) {
+    throw std::runtime_error(\"interpolatePoints: interpolation failed\");
+}
+
+BRepBuilderAPI_MakeEdge edgeMaker(interp.Curve());
+if (!edgeMaker.IsDone()) {
+    throw std::runtime_error(\"interpolatePoints: edge construction failed\");
+}
+return store(edgeMaker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "GeomAPI_Interpolate.hxx",
+            "NCollection_HArray1.hxx", "gp_Pnt.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "curveIsPeriodic",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+if (shape.ShapeType() == TopAbs_WIRE) {
+    BRepAdaptor_CompCurve comp(TopoDS::Wire(shape));
+    return comp.IsPeriodic();
+}
+BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+return curve.IsPeriodic();",
+        includes: &["BRepAdaptor_CompCurve.hxx", "BRepAdaptor_Curve.hxx", "TopoDS.hxx"],
+        category: "curve",
+        return_type: ReturnType::Bool,
+    },
+    MethodSpec {
+        name: "approximatePoints",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorDouble("flatPoints"), FacadeParam::Double("tolerance")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+int nPts = static_cast<int>(flatPoints.size()) / 3;
+if (nPts < 2) {
+    throw std::runtime_error(\"approximatePoints: need at least 2 points\");
+}
+
+NCollection_Array1<gp_Pnt> pts(1, nPts);
+for (int i = 0; i < nPts; i++) {
+    pts.SetValue(i + 1,
+                 gp_Pnt(flatPoints[i * 3], flatPoints[i * 3 + 1], flatPoints[i * 3 + 2]));
+}
+
+GeomAPI_PointsToBSpline approx(pts, 3, 8, GeomAbs_C2, tolerance);
+if (!approx.IsDone()) {
+    throw std::runtime_error(\"approximatePoints: approximation failed\");
+}
+
+BRepBuilderAPI_MakeEdge edgeMaker(approx.Curve());
+if (!edgeMaker.IsDone()) {
+    throw std::runtime_error(\"approximatePoints: edge construction failed\");
+}
+return store(edgeMaker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "GeomAPI_PointsToBSpline.hxx",
+            "GeomAbs_Shape.hxx", "NCollection_Array1.hxx", "gp_Pnt.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "liftCurve2dToPlane",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorDouble("flatPoints2d"),
+            FacadeParam::Double("planeOx"), FacadeParam::Double("planeOy"), FacadeParam::Double("planeOz"),
+            FacadeParam::Double("planeZx"), FacadeParam::Double("planeZy"), FacadeParam::Double("planeZz"),
+            FacadeParam::Double("planeXx"), FacadeParam::Double("planeXy"), FacadeParam::Double("planeXz"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+int nPts = static_cast<int>(flatPoints2d.size()) / 2;
+if (nPts < 2) {
+    throw std::runtime_error(\"liftCurve2dToPlane: need at least 2 points\");
+}
+
+// Build the plane from origin + Z-axis + X-axis
+gp_Pnt origin(planeOx, planeOy, planeOz);
+gp_Dir zDir(planeZx, planeZy, planeZz);
+gp_Dir xDir(planeXx, planeXy, planeXz);
+gp_Ax3 ax3(origin, zDir, xDir);
+gp_Pln plane(ax3);
+
+// Create 2D points array
+Handle(NCollection_HArray1<gp_Pnt2d>) pts2d = new NCollection_HArray1<gp_Pnt2d>(1, nPts);
+for (int i = 0; i < nPts; i++) {
+    pts2d->SetValue(i + 1, gp_Pnt2d(flatPoints2d[i * 2], flatPoints2d[i * 2 + 1]));
+}
+
+// Interpolate through the 2D points
+Geom2dAPI_Interpolate interp(pts2d, false, 1e-6);
+interp.Perform();
+if (!interp.IsDone()) {
+    throw std::runtime_error(\"liftCurve2dToPlane: 2D interpolation failed\");
+}
+
+// Build 3D edge from 2D curve on plane
+Handle(Geom_Surface) surface = new Geom_Plane(plane);
+BRepBuilderAPI_MakeEdge edgeMaker(interp.Curve(), surface);
+if (!edgeMaker.IsDone()) {
+    throw std::runtime_error(\"liftCurve2dToPlane: edge construction failed\");
+}
+return store(edgeMaker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "Geom2dAPI_Interpolate.hxx",
+            "Geom2d_BSplineCurve.hxx", "Geom_Plane.hxx", "NCollection_HArray1.hxx",
+            "gp_Ax3.hxx", "gp_Dir.hxx", "gp_Pln.hxx", "gp_Pnt.hxx", "gp_Pnt2d.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "getNurbsCurveData",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("edgeId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Curve adaptor(TopoDS::Edge(get(edgeId)));
+if (adaptor.GetType() != GeomAbs_BSplineCurve) {
+    throw std::runtime_error(\"getNurbsCurveData: edge is not a BSpline curve\");
+}
+
+Handle(Geom_BSplineCurve) bspline = adaptor.BSpline();
+NurbsCurveData result{};
+result.degree = bspline->Degree();
+result.rational = bspline->IsRational();
+result.periodic = bspline->IsPeriodic();
+
+// Knots and multiplicities
+int nKnots = bspline->NbKnots();
+result.knots.resize(nKnots);
+result.multiplicities.resize(nKnots);
+for (int i = 1; i <= nKnots; i++) {
+    result.knots[i - 1] = bspline->Knot(i);
+    result.multiplicities[i - 1] = bspline->Multiplicity(i);
+}
+
+// Poles (control points)
+int nPoles = bspline->NbPoles();
+result.poles.resize(nPoles * 3);
+for (int i = 1; i <= nPoles; i++) {
+    gp_Pnt p = bspline->Pole(i);
+    result.poles[(i - 1) * 3] = p.X();
+    result.poles[(i - 1) * 3 + 1] = p.Y();
+    result.poles[(i - 1) * 3 + 2] = p.Z();
+}
+
+// Weights (only if rational)
+if (bspline->IsRational()) {
+    result.weights.resize(nPoles);
+    for (int i = 1; i <= nPoles; i++) {
+        result.weights[i - 1] = bspline->Weight(i);
+    }
+}
+
+return result;",
+        includes: &[
+            "BRepAdaptor_Curve.hxx", "GeomAbs_CurveType.hxx",
+            "Geom_BSplineCurve.hxx", "TopoDS.hxx", "gp_Pnt.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::NurbsCurveData,
+    },
+    MethodSpec {
+        name: "hasTriangulation",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+for (TopExp_Explorer ex(get(id), TopAbs_FACE); ex.More(); ex.Next()) {
+    TopLoc_Location loc;
+    auto tri = BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc);
+    if (!tri.IsNull())
+        return true;
+}
+return false;",
+        includes: &[
+            "BRep_Tool.hxx", "Poly_Triangulation.hxx",
+            "TopExp_Explorer.hxx", "TopoDS.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::Bool,
+    },
     // ── Sweeps ──────────────────────────────────────────────────
     MethodSpec {
         name: "pipe",
@@ -1229,7 +2825,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 60, "expected 60 generable methods");
+        assert_eq!(count, 126, "expected 126 generable methods");
     }
 
     #[test]

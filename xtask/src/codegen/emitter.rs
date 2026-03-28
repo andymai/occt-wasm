@@ -198,6 +198,12 @@ fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
         ReturnType::Void => "void",
         ReturnType::VectorUint32 => "std::vector<uint32_t>",
         ReturnType::VectorDouble => "std::vector<double>",
+        ReturnType::Double => "double",
+        ReturnType::String => "std::string",
+        ReturnType::Int => "int",
+        ReturnType::VectorInt => "std::vector<int>",
+        ReturnType::BBoxData => "BBoxData",
+        ReturnType::NurbsCurveData => "NurbsCurveData",
     };
 
     let _ = writeln!(
@@ -290,8 +296,12 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf);
 
     // Standard C++ includes.
+    let _ = writeln!(buf, "#include <algorithm>");
+    let _ = writeln!(buf, "#include <cmath>");
+    let _ = writeln!(buf, "#include <set>");
     let _ = writeln!(buf, "#include <stdexcept>");
     let _ = writeln!(buf, "#include <string>");
+    let _ = writeln!(buf, "#include <vector>");
     let _ = writeln!(buf);
 
     // Methods grouped by category.

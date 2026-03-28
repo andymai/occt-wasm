@@ -93,6 +93,18 @@ pub enum ReturnType {
     VectorUint32,
     /// `std::vector<double>` return.
     VectorDouble,
+    /// `double` return.
+    Double,
+    /// `std::string` return.
+    String,
+    /// `int` return.
+    Int,
+    /// `std::vector<int>` return.
+    VectorInt,
+    /// `BBoxData` return (bounding box struct).
+    BBoxData,
+    /// `NurbsCurveData` return (NURBS curve data struct).
+    NurbsCurveData,
 }
 
 /// A complete facade method specification.
