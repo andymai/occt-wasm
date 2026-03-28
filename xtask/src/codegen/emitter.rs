@@ -198,6 +198,12 @@ fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
         ReturnType::Void => "void",
         ReturnType::VectorUint32 => "std::vector<uint32_t>",
         ReturnType::VectorDouble => "std::vector<double>",
+        ReturnType::Double => "double",
+        ReturnType::String => "std::string",
+        ReturnType::Int => "int",
+        ReturnType::VectorInt => "std::vector<int>",
+        ReturnType::BBoxData => "BBoxData",
+        ReturnType::NurbsCurveData => "NurbsCurveData",
     };
 
     let _ = writeln!(
