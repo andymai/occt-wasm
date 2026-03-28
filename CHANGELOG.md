@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.10](https://github.com/andymai/occt-wasm/compare/v0.1.9...v0.1.10) (2026-03-28)
+
+
+### Bug Fixes
+
+* **ci:** overhaul CI/CD — caching, npm publish, perf ([#51](https://github.com/andymai/occt-wasm/issues/51)) ([c60eeb2](https://github.com/andymai/occt-wasm/commit/c60eeb2b16f78657a33b6419bc3dc1ff94fe9915))
+
 ## [0.1.9](https://github.com/andymai/occt-wasm/compare/v0.1.8...v0.1.9) (2026-03-28)
 
 
