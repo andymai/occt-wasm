@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/andymai/occt-wasm-builder:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
