@@ -487,4 +487,40 @@ mod tests {
             .expect("box include");
         assert!(fuse_pos < box_pos);
     }
+
+    #[test]
+    fn custom_body_bool_return() {
+        static IS_VALID: MethodSpec = MethodSpec {
+            name: "isValid",
+            kind: MethodKind::CustomBody,
+            params: &[FacadeParam::ShapeId("id")],
+            return_type: ReturnType::Bool,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "BRepCheck_Analyzer checker(get(id));\nreturn checker.IsValid();",
+            includes: &["BRepCheck_Analyzer.hxx"],
+            category: "healing",
+        };
+        let output = emit_kernel(&[&IS_VALID]);
+        assert!(output.contains("bool OcctKernel::isValid(uint32_t id)"));
+        assert!(output.contains("BRepCheck_Analyzer checker(get(id))"));
+    }
+
+    #[test]
+    fn custom_body_void_return() {
+        static BUILD_CURVES: MethodSpec = MethodSpec {
+            name: "buildCurves3d",
+            kind: MethodKind::CustomBody,
+            params: &[FacadeParam::ShapeId("wireId")],
+            return_type: ReturnType::Void,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "BRepLib::BuildCurves3d(get(wireId));",
+            includes: &["BRepLib.hxx"],
+            category: "healing",
+        };
+        let output = emit_kernel(&[&BUILD_CURVES]);
+        assert!(output.contains("void OcctKernel::buildCurves3d(uint32_t wireId)"));
+        assert!(output.contains("BRepLib::BuildCurves3d(get(wireId))"));
+    }
 }
