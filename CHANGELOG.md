@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.7](https://github.com/andymai/occt-wasm/compare/v0.1.6...v0.1.7) (2026-03-28)
+
+
+### Features
+
+* **codegen:** add SetupShape pattern, generate transforms ([#40](https://github.com/andymai/occt-wasm/issues/40)) ([8d966f3](https://github.com/andymai/occt-wasm/commit/8d966f37b59f7b94f091315ad2389e98a016a6f2))
+* **docker:** full build pipeline with optimal layer caching ([#36](https://github.com/andymai/occt-wasm/issues/36)) ([c7322a8](https://github.com/andymai/occt-wasm/commit/c7322a897abc56ebc587092fe673b25e1e681503))
+* **facade:** add importStl for STL file import ([#41](https://github.com/andymai/occt-wasm/issues/41)) ([ff31112](https://github.com/andymai/occt-wasm/commit/ff311125983b89baef36c11970849ccb5fafd4e5))
+* **facade:** add meshBatch and CI benchmark tooling ([#43](https://github.com/andymai/occt-wasm/issues/43)) ([244ec0e](https://github.com/andymai/occt-wasm/commit/244ec0e4bc3250c8c97dffa5d492ba2258ca5bde))
+* **facade:** integrate codegen output into build pipeline ([#38](https://github.com/andymai/occt-wasm/issues/38)) ([8ecce04](https://github.com/andymai/occt-wasm/commit/8ecce043eee6d3c72678295d31c57a4fcbaf0f7f))
+* **perf:** SIMD, -O3, batch methods, and benchmark suite ([#42](https://github.com/andymai/occt-wasm/issues/42)) ([4fe229e](https://github.com/andymai/occt-wasm/commit/4fe229ef84d6fdda4dec52df80441a0be75bcc7a))
+* **ts:** add FinalizationRegistry safety net for leaked kernels ([#33](https://github.com/andymai/occt-wasm/issues/33)) ([cde2654](https://github.com/andymai/occt-wasm/commit/cde2654baf8b58cf6de28000590f657086a94d81))
+* **xtask:** auto-run codegen when generated facade is missing ([#39](https://github.com/andymai/occt-wasm/issues/39)) ([7d0cb3f](https://github.com/andymai/occt-wasm/commit/7d0cb3f93490626034cc74d5f664663af0d9e440))
+* **xtask:** facade code generator v0.1.1 ([#37](https://github.com/andymai/occt-wasm/issues/37)) ([7bee33a](https://github.com/andymai/occt-wasm/commit/7bee33a8764f335f57929167b4150f332abedf79))
+
 ## [0.1.6](https://github.com/andymai/occt-wasm/compare/v0.1.5...v0.1.6) (2026-03-27)
 
 
