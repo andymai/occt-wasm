@@ -21,8 +21,9 @@ TS wrapper (ts/) → tsc → occt-wasm
 - `xtask/` — Rust build orchestration (clap + anyhow + xshell)
 - `occt/` — OCCT V8.0.0-rc4 (git submodule)
 - `3rdparty/` — Isolated third-party headers (RapidJSON for glTF, gitignored)
-- `scripts/` — build.sh (Milestone 0), symbol_dispose.js (post-link)
-- `test/` — Vitest integration tests (integration, expanded, xcaf)
+- `scripts/` — build.sh, symbol_dispose.js, publish.sh, fetch-rapidjson.sh, bench-check.js
+- `test/` — Vitest integration tests (integration, expanded, xcaf, bench) + benchmark.ts
+- `benchmarks/` — CI benchmark baselines (baseline.json)
 - `examples/` — Browser demos (Three.js with tessellation + glTF)
 - `dist/` — Build output (gitignored)
 
