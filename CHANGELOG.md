@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/andymai/occt-wasm/compare/v0.1.7...v0.1.8) (2026-03-28)
+
+
+### Features
+
+* **ci:** add benchmark baseline and regression gate ([#44](https://github.com/andymai/occt-wasm/issues/44)) ([9dbb531](https://github.com/andymai/occt-wasm/commit/9dbb531d2b086d9f8f9166074159257fc989bac3))
+
 ## [0.1.7](https://github.com/andymai/occt-wasm/compare/v0.1.6...v0.1.7) (2026-03-28)
 
 
