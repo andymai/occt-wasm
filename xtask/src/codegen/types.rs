@@ -25,6 +25,10 @@ pub enum MethodKind {
     /// `ctor_args` and stores the result. No `Build()`/`IsDone()` check.
     SetupShape,
 
+    /// Inline C++ body. The `setup_code` field contains the full method body
+    /// (everything between the opening `try {` and closing `} catch`).
+    CustomBody,
+
     /// Not auto-generated — the hand-written implementation uses complex
     /// multi-step logic that doesn't fit a template.
     Skip,
@@ -51,6 +55,12 @@ pub enum FacadeParam {
 
     /// `std::string` value.
     String(&'static str),
+
+    /// `std::vector<double>` of double values.
+    VectorDouble(&'static str),
+
+    /// `std::vector<int>` of integer values.
+    VectorInt(&'static str),
 }
 
 impl FacadeParam {
@@ -63,7 +73,9 @@ impl FacadeParam {
             | Self::VectorShapeIds(n)
             | Self::Bool(n)
             | Self::Int(n)
-            | Self::String(n) => n,
+            | Self::String(n)
+            | Self::VectorDouble(n)
+            | Self::VectorInt(n) => n,
         }
     }
 }
@@ -73,6 +85,14 @@ impl FacadeParam {
 pub enum ReturnType {
     /// A `uint32_t` shape ID stored in the arena.
     ShapeId,
+    /// `bool` return.
+    Bool,
+    /// `void` return.
+    Void,
+    /// `std::vector<uint32_t>` return.
+    VectorUint32,
+    /// `std::vector<double>` return.
+    VectorDouble,
 }
 
 /// A complete facade method specification.
