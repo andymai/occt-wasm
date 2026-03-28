@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head><title>occt-wasm browser smoke test</title></head>
+<body>
+<pre id="log"></pre>
+<div id="result"></div>
+<script type="module">
+const log = document.getElementById("log");
+const result = document.getElementById("result");
+
+function print(msg) {
+    log.textContent += msg + "\n";
+}
+
+try {
+    print("Loading WASM module...");
+    const createModule = (await import("../../dist/occt-wasm.js")).default;
+    const Module = await createModule();
+    const kernel = new Module.OcctKernel();
+    print("WASM loaded. Kernel created.");
+
+    // Test 1: makeBox
+    const box = kernel.makeBox(10, 20, 30);
+    if (box <= 0) throw new Error("makeBox returned invalid id");
+    print("makeBox(10,20,30) = " + box);
+
+    // Test 2: volume
+    const vol = kernel.getVolume(box);
+    if (Math.abs(vol - 6000) > 1) throw new Error("Volume mismatch: " + vol);
+    print("getVolume = " + vol.toFixed(1));
+
+    // Test 3: boolean
+    const cyl = kernel.makeCylinder(3, 40);
+    const cut = kernel.cut(box, cyl);
+    if (cut <= 0) throw new Error("cut returned invalid id");
+    const cutVol = kernel.getVolume(cut);
+    print("cut volume = " + cutVol.toFixed(1));
+
+    // Test 4: tessellate
+    const mesh = kernel.tessellate(box, 0.1, 0.5);
+    if (mesh.indexCount < 36) throw new Error("Too few indices: " + mesh.indexCount);
+    print("tessellate: " + (mesh.indexCount / 3) + " triangles");
+    mesh.delete();
+
+    // Test 5: STEP round-trip
+    const step = kernel.exportStep(box);
+    if (!step.includes("ISO-10303-21")) throw new Error("Invalid STEP output");
+    const reimported = kernel.importStep(step);
+    const reimportedVol = kernel.getVolume(reimported);
+    if (Math.abs(reimportedVol - 6000) > 1) throw new Error("STEP round-trip volume mismatch");
+    print("STEP round-trip OK");
+
+    // Test 6: getShapeType
+    const type = kernel.getShapeType(box);
+    if (type !== "solid") throw new Error("Expected solid, got " + type);
+    print("getShapeType = " + type);
+
+    // Cleanup
+    kernel.releaseAll();
+    kernel.delete();
+
+    print("\n--- ALL PASSED ---");
+    result.textContent = "ALL PASSED";
+} catch (e) {
+    print("\n--- FAILED: " + e.message + " ---");
+    result.textContent = "FAILED: " + e.message;
+}
+</script>
+</body>
+</html>

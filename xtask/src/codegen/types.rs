@@ -25,6 +25,15 @@ pub enum MethodKind {
     /// `ctor_args` and stores the result. No `Build()`/`IsDone()` check.
     SetupShape,
 
+    /// Direct call: emits `ctor_args` as a direct expression body.
+    /// Used for query methods, void methods, topology methods that
+    /// don't instantiate an OCCT class.
+    DirectCall,
+
+    /// Custom body: emits the `setup_code` field verbatim as the entire
+    /// method body (inside `try/catch`). Used for complex one-off logic.
+    CustomBody,
+
     /// Not auto-generated — the hand-written implementation uses complex
     /// multi-step logic that doesn't fit a template.
     Skip,
@@ -32,7 +41,6 @@ pub enum MethodKind {
 
 /// A single facade method parameter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Variants used as codegen expands to more method patterns.
 pub enum FacadeParam {
     /// `uint32_t` shape ID resolved via `get(id)`.
     ShapeId(&'static str),
@@ -51,6 +59,12 @@ pub enum FacadeParam {
 
     /// `std::string` value.
     String(&'static str),
+
+    /// `std::vector<double>` of double values.
+    VectorDouble(&'static str),
+
+    /// `std::vector<int>` of int values.
+    VectorInt(&'static str),
 }
 
 impl FacadeParam {
@@ -63,7 +77,9 @@ impl FacadeParam {
             | Self::VectorShapeIds(n)
             | Self::Bool(n)
             | Self::Int(n)
-            | Self::String(n) => n,
+            | Self::String(n)
+            | Self::VectorDouble(n)
+            | Self::VectorInt(n) => n,
         }
     }
 }
@@ -73,6 +89,65 @@ impl FacadeParam {
 pub enum ReturnType {
     /// A `uint32_t` shape ID stored in the arena.
     ShapeId,
+    /// A `double` value.
+    Double,
+    /// A `std::string` value.
+    String,
+    /// A `bool` value.
+    Bool,
+    /// `void` — no return value.
+    Void,
+    /// `int` value.
+    Int,
+    /// `uint32_t` (non-shape, e.g. document ID or count).
+    Uint32,
+    /// `BBoxData` struct.
+    BBoxData,
+    /// `MeshData` struct.
+    MeshData,
+    /// `EdgeData` struct.
+    EdgeData,
+    /// `MeshBatchData` struct.
+    MeshBatchData,
+    /// `EvolutionData` struct.
+    EvolutionData,
+    /// `ProjectionData` struct.
+    ProjectionData,
+    /// `NurbsCurveData` struct.
+    NurbsCurveData,
+    /// `std::vector<uint32_t>`.
+    VectorUint32,
+    /// `std::vector<double>`.
+    VectorDouble,
+    /// `std::vector<int>`.
+    VectorInt,
+    /// `XCAFLabelInfo` struct.
+    XCAFLabelInfo,
+}
+
+impl ReturnType {
+    /// Returns the C++ return type string.
+    pub const fn cpp_type(self) -> &'static str {
+        match self {
+            Self::ShapeId | Self::Uint32 => "uint32_t",
+            Self::Double => "double",
+            Self::String => "std::string",
+            Self::Bool => "bool",
+            Self::Void => "void",
+            Self::Int => "int",
+            Self::BBoxData => "BBoxData",
+            Self::MeshData => "MeshData",
+            Self::EdgeData => "EdgeData",
+            Self::MeshBatchData => "MeshBatchData",
+            Self::EvolutionData => "EvolutionData",
+            Self::ProjectionData => "ProjectionData",
+            Self::NurbsCurveData => "NurbsCurveData",
+            Self::VectorUint32 => "std::vector<uint32_t>",
+            Self::VectorDouble => "std::vector<double>",
+            Self::VectorInt => "std::vector<int>",
+            Self::XCAFLabelInfo => "XCAFLabelInfo",
+        }
+    }
 }
 
 /// A complete facade method specification.
@@ -98,7 +173,9 @@ pub struct MethodSpec {
     pub ctor_args: &'static str,
 
     /// C++ statements emitted before the OCCT constructor (e.g. `gp_Trsf` setup).
-    /// Used by `SetupShape`. Empty string for other kinds.
+    /// For `SetupShape`: pre-constructor statements.
+    /// For `CustomBody`: the entire method body (inside try/catch).
+    /// Empty string for other kinds.
     pub setup_code: &'static str,
 
     /// `#include` directives required beyond the OCCT class header.
@@ -108,6 +185,5 @@ pub struct MethodSpec {
     pub category: &'static str,
 
     /// Return type of the method.
-    #[allow(dead_code)] // Will be used when TS wrapper generation is added.
     pub return_type: ReturnType,
 }

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>occt-wasm STEP Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            padding: 12px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        header h1 { font-size: 16px; font-weight: 600; }
+        #drop-zone {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        #drop-zone.dragover { background: rgba(83, 52, 131, 0.2); }
+        #prompt {
+            text-align: center;
+            opacity: 0.6;
+        }
+        #prompt p { margin: 8px 0; }
+        #prompt .key { font-size: 14px; }
+        canvas { width: 100%; height: 100%; display: block; }
+        #info {
+            padding: 8px 20px;
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        #file-input { display: none; }
+        button {
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid #533483;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        button:hover { background: #533483; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>occt-wasm STEP Viewer</h1>
+        <button onclick="document.getElementById('file-input').click()">Open STEP File</button>
+        <button onclick="loadDemo()">Load Demo</button>
+        <input type="file" id="file-input" accept=".step,.stp,.STEP,.STP">
+    </header>
+    <div id="drop-zone">
+        <div id="prompt">
+            <p>Drop a .step / .stp file here</p>
+            <p class="key">or click "Open STEP File" above</p>
+        </div>
+    </div>
+    <div id="info">Ready. Waiting for WASM...</div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const info = document.getElementById('info');
+        const dropZone = document.getElementById('drop-zone');
+        const prompt = document.getElementById('prompt');
+        const fileInput = document.getElementById('file-input');
+
+        // --- WASM init ---
+        let Module, kernel;
+        info.textContent = 'Loading WASM module...';
+        const createModule = (await import('../../dist/occt-wasm.js')).default;
+        Module = await createModule();
+        kernel = new Module.OcctKernel();
+        info.textContent = 'WASM ready. Drop a STEP file or click Load Demo.';
+
+        // --- Three.js setup ---
+        let scene, camera, renderer, controls;
+
+        function initThree() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            camera = new THREE.PerspectiveCamera(45, dropZone.clientWidth / dropZone.clientHeight, 0.1, 10000);
+            camera.position.set(50, 50, 50);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(dropZone.clientWidth, dropZone.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Replace prompt with canvas
+            if (prompt.parentNode) prompt.remove();
+            dropZone.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            scene.add(new THREE.AmbientLight(0x404040, 2));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(50, 80, 40);
+            scene.add(dirLight);
+            const backLight = new THREE.DirectionalLight(0x8888ff, 0.5);
+            backLight.position.set(-30, -20, -50);
+            scene.add(backLight);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = dropZone.clientWidth / dropZone.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(dropZone.clientWidth, dropZone.clientHeight);
+            });
+        }
+
+        function clearScene() {
+            if (!scene) return;
+            const keep = scene.children.filter(c => c.isLight);
+            scene.clear();
+            for (const light of keep) scene.add(light);
+        }
+
+        function displayShape(shapeId, label) {
+            if (!scene) initThree();
+            clearScene();
+
+            const mesh = kernel.tessellate(shapeId, 0.5, 0.5);
+            const posPtr = mesh.getPositionsPtr();
+            const normPtr = mesh.getNormalsPtr();
+            const idxPtr = mesh.getIndicesPtr();
+
+            const positions = new Float32Array(Module.HEAPF32.buffer.slice(posPtr, posPtr + mesh.positionCount * 4));
+            const normals = new Float32Array(Module.HEAPF32.buffer.slice(normPtr, normPtr + mesh.normalCount * 4));
+            const indices = new Uint32Array(Module.HEAPU32.buffer.slice(idxPtr, idxPtr + mesh.indexCount * 4));
+
+            mesh.delete();
+
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geom.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+            geom.setIndex(new THREE.BufferAttribute(indices, 1));
+
+            const mat = new THREE.MeshPhongMaterial({
+                color: 0x4488cc,
+                specular: 0x222222,
+                shininess: 40,
+                side: THREE.DoubleSide,
+            });
+            scene.add(new THREE.Mesh(geom, mat));
+
+            // Wireframe overlay
+            const wireGeo = new THREE.WireframeGeometry(geom);
+            const wireMat = new THREE.LineBasicMaterial({ color: 0x223344, opacity: 0.15, transparent: true });
+            scene.add(new THREE.LineSegments(wireGeo, wireMat));
+
+            // Fit camera
+            const bbox = new THREE.Box3().setFromBufferAttribute(geom.attributes.position);
+            const center = bbox.getCenter(new THREE.Vector3());
+            const size = bbox.getSize(new THREE.Vector3()).length();
+            camera.position.copy(center).add(new THREE.Vector3(size * 0.8, size * 0.6, size * 0.8));
+            controls.target.copy(center);
+            controls.update();
+
+            // Info
+            const vol = kernel.getVolume(shapeId);
+            const faces = kernel.getSubShapes(shapeId, 'face');
+            const faceCount = faces.size();
+            faces.delete();
+            info.textContent = `${label} | ${(indices.length / 3).toLocaleString()} triangles | ${faceCount} faces | vol=${vol.toFixed(1)}`;
+        }
+
+        // --- File handling ---
+        function loadStepData(stepString, filename) {
+            kernel.releaseAll();
+            const t0 = performance.now();
+            const shapeId = kernel.importStep(stepString);
+            const dt = (performance.now() - t0).toFixed(0);
+            displayShape(shapeId, `${filename} (import: ${dt}ms)`);
+        }
+
+        // Drag & drop
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = () => loadStepData(reader.result, file.name);
+                reader.readAsText(file);
+            }
+        });
+
+        // File input
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = () => loadStepData(reader.result, file.name);
+                reader.readAsText(file);
+            }
+        });
+
+        // Demo: create a shape and display it
+        window.loadDemo = function() {
+            kernel.releaseAll();
+            const box = kernel.makeBox(30, 20, 15);
+            const cyl = kernel.makeCylinder(6, 25);
+            const cut = kernel.cut(box, cyl);
+            const sphere = kernel.makeSphere(4);
+            const moved = kernel.translate(sphere, 15, 10, 15);
+            const fused = kernel.fuse(cut, moved);
+
+            const edges = kernel.getSubShapes(fused, 'edge');
+            const edgeVec = new Module.VectorUint32();
+            for (let i = 0; i < Math.min(4, edges.size()); i++) {
+                edgeVec.push_back(edges.get(i));
+            }
+            let result;
+            try {
+                result = kernel.fillet(fused, edgeVec, 1.5);
+            } catch {
+                result = fused;
+            }
+            edgeVec.delete();
+            edges.delete();
+
+            displayShape(result, 'Demo (box - cylinder + sphere, filleted)');
+        };
+    </script>
+</body>
+</html>

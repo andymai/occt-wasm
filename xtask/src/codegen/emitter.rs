@@ -6,7 +6,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-use super::types::{FacadeParam, MethodKind, MethodSpec};
+use super::types::{FacadeParam, MethodKind, MethodSpec, ReturnType};
 
 /// Format a [`FacadeParam`] as a C++ formal parameter declaration.
 fn param_to_cpp(param: &FacadeParam) -> String {
@@ -17,6 +17,8 @@ fn param_to_cpp(param: &FacadeParam) -> String {
         FacadeParam::Bool(name) => format!("bool {name}"),
         FacadeParam::Int(name) => format!("int {name}"),
         FacadeParam::String(name) => format!("const std::string& {name}"),
+        FacadeParam::VectorDouble(name) => format!("std::vector<double> {name}"),
+        FacadeParam::VectorInt(name) => format!("std::vector<int> {name}"),
     }
 }
 
@@ -187,6 +189,71 @@ fn emit_setup_shape(buf: &mut String, spec: &MethodSpec) {
     let _ = writeln!(buf, "}}");
 }
 
+/// Emit a `DirectCall` method body.
+///
+/// The `ctor_args` field is used as the direct expression to return.
+/// For void methods, it's the statement(s) to execute.
+fn emit_direct_call(buf: &mut String, spec: &MethodSpec) {
+    let name = spec.name;
+    let ret_type = spec.return_type.cpp_type();
+
+    let _ = writeln!(
+        buf,
+        "{ret_type} OcctKernel::{name}({params}) {{",
+        params = param_list(spec.params)
+    );
+    let _ = writeln!(buf, "    try {{");
+
+    // Emit setup code if any
+    if !spec.setup_code.is_empty() {
+        for line in spec.setup_code.lines() {
+            let _ = writeln!(buf, "        {line}");
+        }
+    }
+
+    let body = spec.ctor_args;
+    if spec.return_type == ReturnType::Void {
+        let _ = writeln!(buf, "        {body};");
+    } else {
+        let _ = writeln!(buf, "        return {body};");
+    }
+
+    let _ = writeln!(buf, "    }} catch (const Standard_Failure& e) {{");
+    let _ = writeln!(
+        buf,
+        "        throw std::runtime_error(std::string(\"{name}: \") + e.what());"
+    );
+    let _ = writeln!(buf, "    }}");
+    let _ = writeln!(buf, "}}");
+}
+
+/// Emit a `CustomBody` method body.
+///
+/// The `setup_code` field contains the entire body verbatim (inside try/catch).
+fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
+    let name = spec.name;
+    let ret_type = spec.return_type.cpp_type();
+
+    let _ = writeln!(
+        buf,
+        "{ret_type} OcctKernel::{name}({params}) {{",
+        params = param_list(spec.params)
+    );
+    let _ = writeln!(buf, "    try {{");
+
+    for line in spec.setup_code.lines() {
+        let _ = writeln!(buf, "        {line}");
+    }
+
+    let _ = writeln!(buf, "    }} catch (const Standard_Failure& e) {{");
+    let _ = writeln!(
+        buf,
+        "        throw std::runtime_error(std::string(\"{name}: \") + e.what());"
+    );
+    let _ = writeln!(buf, "    }}");
+    let _ = writeln!(buf, "}}");
+}
+
 /// Derive the OCCT include header for a class name (e.g. `BRepPrimAPI_MakeBox`
 /// becomes `<BRepPrimAPI_MakeBox.hxx>`).
 fn class_to_include(cls: &str) -> String {
@@ -204,7 +271,9 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
         if matches!(spec.kind, MethodKind::Skip) {
             continue;
         }
-        includes.insert(class_to_include(spec.occt_class));
+        if !spec.occt_class.is_empty() {
+            includes.insert(class_to_include(spec.occt_class));
+        }
         for inc in spec.includes {
             includes.insert((*inc).to_owned());
         }
@@ -236,7 +305,7 @@ fn group_by_category<'a>(methods: &[&'a MethodSpec]) -> Vec<(&'a str, Vec<&'a Me
 /// Generate the contents of `facade/generated/kernel.cpp`.
 #[allow(clippy::too_many_lines)]
 pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
-    let mut buf = String::with_capacity(4096);
+    let mut buf = String::with_capacity(16384);
 
     // Header.
     let _ = writeln!(
@@ -271,6 +340,8 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
                 MethodKind::BooleanOp => emit_boolean_op(&mut buf, spec),
                 MethodKind::FilletLike => emit_fillet_like(&mut buf, spec),
                 MethodKind::SetupShape => emit_setup_shape(&mut buf, spec),
+                MethodKind::DirectCall => emit_direct_call(&mut buf, spec),
+                MethodKind::CustomBody => emit_custom_body(&mut buf, spec),
                 MethodKind::Skip => {}
             }
             let _ = writeln!(buf);
@@ -294,7 +365,7 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
 /// belong in the hand-written `facade/src/bindings.cpp` inside the
 /// `class_<OcctKernel>("OcctKernel")` block.
 pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
-    let mut buf = String::with_capacity(2048);
+    let mut buf = String::with_capacity(4096);
 
     let _ = writeln!(buf, "// AUTO-GENERATED reference -- DO NOT COMPILE");
     let _ = writeln!(buf, "//");
@@ -399,6 +470,64 @@ mod tests {
         assert!(output.contains("for (uint32_t eid : edgeIds)"));
         assert!(output.contains("maker.Add(radius, TopoDS::Edge(get(eid)))"));
         assert!(output.contains("#include <TopoDS.hxx>"));
+    }
+
+    #[test]
+    fn kernel_direct_call_emits_return() {
+        static GET_VOLUME: MethodSpec = MethodSpec {
+            name: "getVolume",
+            kind: MethodKind::DirectCall,
+            params: &[FacadeParam::ShapeId("id")],
+            return_type: ReturnType::Double,
+            occt_class: "",
+            ctor_args: "props.Mass()",
+            setup_code: "const auto& shape = get(id);\nGProp_GProps props;\nBRepGProp::VolumeProperties(shape, props);",
+            includes: &["BRepGProp.hxx", "GProp_GProps.hxx"],
+            category: "Query",
+        };
+        let methods: Vec<&MethodSpec> = vec![&GET_VOLUME];
+        let output = emit_kernel(&methods);
+        assert!(output.contains("double OcctKernel::getVolume(uint32_t id)"));
+        assert!(output.contains("return props.Mass()"));
+    }
+
+    #[test]
+    fn kernel_custom_body_emits_verbatim() {
+        static CUSTOM: MethodSpec = MethodSpec {
+            name: "myCustom",
+            kind: MethodKind::CustomBody,
+            params: &[FacadeParam::ShapeId("id")],
+            return_type: ReturnType::ShapeId,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "return store(get(id));",
+            includes: &[],
+            category: "Test",
+        };
+        let methods: Vec<&MethodSpec> = vec![&CUSTOM];
+        let output = emit_kernel(&methods);
+        assert!(output.contains("uint32_t OcctKernel::myCustom(uint32_t id)"));
+        assert!(output.contains("return store(get(id));"));
+    }
+
+    #[test]
+    fn kernel_void_direct_call() {
+        static VOID_METHOD: MethodSpec = MethodSpec {
+            name: "release",
+            kind: MethodKind::DirectCall,
+            params: &[FacadeParam::ShapeId("id")],
+            return_type: ReturnType::Void,
+            occt_class: "",
+            ctor_args: "arena_.erase(id)",
+            setup_code: "",
+            includes: &[],
+            category: "Kernel",
+        };
+        let methods: Vec<&MethodSpec> = vec![&VOID_METHOD];
+        let output = emit_kernel(&methods);
+        assert!(output.contains("void OcctKernel::release(uint32_t id)"));
+        assert!(output.contains("arena_.erase(id);"));
+        assert!(!output.contains("return arena_"));
     }
 
     #[test]
