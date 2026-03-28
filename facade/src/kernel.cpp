@@ -82,6 +82,42 @@ uint32_t OcctKernel::makeNullShape() {
     return store(TopoDS_Shape());
 }
 
+// --- MeshBatchData implementation ---
+
+MeshBatchData::~MeshBatchData() {
+    std::free(positions);
+    std::free(normals);
+    std::free(indices);
+    std::free(shapeOffsets);
+}
+
+MeshBatchData::MeshBatchData(const MeshBatchData& other)
+    : positions(other.positions), normals(other.normals), indices(other.indices),
+      shapeOffsets(other.shapeOffsets), positionCount(other.positionCount),
+      normalCount(other.normalCount), indexCount(other.indexCount), shapeCount(other.shapeCount) {
+    auto& mut = const_cast<MeshBatchData&>(other);
+    mut.positions = nullptr;
+    mut.normals = nullptr;
+    mut.indices = nullptr;
+    mut.shapeOffsets = nullptr;
+}
+
+int MeshBatchData::getPositionsPtr() const {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(positions));
+}
+
+int MeshBatchData::getNormalsPtr() const {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(normals));
+}
+
+int MeshBatchData::getIndicesPtr() const {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(indices));
+}
+
+int MeshBatchData::getShapeOffsetsPtr() const {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(shapeOffsets));
+}
+
 // --- EdgeData implementation ---
 
 EdgeData::~EdgeData() {

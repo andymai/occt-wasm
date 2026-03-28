@@ -148,6 +148,128 @@ MeshData OcctKernel::meshShape(uint32_t id, double linearDeflection, double angu
     return tessellate(id, linearDeflection, angularDeflection);
 }
 
+MeshBatchData OcctKernel::meshBatch(std::vector<uint32_t> ids, double linearDeflection,
+                                    double angularDeflection) {
+    try {
+        // First pass: mesh all shapes and count totals
+        struct ShapeMesh {
+            int posStart, posCount, idxStart, idxCount;
+        };
+        std::vector<ShapeMesh> shapeMeshes;
+        shapeMeshes.reserve(ids.size());
+
+        int totalNodes = 0;
+        int totalTris = 0;
+
+        for (uint32_t id : ids) {
+            const auto& shape = get(id);
+            BRepMesh_IncrementalMesh mesher(shape, linearDeflection, false, angularDeflection,
+                                            false);
+
+            int shapeNodes = 0;
+            int shapeTris = 0;
+            for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+                TopLoc_Location loc;
+                auto tri = BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc);
+                if (tri.IsNull())
+                    continue;
+                shapeNodes += tri->NbNodes();
+                shapeTris += tri->NbTriangles();
+            }
+            shapeMeshes.push_back({totalNodes * 3, shapeNodes * 3, totalTris * 3, shapeTris * 3});
+            totalNodes += shapeNodes;
+            totalTris += shapeTris;
+        }
+
+        // Allocate
+        MeshBatchData result;
+        result.positionCount = totalNodes * 3;
+        result.normalCount = totalNodes * 3;
+        result.indexCount = totalTris * 3;
+        result.shapeCount = static_cast<int>(ids.size());
+
+        result.positions = static_cast<float*>(std::malloc(result.positionCount * sizeof(float)));
+        result.normals = static_cast<float*>(std::malloc(result.normalCount * sizeof(float)));
+        result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(uint32_t)));
+        result.shapeOffsets =
+            static_cast<int32_t*>(std::malloc(result.shapeCount * 4 * sizeof(int32_t)));
+
+        // Second pass: extract geometry
+        int vertexOffset = 0;
+        int triOffset = 0;
+
+        for (size_t si = 0; si < ids.size(); si++) {
+            const auto& shape = get(ids[si]);
+
+            for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+                const auto& face = TopoDS::Face(ex.Current());
+                TopLoc_Location loc;
+                auto tri = BRep_Tool::Triangulation(face, loc);
+                if (tri.IsNull())
+                    continue;
+
+                const auto& trsf = loc.Transformation();
+                int nbNodes = tri->NbNodes();
+                int nbTri = tri->NbTriangles();
+
+                for (int i = 1; i <= nbNodes; i++) {
+                    gp_Pnt p = tri->Node(i).Transformed(trsf);
+                    int base = (vertexOffset + i - 1) * 3;
+                    result.positions[base + 0] = static_cast<float>(p.X());
+                    result.positions[base + 1] = static_cast<float>(p.Y());
+                    result.positions[base + 2] = static_cast<float>(p.Z());
+                }
+
+                if (!tri->HasNormals()) {
+                    BRepLib_ToolTriangulatedShape::ComputeNormals(face, tri);
+                }
+                for (int i = 1; i <= nbNodes; i++) {
+                    gp_Dir d(0, 0, 1);
+                    if (tri->HasNormals()) {
+                        NCollection_Vec3<float> nv;
+                        tri->Normal(i, nv);
+                        if (nv.x() != 0.0f || nv.y() != 0.0f || nv.z() != 0.0f) {
+                            d = gp_Dir(nv.x(), nv.y(), nv.z());
+                        }
+                    }
+                    d = d.Transformed(trsf);
+                    int base = (vertexOffset + i - 1) * 3;
+                    result.normals[base + 0] = static_cast<float>(d.X());
+                    result.normals[base + 1] = static_cast<float>(d.Y());
+                    result.normals[base + 2] = static_cast<float>(d.Z());
+                }
+
+                bool isReversed = (face.Orientation() != TopAbs_FORWARD);
+                for (int t = 1; t <= nbTri; t++) {
+                    const auto& triangle = tri->Triangle(t);
+                    int n1 = triangle.Value(1);
+                    int n2 = triangle.Value(2);
+                    int n3 = triangle.Value(3);
+                    if (isReversed)
+                        std::swap(n1, n2);
+                    result.indices[triOffset + 0] = static_cast<uint32_t>(n1 - 1 + vertexOffset);
+                    result.indices[triOffset + 1] = static_cast<uint32_t>(n2 - 1 + vertexOffset);
+                    result.indices[triOffset + 2] = static_cast<uint32_t>(n3 - 1 + vertexOffset);
+                    triOffset += 3;
+                }
+
+                vertexOffset += nbNodes;
+            }
+
+            // Store per-shape offsets: [posStart, posCount, idxStart, idxCount]
+            int oi = static_cast<int>(si) * 4;
+            result.shapeOffsets[oi + 0] = shapeMeshes[si].posStart;
+            result.shapeOffsets[oi + 1] = shapeMeshes[si].posCount;
+            result.shapeOffsets[oi + 2] = shapeMeshes[si].idxStart;
+            result.shapeOffsets[oi + 3] = shapeMeshes[si].idxCount;
+        }
+
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("meshBatch: ") + e.what());
+    }
+}
+
 EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
     try {
         const auto& shape = get(id);
