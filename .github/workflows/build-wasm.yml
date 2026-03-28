@@ -16,14 +16,8 @@ jobs:
   build:
     name: WASM Build & Test
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
-      contents: read
     container:
       image: ghcr.io/andymai/occt-wasm-builder:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
