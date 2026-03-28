@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/andymai/occt-wasm/compare/v1.0.2...v1.1.0) (2026-03-28)
+
+
+### Features
+
+* **codegen:** migrate construction + topology + query + curve (66 methods) ([#58](https://github.com/andymai/occt-wasm/issues/58)) ([b1e8a9a](https://github.com/andymai/occt-wasm/commit/b1e8a9addf0245fcd3e8b98886a9affbfafbe4e7))
+* **codegen:** migrate healing — first fully generated category ([#56](https://github.com/andymai/occt-wasm/issues/56)) ([8ec614f](https://github.com/andymai/occt-wasm/commit/8ec614fd785c85164235e9c556cfa281e5f3632c))
+
 ## [1.0.2](https://github.com/andymai/occt-wasm/compare/v1.0.1...v1.0.2) (2026-03-28)
 
 
