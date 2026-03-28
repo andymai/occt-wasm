@@ -170,7 +170,7 @@ export interface CurvatureData {
 
 /** Polyline edge data from wireframe tessellation. */
 export interface EdgeData {
-    /** XYZ interleaved edge sample points. Length = pointCount * 3. */
+    /** XYZ interleaved edge sample points. Length = pointCount. */
     points: Float32Array;
     /** Per-edge groups: [pointStart, pointCount, edgeHash] triples. */
     edgeGroups: Int32Array;

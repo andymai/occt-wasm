@@ -1411,14 +1411,22 @@ export class OcctKernel {
     getNurbsCurveData(edge: ShapeHandle): NurbsCurveData {
         return wrap("getNurbsCurveData", () => {
             const raw = this.#raw.getNurbsCurveData(edge);
+            const knots = vecToNumbers(raw.knots);
+            raw.knots.delete();
+            const multiplicities = vecToNumbers(raw.multiplicities);
+            raw.multiplicities.delete();
+            const poles = vecToNumbers(raw.poles);
+            raw.poles.delete();
+            const weights = vecToNumbers(raw.weights);
+            raw.weights.delete();
             return {
                 degree: raw.degree,
                 rational: raw.rational,
                 periodic: raw.periodic,
-                knots: vecToNumbers(raw.knots),
-                multiplicities: vecToNumbers(raw.multiplicities),
-                poles: vecToNumbers(raw.poles),
-                weights: vecToNumbers(raw.weights),
+                knots,
+                multiplicities,
+                poles,
+                weights,
             };
         });
     }
@@ -1833,11 +1841,17 @@ export class OcctKernel {
     }
 
     #extractEvolution(raw: RawEvolutionData): EvolutionData {
+        const modified = vecToNumbers(raw.modified);
+        raw.modified.delete();
+        const generated = vecToNumbers(raw.generated);
+        raw.generated.delete();
+        const deleted = vecToNumbers(raw.deleted);
+        raw.deleted.delete();
         return {
             result: handle(raw.resultId),
-            modified: vecToNumbers(raw.modified),
-            generated: vecToNumbers(raw.generated),
-            deleted: vecToNumbers(raw.deleted),
+            modified,
+            generated,
+            deleted,
         };
     }
 }
