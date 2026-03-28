@@ -6,6 +6,7 @@
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepAlgoAPI_Splitter.hxx>
 #include <NCollection_List.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <Standard_Failure.hxx>
 #include <TopoDS_Shape.hxx>
 
@@ -65,6 +66,58 @@ uint32_t OcctKernel::cutAll(uint32_t shapeId, std::vector<uint32_t> toolIds) {
         return store(cutter.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("cutAll: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::booleanPipeline(uint32_t baseId, std::vector<int> opCodes,
+                                     std::vector<uint32_t> toolIds) {
+    try {
+        if (opCodes.size() != toolIds.size()) {
+            throw std::runtime_error("booleanPipeline: opCodes and toolIds must have same length");
+        }
+        TopoDS_Shape current = get(baseId);
+        for (size_t i = 0; i < opCodes.size(); i++) {
+            const auto& tool = get(toolIds[i]);
+            bool isLast = (i == opCodes.size() - 1);
+            Message_ProgressRange progress;
+
+            switch (opCodes[i]) {
+            case 0: { // fuse
+                BRepAlgoAPI_Fuse op(current, tool, progress);
+                if (!op.IsDone() || op.HasErrors())
+                    throw std::runtime_error("booleanPipeline: fuse step failed");
+                current = op.Shape();
+                break;
+            }
+            case 1: { // cut
+                BRepAlgoAPI_Cut op(current, tool, progress);
+                if (!op.IsDone() || op.HasErrors())
+                    throw std::runtime_error("booleanPipeline: cut step failed");
+                current = op.Shape();
+                break;
+            }
+            case 2: { // intersect
+                BRepAlgoAPI_Common op(current, tool, progress);
+                if (!op.IsDone() || op.HasErrors())
+                    throw std::runtime_error("booleanPipeline: intersect step failed");
+                current = op.Shape();
+                break;
+            }
+            default:
+                throw std::runtime_error("booleanPipeline: unknown opCode");
+            }
+
+            // Only simplify the final result
+            if (isLast) {
+                ShapeUpgrade_UnifySameDomain upgrader(current, Standard_True, Standard_True,
+                                                      Standard_False);
+                upgrader.Build();
+                current = upgrader.Shape();
+            }
+        }
+        return store(current);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("booleanPipeline: ") + e.what());
     }
 }
 
