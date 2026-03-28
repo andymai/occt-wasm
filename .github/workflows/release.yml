@@ -7,14 +7,99 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
+
+env:
+  EMSDK_VERSION: "5.0.3"
+  NODE_VERSION: "22"
+  RUST_TOOLCHAIN: "1.85"
 
 jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
           manifest-file: .release-please-manifest.json
           config-file: release-please-config.json
+
+  publish:
+    name: Build & Publish to npm
+    runs-on: ubuntu-latest
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup emsdk
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ts/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd ts && npm ci
+
+      - name: Fetch RapidJSON headers
+        run: ./scripts/fetch-rapidjson.sh
+
+      - name: Compute OCCT cache key
+        id: occt-key
+        run: |
+          OCCT_REV=$(git rev-parse HEAD:occt)
+          BUILD_HASH=$(sha256sum xtask/src/build.rs | cut -d' ' -f1)
+          echo "hash=${OCCT_REV}-${BUILD_HASH}-emsdk${{ env.EMSDK_VERSION }}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache OCCT static libs
+        uses: actions/cache@v4
+        with:
+          path: occt/build
+          key: occt-${{ steps.occt-key.outputs.hash }}
+
+      - name: Build WASM (release)
+        run: cargo xtask build --release
+
+      - name: Build TypeScript
+        run: |
+          cd ts
+          npm run build
+          cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/
+
+      - name: Run tests
+        run: npx vitest run
+
+      # npm trusted publishing via OIDC — no NPM_TOKEN secret needed.
+      # Requires: npm package settings → "Require two-factor authentication or an automation
+      # token or a linked provenance-based publishing token"
+      # + Link this GitHub repo to the npm package at https://www.npmjs.com/package/occt-wasm/access
+      - name: Publish to npm (OIDC provenance)
+        run: cd ts && npm publish --provenance --access public

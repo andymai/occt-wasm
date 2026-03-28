@@ -3,6 +3,10 @@ name: Warm OCCT Cache
 on:
   workflow_dispatch:
 
+env:
+  EMSDK_VERSION: "5.0.3"
+  RUST_TOOLCHAIN: "1.85"
+
 jobs:
   warm:
     name: Build OCCT static libs
@@ -15,19 +19,22 @@ jobs:
       - name: Setup emsdk
         uses: mymindstorm/setup-emsdk@v14
         with:
-          version: 3.1.74
+          version: ${{ env.EMSDK_VERSION }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.85"
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
       - name: Compute OCCT cache key
         id: occt-key
-        run: echo "hash=$(git rev-parse HEAD:occt)-$(sha256sum xtask/src/build.rs | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+        run: |
+          OCCT_REV=$(git rev-parse HEAD:occt)
+          BUILD_HASH=$(sha256sum xtask/src/build.rs | cut -d' ' -f1)
+          echo "hash=${OCCT_REV}-${BUILD_HASH}-emsdk${{ env.EMSDK_VERSION }}" >> "$GITHUB_OUTPUT"
 
       - name: Cache OCCT static libs
         id: occt-cache

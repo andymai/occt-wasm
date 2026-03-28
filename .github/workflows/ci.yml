@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  EMSDK_VERSION: "5.0.3"
+  NODE_VERSION: "22"
+  RUST_TOOLCHAIN: "1.85"
+
 jobs:
   lint:
     name: Lint & Typecheck
@@ -16,7 +21,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.85"
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: rustfmt, clippy
 
       - name: Rust cache
@@ -31,7 +36,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ts/package-lock.json
 
       - name: Install TS dependencies
         run: cd ts && npm ci
@@ -53,12 +62,12 @@ jobs:
       - name: Setup emsdk
         uses: mymindstorm/setup-emsdk@v14
         with:
-          version: 5.0.3
+          version: ${{ env.EMSDK_VERSION }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.85"
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -66,7 +75,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ts/package-lock.json
 
       - name: Install dependencies
         run: |
@@ -78,7 +91,10 @@ jobs:
 
       - name: Compute OCCT cache key
         id: occt-key
-        run: echo "hash=$(git rev-parse HEAD:occt)-$(sha256sum xtask/src/build.rs | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+        run: |
+          OCCT_REV=$(git rev-parse HEAD:occt)
+          BUILD_HASH=$(sha256sum xtask/src/build.rs | cut -d' ' -f1)
+          echo "hash=${OCCT_REV}-${BUILD_HASH}-emsdk${{ env.EMSDK_VERSION }}" >> "$GITHUB_OUTPUT"
 
       - name: Cache OCCT static libs
         uses: actions/cache@v4
@@ -86,7 +102,7 @@ jobs:
           path: occt/build
           key: occt-${{ steps.occt-key.outputs.hash }}
 
-      - name: Build OCCT + facade → WASM
+      - name: Build OCCT + facade -> WASM
         run: cargo xtask build
 
       - name: Build TypeScript
@@ -96,10 +112,10 @@ jobs:
           cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/
 
       - name: Run tests
-        run: cd ts && npx vitest run
+        run: npx vitest run
 
       - name: Run benchmarks & check for regressions
-        run: cd ts && npx vitest run ../test/bench.test.ts 2>&1 | node ../scripts/bench-check.js
+        run: npx vitest run test/bench.test.ts 2>&1 | node scripts/bench-check.js
 
       - name: Upload WASM artifact
         uses: actions/upload-artifact@v4
@@ -118,7 +134,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ts/package-lock.json
 
       - name: Download WASM artifact
         uses: actions/download-artifact@v4
@@ -127,10 +147,10 @@ jobs:
           path: dist/
 
       - name: Install dependencies
-        run: |
-          npm ci
-          cd ts && npm ci
-          npx playwright install chromium --with-deps
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install chromium --with-deps
 
       - name: Run browser smoke test
         run: npx playwright test
