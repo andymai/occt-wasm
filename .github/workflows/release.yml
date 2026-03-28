@@ -97,9 +97,5 @@ jobs:
       - name: Run tests
         run: npx vitest run
 
-      # npm trusted publishing via OIDC — no NPM_TOKEN secret needed.
-      # Requires: npm package settings → "Require two-factor authentication or an automation
-      # token or a linked provenance-based publishing token"
-      # + Link this GitHub repo to the npm package at https://www.npmjs.com/package/occt-wasm/access
-      - name: Publish to npm (OIDC provenance)
+      - name: Publish to npm
         run: cd ts && npm publish --provenance --access public
