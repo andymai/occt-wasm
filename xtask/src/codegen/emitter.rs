@@ -6,7 +6,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-use super::types::{FacadeParam, MethodKind, MethodSpec};
+use super::types::{FacadeParam, MethodKind, MethodSpec, ReturnType};
 
 /// Format a [`FacadeParam`] as a C++ formal parameter declaration.
 fn param_to_cpp(param: &FacadeParam) -> String {
@@ -187,6 +187,35 @@ fn emit_setup_shape(buf: &mut String, spec: &MethodSpec) {
     let _ = writeln!(buf, "}}");
 }
 
+/// Emit a `CustomBody` method — the `setup_code` field contains the complete body.
+fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
+    let name = spec.name;
+    let ret_type = match spec.return_type {
+        ReturnType::ShapeId => "uint32_t",
+        ReturnType::Bool => "bool",
+        ReturnType::Void => "void",
+    };
+
+    let _ = writeln!(
+        buf,
+        "{ret_type} OcctKernel::{name}({params}) {{",
+        params = param_list(spec.params)
+    );
+    let _ = writeln!(buf, "    try {{");
+
+    for line in spec.setup_code.lines() {
+        let _ = writeln!(buf, "        {line}");
+    }
+
+    let _ = writeln!(buf, "    }} catch (const Standard_Failure& e) {{");
+    let _ = writeln!(
+        buf,
+        "        throw std::runtime_error(std::string(\"{name}: \") + e.what());"
+    );
+    let _ = writeln!(buf, "    }}");
+    let _ = writeln!(buf, "}}");
+}
+
 /// Derive the OCCT include header for a class name (e.g. `BRepPrimAPI_MakeBox`
 /// becomes `<BRepPrimAPI_MakeBox.hxx>`).
 fn class_to_include(cls: &str) -> String {
@@ -204,7 +233,9 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
         if matches!(spec.kind, MethodKind::Skip) {
             continue;
         }
-        includes.insert(class_to_include(spec.occt_class));
+        if !spec.occt_class.is_empty() {
+            includes.insert(class_to_include(spec.occt_class));
+        }
         for inc in spec.includes {
             includes.insert((*inc).to_owned());
         }
@@ -271,6 +302,7 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
                 MethodKind::BooleanOp => emit_boolean_op(&mut buf, spec),
                 MethodKind::FilletLike => emit_fillet_like(&mut buf, spec),
                 MethodKind::SetupShape => emit_setup_shape(&mut buf, spec),
+                MethodKind::CustomBody => emit_custom_body(&mut buf, spec),
                 MethodKind::Skip => {}
             }
             let _ = writeln!(buf);

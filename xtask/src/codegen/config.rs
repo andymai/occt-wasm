@@ -391,6 +391,151 @@ static TARGET_METHODS: &[MethodSpec] = &[
         category: "transforms",
         return_type: ReturnType::ShapeId,
     },
+    // ── Healing ──────────────────────────────────────────────────
+    MethodSpec {
+        name: "fixShape",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+ShapeFix_Shape fixer(get(id));
+fixer.Perform();
+return store(fixer.Shape());",
+        includes: &["ShapeFix_Shape.hxx"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "unifySameDomain",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+ShapeUpgrade_UnifySameDomain upgrader(get(id), true, true, false);
+upgrader.Build();
+return store(upgrader.Shape());",
+        includes: &["ShapeUpgrade_UnifySameDomain.hxx"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "isValid",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepCheck_Analyzer checker(get(id));
+return checker.IsValid();",
+        includes: &["BRepCheck_Analyzer.hxx"],
+        category: "healing",
+        return_type: ReturnType::Bool,
+    },
+    MethodSpec {
+        name: "healSolid",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Double("tolerance")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+Handle(ShapeFix_Solid) fixer = new ShapeFix_Solid(TopoDS::Solid(get(id)));
+fixer->SetPrecision(tolerance);
+fixer->Perform();
+return store(fixer->Shape());",
+        includes: &["ShapeFix_Solid.hxx", "TopoDS.hxx"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "healFace",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Double("tolerance")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+ShapeFix_Face fixer(TopoDS::Face(get(id)));
+fixer.SetPrecision(tolerance);
+fixer.Perform();
+return store(fixer.Face());",
+        includes: &["ShapeFix_Face.hxx", "TopoDS.hxx"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "healWire",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Double("tolerance")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+ShapeFix_Wire fixer;
+fixer.Load(TopoDS::Wire(get(id)));
+fixer.SetPrecision(tolerance);
+fixer.Perform();
+return store(fixer.Wire());",
+        includes: &["ShapeFix_Wire.hxx", "TopoDS.hxx"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "fixFaceOrientations",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+ShapeFix_Shape fixer(get(id));
+fixer.Perform();
+return store(fixer.Shape());",
+        includes: &["ShapeFix_Shape.hxx"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "buildCurves3d",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("wireId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "BRepLib::BuildCurves3d(get(wireId));",
+        includes: &["BRepLib.hxx"],
+        category: "healing",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "fixWireOnFace",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("wireId"),
+            FacadeParam::ShapeId("faceId"),
+            FacadeParam::Double("tolerance"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+ShapeFix_Wire fixer(TopoDS::Wire(get(wireId)), TopoDS::Face(get(faceId)), tolerance);
+fixer.FixEdgeCurves();
+return store(fixer.Wire());",
+        includes: &["ShapeFix_Wire.hxx", "TopoDS.hxx"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "removeDegenerateEdges",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+ShapeFix_Shape fixer(get(id));
+fixer.Perform();
+return store(fixer.Shape());",
+        includes: &["ShapeFix_Shape.hxx"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
 ];
 
 /// Returns the complete list of facade method specifications.
@@ -412,13 +557,13 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 19, "expected 19 generable methods");
+        assert_eq!(count, 29, "expected 29 generable methods");
     }
 
     #[test]
-    fn all_generable_methods_have_occt_class() {
+    fn all_generable_methods_have_occt_class_or_custom_body() {
         for m in target_methods() {
-            if m.kind != MethodKind::Skip {
+            if m.kind != MethodKind::Skip && m.kind != MethodKind::CustomBody {
                 assert!(
                     !m.occt_class.is_empty(),
                     "generable method '{}' is missing occt_class",

@@ -25,6 +25,10 @@ pub enum MethodKind {
     /// `ctor_args` and stores the result. No `Build()`/`IsDone()` check.
     SetupShape,
 
+    /// Inline C++ body. The `setup_code` field contains the full method body
+    /// (everything between the opening `try {` and closing `} catch`).
+    CustomBody,
+
     /// Not auto-generated — the hand-written implementation uses complex
     /// multi-step logic that doesn't fit a template.
     Skip,
@@ -73,6 +77,10 @@ impl FacadeParam {
 pub enum ReturnType {
     /// A `uint32_t` shape ID stored in the arena.
     ShapeId,
+    /// `bool` return.
+    Bool,
+    /// `void` return.
+    Void,
 }
 
 /// A complete facade method specification.
