@@ -184,6 +184,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // I/O
         .function("importStep", &OcctKernel::importStep)
         .function("exportStep", &OcctKernel::exportStep)
+        .function("importStl", &OcctKernel::importStl)
         .function("exportStl", &OcctKernel::exportStl)
         .function("toBREP", &OcctKernel::toBREP)
         .function("fromBREP", &OcctKernel::fromBREP)

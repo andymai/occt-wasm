@@ -219,6 +219,7 @@ class OcctKernel {
     // --- I/O ---
     uint32_t importStep(const std::string& data);
     std::string exportStep(uint32_t id);
+    uint32_t importStl(const std::string& data);
     std::string exportStl(uint32_t id, double linearDeflection, bool ascii);
     std::string toBREP(uint32_t id);
     uint32_t fromBREP(const std::string& data);
