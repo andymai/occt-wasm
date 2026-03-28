@@ -98,8 +98,8 @@ jobs:
       - name: Run tests
         run: cd ts && npx vitest run
 
-      - name: Run benchmarks
-        run: cd ts && npx vitest run ../test/bench.test.ts
+      - name: Run benchmarks & check for regressions
+        run: cd ts && npx vitest run ../test/bench.test.ts 2>&1 | node ../scripts/bench-check.js
 
       - name: Upload WASM artifact
         uses: actions/upload-artifact@v4

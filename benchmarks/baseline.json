@@ -1,0 +1,10 @@
+{
+  "makeBox ×100": 2.8,
+  "fuse ×10": 42.9,
+  "translate ×1000": 39.2,
+  "mesh sphere (tol=0.01)": 0.3,
+  "exportSTEP ×10": 13.3,
+  "translateBatch ×1000": 38.8,
+  "booleanPipeline ×3": 8,
+  "meshBatch ×10 spheres": 0.5
+}
