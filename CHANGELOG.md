@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/andymai/occt-wasm/compare/v1.0.0...v1.0.1) (2026-03-28)
+
+
+### Bug Fixes
+
+* **ci:** remove registry-url from publish (let OIDC handle auth natively) ([72edb0d](https://github.com/andymai/occt-wasm/commit/72edb0dc94f43936050d010740289f544704e3a7))
+
 ## [0.1.10](https://github.com/andymai/occt-wasm/compare/v0.1.9...v0.1.10) (2026-03-28)
 
 
