@@ -39,6 +39,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
