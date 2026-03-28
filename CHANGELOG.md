@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.9](https://github.com/andymai/occt-wasm/compare/v0.1.8...v0.1.9) (2026-03-28)
+
+
+### Features
+
+* **ts:** v1.0 prep — full TS wrapper, API audit, tests, docs, codegen ([#48](https://github.com/andymai/occt-wasm/issues/48)) ([8577f12](https://github.com/andymai/occt-wasm/commit/8577f126e3278c73c02ad48bc4f194918106ef63))
+
+
+### Bug Fixes
+
+* **docs:** correct README inconsistencies with actual source ([#46](https://github.com/andymai/occt-wasm/issues/46)) ([980567f](https://github.com/andymai/occt-wasm/commit/980567fa1a7803b31290ab6f93bca6dc32c16157))
+
 ## [0.1.8](https://github.com/andymai/occt-wasm/compare/v0.1.7...v0.1.8) (2026-03-28)
 
 
