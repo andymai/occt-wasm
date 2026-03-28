@@ -76,7 +76,8 @@ jobs:
         run: |
           OCCT_REV=$(git rev-parse HEAD:occt)
           BUILD_HASH=$(sha256sum xtask/src/build.rs | cut -d' ' -f1)
-          echo "hash=${OCCT_REV}-${BUILD_HASH}-emsdk${{ env.EMSDK_VERSION }}" >> "$GITHUB_OUTPUT"
+          RAPID_HASH=$(sha256sum scripts/fetch-rapidjson.sh | cut -d' ' -f1)
+          echo "hash=${OCCT_REV}-${BUILD_HASH}-${RAPID_HASH}-emsdk${{ env.EMSDK_VERSION }}" >> "$GITHUB_OUTPUT"
 
       - name: Cache OCCT static libs
         uses: actions/cache@v4
