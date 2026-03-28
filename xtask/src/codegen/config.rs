@@ -1513,7 +1513,18 @@ return store(faceMaker.Shape());",
         params: &[FacadeParam::ShapeId("id")],
         occt_class: "",
         ctor_args: "",
-        setup_code: "return shapeTypeToString(get(id).ShapeType());",
+        setup_code: "\
+switch (get(id).ShapeType()) {
+case TopAbs_VERTEX: return \"vertex\";
+case TopAbs_EDGE: return \"edge\";
+case TopAbs_WIRE: return \"wire\";
+case TopAbs_FACE: return \"face\";
+case TopAbs_SHELL: return \"shell\";
+case TopAbs_SOLID: return \"solid\";
+case TopAbs_COMPSOLID: return \"compsolid\";
+case TopAbs_COMPOUND: return \"compound\";
+default: return \"shape\";
+}",
         includes: &["TopAbs_ShapeEnum.hxx"],
         category: "topology",
         return_type: ReturnType::String,
@@ -1525,9 +1536,18 @@ return store(faceMaker.Shape());",
         occt_class: "",
         ctor_args: "",
         setup_code: "\
-TopAbs_ShapeEnum toExplore = parseShapeType(shapeType);
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+TopAbs_ShapeEnum toExplore = parseType(shapeType);
 std::vector<uint32_t> result;
-// Use TopExp::MapShapes for deduplicated sub-shapes.
 NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
 TopExp::MapShapes(get(id), toExplore, map);
 for (int i = 1; i <= map.Extent(); i++) {
@@ -1682,14 +1702,20 @@ return result;",
         occt_class: "",
         ctor_args: "",
         setup_code: "\
-// In our arena, shapes are already stored as TopoDS_Shape which can be any sub-type.
-// downcast just re-stores the same shape (OCCT's TopoDS::Vertex etc. are just casts).
-// This ensures the arena has a separate ID for the downcast reference.
 const auto& shape = get(id);
-TopAbs_ShapeEnum target = parseShapeType(targetType);
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+TopAbs_ShapeEnum target = parseType(targetType);
 if (shape.ShapeType() != target) {
-    throw std::runtime_error(\"downcast: shape type mismatch — expected \" + targetType +
-                             \", got \" + shapeTypeToString(shape.ShapeType()));
+    throw std::runtime_error(\"downcast: shape type mismatch\");
 }
 return store(shape);",
         includes: &["TopAbs_ShapeEnum.hxx", "TopoDS.hxx"],
@@ -2357,7 +2383,7 @@ if (!edgeMaker.IsDone()) {
 return store(edgeMaker.Shape());",
         includes: &[
             "BRepBuilderAPI_MakeEdge.hxx", "Geom2dAPI_Interpolate.hxx",
-            "Geom_Plane.hxx", "NCollection_HArray1.hxx",
+            "Geom2d_BSplineCurve.hxx", "Geom_Plane.hxx", "NCollection_HArray1.hxx",
             "gp_Ax3.hxx", "gp_Dir.hxx", "gp_Pln.hxx", "gp_Pnt.hxx", "gp_Pnt2d.hxx",
         ],
         category: "curve",

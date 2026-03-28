@@ -296,8 +296,12 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf);
 
     // Standard C++ includes.
+    let _ = writeln!(buf, "#include <algorithm>");
+    let _ = writeln!(buf, "#include <cmath>");
+    let _ = writeln!(buf, "#include <set>");
     let _ = writeln!(buf, "#include <stdexcept>");
     let _ = writeln!(buf, "#include <string>");
+    let _ = writeln!(buf, "#include <vector>");
     let _ = writeln!(buf);
 
     // Methods grouped by category.
