@@ -10,6 +10,7 @@
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
 #include <Message_ProgressRange.hxx>
+#include <StlAPI_Reader.hxx>
 #include <StlAPI_Writer.hxx>
 
 #include <sstream>
@@ -114,6 +115,35 @@ std::string OcctKernel::exportStl(uint32_t id, double linearDeflection, bool asc
         return result;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("exportStl: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::importStl(const std::string& data) {
+    try {
+        // If data is non-empty, write it to the virtual FS.
+        // If empty, assume the caller already wrote to /tmp/import.stl via FS API.
+        if (!data.empty()) {
+            FILE* f = fopen("/tmp/import.stl", "wb");
+            if (!f) {
+                throw std::runtime_error("importStl: cannot create temp file");
+            }
+            fwrite(data.c_str(), 1, data.size(), f);
+            fclose(f);
+        }
+
+        TopoDS_Shape shape;
+        StlAPI_Reader reader;
+        if (!reader.Read(shape, "/tmp/import.stl")) {
+            throw std::runtime_error("importStl: failed to read STL data");
+        }
+
+        if (shape.IsNull()) {
+            throw std::runtime_error("importStl: no shape produced from STL data");
+        }
+
+        return store(shape);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("importStl: ") + e.what());
     }
 }
 
