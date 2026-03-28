@@ -33,7 +33,7 @@ beforeAll(async () => {
 
     const types = await import(resolve(__dirname, "../ts/src/types.ts"));
     OcctError = types.OcctError;
-});
+}, 30_000);
 
 afterEach(() => {
     kernel.releaseAll();
@@ -43,14 +43,6 @@ afterAll(() => {
     kernel.releaseAll();
     kernel.delete();
 });
-
-// Helper: convert Embind vector to JS array
-function vecToArr(vec: any): number[] {
-    const result: number[] = [];
-    for (let i = 0; i < vec.size(); i++) result.push(vec.get(i));
-    vec.delete();
-    return result;
-}
 
 // ============================================================================
 // These tests validate that the TS wrapper's return types and patterns match

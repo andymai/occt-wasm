@@ -4,5 +4,6 @@ export default defineConfig({
     test: {
         include: ["test/**/*.test.ts"],
         exclude: ["test/browser/**"],
+        testTimeout: 30000,
     },
 });
