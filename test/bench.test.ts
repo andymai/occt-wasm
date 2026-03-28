@@ -176,6 +176,19 @@ describe("Core 5 — raw facade benchmarks", () => {
         expect(r.median).toBeLessThan(500);
     });
 
+    it("meshBatch ×10 spheres (single call)", () => {
+        const ids = new Module.VectorUint32();
+        for (let i = 0; i < 10; i++) {
+            ids.push_back(kernel.translate(kernel.makeSphere(5), i * 15, 0, 0));
+        }
+        const r = bench("meshBatch ×10 spheres", () => {
+            kernel.meshBatch(ids, 0.1, 0.5);
+        });
+        ids.delete();
+        record(r);
+        expect(r.median).toBeLessThan(200);
+    });
+
     it("print results", () => {
         console.log(
             "\n| Benchmark | Min (ms) | Median (ms) | Mean (ms) | Max (ms) |"

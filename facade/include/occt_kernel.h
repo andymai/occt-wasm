@@ -80,6 +80,27 @@ struct NurbsCurveData {
     std::vector<double> weights;
 };
 
+/// Batch mesh data: concatenated positions/normals/indices with per-shape offsets.
+struct MeshBatchData {
+    float* positions = nullptr;
+    float* normals = nullptr;
+    uint32_t* indices = nullptr;
+    int32_t* shapeOffsets = nullptr; // [posStart, posCount, idxStart, idxCount] per shape
+    int positionCount = 0;
+    int normalCount = 0;
+    int indexCount = 0;
+    int shapeCount = 0; // number of shapes (shapeOffsets has shapeCount * 4 int32s)
+
+    MeshBatchData() = default;
+    ~MeshBatchData();
+    MeshBatchData(const MeshBatchData& other);
+    MeshBatchData& operator=(const MeshBatchData&) = delete;
+    int getPositionsPtr() const;
+    int getNormalsPtr() const;
+    int getIndicesPtr() const;
+    int getShapeOffsetsPtr() const;
+};
+
 /// XCAF label info returned from queries.
 struct XCAFLabelInfo {
     int labelId = 0;
@@ -220,6 +241,8 @@ class OcctKernel {
     EdgeData wireframe(uint32_t id, double deflection);
     bool hasTriangulation(uint32_t id);
     MeshData meshShape(uint32_t id, double linearDeflection, double angularDeflection);
+    MeshBatchData meshBatch(std::vector<uint32_t> ids, double linearDeflection,
+                            double angularDeflection);
 
     // --- I/O ---
     uint32_t importStep(const std::string& data);

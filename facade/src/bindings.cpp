@@ -20,6 +20,17 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("getFaceGroupsPtr", &MeshData::getFaceGroupsPtr)
         .property("faceGroupCount", &MeshData::faceGroupCount);
 
+    // MeshBatchData
+    class_<MeshBatchData>("MeshBatchData")
+        .function("getPositionsPtr", &MeshBatchData::getPositionsPtr)
+        .function("getNormalsPtr", &MeshBatchData::getNormalsPtr)
+        .function("getIndicesPtr", &MeshBatchData::getIndicesPtr)
+        .function("getShapeOffsetsPtr", &MeshBatchData::getShapeOffsetsPtr)
+        .property("positionCount", &MeshBatchData::positionCount)
+        .property("normalCount", &MeshBatchData::normalCount)
+        .property("indexCount", &MeshBatchData::indexCount)
+        .property("shapeCount", &MeshBatchData::shapeCount);
+
     // BBoxData
     value_object<BBoxData>("BBoxData")
         .field("xmin", &BBoxData::xmin)
@@ -184,6 +195,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("wireframe", &OcctKernel::wireframe)
         .function("hasTriangulation", &OcctKernel::hasTriangulation)
         .function("meshShape", &OcctKernel::meshShape)
+        .function("meshBatch", &OcctKernel::meshBatch)
 
         // I/O
         .function("importStep", &OcctKernel::importStep)
