@@ -408,6 +408,19 @@ function vecToNumbers(vec: EmbindVectorF64 | EmbindVectorI32): number[] {
     return result;
 }
 
+/**
+ * Extract the first n elements from an Embind vector into an array,
+ * then delete the vector and return the result.
+ */
+function extractFromVector(vec: EmbindVectorF64 | EmbindVectorI32, count: number): number[] {
+    const result: number[] = [];
+    for (let i = 0; i < count; i++) {
+        result.push(vec.get(i));
+    }
+    vec.delete();
+    return result;
+}
+
 function vecToHandles(vec: EmbindVectorU32): ShapeHandle[] {
     const result: ShapeHandle[] = [];
     for (let i = 0; i < vec.size(); i++) {
@@ -1264,12 +1277,9 @@ export class OcctKernel {
     }
 
     surfaceCurvature(face: ShapeHandle, u: number, v: number): CurvatureData {
-        return wrap("surfaceCurvature", () => {
-            const vec = this.#raw.surfaceCurvature(face, u, v);
-            const result = { min: vec.get(0), max: vec.get(1), gaussian: vec.get(2), mean: vec.get(3) };
-            vec.delete();
-            return result;
-        });
+        return wrap("surfaceCurvature", () =>
+            this.#curvatureDataFromEmbind(this.#raw.surfaceCurvature(face, u, v)),
+        );
     }
 
     // =======================================================================
@@ -1306,23 +1316,16 @@ export class OcctKernel {
     }
 
     uvBounds(face: ShapeHandle): UVBounds {
-        return wrap("uvBounds", () => {
-            const vec = this.#raw.uvBounds(face);
-            const result = { uMin: vec.get(0), uMax: vec.get(1), vMin: vec.get(2), vMax: vec.get(3) };
-            vec.delete();
-            return result;
-        });
+        return wrap("uvBounds", () =>
+            this.#uvBoundsFromEmbind(this.#raw.uvBounds(face)),
+        );
     }
 
     /** Project a 3D point onto a face, returning [u, v]. */
     uvFromPoint(face: ShapeHandle, point: Vec3): { u: number; v: number } {
-        return wrap("uvFromPoint", () => {
-            const vec = this.#raw.uvFromPoint(face, point.x, point.y, point.z);
-            const u = vec.get(0);
-            const v = vec.get(1);
-            vec.delete();
-            return { u, v };
-        });
+        return wrap("uvFromPoint", () =>
+            this.#vec2FromEmbind(this.#raw.uvFromPoint(face, point.x, point.y, point.z)),
+        );
     }
 
     /** Project a 3D point onto a face, returning the closest point as Vec3. */
@@ -1372,10 +1375,7 @@ export class OcctKernel {
     /** Returns [firstParam, lastParam]. */
     curveParameters(edge: ShapeHandle): { first: number; last: number } {
         return wrap("curveParameters", () => {
-            const vec = this.#raw.curveParameters(edge);
-            const first = vec.get(0);
-            const last = vec.get(1);
-            vec.delete();
+            const { u: first, v: last } = this.#vec2FromEmbind(this.#raw.curveParameters(edge));
             return { first, last };
         });
     }
@@ -1411,23 +1411,16 @@ export class OcctKernel {
     getNurbsCurveData(edge: ShapeHandle): NurbsCurveData {
         return wrap("getNurbsCurveData", () => {
             const raw = this.#raw.getNurbsCurveData(edge);
-            const knots = vecToNumbers(raw.knots);
-            raw.knots.delete();
-            const multiplicities = vecToNumbers(raw.multiplicities);
-            raw.multiplicities.delete();
-            const poles = vecToNumbers(raw.poles);
-            raw.poles.delete();
-            const weights = vecToNumbers(raw.weights);
-            raw.weights.delete();
-            return {
+            const result: NurbsCurveData = {
                 degree: raw.degree,
                 rational: raw.rational,
                 periodic: raw.periodic,
-                knots,
-                multiplicities,
-                poles,
-                weights,
+                knots: extractFromVector(raw.knots, raw.knots.size()),
+                multiplicities: extractFromVector(raw.multiplicities, raw.multiplicities.size()),
+                poles: extractFromVector(raw.poles, raw.poles.size()),
+                weights: extractFromVector(raw.weights, raw.weights.size()),
             };
+            return result;
         });
     }
 
@@ -1754,22 +1747,27 @@ export class OcctKernel {
     // Private helpers
     // =======================================================================
 
-    #makeVectorU32(ids: ShapeHandle[] | number[]): EmbindVectorU32 {
-        const vec = new this.#module.VectorUint32();
-        for (const id of ids) { vec.push_back(id); }
+    #makeVector<T extends { push_back(v: number): void }>(
+        ctor: new () => T,
+        values: number[] | ShapeHandle[],
+    ): T {
+        const vec = new ctor();
+        for (const v of values) {
+            vec.push_back(v);
+        }
         return vec;
+    }
+
+    #makeVectorU32(ids: ShapeHandle[] | number[]): EmbindVectorU32 {
+        return this.#makeVector(this.#module.VectorUint32, ids);
     }
 
     #makeVectorF64(values: number[]): EmbindVectorF64 {
-        const vec = new this.#module.VectorDouble();
-        for (const v of values) { vec.push_back(v); }
-        return vec;
+        return this.#makeVector(this.#module.VectorDouble, values);
     }
 
     #makeVectorI32(values: number[]): EmbindVectorI32 {
-        const vec = new this.#module.VectorInt();
-        for (const v of values) { vec.push_back(v); }
-        return vec;
+        return this.#makeVector(this.#module.VectorInt, values);
     }
 
     #flattenPoints(points: Vec3[]): EmbindVectorF64 {
@@ -1780,6 +1778,35 @@ export class OcctKernel {
             vec.push_back(p.z);
         }
         return vec;
+    }
+
+    #vec2FromEmbind(vec: EmbindVectorF64): { u: number; v: number } {
+        const u = vec.get(0);
+        const v = vec.get(1);
+        vec.delete();
+        return { u, v };
+    }
+
+    #uvBoundsFromEmbind(vec: EmbindVectorF64): UVBounds {
+        const result: UVBounds = {
+            uMin: vec.get(0),
+            uMax: vec.get(1),
+            vMin: vec.get(2),
+            vMax: vec.get(3),
+        };
+        vec.delete();
+        return result;
+    }
+
+    #curvatureDataFromEmbind(vec: EmbindVectorF64): CurvatureData {
+        const result: CurvatureData = {
+            min: vec.get(0),
+            max: vec.get(1),
+            gaussian: vec.get(2),
+            mean: vec.get(3),
+        };
+        vec.delete();
+        return result;
     }
 
     #vec3FromEmbind(vec: EmbindVectorF64): Vec3 {
