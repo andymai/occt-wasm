@@ -4,8 +4,8 @@ A better OCCT-to-WASM compilation pipeline. Compiles [OpenCascade](https://www.o
 
 ## Highlights
 
-- **20MB WASM** (4.3MB brotli) — 3x smaller than opencascade.js
-- **40+ typed methods** — primitives, booleans, fillets, sweeps, STEP/STL/glTF I/O, XCAF assemblies
+- **20MB WASM** (4.3MB brotli) — 2x smaller than opencascade.js gzipped
+- **160+ typed methods** — primitives, booleans, sweeps, XCAF assemblies, curves, surfaces, STEP/STL/glTF/BREP I/O, topology introspection, shape evolution tracking
 - **Arena-based API** — u32 shape handles, no manual `.delete()`, `Symbol.dispose` support
 - **TypeScript-first** — branded `ShapeHandle` type, `OcctError` with operation context
 
@@ -87,22 +87,29 @@ npm run docker:build    # Build image (OCCT layer cached after first run)
 npm run docker:dist     # Build + copy dist/ artifacts to host
 ```
 
-## All 40 Methods
+## All 164 Methods
 
-| Category | Methods |
-|----------|---------|
-| **Primitives** | makeBox, makeCylinder, makeSphere, makeCone, makeTorus |
-| **Booleans** | fuse, cut, common, section |
-| **Modeling** | extrude, revolve, fillet, chamfer, shell, offset, draft |
-| **Sweeps** | pipe, loft |
-| **Construction** | makeVertex, makeEdge, makeWire, makeFace, makeSolid, sew, makeCompound |
-| **Transforms** | translate, rotate, scale, mirror, copy |
-| **Topology** | getShapeType, getSubShapes, distanceBetween |
-| **Tessellation** | tessellate, wireframe |
-| **I/O** | importStep, exportStep, exportStl |
-| **Query** | getBoundingBox, getVolume, getSurfaceArea |
-| **Healing** | fixShape, unifySameDomain |
-| **Arena** | release, releaseAll, getShapeCount |
+| Category | Count | Methods |
+|----------|------:|---------|
+| **Primitives** | 8 | makeBox, makeBoxFromCorners, makeCylinder, makeSphere, makeCone, makeTorus, makeEllipsoid, makeRectangle |
+| **Booleans** | 8 | fuse, cut, common, intersect, section, fuseAll, cutAll, split |
+| **Modeling** | 8 | extrude, revolve, fillet, chamfer, chamferDistAngle, shell, offset, draft |
+| **Sweeps** | 8 | pipe, simplePipe, loft, loftWithVertices, sweep, sweepPipeShell, draftPrism, revolveVec |
+| **Construction** | 24 | makeVertex, makeEdge, makeLineEdge, makeCircleEdge, makeCircleArc, makeArcEdge, makeEllipseEdge, makeEllipseArc, makeBezierEdge, makeTangentArc, makeHelixWire, makeWire, makeFace, makeNonPlanarFace, addHolesInFace, removeHolesFromFace, solidFromShell, makeSolid, sew, sewAndSolidify, buildSolidFromFaces, makeCompound, buildTriFace, makeFaceOnSurface |
+| **Transforms** | 10 | translate, rotate, scale, mirror, copy, transform, generalTransform, linearPattern, circularPattern, composeTransform |
+| **Topology** | 13 | getShapeType, getSubShapes, downcast, distanceBetween, isSame, isEqual, isNull, hashCode, shapeOrientation, sharedEdges, adjacentFaces, iterShapes, edgeToFaceMap |
+| **Tessellation** | 5 | tessellate, wireframe, hasTriangulation, meshShape, meshBatch |
+| **I/O** | 6 | importStep, exportStep, importStl, exportStl, toBREP, fromBREP |
+| **Query** | 7 | getBoundingBox, getVolume, getSurfaceArea, getLength, getCenterOfMass, getLinearCenterOfMass, surfaceCurvature |
+| **Surfaces** | 10 | vertexPosition, surfaceType, surfaceNormal, pointOnSurface, outerWire, uvBounds, uvFromPoint, projectPointOnFace, classifyPointOnFace, bsplineSurface |
+| **Curves** | 11 | curveType, curvePointAtParam, curveTangent, curveParameters, curveIsClosed, curveIsPeriodic, curveLength, interpolatePoints, approximatePoints, getNurbsCurveData, liftCurve2dToPlane |
+| **Projection** | 1 | projectEdges (HLR hidden line removal) |
+| **Modifiers** | 6 | thicken, defeature, reverseShape, simplify, filletVariable, offsetWire2D |
+| **Evolution** | 12 | translateWithHistory, fuseWithHistory, cutWithHistory, filletWithHistory, rotateWithHistory, mirrorWithHistory, scaleWithHistory, intersectWithHistory, chamferWithHistory, shellWithHistory, offsetWithHistory, thickenWithHistory |
+| **XCAF** | 12 | xcafNewDocument, xcafClose, xcafAddShape, xcafAddComponent, xcafSetColor, xcafSetName, xcafGetLabelInfo, xcafGetChildLabels, xcafGetRootLabels, xcafExportSTEP, xcafImportSTEP, xcafExportGLTF |
+| **Healing** | 10 | buildCurves3d, fixWireOnFace, fixShape, unifySameDomain, isValid, healSolid, healFace, healWire, fixFaceOrientations, removeDegenerateEdges |
+| **Batch** | 2 | translateBatch, booleanPipeline |
+| **Arena** | 3 | release, releaseAll, getShapeCount |
 
 ## Architecture
 
@@ -111,7 +118,7 @@ OCCT V8.0.0-rc4 C++ (git submodule)
     → emcmake cmake (48 static libs)
     → C++ facade (OcctKernel class, arena-based u32 IDs)
     → Embind bindings
-    → emcc link (30 of 49 libs, unused filtered) → .wasm
+    → emcc link (30 of 48 libs, unused filtered) → .wasm
     → wasm-opt -O4 → dist/ (20.3 MB)
 ```
 
