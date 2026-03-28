@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/andymai/occt-wasm/compare/v1.0.1...v1.0.2) (2026-03-28)
+
+
+### Bug Fixes
+
+* **ci:** add registry-url and NODE_AUTH_TOKEN for npm publish ([772f7cc](https://github.com/andymai/occt-wasm/commit/772f7ccf0ac9cced4924b5601895992a8dd371e3))
+
 ## [1.0.1](https://github.com/andymai/occt-wasm/compare/v1.0.0...v1.0.1) (2026-03-28)
 
 
