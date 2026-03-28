@@ -53,7 +53,7 @@ jobs:
       - name: Setup emsdk
         uses: mymindstorm/setup-emsdk@v14
         with:
-          version: 3.1.74
+          version: 5.0.3
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
