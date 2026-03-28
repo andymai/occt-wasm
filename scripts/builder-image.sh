@@ -44,11 +44,9 @@ if [[ "${1:-}" == "--build" ]]; then
     exit 0
 fi
 
-# Ensure logged in
-if ! $DOCKER manifest inspect "${IMAGE}:latest" &>/dev/null 2>&1; then
-    echo ""
-    echo "Pushing to GHCR (login if prompted)..."
-fi
+# Login to GHCR via gh CLI token
+echo "Logging into GHCR via gh CLI..."
+gh auth token | $DOCKER login ghcr.io -u andymai --password-stdin
 
 $DOCKER push "${IMAGE}:${TAG}"
 $DOCKER push "${IMAGE}:latest"
