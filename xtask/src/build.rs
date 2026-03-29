@@ -326,7 +326,8 @@ fn home_dir() -> Option<PathBuf> {
     std::env::var("HOME").ok().map(PathBuf::from)
 }
 
-/// Find the newest mtime among all `.h` and `.hxx` files in a directory.
+/// Find the newest mtime among all `.h`, `.hxx`, and `.hpp` files in a
+/// directory tree (recursive).
 ///
 /// Returns `None` if the directory doesn't exist or contains no headers.
 fn newest_header_mtime(include_dir: &Path) -> Result<Option<std::time::SystemTime>> {
@@ -334,14 +335,21 @@ fn newest_header_mtime(include_dir: &Path) -> Result<Option<std::time::SystemTim
         return Ok(None);
     }
     let mut newest = None;
-    for entry in std::fs::read_dir(include_dir)?.filter_map(Result::ok) {
-        let path = entry.path();
-        let is_header = path
-            .extension()
-            .is_some_and(|e| e == "h" || e == "hxx" || e == "hpp");
-        if is_header {
-            let mtime = std::fs::metadata(&path)?.modified()?;
-            newest = Some(newest.map_or(mtime, |prev: std::time::SystemTime| prev.max(mtime)));
+    let mut stack = vec![include_dir.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir)?.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            let is_header = path
+                .extension()
+                .is_some_and(|e| e == "h" || e == "hxx" || e == "hpp");
+            if is_header {
+                let mtime = std::fs::metadata(&path)?.modified()?;
+                newest = Some(newest.map_or(mtime, |prev: std::time::SystemTime| prev.max(mtime)));
+            }
         }
     }
     Ok(newest)
