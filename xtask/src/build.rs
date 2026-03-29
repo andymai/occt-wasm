@@ -4,16 +4,7 @@ use anyhow::{Context, Result, bail};
 use std::path::{Path, PathBuf};
 use xshell::{Shell, cmd};
 
-/// Project root (parent of xtask/).
-fn project_root() -> Result<PathBuf> {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_string());
-    let root = Path::new(&manifest_dir)
-        .parent()
-        .context("xtask must be inside the workspace")?
-        .to_path_buf();
-    Ok(root)
-}
+use crate::util::project_root;
 
 /// Locate OCCT static lib directory (varies by platform detection).
 fn find_occt_lib_dir(occt_build: &Path) -> Result<PathBuf> {
@@ -127,6 +118,12 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         sources.extend(gen_sources);
     }
 
+    // Sort for deterministic compilation order across platforms.
+    sources.sort();
+
+    // Track header mtimes: if any header changed, all objects are stale.
+    let newest_header = newest_header_mtime(&facade_inc)?;
+
     let mut objects = Vec::new();
     let occt_inc_str = occt_inc.display().to_string();
     let facade_inc_str = facade_inc.display().to_string();
@@ -137,11 +134,12 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         let prefix = if is_generated { "gen_" } else { "" };
         let obj = build_dir.join(format!("{prefix}{name}.o"));
 
-        // Skip if .o is newer than .cpp
+        // Skip if .o is newer than both the .cpp and all facade headers.
         if obj.exists() {
             let src_modified = std::fs::metadata(src)?.modified()?;
+            let newest_dep = newest_header.map_or(src_modified, |h| h.max(src_modified));
             let obj_modified = std::fs::metadata(&obj)?.modified()?;
-            if obj_modified >= src_modified {
+            if obj_modified >= newest_dep {
                 objects.push(obj);
                 continue;
             }
@@ -207,12 +205,13 @@ fn link_wasm(
 
     let occt_lib_dir = find_occt_lib_dir(&root.join("occt/build"))?;
 
-    // Collect all OCCT static lib paths, filtering out unused libraries
-    let all_libs: Vec<PathBuf> = std::fs::read_dir(&occt_lib_dir)?
+    // Collect all OCCT static lib paths, filtering out unused libraries.
+    let mut all_libs: Vec<PathBuf> = std::fs::read_dir(&occt_lib_dir)?
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|e| e == "a"))
         .collect();
+    all_libs.sort(); // Deterministic link order across platforms.
     let total = all_libs.len();
 
     let occt_libs: Vec<String> = all_libs
@@ -327,6 +326,35 @@ fn home_dir() -> Option<PathBuf> {
     std::env::var("HOME").ok().map(PathBuf::from)
 }
 
+/// Find the newest mtime among all `.h`, `.hxx`, and `.hpp` files in a
+/// directory tree (recursive).
+///
+/// Returns `None` if the directory doesn't exist or contains no headers.
+fn newest_header_mtime(include_dir: &Path) -> Result<Option<std::time::SystemTime>> {
+    if !include_dir.is_dir() {
+        return Ok(None);
+    }
+    let mut newest = None;
+    let mut stack = vec![include_dir.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir)?.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            let is_header = path
+                .extension()
+                .is_some_and(|e| e == "h" || e == "hxx" || e == "hpp");
+            if is_header {
+                let mtime = std::fs::metadata(&path)?.modified()?;
+                newest = Some(newest.map_or(mtime, |prev: std::time::SystemTime| prev.max(mtime)));
+            }
+        }
+    }
+    Ok(newest)
+}
+
 /// Full build: OCCT + facade + link + wasm-opt.
 pub fn build(release: bool, size: bool) -> Result<()> {
     let root = project_root()?;
@@ -373,16 +401,18 @@ pub fn build(release: bool, size: bool) -> Result<()> {
 }
 
 /// Remove all build artifacts.
-pub fn clean() -> Result<()> {
+pub fn clean(keep_generated: bool) -> Result<()> {
     let root = project_root()?;
     let sh = Shell::new()?;
 
-    let dirs_to_clean = [
+    let mut dirs_to_clean = vec![
         root.join("occt/build"),
         root.join("build"),
         root.join("dist"),
-        root.join("facade/generated"),
     ];
+    if !keep_generated {
+        dirs_to_clean.push(root.join("facade/generated"));
+    }
 
     for dir in &dirs_to_clean {
         if dir.exists() {
@@ -396,7 +426,7 @@ pub fn clean() -> Result<()> {
 }
 
 /// Run integration tests.
-pub fn test() -> Result<()> {
+pub fn test(watch: bool) -> Result<()> {
     let root = project_root()?;
     let sh = Shell::new()?;
 
@@ -405,7 +435,11 @@ pub fn test() -> Result<()> {
     }
 
     sh.change_dir(root.join("ts"));
-    cmd!(sh, "npx vitest run").run()?;
+    if watch {
+        cmd!(sh, "npx vitest --watch").run()?;
+    } else {
+        cmd!(sh, "npx vitest run").run()?;
+    }
 
     Ok(())
 }

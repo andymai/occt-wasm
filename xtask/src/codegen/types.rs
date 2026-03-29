@@ -36,7 +36,6 @@ pub enum MethodKind {
 
 /// A single facade method parameter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Variants used as codegen expands to more method patterns.
 pub enum FacadeParam {
     /// `uint32_t` shape ID resolved via `get(id)`.
     ShapeId(&'static str),
@@ -154,6 +153,5 @@ pub struct MethodSpec {
     pub category: &'static str,
 
     /// Return type of the method.
-    #[allow(dead_code)] // Will be used when TS wrapper generation is added.
     pub return_type: ReturnType,
 }

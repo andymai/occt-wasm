@@ -4,22 +4,12 @@
 //! writes the generated C++ files to `facade/generated/`.
 
 use anyhow::{Context, Result};
-use std::path::{Path, PathBuf};
 
 use super::config;
 use super::emitter;
 use super::types::MethodKind;
 
-/// Project root (parent of xtask/).
-fn project_root() -> Result<PathBuf> {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_string());
-    let root = Path::new(&manifest_dir)
-        .parent()
-        .context("xtask must be inside the workspace")?
-        .to_path_buf();
-    Ok(root)
-}
+use crate::util::project_root;
 
 /// Run the facade code generator.
 ///
