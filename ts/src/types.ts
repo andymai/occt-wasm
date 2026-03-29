@@ -50,9 +50,20 @@ export interface TessellateOptions {
 
 /** Options for WASM module initialization. */
 export interface InitOptions {
-    /** Browser: URL to the .wasm file (e.g. from a CDN or bundler public path). */
+    /**
+     * Location of the WASM binary. Accepts:
+     * - A string URL or filesystem path
+     * - A `URL` object
+     * - An `ArrayBuffer` or `Uint8Array` containing the WASM binary
+     *
+     * When omitted, the WASM file is auto-located next to the JS module
+     * using `import.meta.url`.
+     */
+    wasm?: string | URL | ArrayBuffer | Uint8Array | undefined;
+
+    /** @deprecated Use `wasm` instead. Browser URL to the .wasm file. */
     wasmUrl?: string | undefined;
-    /** Node.js: filesystem path to the .wasm file. */
+    /** @deprecated Use `wasm` instead. Node.js filesystem path to the .wasm file. */
     wasmPath?: string | undefined;
 }
 

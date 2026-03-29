@@ -472,13 +472,15 @@ export class OcctKernel {
      *
      * @example
      * ```ts
-     * // Browser (auto-locates .wasm next to .js):
+     * // Auto-detect (works in browser, Node.js, and Workers):
      * const kernel = await OcctKernel.init();
      *
-     * // Node.js with explicit path:
-     * const kernel = await OcctKernel.init({
-     *   wasmPath: './node_modules/occt-wasm/dist/occt-wasm.wasm'
-     * });
+     * // Explicit WASM location:
+     * const kernel = await OcctKernel.init({ wasm: '/path/to/occt-wasm.wasm' });
+     *
+     * // From pre-fetched binary:
+     * const binary = await fetch('/occt-wasm.wasm').then(r => r.arrayBuffer());
+     * const kernel = await OcctKernel.init({ wasm: binary });
      * ```
      */
     static async init(options?: InitOptions): Promise<OcctKernel> {
@@ -490,13 +492,23 @@ export class OcctKernel {
 
         const moduleOpts: Record<string, unknown> = {};
 
-        if (options?.wasmUrl ?? options?.wasmPath) {
-            const wasmLocation = options.wasmUrl ?? options.wasmPath;
+        // Resolve the WASM source: new `wasm` option > legacy `wasmUrl`/`wasmPath`
+        const wasmSource = options?.wasm ?? options?.wasmUrl ?? options?.wasmPath;
+
+        if (wasmSource instanceof ArrayBuffer || wasmSource instanceof Uint8Array) {
+            // Pre-loaded binary — pass directly to Emscripten
+            const bytes = wasmSource instanceof Uint8Array ? wasmSource.buffer : wasmSource;
+            moduleOpts["wasmBinary"] = bytes;
+        } else if (wasmSource) {
+            // String or URL — use locateFile
+            const location = wasmSource instanceof URL ? wasmSource.href : wasmSource;
             moduleOpts["locateFile"] = (path: string) => {
-                if (path.endsWith(".wasm")) return wasmLocation;
+                if (path.endsWith(".wasm")) return location;
                 return path;
             };
         }
+        // When no source is given, Emscripten's default locateFile resolves
+        // relative to the JS module URL, which works when .wasm is co-located.
 
         const module = await createModule(moduleOpts);
         return new OcctKernel(module);
