@@ -8,6 +8,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./worker": {
+      "import": "./dist/worker.js",
+      "types": "./dist/worker.d.ts"
+    },
     "./dist/occt-wasm.js": "./dist/occt-wasm.js",
     "./dist/occt-wasm.wasm": "./dist/occt-wasm.wasm"
   },
@@ -46,5 +50,8 @@
     "typedoc": "^0.28.18",
     "typescript": "^5.7",
     "vitest": "^3"
+  },
+  "dependencies": {
+    "comlink": "^4.4.2"
   }
 }
