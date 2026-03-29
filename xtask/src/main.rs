@@ -8,6 +8,7 @@ use clap::Parser;
 
 mod build;
 mod codegen;
+mod util;
 
 /// occt-wasm build tool.
 #[derive(Parser)]
@@ -27,9 +28,17 @@ enum Cli {
     /// Run the facade code generator (v0.1.1)
     Codegen,
     /// Remove all build artifacts
-    Clean,
+    Clean {
+        /// Keep facade/generated/ (avoid re-running codegen)
+        #[arg(long)]
+        keep_generated: bool,
+    },
     /// Run integration tests (requires built WASM)
-    Test,
+    Test {
+        /// Run in watch mode (re-runs on file changes)
+        #[arg(long)]
+        watch: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -39,7 +48,7 @@ fn main() -> Result<()> {
         Cli::Build { release, size } => build::build(release, size),
         Cli::BuildOcct => build::build_occt(),
         Cli::Codegen => codegen::run::run(),
-        Cli::Clean => build::clean(),
-        Cli::Test => build::test(),
+        Cli::Clean { keep_generated } => build::clean(keep_generated),
+        Cli::Test { watch } => build::test(watch),
     }
 }

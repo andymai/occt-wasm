@@ -422,6 +422,7 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf, "#include <cmath>");
     let _ = writeln!(buf, "#include <cstdio>");
     let _ = writeln!(buf, "#include <cstdlib>");
+    let _ = writeln!(buf, "#include <fstream>");
     let _ = writeln!(buf, "#include <iomanip>");
     let _ = writeln!(buf, "#include <set>");
     let _ = writeln!(buf, "#include <sstream>");

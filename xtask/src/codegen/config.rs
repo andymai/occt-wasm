@@ -506,7 +506,7 @@ if (!maker.IsDone()) {
     throw std::runtime_error(\"draft: operation failed\");
 }
 return store(maker.Shape());",
-        includes: &["BRepOffsetAPI_DraftAngle.hxx", "TopoDS.hxx", "gp_Dir.hxx"],
+        includes: &["BRepOffsetAPI_DraftAngle.hxx", "TopoDS.hxx", "gp_Dir.hxx", "gp_Pln.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
@@ -3449,6 +3449,7 @@ return result;",
             "BRep_Tool.hxx", "NCollection_Vec3.hxx", "Poly_Triangulation.hxx",
             "TopAbs_Orientation.hxx", "TopExp_Explorer.hxx", "TopLoc_Location.hxx",
             "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx", "TopoDS_Face.hxx",
+            "gp_Dir.hxx", "gp_Pnt.hxx",
         ],
         category: "tessellate",
         return_type: ReturnType::MeshData,
@@ -3598,6 +3599,7 @@ return result;",
             "BRep_Tool.hxx", "NCollection_Vec3.hxx", "Poly_Triangulation.hxx",
             "TopAbs_Orientation.hxx", "TopExp_Explorer.hxx", "TopLoc_Location.hxx",
             "TopoDS.hxx", "TopoDS_Face.hxx",
+            "gp_Dir.hxx", "gp_Pnt.hxx",
         ],
         category: "tessellate",
         return_type: ReturnType::MeshBatchData,
@@ -3670,6 +3672,7 @@ return result;",
             "BRepAdaptor_Curve.hxx", "GCPnts_TangentialDeflection.hxx",
             "NCollection_IndexedMap.hxx", "TopExp.hxx",
             "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx",
+            "gp_Pnt.hxx",
         ],
         category: "tessellate",
         return_type: ReturnType::EdgeData,
@@ -4250,6 +4253,41 @@ mod tests {
                 assert!(
                     m.params.is_empty(),
                     "skipped method '{}' should have empty params",
+                    m.name,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn no_duplicate_method_names() {
+        let methods = target_methods();
+        let mut seen = std::collections::HashSet::new();
+        for m in methods {
+            assert!(seen.insert(m.name), "duplicate method name: '{}'", m.name,);
+        }
+    }
+
+    #[test]
+    fn categories_are_lowercase() {
+        for m in target_methods() {
+            assert_eq!(
+                m.category,
+                m.category.to_ascii_lowercase(),
+                "method '{}' has non-lowercase category '{}'",
+                m.name,
+                m.category,
+            );
+        }
+    }
+
+    #[test]
+    fn custom_body_methods_have_setup_code() {
+        for m in target_methods() {
+            if m.kind == MethodKind::CustomBody {
+                assert!(
+                    !m.setup_code.is_empty(),
+                    "CustomBody method '{}' has empty setup_code",
                     m.name,
                 );
             }
