@@ -105,6 +105,16 @@ pub enum ReturnType {
     BBoxData,
     /// `NurbsCurveData` return (NURBS curve data struct).
     NurbsCurveData,
+    /// `EvolutionData` return (face evolution tracking struct).
+    EvolutionData,
+    /// `MeshData` return (tessellation mesh struct).
+    MeshData,
+    /// `MeshBatchData` return (batched tessellation mesh struct).
+    MeshBatchData,
+    /// `EdgeData` return (wireframe edge data struct).
+    EdgeData,
+    /// `ProjectionData` return (HLR projection data struct).
+    ProjectionData,
 }
 
 /// A complete facade method specification.

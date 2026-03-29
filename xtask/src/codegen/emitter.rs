@@ -204,6 +204,11 @@ fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
         ReturnType::VectorInt => "std::vector<int>",
         ReturnType::BBoxData => "BBoxData",
         ReturnType::NurbsCurveData => "NurbsCurveData",
+        ReturnType::EvolutionData => "EvolutionData",
+        ReturnType::MeshData => "MeshData",
+        ReturnType::MeshBatchData => "MeshBatchData",
+        ReturnType::EdgeData => "EdgeData",
+        ReturnType::ProjectionData => "ProjectionData",
     };
 
     let _ = writeln!(
@@ -274,6 +279,122 @@ fn group_by_category<'a>(methods: &[&'a MethodSpec]) -> Vec<(&'a str, Vec<&'a Me
     groups
 }
 
+/// Emit static helper functions that generated methods depend on.
+///
+/// Currently emits `buildEvolution` if any method returns `EvolutionData`.
+#[allow(clippy::too_many_lines)]
+fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
+    let needs_evolution = methods
+        .iter()
+        .any(|m| matches!(m.return_type, ReturnType::EvolutionData));
+
+    if needs_evolution {
+        let _ = writeln!(buf, "// === helper functions ===");
+        let _ = writeln!(buf);
+        let _ = writeln!(
+            buf,
+            "/// Build evolution data by tracking Modified/Generated/Deleted faces."
+        );
+        let _ = writeln!(
+            buf,
+            "static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,"
+        );
+        let _ = writeln!(
+            buf,
+            "                                    const TopoDS_Shape& inputShape,"
+        );
+        let _ = writeln!(
+            buf,
+            "                                    const std::vector<int>& inputFaceHashes, int hashUpperBound) {{"
+        );
+        let _ = writeln!(buf, "    EvolutionData evo;");
+        let _ = writeln!(buf, "    evo.resultId = resultId;");
+        let _ = writeln!(buf);
+        let _ = writeln!(
+            buf,
+            "    auto hashShape = [&](const TopoDS_Shape& s) -> int {{"
+        );
+        let _ = writeln!(
+            buf,
+            "        return static_cast<int>(TopTools_ShapeMapHasher{{}}(s) % static_cast<size_t>(hashUpperBound));"
+        );
+        let _ = writeln!(buf, "    }};");
+        let _ = writeln!(buf);
+        let _ = writeln!(
+            buf,
+            "    // For each input face, check if it was modified, generated, or deleted"
+        );
+        let _ = writeln!(
+            buf,
+            "    for (TopExp_Explorer ex(inputShape, TopAbs_FACE); ex.More(); ex.Next()) {{"
+        );
+        let _ = writeln!(buf, "        const auto& face = ex.Current();");
+        let _ = writeln!(buf, "        int faceHash = hashShape(face);");
+        let _ = writeln!(buf);
+        let _ = writeln!(
+            buf,
+            "        // Check if this face hash is in the input list"
+        );
+        let _ = writeln!(buf, "        bool tracked = false;");
+        let _ = writeln!(buf, "        for (int h : inputFaceHashes) {{");
+        let _ = writeln!(buf, "            if (h == faceHash) {{");
+        let _ = writeln!(buf, "                tracked = true;");
+        let _ = writeln!(buf, "                break;");
+        let _ = writeln!(buf, "            }}");
+        let _ = writeln!(buf, "        }}");
+        let _ = writeln!(buf, "        if (!tracked)");
+        let _ = writeln!(buf, "            continue;");
+        let _ = writeln!(buf);
+        let _ = writeln!(buf, "        // Modified faces");
+        let _ = writeln!(buf, "        auto modifiedList = maker.Modified(face);");
+        let _ = writeln!(buf, "        if (!modifiedList.IsEmpty()) {{");
+        let _ = writeln!(buf, "            evo.modified.push_back(faceHash);");
+        let _ = writeln!(
+            buf,
+            "            evo.modified.push_back(static_cast<int>(modifiedList.Size()));"
+        );
+        let _ = writeln!(
+            buf,
+            "            for (auto it = modifiedList.begin(); it != modifiedList.end(); ++it) {{"
+        );
+        let _ = writeln!(
+            buf,
+            "                evo.modified.push_back(hashShape(*it));"
+        );
+        let _ = writeln!(buf, "            }}");
+        let _ = writeln!(buf, "        }}");
+        let _ = writeln!(buf);
+        let _ = writeln!(buf, "        // Generated faces");
+        let _ = writeln!(buf, "        auto generatedList = maker.Generated(face);");
+        let _ = writeln!(buf, "        if (!generatedList.IsEmpty()) {{");
+        let _ = writeln!(buf, "            evo.generated.push_back(faceHash);");
+        let _ = writeln!(
+            buf,
+            "            evo.generated.push_back(static_cast<int>(generatedList.Size()));"
+        );
+        let _ = writeln!(
+            buf,
+            "            for (auto it = generatedList.begin(); it != generatedList.end(); ++it) {{"
+        );
+        let _ = writeln!(
+            buf,
+            "                evo.generated.push_back(hashShape(*it));"
+        );
+        let _ = writeln!(buf, "            }}");
+        let _ = writeln!(buf, "        }}");
+        let _ = writeln!(buf);
+        let _ = writeln!(buf, "        // Deleted faces");
+        let _ = writeln!(buf, "        if (maker.IsDeleted(face)) {{");
+        let _ = writeln!(buf, "            evo.deleted.push_back(faceHash);");
+        let _ = writeln!(buf, "        }}");
+        let _ = writeln!(buf, "    }}");
+        let _ = writeln!(buf);
+        let _ = writeln!(buf, "    return evo;");
+        let _ = writeln!(buf, "}}");
+        let _ = writeln!(buf);
+    }
+}
+
 /// Generate the contents of `facade/generated/kernel.cpp`.
 #[allow(clippy::too_many_lines)]
 pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
@@ -298,11 +419,18 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
     // Standard C++ includes.
     let _ = writeln!(buf, "#include <algorithm>");
     let _ = writeln!(buf, "#include <cmath>");
+    let _ = writeln!(buf, "#include <cstdio>");
+    let _ = writeln!(buf, "#include <cstdlib>");
+    let _ = writeln!(buf, "#include <iomanip>");
     let _ = writeln!(buf, "#include <set>");
+    let _ = writeln!(buf, "#include <sstream>");
     let _ = writeln!(buf, "#include <stdexcept>");
     let _ = writeln!(buf, "#include <string>");
     let _ = writeln!(buf, "#include <vector>");
     let _ = writeln!(buf);
+
+    // Emit helper functions needed by generated methods.
+    emit_helper_functions(&mut buf, methods);
 
     // Methods grouped by category.
     let groups = group_by_category(methods);
