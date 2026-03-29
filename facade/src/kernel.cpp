@@ -84,10 +84,6 @@ const TopoDS_Shape& OcctKernel::get(uint32_t id) const {
     return it->second;
 }
 
-uint32_t OcctKernel::makeNullShape() {
-    return store(TopoDS_Shape());
-}
-
 // --- MeshBatchData implementation ---
 
 MeshBatchData::~MeshBatchData() {
