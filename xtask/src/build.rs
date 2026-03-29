@@ -116,16 +116,13 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         .filter(|p| p.extension().is_some_and(|e| e == "cpp"))
         .collect();
 
-    // Also compile generated facade files if present (skip reference-only bindings).
+    // Also compile generated facade files (kernel.cpp + bindings.cpp).
     let gen_dir = root.join("facade/generated");
     if gen_dir.is_dir() {
         let gen_sources: Vec<PathBuf> = std::fs::read_dir(&gen_dir)?
             .filter_map(Result::ok)
             .map(|e| e.path())
-            .filter(|p| {
-                p.extension().is_some_and(|e| e == "cpp")
-                    && p.file_name().is_some_and(|n| n != "bindings.cpp")
-            })
+            .filter(|p| p.extension().is_some_and(|e| e == "cpp"))
             .collect();
         sources.extend(gen_sources);
     }

@@ -51,6 +51,14 @@ jobs:
       - name: ESLint
         run: cd ts && npx eslint src/
 
+      - name: Codegen drift check
+        run: |
+          cargo xtask codegen
+          if ! git diff --exit-code facade/generated/; then
+            echo "::error::Generated facade code is out of date. Run 'cargo xtask codegen' and commit."
+            exit 1
+          fi
+
   build-test:
     uses: ./.github/workflows/build-wasm.yml
 
