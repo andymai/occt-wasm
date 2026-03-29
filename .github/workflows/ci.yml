@@ -51,13 +51,20 @@ jobs:
       - name: ESLint
         run: cd ts && npx eslint src/
 
-  build-test:
+  build-full:
     uses: ./.github/workflows/build-wasm.yml
+    with:
+      profile: full
+
+  build-modeling:
+    uses: ./.github/workflows/build-wasm.yml
+    with:
+      profile: modeling
 
   browser-smoke:
     name: Browser Smoke Test
     runs-on: ubuntu-latest
-    needs: build-test
+    needs: build-full
     steps:
       - uses: actions/checkout@v4
 
@@ -71,7 +78,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: occt-wasm-dist
+          name: occt-wasm-dist-full
           path: dist/
 
       - name: Copy WASM to ts/dist for test imports

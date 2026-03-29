@@ -5,15 +5,22 @@ on:
     types: [published]
 
 jobs:
-  build:
+  build-full:
     uses: ./.github/workflows/build-wasm.yml
     with:
       release: true
+      profile: full
+
+  build-modeling:
+    uses: ./.github/workflows/build-wasm.yml
+    with:
+      release: true
+      profile: modeling
 
   publish:
     name: Publish to npm
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build-full, build-modeling]
     environment: npm
     permissions:
       contents: read
@@ -32,10 +39,16 @@ jobs:
       - name: Install dependencies
         run: cd ts && npm ci
 
-      - name: Download build artifact
+      - name: Download full build artifact
         uses: actions/download-artifact@v4
         with:
-          name: occt-wasm-dist
+          name: occt-wasm-dist-full
+          path: ts/dist/
+
+      - name: Download modeling build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: occt-wasm-dist-modeling
           path: ts/dist/
 
       - name: Publish to npm

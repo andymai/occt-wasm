@@ -7,6 +7,10 @@ on:
         description: Build in release mode (LTO + wasm-opt)
         type: boolean
         default: false
+      profile:
+        description: Build profile (full or modeling)
+        type: string
+        default: full
     outputs:
       artifact-name:
         description: Name of the uploaded dist artifact
@@ -39,25 +43,33 @@ jobs:
           cd ts && npm ci
 
       - name: Build facade + link WASM
-        run: cargo xtask build ${{ inputs.release && '--release' || '' }}
+        run: cargo xtask build --profile ${{ inputs.profile }} ${{ inputs.release && '--release' || '' }}
+
+      - name: Report WASM size
+        run: |
+          for f in dist/*.wasm; do
+            SIZE=$(du -h "$f" | cut -f1)
+            echo "::notice::$f = $SIZE"
+          done
 
       - name: Build TypeScript
         run: |
           cd ts
           npm run build
-          cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/
+          cp ../dist/occt-wasm*.js ../dist/occt-wasm*.wasm dist/ 2>/dev/null || true
 
       - name: Run tests
+        if: ${{ inputs.profile == 'full' }}
         run: npx vitest run
 
       - name: Run benchmarks & check for regressions
-        if: ${{ !inputs.release }}
+        if: ${{ inputs.profile == 'full' && !inputs.release }}
         shell: bash
         run: set -o pipefail; npx vitest run test/bench.test.ts 2>&1 | node scripts/bench-check.js
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: occt-wasm-dist
+          name: occt-wasm-dist-${{ inputs.profile }}
           path: ts/dist/
           retention-days: 7
