@@ -468,6 +468,14 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
 /// This is **not** compiled or linked. It shows the `.function()` lines that
 /// belong in the hand-written `facade/src/bindings.cpp` inside the
 /// `class_<OcctKernel>("OcctKernel")` block.
+/// Close an Embind chain: replace the trailing `)\n` with `);\n`.
+fn close_embind_chain(buf: &mut String) {
+    if buf.ends_with(")\n") {
+        buf.truncate(buf.len() - 2);
+        buf.push_str(");\n");
+    }
+}
+
 /// Generate the contents of `facade/generated/bindings.cpp`.
 ///
 /// This is a real, compilable file that registers all Embind bindings.
@@ -548,9 +556,7 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
         let _ = writeln!(buf, "        .property(\"{prop}\", &MeshBatchData::{prop})");
     }
     // Last one gets semicolon
-    let _ = buf.pop(); // remove trailing newline
-    let _ = buf.pop(); // remove trailing )
-    let _ = writeln!(buf, ");");
+    close_embind_chain(&mut buf);
     let _ = writeln!(buf);
 
     let _ = writeln!(buf, "    // BBoxData");
@@ -558,9 +564,7 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
     for f in &["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"] {
         let _ = writeln!(buf, "        .field(\"{f}\", &BBoxData::{f})");
     }
-    let _ = buf.pop();
-    let _ = buf.pop();
-    let _ = writeln!(buf, ");");
+    close_embind_chain(&mut buf);
     let _ = writeln!(buf);
 
     let _ = writeln!(buf, "    // EdgeData");
@@ -595,9 +599,7 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
     ] {
         let _ = writeln!(buf, "        .field(\"{f}\", &ProjectionData::{f})");
     }
-    let _ = buf.pop();
-    let _ = buf.pop();
-    let _ = writeln!(buf, ");");
+    close_embind_chain(&mut buf);
     let _ = writeln!(buf);
 
     let _ = writeln!(buf, "    // NurbsCurveData");
@@ -616,9 +618,7 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
             "        .property(\"{prop}\", &NurbsCurveData::{prop})"
         );
     }
-    let _ = buf.pop();
-    let _ = buf.pop();
-    let _ = writeln!(buf, ");");
+    close_embind_chain(&mut buf);
     let _ = writeln!(buf);
 
     let _ = writeln!(buf, "    // EvolutionData");
@@ -626,9 +626,7 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
     for prop in &["resultId", "modified", "generated", "deleted"] {
         let _ = writeln!(buf, "        .property(\"{prop}\", &EvolutionData::{prop})");
     }
-    let _ = buf.pop();
-    let _ = buf.pop();
-    let _ = writeln!(buf, ");");
+    close_embind_chain(&mut buf);
     let _ = writeln!(buf);
 
     let _ = writeln!(buf, "    // XCAFLabelInfo");
@@ -646,9 +644,7 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
     ] {
         let _ = writeln!(buf, "        .field(\"{f}\", &XCAFLabelInfo::{f})");
     }
-    let _ = buf.pop();
-    let _ = buf.pop();
-    let _ = writeln!(buf, ");");
+    close_embind_chain(&mut buf);
     let _ = writeln!(buf);
 
     // OcctKernel method bindings — auto-generated from specs
@@ -666,10 +662,7 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
         }
     }
 
-    // Close with semicolon
-    let _ = buf.pop(); // trailing newline
-    let _ = buf.pop(); // trailing )
-    let _ = writeln!(buf, ");");
+    close_embind_chain(&mut buf);
 
     let _ = writeln!(buf, "}}");
 
