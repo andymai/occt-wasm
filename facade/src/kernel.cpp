@@ -1,8 +1,27 @@
 #include "occt_kernel.h"
 
 #include <OSD.hxx>
+#include <XCAFApp_Application.hxx>
 #include <cstdlib>
 #include <stdexcept>
+
+// --- XCAF helpers (used by generated xcaf methods) ---
+
+const Handle(TDocStd_Application) & getXCAFApp() {
+    static Handle(TDocStd_Application) app;
+    if (app.IsNull()) {
+        app = XCAFApp_Application::GetApplication();
+    }
+    return app;
+}
+
+TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId) {
+    auto it = registry.find(labelId);
+    if (it == registry.end()) {
+        throw std::runtime_error("invalid label ID: " + std::to_string(labelId));
+    }
+    return it->second;
+}
 
 // --- MeshData implementation ---
 
@@ -63,19 +82,6 @@ const TopoDS_Shape& OcctKernel::get(uint32_t id) const {
         throw std::runtime_error("Invalid shape ID: " + std::to_string(id));
     }
     return it->second;
-}
-
-void OcctKernel::release(uint32_t id) {
-    arena_.erase(id);
-}
-
-void OcctKernel::releaseAll() {
-    arena_.clear();
-    nextId_ = 1;
-}
-
-uint32_t OcctKernel::getShapeCount() const {
-    return static_cast<uint32_t>(arena_.size());
 }
 
 uint32_t OcctKernel::makeNullShape() {

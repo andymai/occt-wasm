@@ -2804,6 +2804,1397 @@ return store(fixer.Shape());",
         category: "healing",
         return_type: ReturnType::ShapeId,
     },
+    // ── IO ──────────────────────────────────────────────────────────
+    MethodSpec {
+        name: "importStep",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::String("data")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+STEPControl_Reader reader;
+
+// Write data to Emscripten's virtual filesystem
+// STEPControl_Reader needs a file path — write to virtual FS
+{
+    FILE* f = fopen(\"/tmp/import.step\", \"w\");
+    if (!f) {
+        throw std::runtime_error(\"importStep: cannot create temp file\");
+    }
+    fwrite(data.c_str(), 1, data.size(), f);
+    fclose(f);
+}
+
+IFSelect_ReturnStatus status = reader.ReadFile(\"/tmp/import.step\");
+if (status != IFSelect_RetDone) {
+    throw std::runtime_error(\"importStep: failed to read STEP data\");
+}
+
+reader.TransferRoots();
+if (reader.NbShapes() == 0) {
+    throw std::runtime_error(\"importStep: no shapes found in STEP data\");
+}
+
+return store(reader.OneShape());",
+        includes: &["IFSelect_ReturnStatus.hxx", "STEPControl_Reader.hxx"],
+        category: "io",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "exportStep",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+
+STEPControl_Writer writer;
+IFSelect_ReturnStatus status = writer.Transfer(shape, STEPControl_AsIs);
+if (status != IFSelect_RetDone) {
+    throw std::runtime_error(\"exportStep: transfer failed\");
+}
+
+// Write to temp file then read back
+const char* tmpPath = \"/tmp/export.step\";
+status = writer.Write(tmpPath);
+if (status != IFSelect_RetDone) {
+    throw std::runtime_error(\"exportStep: write failed\");
+}
+
+// Read file content
+FILE* f = fopen(tmpPath, \"r\");
+if (!f) {
+    throw std::runtime_error(\"exportStep: cannot read temp file\");
+}
+fseek(f, 0, SEEK_END);
+long size = ftell(f);
+fseek(f, 0, SEEK_SET);
+std::string result(size, '\\0');
+fread(&result[0], 1, size, f);
+fclose(f);
+
+return result;",
+        includes: &[
+            "IFSelect_ReturnStatus.hxx", "STEPControl_Writer.hxx",
+            "STEPControl_StepModelType.hxx",
+        ],
+        category: "io",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "exportStl",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"), FacadeParam::Double("linearDeflection"),
+            FacadeParam::Bool("ascii"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+
+// Mesh the shape first
+BRepMesh_IncrementalMesh mesher(shape, linearDeflection, false, 0.5, false);
+
+StlAPI_Writer writer;
+writer.ASCIIMode() = ascii;
+
+const char* tmpPath = \"/tmp/export.stl\";
+if (!writer.Write(shape, tmpPath)) {
+    throw std::runtime_error(\"exportStl: write failed\");
+}
+
+FILE* f = fopen(tmpPath, \"rb\");
+if (!f) {
+    throw std::runtime_error(\"exportStl: cannot read temp file\");
+}
+fseek(f, 0, SEEK_END);
+long size = ftell(f);
+fseek(f, 0, SEEK_SET);
+std::string result(size, '\\0');
+fread(&result[0], 1, size, f);
+fclose(f);
+
+return result;",
+        includes: &["BRepMesh_IncrementalMesh.hxx", "StlAPI_Writer.hxx"],
+        category: "io",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "importStl",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::String("data")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+// If data is non-empty, write it to the virtual FS.
+// If empty, assume the caller already wrote to /tmp/import.stl via FS API.
+if (!data.empty()) {
+    FILE* f = fopen(\"/tmp/import.stl\", \"wb\");
+    if (!f) {
+        throw std::runtime_error(\"importStl: cannot create temp file\");
+    }
+    fwrite(data.c_str(), 1, data.size(), f);
+    fclose(f);
+}
+
+TopoDS_Shape shape;
+StlAPI_Reader reader;
+if (!reader.Read(shape, \"/tmp/import.stl\")) {
+    throw std::runtime_error(\"importStl: failed to read STL data\");
+}
+
+if (shape.IsNull()) {
+    throw std::runtime_error(\"importStl: no shape produced from STL data\");
+}
+
+return store(shape);",
+        includes: &["StlAPI_Reader.hxx"],
+        category: "io",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "toBREP",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::ostringstream oss(std::ios::binary);
+oss << std::setprecision(17);
+BRepTools::Write(get(id), oss);
+return oss.str();",
+        includes: &["BRepTools.hxx"],
+        category: "io",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "fromBREP",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::String("data")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::istringstream iss(data, std::ios::binary);
+TopoDS_Shape shape;
+BRep_Builder builder;
+Message_ProgressRange progress;
+BRepTools::Read(shape, iss, builder, progress);
+if (shape.IsNull()) {
+    throw std::runtime_error(\"fromBREP: failed to read shape\");
+}
+return store(shape);",
+        includes: &["BRepTools.hxx", "BRep_Builder.hxx", "Message_ProgressRange.hxx"],
+        category: "io",
+        return_type: ReturnType::ShapeId,
+    },
+    // ── Evolution ──────────────────────────────────────────────────
+    MethodSpec {
+        name: "translateWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("dx"), FacadeParam::Double("dy"), FacadeParam::Double("dz"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+gp_Trsf trsf;
+trsf.SetTranslation(gp_Vec(dx, dy, dz));
+BRepBuilderAPI_Transform maker(shape, trsf, true);
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+        includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "gp_Vec.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "fuseWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("a"), FacadeParam::ShapeId("b"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shapeA = get(a);
+const auto& shapeB = get(b);
+BRepAlgoAPI_Fuse op(shapeA, shapeB);
+op.Build();
+if (!op.IsDone() || op.HasErrors()) {
+    throw std::runtime_error(\"fuseWithHistory: operation failed\");
+}
+uint32_t resultId = store(op.Shape());
+
+// Build evolution from both input shapes
+EvolutionData evo = buildEvolution(op, resultId, shapeA, inputFaceHashes, hashUpperBound);
+// Also check shapeB
+EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashUpperBound);
+// Merge B into A
+evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
+evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
+evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+return evo;",
+        includes: &["BRepAlgoAPI_Fuse.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "cutWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("a"), FacadeParam::ShapeId("b"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shapeA = get(a);
+const auto& shapeB = get(b);
+BRepAlgoAPI_Cut op(shapeA, shapeB);
+op.Build();
+if (!op.IsDone() || op.HasErrors()) {
+    throw std::runtime_error(\"cutWithHistory: operation failed\");
+}
+uint32_t resultId = store(op.Shape());
+
+EvolutionData evo = buildEvolution(op, resultId, shapeA, inputFaceHashes, hashUpperBound);
+EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashUpperBound);
+evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
+evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
+evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+return evo;",
+        includes: &["BRepAlgoAPI_Cut.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "filletWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::Double("radius"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+BRepFilletAPI_MakeFillet maker(solid);
+for (uint32_t eid : edgeIds) {
+    maker.Add(radius, TopoDS::Edge(get(eid)));
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"filletWithHistory: operation failed\");
+}
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);",
+        includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "rotateWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("px"), FacadeParam::Double("py"), FacadeParam::Double("pz"),
+            FacadeParam::Double("dx"), FacadeParam::Double("dy"), FacadeParam::Double("dz"),
+            FacadeParam::Double("angle"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+gp_Trsf trsf;
+trsf.SetRotation(gp_Ax1(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz)), angle);
+BRepBuilderAPI_Transform maker(shape, trsf, true);
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+        includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "gp_Ax1.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "mirrorWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("px"), FacadeParam::Double("py"), FacadeParam::Double("pz"),
+            FacadeParam::Double("nx"), FacadeParam::Double("ny"), FacadeParam::Double("nz"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+gp_Trsf trsf;
+trsf.SetMirror(gp_Ax2(gp_Pnt(px, py, pz), gp_Dir(nx, ny, nz)));
+BRepBuilderAPI_Transform maker(shape, trsf, true);
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+        includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "scaleWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("cx"), FacadeParam::Double("cy"), FacadeParam::Double("cz"),
+            FacadeParam::Double("factor"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+gp_Trsf trsf;
+trsf.SetScale(gp_Pnt(cx, cy, cz), factor);
+BRepBuilderAPI_Transform maker(shape, trsf, true);
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+        includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "gp_Pnt.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "intersectWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("a"), FacadeParam::ShapeId("b"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shapeA = get(a);
+const auto& shapeB = get(b);
+BRepAlgoAPI_Common op(shapeA, shapeB);
+op.Build();
+if (!op.IsDone() || op.HasErrors()) {
+    throw std::runtime_error(\"intersectWithHistory: operation failed\");
+}
+uint32_t resultId = store(op.Shape());
+EvolutionData evo = buildEvolution(op, resultId, shapeA, inputFaceHashes, hashUpperBound);
+EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashUpperBound);
+evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
+evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
+evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+return evo;",
+        includes: &["BRepAlgoAPI_Common.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "chamferWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::Double("distance"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+BRepFilletAPI_MakeChamfer maker(solid);
+for (uint32_t eid : edgeIds) {
+    maker.Add(distance, TopoDS::Edge(get(eid)));
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"chamferWithHistory: operation failed\");
+}
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "shellWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::Double("thickness"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+NCollection_List<TopoDS_Shape> facesToRemove;
+for (uint32_t fid : faceIds) {
+    facesToRemove.Append(get(fid));
+}
+BRepOffsetAPI_MakeThickSolid maker;
+maker.MakeThickSolidByJoin(solid, facesToRemove, thickness, 1e-3);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"shellWithHistory: operation failed\");
+}
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);",
+        includes: &["BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "offsetWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::Double("distance"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+BRepOffsetAPI_MakeOffsetShape maker;
+maker.PerformByJoin(solid, distance, 1e-3);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"offsetWithHistory: operation failed\");
+}
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);",
+        includes: &["BRepOffsetAPI_MakeOffsetShape.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "thickenWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"), FacadeParam::Double("thickness"),
+            FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(shapeId);
+
+// For faces/shells: use BRepOffset_MakeOffset (MakeThickSolid only works for solid
+// hollowing)
+if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
+    BRepOffset_MakeOffset offsetMaker;
+    offsetMaker.Initialize(shape, thickness, 1e-3, BRepOffset_Skin, false, false,
+                           GeomAbs_Arc, true);
+    offsetMaker.MakeOffsetShape();
+    if (!offsetMaker.IsDone()) {
+        throw std::runtime_error(\"thickenWithHistory: offset operation failed\");
+    }
+    uint32_t resultId = store(offsetMaker.Shape());
+    // No evolution tracking for BRepOffset_MakeOffset (different API)
+    EvolutionData result{};
+    result.resultId = resultId;
+    return result;
+}
+
+NCollection_List<TopoDS_Shape> emptyList;
+BRepOffsetAPI_MakeThickSolid maker;
+maker.MakeThickSolidByJoin(shape, emptyList, thickness, 1e-3);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"thickenWithHistory: operation failed\");
+}
+uint32_t resultId = store(maker.Shape());
+return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+        includes: &[
+            "BRepOffset_MakeOffset.hxx", "BRepOffset_Mode.hxx",
+            "BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx",
+            "GeomAbs_JoinType.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx",
+        ],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    // ── Tessellate ──────────────────────────────────────────────────
+    MethodSpec {
+        name: "tessellate",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("linearDeflection"),
+            FacadeParam::Double("angularDeflection"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+
+BRepMesh_IncrementalMesh mesher(shape, linearDeflection, false, angularDeflection, false);
+if (!mesher.IsDone()) {
+    throw std::runtime_error(\"tessellate: meshing failed\");
+}
+
+// Count totals
+int totalNodes = 0;
+int totalTris = 0;
+int totalFaces = 0;
+for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+    TopLoc_Location loc;
+    auto tri = BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc);
+    if (tri.IsNull())
+        continue;
+    totalNodes += tri->NbNodes();
+    totalTris += tri->NbTriangles();
+    totalFaces++;
+}
+
+MeshData result;
+result.positionCount = totalNodes * 3;
+result.normalCount = totalNodes * 3;
+result.indexCount = totalTris * 3;
+
+result.positions = static_cast<float*>(std::malloc(result.positionCount * sizeof(float)));
+result.normals = static_cast<float*>(std::malloc(result.normalCount * sizeof(float)));
+result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(uint32_t)));
+result.faceGroupCount = totalFaces * 3;
+result.faceGroups =
+    static_cast<int32_t*>(std::malloc(result.faceGroupCount * sizeof(int32_t)));
+
+if ((!result.positions && result.positionCount > 0) ||
+    (!result.normals && result.normalCount > 0) ||
+    (!result.indices && result.indexCount > 0) ||
+    (!result.faceGroups && result.faceGroupCount > 0)) {
+    throw std::runtime_error(\"tessellate: memory allocation failed\");
+}
+
+int vertexOffset = 0;
+int triOffset = 0;
+int faceGroupIdx = 0;
+
+for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+    const auto& face = TopoDS::Face(ex.Current());
+    TopLoc_Location loc;
+    auto tri = BRep_Tool::Triangulation(face, loc);
+    if (tri.IsNull())
+        continue;
+
+    const auto& trsf = loc.Transformation();
+    int nbNodes = tri->NbNodes();
+    int nbTri = tri->NbTriangles();
+
+    // Positions
+    for (int i = 1; i <= nbNodes; i++) {
+        gp_Pnt p = tri->Node(i).Transformed(trsf);
+        int base = (vertexOffset + i - 1) * 3;
+        result.positions[base + 0] = static_cast<float>(p.X());
+        result.positions[base + 1] = static_cast<float>(p.Y());
+        result.positions[base + 2] = static_cast<float>(p.Z());
+    }
+
+    // Normals
+    if (!tri->HasNormals()) {
+        BRepLib_ToolTriangulatedShape::ComputeNormals(face, tri);
+    }
+    for (int i = 1; i <= nbNodes; i++) {
+        gp_Dir d(0, 0, 1);
+        if (tri->HasNormals()) {
+            NCollection_Vec3<float> nv;
+            tri->Normal(i, nv);
+            if (nv.x() != 0.0f || nv.y() != 0.0f || nv.z() != 0.0f) {
+                d = gp_Dir(nv.x(), nv.y(), nv.z());
+            }
+        }
+        d = d.Transformed(trsf);
+        int base = (vertexOffset + i - 1) * 3;
+        result.normals[base + 0] = static_cast<float>(d.X());
+        result.normals[base + 1] = static_cast<float>(d.Y());
+        result.normals[base + 2] = static_cast<float>(d.Z());
+    }
+
+    // Triangles (with winding correction for reversed faces)
+    bool isReversed = (face.Orientation() != TopAbs_FORWARD);
+    for (int t = 1; t <= nbTri; t++) {
+        const auto& triangle = tri->Triangle(t);
+        int n1 = triangle.Value(1);
+        int n2 = triangle.Value(2);
+        int n3 = triangle.Value(3);
+
+        if (isReversed) {
+            int tmp = n1;
+            n1 = n2;
+            n2 = tmp;
+        }
+
+        result.indices[triOffset + 0] = static_cast<uint32_t>(n1 - 1 + vertexOffset);
+        result.indices[triOffset + 1] = static_cast<uint32_t>(n2 - 1 + vertexOffset);
+        result.indices[triOffset + 2] = static_cast<uint32_t>(n3 - 1 + vertexOffset);
+        triOffset += 3;
+    }
+
+    // Record face group: [triStart (in index units), triCount (indices), faceHash]
+    int faceTriStart = triOffset - nbTri * 3;
+    int faceHash = static_cast<int>(TopTools_ShapeMapHasher{}(face) % 2147483647);
+    result.faceGroups[faceGroupIdx + 0] = faceTriStart;
+    result.faceGroups[faceGroupIdx + 1] = nbTri * 3;
+    result.faceGroups[faceGroupIdx + 2] = faceHash;
+    faceGroupIdx += 3;
+
+    vertexOffset += nbNodes;
+}
+
+return result;",
+        includes: &[
+            "BRepLib_ToolTriangulatedShape.hxx", "BRepMesh_IncrementalMesh.hxx",
+            "BRep_Tool.hxx", "NCollection_Vec3.hxx", "Poly_Triangulation.hxx",
+            "TopAbs_Orientation.hxx", "TopExp_Explorer.hxx", "TopLoc_Location.hxx",
+            "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx", "TopoDS_Face.hxx",
+        ],
+        category: "tessellate",
+        return_type: ReturnType::MeshData,
+    },
+    MethodSpec {
+        name: "meshShape",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("linearDeflection"),
+            FacadeParam::Double("angularDeflection"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return tessellate(id, linearDeflection, angularDeflection);",
+        includes: &[],
+        category: "tessellate",
+        return_type: ReturnType::MeshData,
+    },
+    MethodSpec {
+        name: "meshBatch",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorShapeIds("ids"),
+            FacadeParam::Double("linearDeflection"),
+            FacadeParam::Double("angularDeflection"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+// First pass: mesh all shapes and count totals
+struct ShapeMesh {
+    int posStart, posCount, idxStart, idxCount;
+};
+std::vector<ShapeMesh> shapeMeshes;
+shapeMeshes.reserve(ids.size());
+
+int totalNodes = 0;
+int totalTris = 0;
+
+for (uint32_t id : ids) {
+    const auto& shape = get(id);
+    BRepMesh_IncrementalMesh mesher(shape, linearDeflection, false, angularDeflection,
+                                    false);
+
+    int shapeNodes = 0;
+    int shapeTris = 0;
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        TopLoc_Location loc;
+        auto tri = BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc);
+        if (tri.IsNull())
+            continue;
+        shapeNodes += tri->NbNodes();
+        shapeTris += tri->NbTriangles();
+    }
+    shapeMeshes.push_back({totalNodes * 3, shapeNodes * 3, totalTris * 3, shapeTris * 3});
+    totalNodes += shapeNodes;
+    totalTris += shapeTris;
+}
+
+// Allocate
+MeshBatchData result;
+result.positionCount = totalNodes * 3;
+result.normalCount = totalNodes * 3;
+result.indexCount = totalTris * 3;
+result.shapeCount = static_cast<int>(ids.size());
+
+result.positions = static_cast<float*>(std::malloc(result.positionCount * sizeof(float)));
+result.normals = static_cast<float*>(std::malloc(result.normalCount * sizeof(float)));
+result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(uint32_t)));
+result.shapeOffsets =
+    static_cast<int32_t*>(std::malloc(result.shapeCount * 4 * sizeof(int32_t)));
+
+// Second pass: extract geometry
+int vertexOffset = 0;
+int triOffset = 0;
+
+for (size_t si = 0; si < ids.size(); si++) {
+    const auto& shape = get(ids[si]);
+
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        const auto& face = TopoDS::Face(ex.Current());
+        TopLoc_Location loc;
+        auto tri = BRep_Tool::Triangulation(face, loc);
+        if (tri.IsNull())
+            continue;
+
+        const auto& trsf = loc.Transformation();
+        int nbNodes = tri->NbNodes();
+        int nbTri = tri->NbTriangles();
+
+        for (int i = 1; i <= nbNodes; i++) {
+            gp_Pnt p = tri->Node(i).Transformed(trsf);
+            int base = (vertexOffset + i - 1) * 3;
+            result.positions[base + 0] = static_cast<float>(p.X());
+            result.positions[base + 1] = static_cast<float>(p.Y());
+            result.positions[base + 2] = static_cast<float>(p.Z());
+        }
+
+        if (!tri->HasNormals()) {
+            BRepLib_ToolTriangulatedShape::ComputeNormals(face, tri);
+        }
+        for (int i = 1; i <= nbNodes; i++) {
+            gp_Dir d(0, 0, 1);
+            if (tri->HasNormals()) {
+                NCollection_Vec3<float> nv;
+                tri->Normal(i, nv);
+                if (nv.x() != 0.0f || nv.y() != 0.0f || nv.z() != 0.0f) {
+                    d = gp_Dir(nv.x(), nv.y(), nv.z());
+                }
+            }
+            d = d.Transformed(trsf);
+            int base = (vertexOffset + i - 1) * 3;
+            result.normals[base + 0] = static_cast<float>(d.X());
+            result.normals[base + 1] = static_cast<float>(d.Y());
+            result.normals[base + 2] = static_cast<float>(d.Z());
+        }
+
+        bool isReversed = (face.Orientation() != TopAbs_FORWARD);
+        for (int t = 1; t <= nbTri; t++) {
+            const auto& triangle = tri->Triangle(t);
+            int n1 = triangle.Value(1);
+            int n2 = triangle.Value(2);
+            int n3 = triangle.Value(3);
+            if (isReversed)
+                std::swap(n1, n2);
+            result.indices[triOffset + 0] = static_cast<uint32_t>(n1 - 1 + vertexOffset);
+            result.indices[triOffset + 1] = static_cast<uint32_t>(n2 - 1 + vertexOffset);
+            result.indices[triOffset + 2] = static_cast<uint32_t>(n3 - 1 + vertexOffset);
+            triOffset += 3;
+        }
+
+        vertexOffset += nbNodes;
+    }
+
+    // Store per-shape offsets: [posStart, posCount, idxStart, idxCount]
+    int oi = static_cast<int>(si) * 4;
+    result.shapeOffsets[oi + 0] = shapeMeshes[si].posStart;
+    result.shapeOffsets[oi + 1] = shapeMeshes[si].posCount;
+    result.shapeOffsets[oi + 2] = shapeMeshes[si].idxStart;
+    result.shapeOffsets[oi + 3] = shapeMeshes[si].idxCount;
+}
+
+return result;",
+        includes: &[
+            "BRepLib_ToolTriangulatedShape.hxx", "BRepMesh_IncrementalMesh.hxx",
+            "BRep_Tool.hxx", "NCollection_Vec3.hxx", "Poly_Triangulation.hxx",
+            "TopAbs_Orientation.hxx", "TopExp_Explorer.hxx", "TopLoc_Location.hxx",
+            "TopoDS.hxx", "TopoDS_Face.hxx",
+        ],
+        category: "tessellate",
+        return_type: ReturnType::MeshBatchData,
+    },
+    MethodSpec {
+        name: "wireframe",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("deflection"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(id);
+
+struct EdgeSample {
+    std::vector<gp_Pnt> pts;
+    int hash;
+};
+std::vector<EdgeSample> edgeSamples;
+int totalPoints = 0;
+
+// Use IndexedMap to avoid duplicate edges (shared between faces)
+NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
+TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+for (int ei = 1; ei <= edgeMap.Extent(); ei++) {
+    BRepAdaptor_Curve curve(TopoDS::Edge(edgeMap.FindKey(ei)));
+    GCPnts_TangentialDeflection sampler(curve, deflection, 0.5);
+    EdgeSample es;
+    for (int i = 1; i <= sampler.NbPoints(); i++) {
+        es.pts.push_back(sampler.Value(i));
+    }
+    es.hash = static_cast<int>(TopTools_ShapeMapHasher{}(edgeMap.FindKey(ei)) % 2147483647);
+    totalPoints += static_cast<int>(es.pts.size());
+    edgeSamples.push_back(std::move(es));
+}
+
+EdgeData result;
+result.pointCount = totalPoints * 3;
+result.points = static_cast<float*>(std::malloc(result.pointCount * sizeof(float)));
+int numEdges = static_cast<int>(edgeSamples.size());
+result.edgeGroupCount = numEdges * 3;
+result.edgeGroups =
+    static_cast<int32_t*>(std::malloc(result.edgeGroupCount * sizeof(int32_t)));
+if (!result.points && result.pointCount > 0) {
+    throw std::runtime_error(\"wireframe: allocation failed\");
+}
+
+int offset = 0;
+int edgeIdx = 0;
+for (const auto& es : edgeSamples) {
+    int edgeStart = offset;
+    for (const auto& p : es.pts) {
+        result.points[offset + 0] = static_cast<float>(p.X());
+        result.points[offset + 1] = static_cast<float>(p.Y());
+        result.points[offset + 2] = static_cast<float>(p.Z());
+        offset += 3;
+    }
+    if (result.edgeGroups) {
+        result.edgeGroups[edgeIdx * 3] = edgeStart;
+        result.edgeGroups[edgeIdx * 3 + 1] = offset - edgeStart;
+        result.edgeGroups[edgeIdx * 3 + 2] = es.hash;
+    }
+    edgeIdx++;
+}
+
+return result;",
+        includes: &[
+            "BRepAdaptor_Curve.hxx", "GCPnts_TangentialDeflection.hxx",
+            "NCollection_IndexedMap.hxx", "TopExp.hxx",
+            "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx",
+        ],
+        category: "tessellate",
+        return_type: ReturnType::EdgeData,
+    },
+    // ── Projection ──────────────────────────────────────────────────
+    MethodSpec {
+        name: "projectEdges",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::Double("ox"), FacadeParam::Double("oy"), FacadeParam::Double("oz"),
+            FacadeParam::Double("dx"), FacadeParam::Double("dy"), FacadeParam::Double("dz"),
+            FacadeParam::Double("xx"), FacadeParam::Double("xy"), FacadeParam::Double("xz"),
+            FacadeParam::Bool("hasXAxis"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& shape = get(shapeId);
+
+Handle(HLRBRep_Algo) hlr = new HLRBRep_Algo();
+hlr->Add(shape, 0);
+
+gp_Pnt origin(ox, oy, oz);
+gp_Dir dir(dx, dy, dz);
+
+gp_Ax2 ax2 = hasXAxis ? gp_Ax2(origin, dir, gp_Dir(xx, xy, xz)) : gp_Ax2(origin, dir);
+
+HLRAlgo_Projector projector(ax2);
+hlr->Projector(projector);
+hlr->Update();
+hlr->Hide();
+
+HLRBRep_HLRToShape hlrShapes(hlr);
+
+ProjectionData result{};
+
+auto storeIfNotNull = [this](const TopoDS_Shape& s) -> uint32_t {
+    if (s.IsNull())
+        return 0;
+    BRepLib::BuildCurves3d(s);
+    return store(s);
+};
+
+result.visibleOutline = storeIfNotNull(hlrShapes.OutLineVCompound());
+result.visibleSmooth = storeIfNotNull(hlrShapes.Rg1LineVCompound());
+result.visibleSharp = storeIfNotNull(hlrShapes.VCompound());
+result.hiddenOutline = storeIfNotNull(hlrShapes.OutLineHCompound());
+result.hiddenSmooth = storeIfNotNull(hlrShapes.Rg1LineHCompound());
+result.hiddenSharp = storeIfNotNull(hlrShapes.HCompound());
+
+return result;",
+        includes: &[
+            "BRepLib.hxx", "HLRAlgo_Projector.hxx", "HLRBRep_Algo.hxx",
+            "HLRBRep_HLRToShape.hxx", "gp_Ax2.hxx", "gp_Dir.hxx", "gp_Pnt.hxx",
+        ],
+        category: "projection",
+        return_type: ReturnType::ProjectionData,
+    },
+    // ── Kernel (arena management) ──────────────────────────────────
+    MethodSpec {
+        name: "release",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "arena_.erase(id);",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "releaseAll",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+arena_.clear();
+nextId_ = 1;",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "getShapeCount",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return static_cast<uint32_t>(arena_.size());",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::Uint32,
+    },
+    // ── XCAF (assembly/color/glTF support) ─────────────────────────
+    MethodSpec {
+        name: "xcafNewDocument",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+Handle(TDocStd_Application) app = getXCAFApp();
+Handle(TDocStd_Document) doc;
+app->NewDocument(\"BinXCAF\", doc);
+uint32_t id = ++nextXcafId_; // pre-increment; default init may be 0 in WASM
+xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
+return id;",
+        includes: &[
+            "TDocStd_Application.hxx", "TDocStd_Document.hxx",
+            "XCAFApp_Application.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Uint32,
+    },
+    MethodSpec {
+        name: "xcafClose",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end()) {
+    throw std::runtime_error(\"xcafClose: invalid document ID\");
+}
+try {
+    Handle(TDocStd_Application) app = getXCAFApp();
+    app->Close(it->second.doc);
+} catch (...) {
+    // Close can fail if doc is already closed — ignore
+}
+xcafDocs_.erase(it);",
+        includes: &[
+            "TDocStd_Application.hxx", "TDocStd_Document.hxx",
+            "XCAFApp_Application.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "xcafAddShape",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::ShapeId("shapeId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafAddShape: invalid document ID\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+TDF_Label label = shapeTool->AddShape(get(shapeId));
+
+int facadeId = it->second.nextLabelId++;
+it->second.labelRegistry[facadeId] = label;
+return facadeId;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Int,
+    },
+    MethodSpec {
+        name: "xcafAddComponent",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Int("parentLabelId"),
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::Double("tx"),
+            FacadeParam::Double("ty"),
+            FacadeParam::Double("tz"),
+            FacadeParam::Double("rx"),
+            FacadeParam::Double("ry"),
+            FacadeParam::Double("rz"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafAddComponent: invalid document ID\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+
+TDF_Label parentLabel = lookupLabel(it->second.labelRegistry, parentLabelId);
+
+// Build location transform (Euler angles in radians)
+gp_Trsf trsf;
+if (std::abs(rx) > 1e-12 || std::abs(ry) > 1e-12 || std::abs(rz) > 1e-12) {
+    gp_Trsf rotX, rotY, rotZ;
+    rotX.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0)), rx);
+    rotY.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 1, 0)), ry);
+    rotZ.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), rz);
+    trsf = rotZ * rotY * rotX;
+}
+trsf.SetTranslationPart(gp_Vec(tx, ty, tz));
+TopLoc_Location loc(trsf);
+
+// First add the shape as a standalone label, then add as component with location
+TDF_Label shapeLabel = shapeTool->AddShape(get(shapeId));
+TDF_Label compLabel = shapeTool->AddComponent(parentLabel, shapeLabel, loc);
+
+int facadeId = it->second.nextLabelId++;
+it->second.labelRegistry[facadeId] = compLabel;
+return facadeId;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "TopLoc_Location.hxx",
+            "gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx", "gp_Trsf.hxx", "gp_Vec.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Int,
+    },
+    MethodSpec {
+        name: "xcafSetColor",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Int("labelId"),
+            FacadeParam::Double("r"),
+            FacadeParam::Double("g"),
+            FacadeParam::Double("b"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafSetColor: invalid document ID\");
+
+Handle(XCAFDoc_ColorTool) colorTool =
+    XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+
+Quantity_Color color(r, g, b, Quantity_TOC_RGB);
+colorTool->SetColor(label, color, XCAFDoc_ColorGen);",
+        includes: &[
+            "XCAFDoc_ColorTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "Quantity_Color.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "xcafSetName",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Int("labelId"),
+            FacadeParam::String("name"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafSetName: invalid document ID\");
+
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+TDataStd_Name::Set(label, TCollection_ExtendedString(name.c_str()));",
+        includes: &[
+            "TDF_Label.hxx", "TDataStd_Name.hxx",
+            "TCollection_ExtendedString.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "xcafGetLabelInfo",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::Int("labelId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetLabelInfo: invalid document ID\");
+
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+
+XCAFLabelInfo info;
+info.labelId = labelId;
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+Handle(XCAFDoc_ColorTool) colorTool =
+    XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
+
+// Name
+Handle(TDataStd_Name) nameAttr;
+if (label.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+    TCollection_ExtendedString ext = nameAttr->Get();
+    info.name = TCollection_AsciiString(ext).ToCString();
+}
+
+// Color
+Quantity_Color color;
+if (colorTool->GetColor(label, XCAFDoc_ColorGen, color)) {
+    info.hasColor = true;
+    info.r = color.Red();
+    info.g = color.Green();
+    info.b = color.Blue();
+}
+
+// Assembly/component flags
+info.isAssembly = shapeTool->IsAssembly(label);
+info.isComponent = shapeTool->IsComponent(label);
+
+// Shape
+TopoDS_Shape shape;
+if (shapeTool->GetShape(label, shape) && !shape.IsNull()) {
+    info.shapeId = store(shape);
+}
+
+return info;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "XCAFDoc_ColorTool.hxx", "TDF_Label.hxx",
+            "TDataStd_Name.hxx", "TCollection_AsciiString.hxx",
+            "TCollection_ExtendedString.hxx", "Quantity_Color.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::XCAFLabelInfo,
+    },
+    MethodSpec {
+        name: "xcafGetChildLabels",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::Int("parentLabelId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetChildLabels: invalid document ID\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+TDF_Label parentLabel = lookupLabel(it->second.labelRegistry, parentLabelId);
+
+NCollection_Sequence<TDF_Label> children;
+shapeTool->GetComponents(parentLabel, children);
+
+std::vector<int> ids;
+for (int i = 1; i <= children.Length(); ++i) {
+    int facadeId = it->second.nextLabelId++;
+    it->second.labelRegistry[facadeId] = children.Value(i);
+    ids.push_back(facadeId);
+}
+return ids;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "NCollection_Sequence.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
+        name: "xcafGetRootLabels",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetRootLabels: invalid document ID\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+
+NCollection_Sequence<TDF_Label> roots;
+shapeTool->GetFreeShapes(roots);
+
+std::vector<int> ids;
+for (int i = 1; i <= roots.Length(); ++i) {
+    int facadeId = it->second.nextLabelId++;
+    it->second.labelRegistry[facadeId] = roots.Value(i);
+    ids.push_back(facadeId);
+}
+return ids;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "NCollection_Sequence.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
+        name: "xcafExportSTEP",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafExportSTEP: invalid document ID\");
+
+STEPCAFControl_Writer writer;
+writer.SetColorMode(Standard_True);
+writer.SetNameMode(Standard_True);
+
+if (!writer.Transfer(it->second.doc, STEPControl_AsIs)) {
+    throw std::runtime_error(\"xcafExportSTEP: transfer failed\");
+}
+
+std::string tmpPath = \"/tmp/xcaf_export.step\";
+if (writer.Write(tmpPath.c_str()) != IFSelect_RetDone) {
+    throw std::runtime_error(\"xcafExportSTEP: write failed\");
+}
+
+std::ifstream ifs(tmpPath);
+std::string content((std::istreambuf_iterator<char>(ifs)),
+                    std::istreambuf_iterator<char>());
+std::remove(tmpPath.c_str());
+return content;",
+        includes: &[
+            "STEPCAFControl_Writer.hxx", "STEPControl_StepModelType.hxx",
+            "Standard_Failure.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "xcafImportSTEP",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::String("stepData")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::string tmpPath = \"/tmp/xcaf_import.step\";
+{
+    std::ofstream ofs(tmpPath);
+    ofs << stepData;
+}
+
+Handle(TDocStd_Application) app = getXCAFApp();
+Handle(TDocStd_Document) doc;
+app->NewDocument(\"BinXCAF\", doc);
+
+STEPCAFControl_Reader reader;
+reader.SetColorMode(Standard_True);
+reader.SetNameMode(Standard_True);
+reader.SetLayerMode(Standard_True);
+
+if (reader.ReadFile(tmpPath.c_str()) != IFSelect_RetDone) {
+    std::remove(tmpPath.c_str());
+    getXCAFApp()->Close(doc);
+    throw std::runtime_error(\"xcafImportSTEP: read failed\");
+}
+std::remove(tmpPath.c_str());
+
+if (!reader.Transfer(doc)) {
+    getXCAFApp()->Close(doc);
+    throw std::runtime_error(\"xcafImportSTEP: transfer failed\");
+}
+
+uint32_t id = ++nextXcafId_;
+xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
+return id;",
+        includes: &[
+            "STEPCAFControl_Reader.hxx", "TDocStd_Application.hxx",
+            "TDocStd_Document.hxx", "XCAFApp_Application.hxx",
+            "Standard_Failure.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Uint32,
+    },
+    MethodSpec {
+        name: "xcafExportGLTF",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Double("linDeflection"),
+            FacadeParam::Double("angDeflection"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafExportGLTF: invalid document ID\");
+
+// Tessellate all shapes in the document
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+NCollection_Sequence<TDF_Label> labels;
+shapeTool->GetFreeShapes(labels);
+for (int i = 1; i <= labels.Length(); ++i) {
+    TopoDS_Shape shape;
+    if (shapeTool->GetShape(labels.Value(i), shape)) {
+        BRepMesh_IncrementalMesh mesh(shape, linDeflection, Standard_False, angDeflection,
+                                      Standard_True);
+    }
+}
+
+// Write glTF binary (.glb) via Handle-allocated writer
+std::string tmpPath = \"/tmp/xcaf_export.glb\";
+NCollection_IndexedDataMap<TCollection_AsciiString, TCollection_AsciiString> fileInfo;
+
+Handle(RWGltf_CafWriter) writer =
+    new RWGltf_CafWriter(TCollection_AsciiString(tmpPath.c_str()), Standard_True);
+writer->SetTransformationFormat(RWGltf_WriterTrsfFormat_Compact);
+if (!writer->Perform(it->second.doc, fileInfo, Message_ProgressRange())) {
+    throw std::runtime_error(\"xcafExportGLTF: write failed\");
+}
+
+// Return file path — JS reads binary via Module.FS.readFile()
+return tmpPath;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "NCollection_Sequence.hxx",
+            "BRepMesh_IncrementalMesh.hxx", "RWGltf_CafWriter.hxx",
+            "NCollection_IndexedDataMap.hxx", "TCollection_AsciiString.hxx",
+            "Message_ProgressRange.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::String,
+    },
 ];
 
 /// Returns the complete list of facade method specifications.
@@ -2825,7 +4216,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 126, "expected 126 generable methods");
+        assert_eq!(count, 164, "expected 164 generable methods");
     }
 
     #[test]
