@@ -14,10 +14,13 @@
  */
 
 export {
+    BooleanOp,
+    JoinType,
     OcctError,
+    OcctErrorCode,
+    TransitionMode,
     type AddChildOptions,
     type AddShapeOptions,
-    type BooleanOp,
     type BoundingBox,
     type Color3,
     type CurveKind,
@@ -26,7 +29,6 @@ export {
     type EvolutionData,
     type GLTFExportOptions,
     type InitOptions,
-    type JoinType,
     type LabelInfo,
     type LabelTag,
     type Location,
@@ -40,22 +42,20 @@ export {
     type ShapeType,
     type SurfaceKind,
     type TessellateOptions,
-    type TransitionMode,
     type UVBounds,
     type Vec3,
 } from "./types.js";
 
 export { XCAFDocument, type EmscriptenFS } from "./xcaf-document.js";
+import { XCAFDocument as XCAFDocumentImpl, type EmscriptenFS } from "./xcaf-document.js";
 
 import type {
-    BooleanOp,
     BoundingBox,
     CurveKind,
     CurvatureData,
     EdgeData,
     EvolutionData,
     InitOptions,
-    JoinType,
     Mesh,
     MeshBatchData,
     NurbsCurveData,
@@ -66,11 +66,11 @@ import type {
     ShapeType,
     SurfaceKind,
     TessellateOptions,
-    TransitionMode,
+    BooleanOp,
     UVBounds,
     Vec3,
 } from "./types.js";
-import { OcctError } from "./types.js";
+import { JoinType, OcctError, TransitionMode } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Internal Embind types
@@ -84,6 +84,7 @@ interface EmscriptenModule {
     HEAPF32: Float32Array;
     HEAPU32: Uint32Array;
     HEAP32: Int32Array;
+    FS: EmscriptenFS;
 }
 
 interface RawMeshData {
@@ -733,7 +734,7 @@ export class OcctKernel {
         });
     }
 
-    sweep(wire: ShapeHandle, spine: ShapeHandle, transitionMode: TransitionMode = 0): ShapeHandle {
+    sweep(wire: ShapeHandle, spine: ShapeHandle, transitionMode: TransitionMode = TransitionMode.Transformed): ShapeHandle {
         return wrap("sweep", () => handle(this.#raw.sweep(wire, spine, transitionMode)));
     }
 
@@ -1051,6 +1052,30 @@ export class OcctKernel {
     getShapeType(shape: ShapeHandle): ShapeType {
         return wrap("getShapeType", () => this.#raw.getShapeType(shape) as ShapeType);
     }
+
+    /** True if the shape is a compound. */
+    isCompound(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "compound"; }
+
+    /** True if the shape is a comp-solid. */
+    isCompSolid(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "compsolid"; }
+
+    /** True if the shape is a solid. */
+    isSolid(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "solid"; }
+
+    /** True if the shape is a shell. */
+    isShell(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "shell"; }
+
+    /** True if the shape is a face. */
+    isFace(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "face"; }
+
+    /** True if the shape is a wire. */
+    isWire(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "wire"; }
+
+    /** True if the shape is an edge. */
+    isEdge(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "edge"; }
+
+    /** True if the shape is a vertex. */
+    isVertex(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "vertex"; }
 
     getSubShapes(shape: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): ShapeHandle[] {
         return wrap("getSubShapes", () => vecToHandles(this.#raw.getSubShapes(shape, type)));
@@ -1511,7 +1536,7 @@ export class OcctKernel {
     }
 
     /** Offset a 2D wire. */
-    offsetWire2D(wire: ShapeHandle, offset: number, joinType: JoinType = 0): ShapeHandle {
+    offsetWire2D(wire: ShapeHandle, offset: number, joinType: JoinType = JoinType.Arc): ShapeHandle {
         return wrap("offsetWire2D", () => handle(this.#raw.offsetWire2D(wire, offset, joinType)));
     }
 
@@ -1695,6 +1720,26 @@ export class OcctKernel {
 
     fixWireOnFace(wire: ShapeHandle, face: ShapeHandle, tolerance = 1e-6): ShapeHandle {
         return wrap("fixWireOnFace", () => handle(this.#raw.fixWireOnFace(wire, face, tolerance)));
+    }
+
+    // =======================================================================
+    // XCAF Document Factories
+    // =======================================================================
+
+    /**
+     * Create a new XCAF document with the Emscripten FS pre-injected.
+     * This allows `doc.exportGLTF()` to work without passing FS explicitly.
+     */
+    createXCAFDocument(): XCAFDocumentImpl {
+        return XCAFDocumentImpl.create(this.#raw, this.#module.FS);
+    }
+
+    /**
+     * Import a STEP file into a new XCAF document with the Emscripten FS pre-injected.
+     * Preserves colors, names, and assembly structure from the STEP file.
+     */
+    importXCAFFromSTEP(stepData: string): XCAFDocumentImpl {
+        return XCAFDocumentImpl.fromSTEP(this.#raw, stepData, this.#module.FS);
     }
 
     // =======================================================================
