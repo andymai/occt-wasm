@@ -105,6 +105,7 @@ struct MeshBatchData {
     int getShapeOffsetsPtr() const;
 };
 
+#ifndef OCCT_WASM_MODELING_ONLY
 /// XCAF label info returned from queries.
 struct XCAFLabelInfo {
     int labelId = 0;
@@ -115,6 +116,7 @@ struct XCAFLabelInfo {
     bool isComponent = false;
     uint32_t shapeId = 0;
 };
+#endif
 
 /// Arena-based OCCT kernel — full brepjs KernelAdapter coverage.
 class OcctKernel {

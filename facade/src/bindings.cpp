@@ -47,6 +47,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("pointCount", &EdgeData::pointCount)
         .property("edgeGroupCount", &EdgeData::edgeGroupCount);
 
+#ifndef OCCT_WASM_MODELING_ONLY
     // ProjectionData
     value_object<ProjectionData>("ProjectionData")
         .field("visibleOutline", &ProjectionData::visibleOutline)
@@ -55,6 +56,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .field("hiddenOutline", &ProjectionData::hiddenOutline)
         .field("hiddenSmooth", &ProjectionData::hiddenSmooth)
         .field("hiddenSharp", &ProjectionData::hiddenSharp);
+#endif
 
     // NurbsCurveData
     class_<NurbsCurveData>("NurbsCurveData")
@@ -73,6 +75,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("generated", &EvolutionData::generated)
         .property("deleted", &EvolutionData::deleted);
 
+#ifndef OCCT_WASM_MODELING_ONLY
     // XCAFLabelInfo
     value_object<XCAFLabelInfo>("XCAFLabelInfo")
         .field("labelId", &XCAFLabelInfo::labelId)
@@ -84,6 +87,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .field("isAssembly", &XCAFLabelInfo::isAssembly)
         .field("isComponent", &XCAFLabelInfo::isComponent)
         .field("shapeId", &XCAFLabelInfo::shapeId);
+#endif
 
     // OcctKernel
     class_<OcctKernel>("OcctKernel")
