@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/andymai/occt-wasm/compare/v1.2.2...v1.3.0) (2026-03-29)
+
+
+### Features
+
+* **ts:** structured error codes, named enums, and DX improvements ([#70](https://github.com/andymai/occt-wasm/issues/70)) ([37db183](https://github.com/andymai/occt-wasm/commit/37db183a98e3a3ec597e3f174c64acd514ae30fe))
+
+
+### Bug Fixes
+
+* **package:** add deep path exports for Emscripten module and WASM binary ([#69](https://github.com/andymai/occt-wasm/issues/69)) ([5591246](https://github.com/andymai/occt-wasm/commit/5591246c3e22ff951f8c89c77e0a81127b65b9c2))
+
 ## [1.2.2](https://github.com/andymai/occt-wasm/compare/v1.2.1...v1.2.2) (2026-03-29)
 
 
