@@ -497,7 +497,10 @@ export class OcctKernel {
 
         if (wasmSource instanceof ArrayBuffer || wasmSource instanceof Uint8Array) {
             // Pre-loaded binary — pass directly to Emscripten
-            const bytes = wasmSource instanceof Uint8Array ? wasmSource.buffer : wasmSource;
+            // For Uint8Array views with non-zero byteOffset, slice to get the correct region
+            const bytes = wasmSource instanceof Uint8Array
+                ? wasmSource.buffer.slice(wasmSource.byteOffset, wasmSource.byteOffset + wasmSource.byteLength)
+                : wasmSource;
             moduleOpts["wasmBinary"] = bytes;
         } else if (wasmSource) {
             // String or URL — use locateFile

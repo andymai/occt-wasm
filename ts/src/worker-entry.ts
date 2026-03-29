@@ -12,11 +12,14 @@ let kernel: OcctKernel | null = null;
 
 const api = {
     async init(options?: InitOptions) {
+        if (kernel) {
+            kernel.releaseAll();
+        }
         kernel = await OcctKernel.init(options);
     },
     get kernel() {
         if (!kernel) throw new Error("OcctKernel not initialized — call init() first");
-        return kernel;
+        return Comlink.proxy(kernel);
     },
 };
 
