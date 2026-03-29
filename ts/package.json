@@ -7,7 +7,9 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./dist/occt-wasm.js": "./dist/occt-wasm.js",
+    "./dist/occt-wasm.wasm": "./dist/occt-wasm.wasm"
   },
   "files": [
     "dist/"
