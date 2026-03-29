@@ -214,7 +214,7 @@ export class XCAFDocument {
         // Resolve overloads: exportGLTF(fs, opts) vs exportGLTF(opts)
         let fs: EmscriptenFS | undefined;
         let options: GLTFExportOptions | undefined;
-        if (fsOrOptions && typeof fsOrOptions === "object" && "readFile" in fsOrOptions) {
+        if (fsOrOptions && typeof fsOrOptions === "object" && "readFile" in fsOrOptions && "unlink" in fsOrOptions) {
             // Legacy: exportGLTF(fs, options?)
             fs = fsOrOptions as EmscriptenFS;
             options = maybeOptions;

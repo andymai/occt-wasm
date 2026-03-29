@@ -361,5 +361,8 @@ function classifyError(operation: string, message: string): OcctErrorCode {
     // "operation failed" is the generic SetupShape/FilletLike pattern
     if (msg.includes("operation failed")) return OcctErrorCode.ConstructionFailed;
 
+    // Unmatched errors from known OCCT operations are Standard_Failure propagations
+    if (operation && operation !== "XCAFDocument") return OcctErrorCode.KernelError;
+
     return OcctErrorCode.Unknown;
 }
