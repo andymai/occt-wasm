@@ -95,8 +95,27 @@ pub fn build_occt() -> Result<()> {
     Ok(())
 }
 
+/// Facade source files excluded in the "modeling" profile.
+/// These files contain XCAF, HLR projection, and glTF-related code.
+const MODELING_EXCLUDED_SOURCES: &[&str] = &["xcaf.cpp", "projection.cpp"];
+
+/// Additional OCCT static libraries excluded in the "modeling" profile.
+/// These are needed only for XCAF, glTF, HLR, and visualization.
+const MODELING_EXCLUDED_LIBS: &[&str] = &[
+    "libTKXCAF.a",
+    "libTKDEGLTF.a",
+    "libTKRWMesh.a",
+    "libTKHLR.a",
+    "libTKV3d.a",
+    "libTKService.a",
+    "libTKLCAF.a",
+    "libTKVCAF.a",
+    "libTKCAF.a",
+    "libTKCDF.a",
+];
+
 /// Step 2: Compile facade C++ files with emcc.
-fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
+fn compile_facade(sh: &Shell, root: &Path, profile: &str) -> Result<Vec<PathBuf>> {
     let build_dir = root.join("build");
     sh.create_dir(&build_dir)?;
 
@@ -110,11 +129,23 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         );
     }
 
+    let is_modeling = profile == "modeling";
     let mut sources: Vec<PathBuf> = std::fs::read_dir(root.join("facade/src"))?
         .filter_map(Result::ok)
         .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|e| e == "cpp"))
+        .filter(|p| {
+            p.extension().is_some_and(|e| e == "cpp")
+                && !(is_modeling
+                    && p.file_name().is_some_and(|n| {
+                        MODELING_EXCLUDED_SOURCES.contains(&n.to_str().unwrap_or(""))
+                    }))
+        })
         .collect();
+
+    if is_modeling {
+        let excluded = MODELING_EXCLUDED_SOURCES;
+        eprintln!("  Profile 'modeling': excluding sources {excluded:?}");
+    }
 
     // Also compile generated facade files if present (skip reference-only bindings).
     let gen_dir = root.join("facade/generated");
@@ -153,10 +184,15 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         eprintln!("  Compiling {name}.cpp...");
         let src_str = src.display().to_string();
         let obj_str = obj.display().to_string();
+        let profile_define = if is_modeling {
+            "-DOCCT_WASM_MODELING_ONLY"
+        } else {
+            "-DOCCT_WASM_FULL"
+        };
         cmd!(
             sh,
             "em++ -std=c++17 -fwasm-exceptions -O3 -msimd128 -mrelaxed-simd
-            -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS
+            -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS {profile_define}
             -I{occt_inc_str} -I{facade_inc_str}
             -w -c {src_str} -o {obj_str}"
         )
@@ -204,6 +240,7 @@ fn link_wasm(
     objects: &[PathBuf],
     release: bool,
     size: bool,
+    profile: &str,
 ) -> Result<()> {
     let dist_dir = root.join("dist");
     sh.create_dir(&dist_dir)?;
@@ -218,11 +255,15 @@ fn link_wasm(
         .collect();
     let total = all_libs.len();
 
+    let is_modeling = profile == "modeling";
     let occt_libs: Vec<String> = all_libs
         .into_iter()
         .filter(|p| {
             let name = p.file_name().map(|n| n.to_string_lossy().into_owned());
-            !name.is_some_and(|n| EXCLUDED_LIBS.contains(&n.as_str()))
+            !name.is_some_and(|n| {
+                EXCLUDED_LIBS.contains(&n.as_str())
+                    || (is_modeling && MODELING_EXCLUDED_LIBS.contains(&n.as_str()))
+            })
         })
         .map(|p| p.display().to_string())
         .collect();
@@ -331,9 +372,11 @@ fn home_dir() -> Option<PathBuf> {
 }
 
 /// Full build: OCCT + facade + link + wasm-opt.
-pub fn build(release: bool, size: bool) -> Result<()> {
+pub fn build(release: bool, size: bool, profile: &str) -> Result<()> {
     let root = project_root()?;
     let sh = Shell::new()?;
+
+    eprintln!("Build profile: {profile}");
 
     // Step 1: Build OCCT static libs (skip if already built)
     let occt_lib_dir = find_occt_lib_dir(&root.join("occt/build"));
@@ -353,11 +396,11 @@ pub fn build(release: bool, size: bool) -> Result<()> {
 
     // Step 2: Compile facade
     eprintln!("Step 2: Compiling facade...");
-    let objects = compile_facade(&sh, &root)?;
+    let objects = compile_facade(&sh, &root, profile)?;
     eprintln!("  {} object files ready.", objects.len());
 
     // Step 3: Link
-    link_wasm(&sh, &root, &objects, release, size)?;
+    link_wasm(&sh, &root, &objects, release, size, profile)?;
 
     // Step 4: wasm-opt (release only)
     if release {

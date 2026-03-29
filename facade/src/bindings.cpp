@@ -239,7 +239,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // Surface-based construction
         .function("makeFaceOnSurface", &OcctKernel::makeFaceOnSurface)
 
-        // XCAF (real XDE)
+#ifndef OCCT_WASM_MODELING_ONLY
+        // XCAF (real XDE) — excluded in modeling profile
         .function("xcafNewDocument", &OcctKernel::xcafNewDocument)
         .function("xcafClose", &OcctKernel::xcafClose)
         .function("xcafAddShape", &OcctKernel::xcafAddShape)
@@ -253,11 +254,12 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("xcafImportSTEP", &OcctKernel::xcafImportSTEP)
         .function("xcafExportGLTF", &OcctKernel::xcafExportGLTF)
 
+        // Projection (HLR) — excluded in modeling profile
+        .function("projectEdges", &OcctKernel::projectEdges)
+#endif
+
         // Surface construction
         .function("bsplineSurface", &OcctKernel::bsplineSurface)
-
-        // Projection (HLR)
-        .function("projectEdges", &OcctKernel::projectEdges)
 
         // NURBS introspection
         .function("getNurbsCurveData", &OcctKernel::getNurbsCurveData)

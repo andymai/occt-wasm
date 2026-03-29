@@ -5,6 +5,7 @@
   "scripts": {
     "prepare": "husky",
     "build": "cargo xtask build",
+    "build:modeling": "cargo xtask build --profile modeling",
     "build:occt": "cargo xtask build-occt",
     "test": "cd ts && npx vitest run",
     "lint": "cd ts && npx eslint src/",

@@ -6,8 +6,10 @@
 #include <unordered_map>
 #include <vector>
 
+#ifndef OCCT_WASM_MODELING_ONLY
 #include <TDF_Label.hxx>
 #include <TDocStd_Document.hxx>
+#endif
 #include <TopoDS_Shape.hxx>
 
 /// Mesh data returned from tessellation.
@@ -59,6 +61,7 @@ struct EvolutionData {
     std::vector<int> deleted;
 };
 
+#ifndef OCCT_WASM_MODELING_ONLY
 /// Projection result (hidden line removal).
 struct ProjectionData {
     uint32_t visibleOutline = 0;
@@ -68,6 +71,7 @@ struct ProjectionData {
     uint32_t hiddenSmooth = 0;
     uint32_t hiddenSharp = 0;
 };
+#endif
 
 /// NURBS/BSpline curve data extracted from an edge.
 struct NurbsCurveData {
@@ -322,10 +326,12 @@ class OcctKernel {
     EvolutionData thickenWithHistory(uint32_t shapeId, double thickness,
                                      std::vector<int> inputFaceHashes, int hashUpperBound);
 
+#ifndef OCCT_WASM_MODELING_ONLY
     // --- Projection (HLR) ---
     ProjectionData projectEdges(uint32_t shapeId, double ox, double oy, double oz, double dx,
                                 double dy, double dz, double xx, double xy, double xz,
                                 bool hasXAxis);
+#endif
 
     // --- NURBS introspection ---
     NurbsCurveData getNurbsCurveData(uint32_t edgeId);
@@ -338,6 +344,7 @@ class OcctKernel {
                                 double planeOz, double planeZx, double planeZy, double planeZz,
                                 double planeXx, double planeXy, double planeXz);
 
+#ifndef OCCT_WASM_MODELING_ONLY
     // --- XCAF (assembly/color/glTF support) ---
     uint32_t xcafNewDocument();
     void xcafClose(uint32_t docId);
@@ -352,6 +359,7 @@ class OcctKernel {
     std::string xcafExportSTEP(uint32_t docId);
     uint32_t xcafImportSTEP(const std::string& stepData);
     std::string xcafExportGLTF(uint32_t docId, double linDeflection, double angDeflection);
+#endif
 
     // --- Surface-based edge/face ---
     uint32_t makeFaceOnSurface(uint32_t faceId, uint32_t wireId);
@@ -385,6 +393,7 @@ class OcctKernel {
     std::unordered_map<uint32_t, TopoDS_Shape> arena_;
     uint32_t nextId_ = 1;
 
+#ifndef OCCT_WASM_MODELING_ONLY
     // XCAF document storage
     struct XCAFDocRecord {
         Handle(TDocStd_Document) doc;
@@ -393,4 +402,5 @@ class OcctKernel {
     };
     std::map<uint32_t, XCAFDocRecord> xcafDocs_;
     uint32_t nextXcafId_ = 1;
+#endif
 };

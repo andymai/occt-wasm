@@ -21,6 +21,9 @@ enum Cli {
         /// Optimize for size (-Oz) instead of speed (-O3); requires --release
         #[arg(long)]
         size: bool,
+        /// Build profile: "full" (default) or "modeling" (excludes XCAF, glTF, HLR)
+        #[arg(long, default_value = "full")]
+        profile: String,
     },
     /// Build only OCCT static libraries (Milestone 0)
     BuildOcct,
@@ -36,7 +39,11 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli {
-        Cli::Build { release, size } => build::build(release, size),
+        Cli::Build {
+            release,
+            size,
+            profile,
+        } => build::build(release, size, &profile),
         Cli::BuildOcct => build::build_occt(),
         Cli::Codegen => codegen::run::run(),
         Cli::Clean => build::clean(),
