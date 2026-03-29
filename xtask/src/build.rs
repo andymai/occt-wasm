@@ -376,6 +376,10 @@ pub fn build(release: bool, size: bool, profile: &str) -> Result<()> {
     let root = project_root()?;
     let sh = Shell::new()?;
 
+    if profile != "full" && profile != "modeling" {
+        bail!("Unknown profile '{profile}'. Valid profiles: full, modeling");
+    }
+
     eprintln!("Build profile: {profile}");
 
     // Step 1: Build OCCT static libs (skip if already built)
