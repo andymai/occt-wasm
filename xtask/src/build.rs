@@ -272,7 +272,12 @@ fn link_wasm(
     eprintln!("  Excluded {excluded}/{total} unused OCCT libs from link.");
 
     let obj_strs: Vec<String> = objects.iter().map(|p| p.display().to_string()).collect();
-    let output = dist_dir.join("occt-wasm.js");
+    let output_name = if is_modeling {
+        "occt-wasm-modeling.js"
+    } else {
+        "occt-wasm.js"
+    };
+    let output = dist_dir.join(output_name);
     let output_str = output.display().to_string();
     let post_js = root.join("scripts/symbol_dispose.js");
     let post_js_str = post_js.display().to_string();
@@ -335,8 +340,13 @@ fn link_wasm(
 }
 
 /// Step 4: Run wasm-opt on the output.
-fn optimize_wasm(sh: &Shell, root: &Path) -> Result<()> {
-    let wasm = root.join("dist/occt-wasm.wasm");
+fn optimize_wasm(sh: &Shell, root: &Path, profile: &str) -> Result<()> {
+    let wasm_name = if profile == "modeling" {
+        "occt-wasm-modeling.wasm"
+    } else {
+        "occt-wasm.wasm"
+    };
+    let wasm = root.join("dist").join(wasm_name);
     let wasm_str = wasm.display().to_string();
 
     // Try emsdk's wasm-opt first (has correct feature support), fall back to PATH
@@ -408,15 +418,20 @@ pub fn build(release: bool, size: bool, profile: &str) -> Result<()> {
 
     // Step 4: wasm-opt (release only)
     if release {
-        optimize_wasm(&sh, &root)?;
+        optimize_wasm(&sh, &root, profile)?;
     }
 
     // Report
-    let wasm_path = root.join("dist/occt-wasm.wasm");
+    let wasm_name = if profile == "modeling" {
+        "occt-wasm-modeling.wasm"
+    } else {
+        "occt-wasm.wasm"
+    };
+    let wasm_path = root.join("dist").join(wasm_name);
     if wasm_path.exists() {
         #[allow(clippy::cast_precision_loss)] // file size fits in f64 mantissa
         let size_mb = std::fs::metadata(&wasm_path)?.len() as f64 / 1_048_576.0;
-        eprintln!("Build complete: dist/occt-wasm.wasm ({size_mb:.1}MB)");
+        eprintln!("Build complete: dist/{wasm_name} ({size_mb:.1}MB)");
     }
 
     Ok(())

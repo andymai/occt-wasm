@@ -7,6 +7,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./modeling": {
+      "import": "./dist/modeling.js",
+      "types": "./dist/modeling.d.ts"
     }
   },
   "files": [
@@ -14,7 +18,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prebuild": "cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/ 2>/dev/null || true",
+    "prebuild": "cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm ../dist/occt-wasm-modeling.js ../dist/occt-wasm-modeling.wasm dist/ 2>/dev/null || true",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

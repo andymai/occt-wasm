@@ -481,8 +481,22 @@ export class OcctKernel {
      * ```
      */
     static async init(options?: InitOptions): Promise<OcctKernel> {
-        // @ts-expect-error -- occt-wasm.js is generated at build time, no .d.ts
-        const imported = await import(/* webpackIgnore: true */ "./occt-wasm.js");
+        return OcctKernel.#initWithModule("./occt-wasm.js", options);
+    }
+
+    /** @internal Initialize with a specific Emscripten JS module path. */
+    static async _initFromModule(
+        jsModulePath: string,
+        options?: InitOptions,
+    ): Promise<OcctKernel> {
+        return OcctKernel.#initWithModule(jsModulePath, options);
+    }
+
+    static async #initWithModule(
+        jsModulePath: string,
+        options?: InitOptions,
+    ): Promise<OcctKernel> {
+        const imported = await import(/* webpackIgnore: true */ jsModulePath);
         const createModule = imported.default as (
             opts: Record<string, unknown>,
         ) => Promise<EmscriptenModule>;
