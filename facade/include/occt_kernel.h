@@ -7,8 +7,13 @@
 #include <vector>
 
 #include <TDF_Label.hxx>
+#include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
 #include <TopoDS_Shape.hxx>
+
+// XCAF helpers (defined in kernel.cpp, used by generated xcaf methods)
+const Handle(TDocStd_Application) & getXCAFApp();
+TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId);
 
 /// Mesh data returned from tessellation.
 struct MeshData {
