@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/andymai/occt-wasm/compare/v1.2.0...v1.2.1) (2026-03-29)
+
+
+### Bug Fixes
+
+* **codegen:** robust embind close + missing makeNullShape + untracked file check ([#63](https://github.com/andymai/occt-wasm/issues/63)) ([a660e2e](https://github.com/andymai/occt-wasm/commit/a660e2e7b67cd3f732384678993c9c932ac27569))
+* **facade:** draftPrism now applies taper angle ([#66](https://github.com/andymai/occt-wasm/issues/66)) ([a503c3a](https://github.com/andymai/occt-wasm/commit/a503c3a032f9ffb670b94a0c5ec68710b288cb13))
+
 ## [1.2.0](https://github.com/andymai/occt-wasm/compare/v1.1.0...v1.2.0) (2026-03-29)
 
 
