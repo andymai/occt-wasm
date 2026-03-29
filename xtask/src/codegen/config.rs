@@ -3765,6 +3765,17 @@ nextId_ = 1;",
         category: "kernel",
         return_type: ReturnType::Uint32,
     },
+    MethodSpec {
+        name: "makeNullShape",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return store(TopoDS_Shape());",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::ShapeId,
+    },
     // ── XCAF (assembly/color/glTF support) ─────────────────────────
     MethodSpec {
         name: "xcafNewDocument",
@@ -4216,7 +4227,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 164, "expected 164 generable methods");
+        assert_eq!(count, 165, "expected 165 generable methods");
     }
 
     #[test]
