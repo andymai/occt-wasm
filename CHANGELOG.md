@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/andymai/occt-wasm/compare/v1.1.0...v1.2.0) (2026-03-29)
+
+
+### Features
+
+* **codegen:** 100% facade methods generated (164/164) ([#60](https://github.com/andymai/occt-wasm/issues/60)) ([489437c](https://github.com/andymai/occt-wasm/commit/489437c2d22c4b3433c3bbb3a2d29a048e18a910))
+* **codegen:** auto-generate bindings.cpp + CI drift check ([#62](https://github.com/andymai/occt-wasm/issues/62)) ([b0d2c7c](https://github.com/andymai/occt-wasm/commit/b0d2c7c725fccbfe2544565ec5678dfdccba5570))
+
 ## [1.1.0](https://github.com/andymai/occt-wasm/compare/v1.0.2...v1.1.0) (2026-03-28)
 
 
