@@ -276,10 +276,18 @@ describe("sweeps", () => {
         wireVec.delete();
     });
 
+    it("draftPrism extrudes a face with zero angle", () => {
+        const face = makeSquareFace(10);
+        const result = kernel.draftPrism(face, 0, 0, 10, 0);
+        expect(result).toBeGreaterThan(0);
+        expect(kernel.getVolume(result)).toBeCloseTo(1000, 0);
+    });
+
     it("draftPrism extrudes a face with a draft angle", () => {
         const face = makeSquareFace(10);
-        const result = kernel.draftPrism(face, 0, 0, 1, 5.0);
+        const result = kernel.draftPrism(face, 0, 0, 10, 5.0);
         expect(result).toBeGreaterThan(0);
+        // Tapered prism should still have positive volume
         expect(kernel.getVolume(result)).toBeGreaterThan(0);
     });
 });
