@@ -143,7 +143,7 @@ describe("OcctErrorCode classification", () => {
 // ============================================================================
 
 describe("Type predicate methods", () => {
-    it("isSolid returns true for a box", () => {
+    it("getShapeType returns 'solid' for a box", () => {
         const box = kernel.makeBox(10, 10, 10);
         expect(kernel.getShapeType(box)).toBe("solid");
     });
@@ -281,16 +281,18 @@ describe("Named enums", () => {
             const tools = new Module.VectorUint32();
             tools.push_back(cyl);
 
-            const result = kernel.booleanPipeline(box, ops, tools);
-            expect(result).toBeGreaterThan(0);
+            try {
+                const result = kernel.booleanPipeline(box, ops, tools);
+                expect(result).toBeGreaterThan(0);
 
-            // Volume should be less than box (cylinder subtracted)
-            const vol = kernel.getVolume(result);
-            expect(vol).toBeLessThan(10 * 10 * 10);
-            expect(vol).toBeGreaterThan(0);
-
-            ops.delete();
-            tools.delete();
+                // Volume should be less than box (cylinder subtracted)
+                const vol = kernel.getVolume(result);
+                expect(vol).toBeLessThan(10 * 10 * 10);
+                expect(vol).toBeGreaterThan(0);
+            } finally {
+                ops.delete();
+                tools.delete();
+            }
         });
     });
 
@@ -304,11 +306,13 @@ describe("Named enums", () => {
         const tools = new Module.VectorUint32();
         tools.push_back(cyl);
 
-        const result = kernel.booleanPipeline(box, ops, tools);
-        expect(result).toBeGreaterThan(0);
-
-        ops.delete();
-        tools.delete();
+        try {
+            const result = kernel.booleanPipeline(box, ops, tools);
+            expect(result).toBeGreaterThan(0);
+        } finally {
+            ops.delete();
+            tools.delete();
+        }
     });
 });
 
