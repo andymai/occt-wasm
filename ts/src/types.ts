@@ -48,12 +48,30 @@ export interface TessellateOptions {
     angularDeflection?: number | undefined;
 }
 
+/**
+ * Build profile controlling which OCCT modules are included in the WASM binary.
+ *
+ * - `"full"` (default, ~20 MB) — all 164 methods including XCAF, glTF, HLR
+ * - `"modeling"` (~12 MB) — primitives, booleans, modeling, sweeps, construction,
+ *   transforms, tessellation, STEP/STL/BREP I/O, topology, query, curves, healing.
+ *   Excludes: xcaf*, projectEdges, xcafExportGLTF.
+ */
+export type BuildProfile = "full" | "modeling";
+
 /** Options for WASM module initialization. */
 export interface InitOptions {
     /** Browser: URL to the .wasm file (e.g. from a CDN or bundler public path). */
     wasmUrl?: string | undefined;
     /** Node.js: filesystem path to the .wasm file. */
     wasmPath?: string | undefined;
+    /**
+     * Build profile to load. Default: `"full"`.
+     *
+     * Use `"modeling"` for a ~40% smaller WASM that excludes XCAF assemblies,
+     * glTF export, and HLR projection. Ideal for solid modeling, 3D printing,
+     * and geometry generation apps.
+     */
+    profile?: BuildProfile | undefined;
 }
 
 // --- XCAF types ---

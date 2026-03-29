@@ -18,6 +18,7 @@ export {
     type AddChildOptions,
     type AddShapeOptions,
     type BooleanOp,
+    type BuildProfile,
     type BoundingBox,
     type Color3,
     type CurveKind,
@@ -471,32 +472,23 @@ export class OcctKernel {
      *
      * @example
      * ```ts
-     * // Browser (auto-locates .wasm next to .js):
+     * // Full build (default, ~20 MB):
      * const kernel = await OcctKernel.init();
      *
-     * // Node.js with explicit path:
+     * // Modeling-only build (~12 MB, no XCAF/glTF/HLR):
+     * const kernel = await OcctKernel.init({ profile: 'modeling' });
+     *
+     * // Node.js with explicit WASM path:
      * const kernel = await OcctKernel.init({
      *   wasmPath: './node_modules/occt-wasm/dist/occt-wasm.wasm'
      * });
      * ```
      */
     static async init(options?: InitOptions): Promise<OcctKernel> {
-        return OcctKernel.#initWithModule("./occt-wasm.js", options);
-    }
-
-    /** @internal Initialize with a specific Emscripten JS module path. */
-    static async _initFromModule(
-        jsModulePath: string,
-        options?: InitOptions,
-    ): Promise<OcctKernel> {
-        return OcctKernel.#initWithModule(jsModulePath, options);
-    }
-
-    static async #initWithModule(
-        jsModulePath: string,
-        options?: InitOptions,
-    ): Promise<OcctKernel> {
-        const imported = await import(/* webpackIgnore: true */ jsModulePath);
+        const jsModule = options?.profile === "modeling"
+            ? "./occt-wasm-modeling.js"
+            : "./occt-wasm.js";
+        const imported = await import(/* webpackIgnore: true */ jsModule);
         const createModule = imported.default as (
             opts: Record<string, unknown>,
         ) => Promise<EmscriptenModule>;
