@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/andymai/occt-wasm/compare/v1.2.1...v1.2.2) (2026-03-29)
+
+
+### Bug Fixes
+
+* **package:** add deep path exports for Emscripten module and WASM binary ([#67](https://github.com/andymai/occt-wasm/issues/67)) ([4c1109c](https://github.com/andymai/occt-wasm/commit/4c1109c5adb6767f709c7662cbfe98a6f92e242e))
+
 ## [1.2.1](https://github.com/andymai/occt-wasm/compare/v1.2.0...v1.2.1) (2026-03-29)
 
 
