@@ -139,14 +139,35 @@ export type SurfaceKind = "plane" | "cylinder" | "cone" | "sphere" | "torus" | "
 /** Geom_Curve subclass identifier returned by curveType. */
 export type CurveKind = "line" | "circle" | "ellipse" | "hyperbola" | "parabola" | "bspline" | "bezier" | "offset" | (string & {});
 
-/** Transition mode for BRepBuilderAPI_MakeSweep. 0=transformed, 1=right-corner, 2=round-corner. */
-export type TransitionMode = 0 | 1 | 2;
+/** Transition mode for sweep operations (BRepBuilderAPI_MakeSweep). */
+export enum TransitionMode {
+    /** Transform the profile along the spine (default). */
+    Transformed = 0,
+    /** Apply right-corner transitions at spine vertices. */
+    RightCorner = 1,
+    /** Apply round-corner transitions at spine vertices. */
+    RoundCorner = 2,
+}
 
-/** Join type for BRepOffsetAPI_MakeOffset. 0=arc, 1=tangent, 2=intersection. */
-export type JoinType = 0 | 1 | 2;
+/** Join type for offset/fillet operations (BRepOffsetAPI_MakeOffset). */
+export enum JoinType {
+    /** Arc interpolation at joints (default). */
+    Arc = 0,
+    /** Tangent extension at joints. */
+    Tangent = 1,
+    /** Intersection extension at joints. */
+    Intersection = 2,
+}
 
-/** Boolean operation code for booleanPipeline. 0=fuse, 1=cut, 2=common. */
-export type BooleanOp = 0 | 1 | 2;
+/** Boolean operation code for booleanPipeline. */
+export enum BooleanOp {
+    /** Union: combine volumes. */
+    Fuse = 0,
+    /** Subtraction: remove tool from base. */
+    Cut = 1,
+    /** Intersection: keep only overlapping volume. */
+    Common = 2,
+}
 
 /** UV parameter bounds of a face surface. */
 export interface UVBounds {
@@ -248,16 +269,97 @@ export interface MeshBatchData {
 }
 
 /**
+ * Structured error codes for programmatic error handling.
+ * Use `switch (error.code)` instead of parsing error message strings.
+ */
+export enum OcctErrorCode {
+    /** Shape construction failed (Build()/IsDone() returned false). */
+    ConstructionFailed = "CONSTRUCTION_FAILED",
+    /** Boolean operation failed (fuse/cut/common/intersect/section). */
+    BooleanFailed = "BOOLEAN_FAILED",
+    /** Referenced shape ID does not exist in the arena. */
+    InvalidShapeId = "INVALID_SHAPE_ID",
+    /** Referenced XCAF label ID does not exist. */
+    InvalidLabelId = "INVALID_LABEL_ID",
+    /** Tessellation or meshing operation failed. */
+    TessellationFailed = "TESSELLATION_FAILED",
+    /** STEP/STL/BREP import or export failed. */
+    ImportExportFailed = "IMPORT_EXPORT_FAILED",
+    /** Shape healing or repair operation failed. */
+    HealingFailed = "HEALING_FAILED",
+    /** Operation attempted on a closed XCAF document. */
+    DocumentClosed = "DOCUMENT_CLOSED",
+    /** OCCT kernel raised an internal error (Standard_Failure). */
+    KernelError = "KERNEL_ERROR",
+    /** Error does not match any known pattern. */
+    Unknown = "UNKNOWN",
+}
+
+/**
  * Typed error thrown when an OCCT operation fails.
  * The `operation` field identifies which kernel method raised the error.
+ * The `code` field enables programmatic error handling via `switch`.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   kernel.fuse(a, b);
+ * } catch (e) {
+ *   if (e instanceof OcctError) {
+ *     switch (e.code) {
+ *       case OcctErrorCode.BooleanFailed:
+ *         // retry with simpler geometry
+ *         break;
+ *       case OcctErrorCode.InvalidShapeId:
+ *         // shape was already released
+ *         break;
+ *     }
+ *   }
+ * }
+ * ```
  */
 export class OcctError extends Error {
     /** Name of the kernel method that failed. */
     readonly operation: string;
+    /** Structured error code for programmatic handling. */
+    readonly code: OcctErrorCode;
 
-    constructor(operation: string, message: string) {
+    constructor(operation: string, message: string, code?: OcctErrorCode) {
         super(`${operation}: ${message}`);
         this.name = "OcctError";
         this.operation = operation;
+        this.code = code ?? classifyError(operation, message);
     }
+}
+
+/** Operation categories used to infer error codes from context. */
+const BOOLEAN_OPS = new Set(["fuse", "cut", "common", "intersect", "section", "fuseAll", "cutAll", "split", "booleanPipeline", "fuseWithHistory", "cutWithHistory", "intersectWithHistory"]);
+const TESSELLATION_OPS = new Set(["tessellate", "wireframe", "meshShape", "meshBatch"]);
+const IO_OPS = new Set(["importStep", "exportStep", "importStl", "exportStl", "toBREP", "fromBREP", "xcafExportSTEP", "xcafImportSTEP", "xcafExportGLTF"]);
+const HEALING_OPS = new Set(["fixShape", "unifySameDomain", "healSolid", "healFace", "healWire", "fixFaceOrientations", "removeDegenerateEdges", "fixWireOnFace", "buildCurves3d"]);
+
+/**
+ * Classify an error into a structured code by matching known C++ error patterns
+ * and operation context.
+ */
+function classifyError(operation: string, message: string): OcctErrorCode {
+    const msg = message.toLowerCase();
+
+    // Exact pattern matches from C++ facade
+    if (msg.includes("invalid shape id")) return OcctErrorCode.InvalidShapeId;
+    if (msg.includes("invalid label id")) return OcctErrorCode.InvalidLabelId;
+    if (msg.includes("document is closed")) return OcctErrorCode.DocumentClosed;
+    if (msg.includes("boolean operation failed")) return OcctErrorCode.BooleanFailed;
+    if (msg.includes("construction failed")) return OcctErrorCode.ConstructionFailed;
+
+    // Operation-category fallback
+    if (BOOLEAN_OPS.has(operation)) return OcctErrorCode.BooleanFailed;
+    if (TESSELLATION_OPS.has(operation)) return OcctErrorCode.TessellationFailed;
+    if (IO_OPS.has(operation)) return OcctErrorCode.ImportExportFailed;
+    if (HEALING_OPS.has(operation)) return OcctErrorCode.HealingFailed;
+
+    // "operation failed" is the generic SetupShape/FilletLike pattern
+    if (msg.includes("operation failed")) return OcctErrorCode.ConstructionFailed;
+
+    return OcctErrorCode.Unknown;
 }

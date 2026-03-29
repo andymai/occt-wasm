@@ -25,7 +25,7 @@ import type {
     AddChildOptions,
     GLTFExportOptions,
 } from "./types.js";
-import { OcctError } from "./types.js";
+import { OcctError, OcctErrorCode } from "./types.js";
 
 /** Raw XCAF methods on the Embind kernel (internal). */
 export interface RawXCAFKernel {
@@ -90,23 +90,25 @@ function wrap<T>(op: string, fn: () => T): T {
 export class XCAFDocument {
     readonly #raw: RawXCAFKernel;
     readonly #docId: number;
+    readonly #fs: EmscriptenFS | undefined;
     #closed = false;
 
-    private constructor(raw: RawXCAFKernel, docId: number) {
+    private constructor(raw: RawXCAFKernel, docId: number, fs?: EmscriptenFS) {
         this.#raw = raw;
         this.#docId = docId;
+        this.#fs = fs;
     }
 
     /** Create a new empty XCAF document. */
-    static create(raw: RawXCAFKernel): XCAFDocument {
+    static create(raw: RawXCAFKernel, fs?: EmscriptenFS): XCAFDocument {
         const docId = wrap("xcafNewDocument", () => raw.xcafNewDocument());
-        return new XCAFDocument(raw, docId);
+        return new XCAFDocument(raw, docId, fs);
     }
 
     /** Import a STEP file into a new XCAF document (preserves colors/names/assemblies). */
-    static fromSTEP(raw: RawXCAFKernel, stepData: string): XCAFDocument {
+    static fromSTEP(raw: RawXCAFKernel, stepData: string, fs?: EmscriptenFS): XCAFDocument {
         const docId = wrap("xcafImportSTEP", () => raw.xcafImportSTEP(stepData));
-        return new XCAFDocument(raw, docId);
+        return new XCAFDocument(raw, docId, fs);
     }
 
     /** Add a shape as a root label. */
@@ -195,13 +197,42 @@ export class XCAFDocument {
 
     /**
      * Export as glTF binary (.glb). Returns raw bytes as Uint8Array.
-     * Requires the Emscripten FS for binary file reading.
+     *
+     * When the document was created via `OcctKernel.createXCAFDocument()`,
+     * the Emscripten FS is injected automatically. Otherwise, pass it
+     * explicitly or via the options object.
      */
+    exportGLTF(options?: GLTFExportOptions & { fs?: EmscriptenFS }): Uint8Array;
+    /** @deprecated Pass `fs` via options instead: `exportGLTF({ fs })` */
+    exportGLTF(fs: EmscriptenFS, options?: GLTFExportOptions): Uint8Array;
     exportGLTF(
-        fs: EmscriptenFS,
-        options?: GLTFExportOptions,
+        fsOrOptions?: EmscriptenFS | (GLTFExportOptions & { fs?: EmscriptenFS }),
+        maybeOptions?: GLTFExportOptions,
     ): Uint8Array {
         this.#ensureOpen();
+
+        // Resolve overloads: exportGLTF(fs, opts) vs exportGLTF(opts)
+        let fs: EmscriptenFS | undefined;
+        let options: GLTFExportOptions | undefined;
+        if (fsOrOptions && typeof fsOrOptions === "object" && "readFile" in fsOrOptions) {
+            // Legacy: exportGLTF(fs, options?)
+            fs = fsOrOptions as EmscriptenFS;
+            options = maybeOptions;
+        } else {
+            // New: exportGLTF(options?)
+            const opts = fsOrOptions as (GLTFExportOptions & { fs?: EmscriptenFS }) | undefined;
+            fs = opts?.fs;
+            options = opts;
+        }
+
+        fs ??= this.#fs;
+        if (!fs) {
+            throw new OcctError(
+                "xcafExportGLTF",
+                "No Emscripten FS available. Either create the document via OcctKernel.createXCAFDocument(), or pass { fs } in options.",
+            );
+        }
+
         const linDefl = options?.linearDeflection ?? 0.1;
         const angDefl = options?.angularDeflection ?? 0.5;
         const glbPath = wrap("xcafExportGLTF", () =>
@@ -248,7 +279,7 @@ export class XCAFDocument {
 
     #ensureOpen(): void {
         if (this.#closed) {
-            throw new OcctError("XCAFDocument", "Document is closed");
+            throw new OcctError("XCAFDocument", "Document is closed", OcctErrorCode.DocumentClosed);
         }
     }
 }

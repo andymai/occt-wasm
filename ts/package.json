@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prebuild": "cp ../dist/occt-wasm.js ../dist/occt-wasm.wasm dist/ 2>/dev/null || true",
+    "prebuild": "bash scripts/copy-wasm.sh",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
