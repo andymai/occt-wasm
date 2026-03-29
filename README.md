@@ -119,6 +119,23 @@ Full method table:
 | **Batch** | 2 | translateBatch, booleanPipeline |
 | **Arena** | 3 | release, releaseAll, shapeCount |
 
+## Build Profiles
+
+Two profiles control what's included in the WASM output:
+
+| Profile | WASM size | What's included |
+|---------|----------|-----------------|
+| `full` (default) | 20 MB | Everything: XCAF assemblies, glTF, HLR projection, all 164 methods |
+| `modeling` | ~12 MB | Primitives, booleans, modeling, sweeps, construction, transforms, tessellation, STEP/STL/BREP I/O, topology, query, curves, healing |
+
+```bash
+cargo xtask build                        # full profile (default)
+cargo xtask build --profile modeling     # modeling-only (~40% smaller)
+npm run build:modeling                   # npm shortcut
+```
+
+The `modeling` profile excludes XCAF (assemblies/colors), glTF export, and HLR hidden line removal. Use it when you only need solid modeling and mesh output — e.g., parametric CAD tools, 3D printing slicers, or geometry generators.
+
 ## Architecture
 
 ```
@@ -127,10 +144,10 @@ OCCT V8.0.0-rc4 C++ (git submodule)
     -> C++ facade (OcctKernel class, arena-based u32 IDs)
     -> Embind bindings
     -> emcc link (-O3, -flto, -fwasm-exceptions, SIMD) -> .wasm
-    -> wasm-opt -O4 --converge --gufa -> dist/ (20.3 MB)
+    -> wasm-opt -O4 --converge --gufa -> dist/
 ```
 
-Built with Rust xtask (`cargo xtask build`), tested with Vitest (144 tests).
+Built with Rust xtask (`cargo xtask build`), tested with Vitest (212 tests).
 
 ## Size & Performance
 
