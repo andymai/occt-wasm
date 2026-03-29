@@ -115,6 +115,10 @@ pub enum ReturnType {
     EdgeData,
     /// `ProjectionData` return (HLR projection data struct).
     ProjectionData,
+    /// `uint32_t` return (non-shape-ID integer, e.g. document ID or count).
+    Uint32,
+    /// `XCAFLabelInfo` return (XCAF label info struct).
+    XCAFLabelInfo,
 }
 
 /// A complete facade method specification.

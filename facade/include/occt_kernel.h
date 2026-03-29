@@ -121,7 +121,7 @@ class OcctKernel {
     // --- Arena management ---
     void release(uint32_t id);
     void releaseAll();
-    uint32_t getShapeCount() const;
+    uint32_t getShapeCount();
 
     // --- Primitives ---
     uint32_t makeBox(double dx, double dy, double dz);

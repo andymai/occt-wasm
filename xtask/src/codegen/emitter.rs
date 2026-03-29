@@ -193,7 +193,7 @@ fn emit_setup_shape(buf: &mut String, spec: &MethodSpec) {
 fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
     let name = spec.name;
     let ret_type = match spec.return_type {
-        ReturnType::ShapeId => "uint32_t",
+        ReturnType::ShapeId | ReturnType::Uint32 => "uint32_t",
         ReturnType::Bool => "bool",
         ReturnType::Void => "void",
         ReturnType::VectorUint32 => "std::vector<uint32_t>",
@@ -209,6 +209,7 @@ fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
         ReturnType::MeshBatchData => "MeshBatchData",
         ReturnType::EdgeData => "EdgeData",
         ReturnType::ProjectionData => "ProjectionData",
+        ReturnType::XCAFLabelInfo => "XCAFLabelInfo",
     };
 
     let _ = writeln!(

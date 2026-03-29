@@ -65,19 +65,6 @@ const TopoDS_Shape& OcctKernel::get(uint32_t id) const {
     return it->second;
 }
 
-void OcctKernel::release(uint32_t id) {
-    arena_.erase(id);
-}
-
-void OcctKernel::releaseAll() {
-    arena_.clear();
-    nextId_ = 1;
-}
-
-uint32_t OcctKernel::getShapeCount() const {
-    return static_cast<uint32_t>(arena_.size());
-}
-
 uint32_t OcctKernel::makeNullShape() {
     return store(TopoDS_Shape());
 }

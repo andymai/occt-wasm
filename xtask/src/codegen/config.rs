@@ -3729,6 +3729,472 @@ return result;",
         category: "projection",
         return_type: ReturnType::ProjectionData,
     },
+    // ── Kernel (arena management) ──────────────────────────────────
+    MethodSpec {
+        name: "release",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "arena_.erase(id);",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "releaseAll",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+arena_.clear();
+nextId_ = 1;",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "getShapeCount",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return static_cast<uint32_t>(arena_.size());",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::Uint32,
+    },
+    // ── XCAF (assembly/color/glTF support) ─────────────────────────
+    MethodSpec {
+        name: "xcafNewDocument",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+Handle(TDocStd_Application) app = getXCAFApp();
+Handle(TDocStd_Document) doc;
+app->NewDocument(\"BinXCAF\", doc);
+uint32_t id = ++nextXcafId_; // pre-increment; default init may be 0 in WASM
+xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
+return id;",
+        includes: &[
+            "TDocStd_Application.hxx", "TDocStd_Document.hxx",
+            "XCAFApp_Application.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Uint32,
+    },
+    MethodSpec {
+        name: "xcafClose",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end()) {
+    throw std::runtime_error(\"xcafClose: invalid document ID\");
+}
+try {
+    Handle(TDocStd_Application) app = getXCAFApp();
+    app->Close(it->second.doc);
+} catch (...) {
+    // Close can fail if doc is already closed — ignore
+}
+xcafDocs_.erase(it);",
+        includes: &[
+            "TDocStd_Application.hxx", "TDocStd_Document.hxx",
+            "XCAFApp_Application.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "xcafAddShape",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::ShapeId("shapeId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafAddShape: invalid document ID\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+TDF_Label label = shapeTool->AddShape(get(shapeId));
+
+int facadeId = it->second.nextLabelId++;
+it->second.labelRegistry[facadeId] = label;
+return facadeId;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Int,
+    },
+    MethodSpec {
+        name: "xcafAddComponent",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Int("parentLabelId"),
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::Double("tx"),
+            FacadeParam::Double("ty"),
+            FacadeParam::Double("tz"),
+            FacadeParam::Double("rx"),
+            FacadeParam::Double("ry"),
+            FacadeParam::Double("rz"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafAddComponent: invalid document ID\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+
+TDF_Label parentLabel = lookupLabel(it->second.labelRegistry, parentLabelId);
+
+// Build location transform (Euler angles in radians)
+gp_Trsf trsf;
+if (std::abs(rx) > 1e-12 || std::abs(ry) > 1e-12 || std::abs(rz) > 1e-12) {
+    gp_Trsf rotX, rotY, rotZ;
+    rotX.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0)), rx);
+    rotY.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 1, 0)), ry);
+    rotZ.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), rz);
+    trsf = rotZ * rotY * rotX;
+}
+trsf.SetTranslationPart(gp_Vec(tx, ty, tz));
+TopLoc_Location loc(trsf);
+
+// First add the shape as a standalone label, then add as component with location
+TDF_Label shapeLabel = shapeTool->AddShape(get(shapeId));
+TDF_Label compLabel = shapeTool->AddComponent(parentLabel, shapeLabel, loc);
+
+int facadeId = it->second.nextLabelId++;
+it->second.labelRegistry[facadeId] = compLabel;
+return facadeId;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "TopLoc_Location.hxx",
+            "gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx", "gp_Trsf.hxx", "gp_Vec.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Int,
+    },
+    MethodSpec {
+        name: "xcafSetColor",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Int("labelId"),
+            FacadeParam::Double("r"),
+            FacadeParam::Double("g"),
+            FacadeParam::Double("b"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafSetColor: invalid document ID\");
+
+Handle(XCAFDoc_ColorTool) colorTool =
+    XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+
+Quantity_Color color(r, g, b, Quantity_TOC_RGB);
+colorTool->SetColor(label, color, XCAFDoc_ColorGen);",
+        includes: &[
+            "XCAFDoc_ColorTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "Quantity_Color.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "xcafSetName",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Int("labelId"),
+            FacadeParam::String("name"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafSetName: invalid document ID\");
+
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+TDataStd_Name::Set(label, TCollection_ExtendedString(name.c_str()));",
+        includes: &[
+            "TDF_Label.hxx", "TDataStd_Name.hxx",
+            "TCollection_ExtendedString.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "xcafGetLabelInfo",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::Int("labelId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetLabelInfo: invalid document ID\");
+
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+
+XCAFLabelInfo info;
+info.labelId = labelId;
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+Handle(XCAFDoc_ColorTool) colorTool =
+    XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
+
+// Name
+Handle(TDataStd_Name) nameAttr;
+if (label.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+    TCollection_ExtendedString ext = nameAttr->Get();
+    info.name = TCollection_AsciiString(ext).ToCString();
+}
+
+// Color
+Quantity_Color color;
+if (colorTool->GetColor(label, XCAFDoc_ColorGen, color)) {
+    info.hasColor = true;
+    info.r = color.Red();
+    info.g = color.Green();
+    info.b = color.Blue();
+}
+
+// Assembly/component flags
+info.isAssembly = shapeTool->IsAssembly(label);
+info.isComponent = shapeTool->IsComponent(label);
+
+// Shape
+TopoDS_Shape shape;
+if (shapeTool->GetShape(label, shape) && !shape.IsNull()) {
+    info.shapeId = store(shape);
+}
+
+return info;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "XCAFDoc_ColorTool.hxx", "TDF_Label.hxx",
+            "TDataStd_Name.hxx", "TCollection_AsciiString.hxx",
+            "TCollection_ExtendedString.hxx", "Quantity_Color.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::XCAFLabelInfo,
+    },
+    MethodSpec {
+        name: "xcafGetChildLabels",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::Int("parentLabelId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetChildLabels: invalid document ID\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+TDF_Label parentLabel = lookupLabel(it->second.labelRegistry, parentLabelId);
+
+NCollection_Sequence<TDF_Label> children;
+shapeTool->GetComponents(parentLabel, children);
+
+std::vector<int> ids;
+for (int i = 1; i <= children.Length(); ++i) {
+    int facadeId = it->second.nextLabelId++;
+    it->second.labelRegistry[facadeId] = children.Value(i);
+    ids.push_back(facadeId);
+}
+return ids;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "NCollection_Sequence.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
+        name: "xcafGetRootLabels",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetRootLabels: invalid document ID\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+
+NCollection_Sequence<TDF_Label> roots;
+shapeTool->GetFreeShapes(roots);
+
+std::vector<int> ids;
+for (int i = 1; i <= roots.Length(); ++i) {
+    int facadeId = it->second.nextLabelId++;
+    it->second.labelRegistry[facadeId] = roots.Value(i);
+    ids.push_back(facadeId);
+}
+return ids;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "NCollection_Sequence.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
+        name: "xcafExportSTEP",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafExportSTEP: invalid document ID\");
+
+STEPCAFControl_Writer writer;
+writer.SetColorMode(Standard_True);
+writer.SetNameMode(Standard_True);
+
+if (!writer.Transfer(it->second.doc, STEPControl_AsIs)) {
+    throw std::runtime_error(\"xcafExportSTEP: transfer failed\");
+}
+
+std::string tmpPath = \"/tmp/xcaf_export.step\";
+if (writer.Write(tmpPath.c_str()) != IFSelect_RetDone) {
+    throw std::runtime_error(\"xcafExportSTEP: write failed\");
+}
+
+std::ifstream ifs(tmpPath);
+std::string content((std::istreambuf_iterator<char>(ifs)),
+                    std::istreambuf_iterator<char>());
+std::remove(tmpPath.c_str());
+return content;",
+        includes: &[
+            "STEPCAFControl_Writer.hxx", "STEPControl_StepModelType.hxx",
+            "Standard_Failure.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "xcafImportSTEP",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::String("stepData")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::string tmpPath = \"/tmp/xcaf_import.step\";
+{
+    std::ofstream ofs(tmpPath);
+    ofs << stepData;
+}
+
+Handle(TDocStd_Application) app = getXCAFApp();
+Handle(TDocStd_Document) doc;
+app->NewDocument(\"BinXCAF\", doc);
+
+STEPCAFControl_Reader reader;
+reader.SetColorMode(Standard_True);
+reader.SetNameMode(Standard_True);
+reader.SetLayerMode(Standard_True);
+
+if (reader.ReadFile(tmpPath.c_str()) != IFSelect_RetDone) {
+    std::remove(tmpPath.c_str());
+    getXCAFApp()->Close(doc);
+    throw std::runtime_error(\"xcafImportSTEP: read failed\");
+}
+std::remove(tmpPath.c_str());
+
+if (!reader.Transfer(doc)) {
+    getXCAFApp()->Close(doc);
+    throw std::runtime_error(\"xcafImportSTEP: transfer failed\");
+}
+
+uint32_t id = ++nextXcafId_;
+xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
+return id;",
+        includes: &[
+            "STEPCAFControl_Reader.hxx", "TDocStd_Application.hxx",
+            "TDocStd_Document.hxx", "XCAFApp_Application.hxx",
+            "Standard_Failure.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::Uint32,
+    },
+    MethodSpec {
+        name: "xcafExportGLTF",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Double("linDeflection"),
+            FacadeParam::Double("angDeflection"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafExportGLTF: invalid document ID\");
+
+// Tessellate all shapes in the document
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+NCollection_Sequence<TDF_Label> labels;
+shapeTool->GetFreeShapes(labels);
+for (int i = 1; i <= labels.Length(); ++i) {
+    TopoDS_Shape shape;
+    if (shapeTool->GetShape(labels.Value(i), shape)) {
+        BRepMesh_IncrementalMesh mesh(shape, linDeflection, Standard_False, angDeflection,
+                                      Standard_True);
+    }
+}
+
+// Write glTF binary (.glb) via Handle-allocated writer
+std::string tmpPath = \"/tmp/xcaf_export.glb\";
+NCollection_IndexedDataMap<TCollection_AsciiString, TCollection_AsciiString> fileInfo;
+
+Handle(RWGltf_CafWriter) writer =
+    new RWGltf_CafWriter(TCollection_AsciiString(tmpPath.c_str()), Standard_True);
+writer->SetTransformationFormat(RWGltf_WriterTrsfFormat_Compact);
+if (!writer->Perform(it->second.doc, fileInfo, Message_ProgressRange())) {
+    throw std::runtime_error(\"xcafExportGLTF: write failed\");
+}
+
+// Return file path — JS reads binary via Module.FS.readFile()
+return tmpPath;",
+        includes: &[
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
+            "TDF_Label.hxx", "NCollection_Sequence.hxx",
+            "BRepMesh_IncrementalMesh.hxx", "RWGltf_CafWriter.hxx",
+            "NCollection_IndexedDataMap.hxx", "TCollection_AsciiString.hxx",
+            "Message_ProgressRange.hxx",
+        ],
+        category: "xcaf",
+        return_type: ReturnType::String,
+    },
 ];
 
 /// Returns the complete list of facade method specifications.
@@ -3750,7 +4216,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 149, "expected 149 generable methods");
+        assert_eq!(count, 164, "expected 164 generable methods");
     }
 
     #[test]
