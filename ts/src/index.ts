@@ -35,6 +35,7 @@ export {
     type Mesh,
     type MeshBatchData,
     type NurbsCurveData,
+    type ShapeQueryResult,
     type PointClassification,
     type ProjectionData,
     type ShapeHandle,
@@ -62,6 +63,7 @@ import type {
     PointClassification,
     ProjectionData,
     ShapeHandle,
+    ShapeQueryResult,
     ShapeOrientation,
     ShapeType,
     SurfaceKind,
@@ -253,6 +255,12 @@ interface RawKernel {
     // Batch
     translateBatch(ids: EmbindVectorU32, offsets: EmbindVectorF64): EmbindVectorU32;
     booleanPipeline(baseId: number, opCodes: EmbindVectorI32, toolIds: EmbindVectorU32): number;
+    queryBatch(ids: EmbindVectorU32): EmbindVectorF64;
+    filletBatch(solidIds: EmbindVectorU32, edgeCounts: EmbindVectorI32, flatEdgeIds: EmbindVectorU32, radii: EmbindVectorF64): EmbindVectorU32;
+    transformBatch(ids: EmbindVectorU32, matrices: EmbindVectorF64): EmbindVectorU32;
+    rotateBatch(ids: EmbindVectorU32, params: EmbindVectorF64): EmbindVectorU32;
+    scaleBatch(ids: EmbindVectorU32, params: EmbindVectorF64): EmbindVectorU32;
+    mirrorBatch(ids: EmbindVectorU32, params: EmbindVectorF64): EmbindVectorU32;
 
     // Topology
     getShapeType(id: number): string;
@@ -1060,6 +1068,92 @@ export class OcctKernel {
         });
     }
 
+    /** Query multiple shapes in a single WASM call: bbox, volume, area, center of mass, type, validity. */
+    queryBatch(shapes: ShapeHandle[]): ShapeQueryResult[] {
+        return wrap("queryBatch", () => {
+            const ids = this.#makeVectorU32(shapes);
+            try {
+                const raw = this.#raw.queryBatch(ids);
+                const arr = vecToNumbers(raw);
+                raw.delete();
+                const STRIDE = 14;
+                const SHAPE_TYPES: ShapeType[] = ["compound", "compsolid", "solid", "shell", "face", "wire", "edge", "vertex", "shape"];
+                const results: ShapeQueryResult[] = [];
+                for (let i = 0; i < shapes.length; i++) {
+                    const o = i * STRIDE;
+                    results.push({
+                        volume: arr[o]!,
+                        area: arr[o + 1]!,
+                        bbox: { xmin: arr[o + 2]!, ymin: arr[o + 3]!, zmin: arr[o + 4]!, xmax: arr[o + 5]!, ymax: arr[o + 6]!, zmax: arr[o + 7]! },
+                        centerOfMass: { x: arr[o + 8]!, y: arr[o + 9]!, z: arr[o + 10]! },
+                        shapeType: SHAPE_TYPES[arr[o + 11]!] ?? "shape",
+                        isValid: arr[o + 12] === 1.0,
+                    });
+                }
+                return results;
+            } finally { ids.delete(); }
+        });
+    }
+
+    /** Fillet multiple solids in a single WASM call. */
+    filletBatch(ops: Array<{ solid: ShapeHandle; edges: ShapeHandle[]; radius: number }>): ShapeHandle[] {
+        return wrap("filletBatch", () => {
+            const solids = this.#makeVectorU32(ops.map(op => op.solid));
+            const edgeCounts = this.#makeVectorI32(ops.map(op => op.edges.length));
+            const flatEdges = this.#makeVectorU32(ops.flatMap(op => op.edges));
+            const radii = this.#makeVectorF64(ops.map(op => op.radius));
+            try {
+                return vecToHandles(this.#raw.filletBatch(solids, edgeCounts, flatEdges, radii));
+            } finally {
+                solids.delete(); edgeCounts.delete(); flatEdges.delete(); radii.delete();
+            }
+        });
+    }
+
+    /** Apply 3x4 affine transforms to multiple shapes in a single WASM call. */
+    transformBatch(shapes: ShapeHandle[], matrices: number[]): ShapeHandle[] {
+        return wrap("transformBatch", () => {
+            const ids = this.#makeVectorU32(shapes);
+            const mats = this.#makeVectorF64(matrices);
+            try {
+                return vecToHandles(this.#raw.transformBatch(ids, mats));
+            } finally { ids.delete(); mats.delete(); }
+        });
+    }
+
+    /** Rotate multiple shapes in a single WASM call. */
+    rotateBatch(shapes: ShapeHandle[], params: number[]): ShapeHandle[] {
+        return wrap("rotateBatch", () => {
+            const ids = this.#makeVectorU32(shapes);
+            const p = this.#makeVectorF64(params);
+            try {
+                return vecToHandles(this.#raw.rotateBatch(ids, p));
+            } finally { ids.delete(); p.delete(); }
+        });
+    }
+
+    /** Scale multiple shapes in a single WASM call. */
+    scaleBatch(shapes: ShapeHandle[], params: number[]): ShapeHandle[] {
+        return wrap("scaleBatch", () => {
+            const ids = this.#makeVectorU32(shapes);
+            const p = this.#makeVectorF64(params);
+            try {
+                return vecToHandles(this.#raw.scaleBatch(ids, p));
+            } finally { ids.delete(); p.delete(); }
+        });
+    }
+
+    /** Mirror multiple shapes in a single WASM call. */
+    mirrorBatch(shapes: ShapeHandle[], params: number[]): ShapeHandle[] {
+        return wrap("mirrorBatch", () => {
+            const ids = this.#makeVectorU32(shapes);
+            const p = this.#makeVectorF64(params);
+            try {
+                return vecToHandles(this.#raw.mirrorBatch(ids, p));
+            } finally { ids.delete(); p.delete(); }
+        });
+    }
+
     // =======================================================================
     // Topology
     // =======================================================================
@@ -1280,6 +1374,19 @@ export class OcctKernel {
 
     fromBREP(data: string): ShapeHandle {
         return wrap("fromBREP", () => handle(this.#raw.fromBREP(data)));
+    }
+
+    cacheStep(stepData: string | ArrayBuffer): string {
+        const shape = this.importStep(stepData);
+        try {
+            return this.toBREP(shape);
+        } finally {
+            this.release(shape);
+        }
+    }
+
+    loadCached(brep: string): ShapeHandle {
+        return this.fromBREP(brep);
     }
 
     // =======================================================================

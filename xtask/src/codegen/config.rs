@@ -609,6 +609,44 @@ return store(maker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "filletBatch",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorShapeIds("solidIds"),
+            FacadeParam::VectorInt("edgeCounts"),
+            FacadeParam::VectorShapeIds("flatEdgeIds"),
+            FacadeParam::VectorDouble("radii"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (solidIds.size() != edgeCounts.size() || solidIds.size() != radii.size()) {
+    throw std::runtime_error(\"filletBatch: solidIds, edgeCounts, and radii must have same length\");
+}
+size_t edgeOffset = 0;
+size_t totalEdges = 0;
+for (size_t i = 0; i < edgeCounts.size(); i++) totalEdges += static_cast<size_t>(edgeCounts[i]);
+if (flatEdgeIds.size() != totalEdges) {
+    throw std::runtime_error(\"filletBatch: flatEdgeIds length must equal sum of edgeCounts\");
+}
+std::vector<uint32_t> results;
+results.reserve(solidIds.size());
+for (size_t i = 0; i < solidIds.size(); i++) {
+    BRepFilletAPI_MakeFillet maker(TopoDS::Solid(get(solidIds[i])));
+    for (int j = 0; j < edgeCounts[i]; j++) {
+        maker.Add(radii[i], TopoDS::Edge(get(flatEdgeIds[edgeOffset + j])));
+    }
+    maker.Build();
+    if (!maker.IsDone()) throw std::runtime_error(\"filletBatch: fillet failed on solid \" + std::to_string(i));
+    results.push_back(store(maker.Shape()));
+    edgeOffset += static_cast<size_t>(edgeCounts[i]);
+}
+return results;",
+        includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::VectorUint32,
+    },
+    MethodSpec {
         name: "offsetWire2D",
         kind: MethodKind::CustomBody,
         params: &[
@@ -866,6 +904,107 @@ return {result.Value(1, 1), result.Value(1, 2), result.Value(1, 3), result.Value
         includes: &["gp_Trsf.hxx"],
         category: "transforms",
         return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "transformBatch",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("ids"), FacadeParam::VectorDouble("matrices")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (matrices.size() != ids.size() * 12) {
+    throw std::runtime_error(\"transformBatch: matrices must have 12 * ids.size() elements\");
+}
+std::vector<uint32_t> results;
+results.reserve(ids.size());
+for (size_t i = 0; i < ids.size(); i++) {
+    size_t o = i * 12;
+    gp_Trsf trsf;
+    trsf.SetValues(matrices[o], matrices[o+1], matrices[o+2], matrices[o+3],
+                   matrices[o+4], matrices[o+5], matrices[o+6], matrices[o+7],
+                   matrices[o+8], matrices[o+9], matrices[o+10], matrices[o+11]);
+    BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
+    if (!maker.IsDone()) throw std::runtime_error(\"transformBatch: failed on shape \" + std::to_string(i));
+    results.push_back(store(maker.Shape()));
+}
+return results;",
+        includes: &["gp_Trsf.hxx", "BRepBuilderAPI_Transform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::VectorUint32,
+    },
+    MethodSpec {
+        name: "rotateBatch",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("ids"), FacadeParam::VectorDouble("params")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (params.size() != ids.size() * 7) {
+    throw std::runtime_error(\"rotateBatch: params must have 7 * ids.size() elements (px,py,pz,dx,dy,dz,angle)\");
+}
+std::vector<uint32_t> results;
+results.reserve(ids.size());
+for (size_t i = 0; i < ids.size(); i++) {
+    size_t o = i * 7;
+    gp_Trsf trsf;
+    trsf.SetRotation(gp_Ax1(gp_Pnt(params[o], params[o+1], params[o+2]),
+                             gp_Dir(params[o+3], params[o+4], params[o+5])), params[o+6]);
+    BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
+    results.push_back(store(maker.Shape()));
+}
+return results;",
+        includes: &["gp_Trsf.hxx", "gp_Ax1.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "BRepBuilderAPI_Transform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::VectorUint32,
+    },
+    MethodSpec {
+        name: "scaleBatch",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("ids"), FacadeParam::VectorDouble("params")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (params.size() != ids.size() * 4) {
+    throw std::runtime_error(\"scaleBatch: params must have 4 * ids.size() elements (px,py,pz,factor)\");
+}
+std::vector<uint32_t> results;
+results.reserve(ids.size());
+for (size_t i = 0; i < ids.size(); i++) {
+    size_t o = i * 4;
+    gp_Trsf trsf;
+    trsf.SetScale(gp_Pnt(params[o], params[o+1], params[o+2]), params[o+3]);
+    BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
+    results.push_back(store(maker.Shape()));
+}
+return results;",
+        includes: &["gp_Trsf.hxx", "gp_Pnt.hxx", "BRepBuilderAPI_Transform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::VectorUint32,
+    },
+    MethodSpec {
+        name: "mirrorBatch",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("ids"), FacadeParam::VectorDouble("params")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (params.size() != ids.size() * 6) {
+    throw std::runtime_error(\"mirrorBatch: params must have 6 * ids.size() elements (px,py,pz,nx,ny,nz)\");
+}
+std::vector<uint32_t> results;
+results.reserve(ids.size());
+for (size_t i = 0; i < ids.size(); i++) {
+    size_t o = i * 6;
+    gp_Trsf trsf;
+    trsf.SetMirror(gp_Ax2(gp_Pnt(params[o], params[o+1], params[o+2]),
+                           gp_Dir(params[o+3], params[o+4], params[o+5])));
+    BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
+    results.push_back(store(maker.Shape()));
+}
+return results;",
+        includes: &["gp_Trsf.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "BRepBuilderAPI_Transform.hxx"],
+        category: "transforms",
+        return_type: ReturnType::VectorUint32,
     },
     // ── Construction ────────────────────────────────────────────
     MethodSpec {
@@ -2463,6 +2602,36 @@ return false;",
         category: "query",
         return_type: ReturnType::Bool,
     },
+    MethodSpec {
+        name: "queryBatch",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::VectorShapeIds("ids")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::vector<double> result;
+result.reserve(ids.size() * 14);
+for (size_t i = 0; i < ids.size(); i++) {
+    const auto& shape = get(ids[i]);
+    { GProp_GProps props; BRepGProp::VolumeProperties(shape, props); result.push_back(props.Mass()); }
+    { GProp_GProps props; BRepGProp::SurfaceProperties(shape, props); result.push_back(props.Mass()); }
+    { Bnd_Box box; BRepBndLib::Add(shape, box);
+      if (box.IsVoid()) { for (int j = 0; j < 6; j++) result.push_back(0.0); }
+      else { double xmin,ymin,zmin,xmax,ymax,zmax; box.Get(xmin,ymin,zmin,xmax,ymax,zmax);
+             result.push_back(xmin); result.push_back(ymin); result.push_back(zmin);
+             result.push_back(xmax); result.push_back(ymax); result.push_back(zmax); } }
+    { GProp_GProps props; BRepGProp::VolumeProperties(shape, props);
+      gp_Pnt com = props.CentreOfMass();
+      result.push_back(com.X()); result.push_back(com.Y()); result.push_back(com.Z()); }
+    result.push_back(static_cast<double>(shape.ShapeType()));
+    { BRepCheck_Analyzer checker(shape); result.push_back(checker.IsValid() ? 1.0 : 0.0); }
+    result.push_back(0.0);
+}
+return result;",
+        includes: &["GProp_GProps.hxx", "BRepGProp.hxx", "Bnd_Box.hxx", "BRepBndLib.hxx", "BRepCheck_Analyzer.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
     // ── Sweeps ──────────────────────────────────────────────────
     MethodSpec {
         name: "pipe",
@@ -3521,30 +3690,41 @@ return result;",
         occt_class: "",
         ctor_args: "",
         setup_code: "\
-// First pass: mesh all shapes and count totals
+// Cache entry: triangulation handle + metadata from first pass
+struct FaceCache {
+    Handle(Poly_Triangulation) tri;
+    gp_Trsf trsf;
+    TopoDS_Face face;
+    size_t shapeIdx;
+};
+
 struct ShapeMesh {
     int posStart, posCount, idxStart, idxCount;
 };
 std::vector<ShapeMesh> shapeMeshes;
 shapeMeshes.reserve(ids.size());
+std::vector<FaceCache> faceCache;
 
 int totalNodes = 0;
 int totalTris = 0;
 
-for (uint32_t id : ids) {
-    const auto& shape = get(id);
+// First pass: mesh all shapes, cache face data, count totals
+for (size_t si = 0; si < ids.size(); si++) {
+    const auto& shape = get(ids[si]);
     BRepMesh_IncrementalMesh mesher(shape, linearDeflection, false, angularDeflection,
                                     false);
 
     int shapeNodes = 0;
     int shapeTris = 0;
     for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        const auto& face = TopoDS::Face(ex.Current());
         TopLoc_Location loc;
-        auto tri = BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc);
+        auto tri = BRep_Tool::Triangulation(face, loc);
         if (tri.IsNull())
             continue;
         shapeNodes += tri->NbNodes();
         shapeTris += tri->NbTriangles();
+        faceCache.push_back({tri, loc.Transformation(), face, si});
     }
     shapeMeshes.push_back({totalNodes * 3, shapeNodes * 3, totalTris * 3, shapeTris * 3});
     totalNodes += shapeNodes;
@@ -3564,69 +3744,62 @@ result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(u
 result.shapeOffsets =
     static_cast<int32_t*>(std::malloc(result.shapeCount * 4 * sizeof(int32_t)));
 
-// Second pass: extract geometry
+// Second pass: extract geometry from cached face data
 int vertexOffset = 0;
 int triOffset = 0;
 
-for (size_t si = 0; si < ids.size(); si++) {
-    const auto& shape = get(ids[si]);
+for (const auto& fc : faceCache) {
+    const auto& tri = fc.tri;
+    const auto& trsf = fc.trsf;
+    int nbNodes = tri->NbNodes();
+    int nbTri = tri->NbTriangles();
 
-    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
-        const auto& face = TopoDS::Face(ex.Current());
-        TopLoc_Location loc;
-        auto tri = BRep_Tool::Triangulation(face, loc);
-        if (tri.IsNull())
-            continue;
-
-        const auto& trsf = loc.Transformation();
-        int nbNodes = tri->NbNodes();
-        int nbTri = tri->NbTriangles();
-
-        for (int i = 1; i <= nbNodes; i++) {
-            gp_Pnt p = tri->Node(i).Transformed(trsf);
-            int base = (vertexOffset + i - 1) * 3;
-            result.positions[base + 0] = static_cast<float>(p.X());
-            result.positions[base + 1] = static_cast<float>(p.Y());
-            result.positions[base + 2] = static_cast<float>(p.Z());
-        }
-
-        if (!tri->HasNormals()) {
-            BRepLib_ToolTriangulatedShape::ComputeNormals(face, tri);
-        }
-        for (int i = 1; i <= nbNodes; i++) {
-            gp_Dir d(0, 0, 1);
-            if (tri->HasNormals()) {
-                NCollection_Vec3<float> nv;
-                tri->Normal(i, nv);
-                if (nv.x() != 0.0f || nv.y() != 0.0f || nv.z() != 0.0f) {
-                    d = gp_Dir(nv.x(), nv.y(), nv.z());
-                }
-            }
-            d = d.Transformed(trsf);
-            int base = (vertexOffset + i - 1) * 3;
-            result.normals[base + 0] = static_cast<float>(d.X());
-            result.normals[base + 1] = static_cast<float>(d.Y());
-            result.normals[base + 2] = static_cast<float>(d.Z());
-        }
-
-        bool isReversed = (face.Orientation() != TopAbs_FORWARD);
-        for (int t = 1; t <= nbTri; t++) {
-            const auto& triangle = tri->Triangle(t);
-            int n1 = triangle.Value(1);
-            int n2 = triangle.Value(2);
-            int n3 = triangle.Value(3);
-            if (isReversed)
-                std::swap(n1, n2);
-            result.indices[triOffset + 0] = static_cast<uint32_t>(n1 - 1 + vertexOffset);
-            result.indices[triOffset + 1] = static_cast<uint32_t>(n2 - 1 + vertexOffset);
-            result.indices[triOffset + 2] = static_cast<uint32_t>(n3 - 1 + vertexOffset);
-            triOffset += 3;
-        }
-
-        vertexOffset += nbNodes;
+    for (int i = 1; i <= nbNodes; i++) {
+        gp_Pnt p = tri->Node(i).Transformed(trsf);
+        int base = (vertexOffset + i - 1) * 3;
+        result.positions[base + 0] = static_cast<float>(p.X());
+        result.positions[base + 1] = static_cast<float>(p.Y());
+        result.positions[base + 2] = static_cast<float>(p.Z());
     }
 
-    // Store per-shape offsets: [posStart, posCount, idxStart, idxCount]
+    if (!tri->HasNormals()) {
+        BRepLib_ToolTriangulatedShape::ComputeNormals(fc.face, tri);
+    }
+    for (int i = 1; i <= nbNodes; i++) {
+        gp_Dir d(0, 0, 1);
+        if (tri->HasNormals()) {
+            NCollection_Vec3<float> nv;
+            tri->Normal(i, nv);
+            if (nv.x() != 0.0f || nv.y() != 0.0f || nv.z() != 0.0f) {
+                d = gp_Dir(nv.x(), nv.y(), nv.z());
+            }
+        }
+        d = d.Transformed(trsf);
+        int base = (vertexOffset + i - 1) * 3;
+        result.normals[base + 0] = static_cast<float>(d.X());
+        result.normals[base + 1] = static_cast<float>(d.Y());
+        result.normals[base + 2] = static_cast<float>(d.Z());
+    }
+
+    bool isReversed = (fc.face.Orientation() != TopAbs_FORWARD);
+    for (int t = 1; t <= nbTri; t++) {
+        const auto& triangle = tri->Triangle(t);
+        int n1 = triangle.Value(1);
+        int n2 = triangle.Value(2);
+        int n3 = triangle.Value(3);
+        if (isReversed)
+            std::swap(n1, n2);
+        result.indices[triOffset + 0] = static_cast<uint32_t>(n1 - 1 + vertexOffset);
+        result.indices[triOffset + 1] = static_cast<uint32_t>(n2 - 1 + vertexOffset);
+        result.indices[triOffset + 2] = static_cast<uint32_t>(n3 - 1 + vertexOffset);
+        triOffset += 3;
+    }
+
+    vertexOffset += nbNodes;
+}
+
+// Write per-shape offsets
+for (size_t si = 0; si < ids.size(); si++) {
     int oi = static_cast<int>(si) * 4;
     result.shapeOffsets[oi + 0] = shapeMeshes[si].posStart;
     result.shapeOffsets[oi + 1] = shapeMeshes[si].posCount;
@@ -4271,7 +4444,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 165, "expected 165 generable methods");
+        assert_eq!(count, 171, "expected 171 generable methods");
     }
 
     #[test]

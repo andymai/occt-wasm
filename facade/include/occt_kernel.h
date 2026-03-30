@@ -225,6 +225,13 @@ class OcctKernel {
     std::vector<uint32_t> translateBatch(std::vector<uint32_t> ids, std::vector<double> offsets);
     uint32_t booleanPipeline(uint32_t baseId, std::vector<int> opCodes,
                              std::vector<uint32_t> toolIds);
+    std::vector<double> queryBatch(std::vector<uint32_t> ids);
+    std::vector<uint32_t> filletBatch(std::vector<uint32_t> solidIds, std::vector<int> edgeCounts,
+                                      std::vector<uint32_t> flatEdgeIds, std::vector<double> radii);
+    std::vector<uint32_t> transformBatch(std::vector<uint32_t> ids, std::vector<double> matrices);
+    std::vector<uint32_t> rotateBatch(std::vector<uint32_t> ids, std::vector<double> params);
+    std::vector<uint32_t> scaleBatch(std::vector<uint32_t> ids, std::vector<double> params);
+    std::vector<uint32_t> mirrorBatch(std::vector<uint32_t> ids, std::vector<double> params);
 
     // --- Topology query ---
     std::string getShapeType(uint32_t id);
