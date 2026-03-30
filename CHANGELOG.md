@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/andymai/occt-wasm/compare/v1.4.0...v1.5.0) (2026-03-30)
+
+
+### Features
+
+* **ts:** batch APIs, STEP caching, and meshBatch optimization ([#76](https://github.com/andymai/occt-wasm/issues/76)) ([1be6e1f](https://github.com/andymai/occt-wasm/commit/1be6e1f9da6a7529f4bc9b44b0a7e2f0355ba7bb))
+
 ## [1.4.0](https://github.com/andymai/occt-wasm/compare/v1.3.0...v1.4.0) (2026-03-30)
 
 
