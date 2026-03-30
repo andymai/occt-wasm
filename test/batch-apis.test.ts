@@ -80,7 +80,7 @@ describe("filletBatch", () => {
         const solidIds = new Module.VectorUint32();
         solidIds.push_back(box);
 
-        const edgeCounts = new Module.VectorInt32();
+        const edgeCounts = new Module.VectorInt();
         edgeCounts.push_back(2);
 
         const flatEdgeIds = new Module.VectorUint32();
