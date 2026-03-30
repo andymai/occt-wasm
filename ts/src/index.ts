@@ -1282,6 +1282,19 @@ export class OcctKernel {
         return wrap("fromBREP", () => handle(this.#raw.fromBREP(data)));
     }
 
+    cacheStep(stepData: string | ArrayBuffer): string {
+        const shape = this.importStep(stepData);
+        try {
+            return this.toBREP(shape);
+        } finally {
+            this.release(shape);
+        }
+    }
+
+    loadCached(brep: string): ShapeHandle {
+        return this.fromBREP(brep);
+    }
+
     // =======================================================================
     // Query / Measure
     // =======================================================================

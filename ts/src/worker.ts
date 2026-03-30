@@ -108,6 +108,8 @@ export interface OcctWorkerProxy {
     exportStl(shape: ShapeHandle, linearDeflection?: number, ascii?: boolean): Promise<string>;
     toBREP(shape: ShapeHandle): Promise<string>;
     fromBREP(data: string): Promise<ShapeHandle>;
+    cacheStep(data: string | ArrayBuffer): Promise<string>;
+    loadCached(brep: string): Promise<ShapeHandle>;
 
     // Query
     getBoundingBox(shape: ShapeHandle): Promise<BoundingBox>;
@@ -216,6 +218,8 @@ export class OcctWorker {
     rotate(shape: ShapeHandle, axis: { point: Vec3; direction: Vec3 }, angleRad: number) { return this.#proxy.rotate(shape, axis, angleRad); }
     importStep(data: string | ArrayBuffer) { return this.#proxy.importStep(data); }
     exportStep(shape: ShapeHandle) { return this.#proxy.exportStep(shape); }
+    cacheStep(data: string | ArrayBuffer) { return this.#proxy.cacheStep(data); }
+    loadCached(brep: string) { return this.#proxy.loadCached(brep); }
     getBoundingBox(shape: ShapeHandle) { return this.#proxy.getBoundingBox(shape); }
     getVolume(shape: ShapeHandle) { return this.#proxy.getVolume(shape); }
     getSurfaceArea(shape: ShapeHandle) { return this.#proxy.getSurfaceArea(shape); }
