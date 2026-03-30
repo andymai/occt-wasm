@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/andymai/occt-wasm/compare/v1.3.0...v1.4.0) (2026-03-30)
+
+
+### Features
+
+* **ts:** unified init options + Comlink-based Web Worker support ([#72](https://github.com/andymai/occt-wasm/issues/72)) ([a15641a](https://github.com/andymai/occt-wasm/commit/a15641ad03504266222c8fb61d2686a9d35cbb81))
+
 ## [1.3.0](https://github.com/andymai/occt-wasm/compare/v1.2.2...v1.3.0) (2026-03-29)
 
 
