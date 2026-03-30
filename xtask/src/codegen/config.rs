@@ -4444,7 +4444,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 165, "expected 165 generable methods");
+        assert_eq!(count, 171, "expected 171 generable methods");
     }
 
     #[test]
