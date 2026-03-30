@@ -261,6 +261,16 @@ export interface NurbsCurveData {
     weights: number[];
 }
 
+/** Result from queryBatch: aggregated shape properties. */
+export interface ShapeQueryResult {
+    bbox: BoundingBox;
+    volume: number;
+    area: number;
+    centerOfMass: Vec3;
+    shapeType: ShapeType;
+    isValid: boolean;
+}
+
 /** Concatenated mesh data for multiple shapes, produced by meshBatch. */
 export interface MeshBatchData {
     /** Interleaved XYZ positions for all shapes. */

@@ -16,7 +16,7 @@
  */
 
 import * as Comlink from "comlink";
-import type { InitOptions, ShapeHandle, Mesh, BoundingBox, Vec3, TessellateOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind } from "./types.js";
+import type { InitOptions, ShapeHandle, Mesh, BoundingBox, Vec3, TessellateOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
 import type { BooleanOp, TransitionMode } from "./types.js";
 
 /**
@@ -141,6 +141,12 @@ export interface OcctWorkerProxy {
     // Batch
     translateBatch(shapes: ShapeHandle[], offsets: number[]): Promise<ShapeHandle[]>;
     booleanPipeline(base: ShapeHandle, opCodes: BooleanOp[], tools: ShapeHandle[]): Promise<ShapeHandle>;
+    queryBatch(shapes: ShapeHandle[]): Promise<ShapeQueryResult[]>;
+    filletBatch(ops: Array<{ solid: ShapeHandle; edges: ShapeHandle[]; radius: number }>): Promise<ShapeHandle[]>;
+    transformBatch(shapes: ShapeHandle[], matrices: number[]): Promise<ShapeHandle[]>;
+    rotateBatch(shapes: ShapeHandle[], params: number[]): Promise<ShapeHandle[]>;
+    scaleBatch(shapes: ShapeHandle[], params: number[]): Promise<ShapeHandle[]>;
+    mirrorBatch(shapes: ShapeHandle[], params: number[]): Promise<ShapeHandle[]>;
 
     // Memory
     release(shape: ShapeHandle): Promise<void>;
@@ -226,6 +232,12 @@ export class OcctWorker {
     getShapeType(shape: ShapeHandle) { return this.#proxy.getShapeType(shape); }
     release(shape: ShapeHandle) { return this.#proxy.release(shape); }
     releaseAll() { return this.#proxy.releaseAll(); }
+    queryBatch(shapes: ShapeHandle[]) { return this.#proxy.queryBatch(shapes); }
+    filletBatch(ops: Array<{ solid: ShapeHandle; edges: ShapeHandle[]; radius: number }>) { return this.#proxy.filletBatch(ops); }
+    transformBatch(shapes: ShapeHandle[], matrices: number[]) { return this.#proxy.transformBatch(shapes, matrices); }
+    rotateBatch(shapes: ShapeHandle[], params: number[]) { return this.#proxy.rotateBatch(shapes, params); }
+    scaleBatch(shapes: ShapeHandle[], params: number[]) { return this.#proxy.scaleBatch(shapes, params); }
+    mirrorBatch(shapes: ShapeHandle[], params: number[]) { return this.#proxy.mirrorBatch(shapes, params); }
 
     /** Terminate the underlying Web Worker. */
     terminate(): void {
