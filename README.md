@@ -6,10 +6,12 @@
 
 ## Highlights
 
-- **20 MB WASM** (4.3 MB brotli) -- 2x smaller than opencascade.js
-- **160+ typed methods** -- primitives, booleans, sweeps, XCAF assemblies, curves, surfaces, STEP/STL/glTF/BREP I/O, topology, shape evolution tracking
+- **~4 MB brotli** -- roughly 2x smaller than opencascade.js
+- **Comprehensive API** -- primitives, booleans, sweeps, XCAF assemblies, curves, surfaces, STEP/STL/glTF/BREP I/O, topology, shape evolution tracking
 - **Arena-based API** -- u32 shape handles, no manual `.delete()`, `Symbol.dispose` support
 - **TypeScript-first** -- branded `ShapeHandle`, union types for shapes/surfaces/curves, structured returns
+- **Structured error handling** -- `OcctErrorCode` enum for programmatic `switch/case` instead of string parsing
+- **Web Worker support** -- `OcctWorker` class for off-main-thread CAD operations via [Comlink](https://github.com/GoogleChromeLabs/comlink)
 - **Modern browser targets** -- WASM SIMD, relaxed-SIMD, tail calls, wasm-exceptions
 
 ## Install
@@ -55,6 +57,150 @@ import { OcctKernel } from 'occt-wasm';
 }
 ```
 
+## Initialization
+
+By default, `OcctKernel.init()` auto-locates the `.wasm` file next to the JS module. You can also provide explicit paths or pre-loaded binaries:
+
+```typescript
+// Auto-detect (browser, Node.js, or Worker):
+const kernel = await OcctKernel.init();
+
+// Explicit URL or path:
+const kernel = await OcctKernel.init({ wasm: '/assets/occt-wasm.wasm' });
+
+// Pre-fetched binary (skip the fetch):
+const binary = await fetch('/occt-wasm.wasm').then(r => r.arrayBuffer());
+const kernel = await OcctKernel.init({ wasm: binary });
+
+// Uint8Array also accepted:
+const kernel = await OcctKernel.init({ wasm: new Uint8Array(binary) });
+```
+
+## Error Handling
+
+All errors are instances of `OcctError` with a structured `code` field for programmatic handling:
+
+```typescript
+import { OcctError, OcctErrorCode } from 'occt-wasm';
+
+try {
+  kernel.fuse(a, b);
+} catch (e) {
+  if (e instanceof OcctError) {
+    switch (e.code) {
+      case OcctErrorCode.BooleanFailed:
+        // retry with simpler geometry
+        break;
+      case OcctErrorCode.InvalidShapeId:
+        // shape was already released
+        break;
+      case OcctErrorCode.KernelError:
+        // OCCT internal error (Standard_Failure)
+        console.error(e.message);
+        break;
+    }
+  }
+}
+```
+
+Available error codes:
+
+| Code | When |
+|------|------|
+| `ConstructionFailed` | `Build()`/`IsDone()` returned false |
+| `BooleanFailed` | Boolean operation (fuse/cut/common/etc.) failed |
+| `InvalidShapeId` | Shape ID not found in the arena |
+| `InvalidLabelId` | XCAF label ID not found |
+| `TessellationFailed` | Meshing operation failed |
+| `ImportExportFailed` | STEP/STL/BREP I/O error |
+| `HealingFailed` | Shape repair failed |
+| `DocumentClosed` | Operation on a closed XCAF document |
+| `KernelError` | OCCT `Standard_Failure` (unclassified) |
+| `Unknown` | Error from outside the kernel |
+
+## Named Enums
+
+Sweep, offset, and boolean operations use self-documenting enums instead of opaque numbers:
+
+```typescript
+import { TransitionMode, JoinType, BooleanOp } from 'occt-wasm';
+
+// Sweep with round-corner transitions
+kernel.sweep(profile, spine, TransitionMode.RoundCorner);
+
+// Offset wire with arc joins
+kernel.offsetWire2D(wire, 2.0, JoinType.Arc);
+
+// Boolean pipeline
+kernel.booleanPipeline(base, [BooleanOp.Cut, BooleanOp.Fuse], [tool1, tool2]);
+```
+
+Numeric values (0, 1, 2) are still accepted for backwards compatibility.
+
+## Type Predicates
+
+Convenience methods for checking shape topology:
+
+```typescript
+if (kernel.isSolid(shape))    { /* ... */ }
+if (kernel.isFace(shape))     { /* ... */ }
+if (kernel.isEdge(shape))     { /* ... */ }
+if (kernel.isWire(shape))     { /* ... */ }
+if (kernel.isVertex(shape))   { /* ... */ }
+if (kernel.isShell(shape))    { /* ... */ }
+if (kernel.isCompound(shape)) { /* ... */ }
+```
+
+## Web Workers
+
+For browser apps, heavy CAD operations can block the main thread. `OcctWorker` runs a full kernel in a Web Worker with the same API:
+
+```typescript
+import { OcctWorker } from 'occt-wasm/worker';
+
+// Spawn a worker with its own kernel
+const worker = await OcctWorker.spawn({ wasm: '/occt-wasm.wasm' });
+
+// Same API, every call returns a Promise
+const box = await worker.makeBox(10, 20, 30);
+const cyl = await worker.makeCylinder(5, 40);
+const fused = await worker.fuse(box, cyl);
+const mesh = await worker.tessellate(fused);
+console.log(`${mesh.triangleCount} triangles`);
+
+// Access the full kernel via .kernel for less common methods
+const nurbs = await worker.kernel.getNurbsCurveData(edge);
+
+// Clean up
+worker.terminate();
+```
+
+The worker helper uses [Comlink](https://github.com/GoogleChromeLabs/comlink) (~1.2 KB gzipped) for transparent RPC. Each worker has its own WASM instance and arena -- shape handles are local to the worker.
+
+## XCAF Assemblies
+
+Create assembly documents with colors, names, and component hierarchies:
+
+```typescript
+// Factory method auto-injects Emscripten FS for glTF export
+const doc = kernel.createXCAFDocument();
+
+const housing = doc.addShape(box, { name: 'housing', color: [0.8, 0.2, 0.1] });
+doc.addChild(housing, gear, {
+  name: 'gear-1',
+  location: { tx: 10, tz: 5 },
+  color: [0.5, 0.5, 0.5],
+});
+
+// Export
+const step = doc.exportSTEP();              // preserves colors/names
+const glb = doc.exportGLTF();               // no need to pass FS manually
+doc.close();
+
+// Import with preserved metadata
+const imported = kernel.importXCAFFromSTEP(stepData);
+```
+
 ## Bundler Configuration
 
 ### Vite
@@ -93,31 +239,28 @@ const kernel = await OcctKernel.init();
 
 ## API Reference
 
-Generate locally: `cd ts && npm run docs` (TypeDoc output in `ts/docs/`).
+Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 
-Full method table:
-
-| Category | Count | Methods |
-|----------|------:|---------|
-| **Primitives** | 8 | makeBox, makeBoxFromCorners, makeCylinder, makeSphere, makeCone, makeTorus, makeEllipsoid, makeRectangle |
-| **Booleans** | 8 | fuse, cut, common, intersect, section, fuseAll, cutAll, split |
-| **Modeling** | 8 | extrude, revolve, fillet, chamfer, chamferDistAngle, shell, offset, draft |
-| **Sweeps** | 7 | pipe, simplePipe, loft, loftWithVertices, sweep, sweepPipeShell, draftPrism |
-| **Construction** | 22 | makeVertex, makeEdge, makeLineEdge, makeCircleEdge, makeCircleArc, makeArcEdge, makeEllipseEdge, makeEllipseArc, makeBezierEdge, makeTangentArc, makeHelixWire, makeWire, makeFace, makeNonPlanarFace, addHolesInFace, removeHolesFromFace, makeSolid, sew, sewAndSolidify, buildSolidFromFaces, makeCompound, buildTriFace, makeFaceOnSurface |
-| **Transforms** | 10 | translate, rotate, scale, mirror, copy, transform, generalTransform, linearPattern, circularPattern, composeTransform |
-| **Topology** | 13 | getShapeType, getSubShapes, downcast, distanceBetween, isSame, isEqual, isNull, hashCode, shapeOrientation, sharedEdges, adjacentFaces, iterShapes, edgeToFaceMap |
-| **Tessellation** | 5 | tessellate, wireframe, hasTriangulation, meshShape, meshBatch |
-| **I/O** | 6 | importStep, exportStep, importStl, exportStl, toBREP, fromBREP |
-| **Query** | 7 | getBoundingBox, getVolume, getSurfaceArea, getLength, getCenterOfMass, getLinearCenterOfMass, surfaceCurvature |
-| **Surfaces** | 10 | vertexPosition, surfaceType, surfaceNormal, pointOnSurface, outerWire, uvBounds, uvFromPoint, projectPointOnFace, classifyPointOnFace, bsplineSurface |
-| **Curves** | 11 | curveType, curvePointAtParam, curveTangent, curveParameters, curveIsClosed, curveIsPeriodic, curveLength, interpolatePoints, approximatePoints, getNurbsCurveData, liftCurve2dToPlane |
-| **Projection** | 1 | projectEdges (HLR hidden line removal) |
-| **Modifiers** | 6 | thicken, defeature, reverseShape, simplify, filletVariable, offsetWire2D |
-| **Evolution** | 12 | translateWithHistory, fuseWithHistory, cutWithHistory, filletWithHistory, rotateWithHistory, mirrorWithHistory, scaleWithHistory, intersectWithHistory, chamferWithHistory, shellWithHistory, offsetWithHistory, thickenWithHistory |
-| **XCAF** | 12 | xcafNewDocument, xcafClose, xcafAddShape, xcafAddComponent, xcafSetColor, xcafSetName, xcafGetLabelInfo, xcafGetChildLabels, xcafGetRootLabels, xcafExportSTEP, xcafImportSTEP, xcafExportGLTF |
-| **Healing** | 10 | buildCurves3d, fixWireOnFace, fixShape, unifySameDomain, isValid, healSolid, healFace, healWire, fixFaceOrientations, removeDegenerateEdges |
-| **Batch** | 2 | translateBatch, booleanPipeline |
-| **Arena** | 3 | release, releaseAll, shapeCount |
+| Category | What's covered |
+|----------|---------------|
+| **Primitives** | Box, cylinder, sphere, cone, torus, ellipsoid, rectangle |
+| **Booleans** | Fuse, cut, common, intersect, section + multi-shape variants |
+| **Modeling** | Extrude, revolve, fillet, chamfer, shell, offset, draft |
+| **Sweeps** | Pipe, loft, sweep, draft prism, extrusion laws |
+| **Construction** | Vertices, edges (line/arc/circle/ellipse/bezier/helix), wires, faces, solids, compounds, sewing |
+| **Transforms** | Translate, rotate, scale, mirror, 3x4 matrix, linear/circular patterns |
+| **Topology** | Shape type queries, type predicates, sub-shape extraction, adjacency, hash codes |
+| **Tessellation** | Triangle meshes, wireframe polylines, per-face groups, batched multi-shape meshing |
+| **I/O** | STEP, STL, BREP import/export |
+| **Query** | Bounding box, volume, surface area, length, center of mass, curvature |
+| **Surfaces** | Type, normal, UV bounds, point classification, B-spline construction |
+| **Curves** | Type, point/tangent evaluation, parameters, NURBS data extraction, interpolation |
+| **Projection** | Hidden line removal (HLR) |
+| **Modifiers** | Thicken, defeature, reverse, simplify, variable fillet, 2D wire offset |
+| **Evolution** | Face-tracking history for translate, fuse, cut, fillet, rotate, mirror, scale, chamfer, shell, offset, thicken |
+| **XCAF** | Assembly documents with colors, names, component hierarchies, STEP/glTF export |
+| **Healing** | Fix shape, unify domain, heal solid/face/wire, fix orientations, remove degenerate edges |
+| **Batch** | Multi-shape translate, chained boolean pipeline |
 
 ## Architecture
 
@@ -130,27 +273,17 @@ OCCT V8.0.0-rc4 C++ (git submodule)
     -> wasm-opt -O4 --converge --gufa -> dist/ (20.3 MB)
 ```
 
-Built with Rust xtask (`cargo xtask build`), tested with Vitest (144 tests).
+Built with Rust xtask (`cargo xtask build`), tested with Vitest.
 
 ## Size & Performance
 
 Compared against other OCCT-to-WASM builds (all include STEP, XCAF, glTF):
 
-| Build | Raw | gzip | brotli |
-|-------|-----|------|--------|
-| **occt-wasm** (release) | 20.3 MB | 6.4 MB | 4.3 MB |
-| opencascade.js 1.1.1 | 62.8 MB | 13.3 MB | 8.7 MB |
-| brepjs-opencascade | 24.7 MB | 7.5 MB | 5.0 MB |
-
-Node.js benchmarks (median of 10 runs):
-
-| Operation | Time |
-|-----------|------|
-| WASM init | 37 ms |
-| makeBox | <0.1 ms |
-| fuse(box, cylinder) | 10.6 ms |
-| cut(box, cylinder) | 8.1 ms |
-| tessellate | 0.3 ms |
+| Build | brotli |
+|-------|--------|
+| **occt-wasm** | ~4 MB |
+| opencascade.js | ~9 MB |
+| brepjs-opencascade | ~5 MB |
 
 Run benchmarks locally: `npx tsx test/benchmark.ts`
 
@@ -183,27 +316,25 @@ npm run docker:dist     # Build + copy dist/ artifacts to host
 
 occt-wasm requires modern browsers with WASM SIMD, relaxed-SIMD, tail calls, and exception handling:
 
-| Browser | Minimum Version |
-|---------|----------------|
-| Chrome | 94+ |
-| Firefox | 89+ |
-| Safari | 16.4+ |
-| Edge | 94+ |
+| Browser | Minimum Version | Notes |
+|---------|----------------|-------|
+| Chrome | 114+ | Relaxed-SIMD (114), tail calls (112) |
+| Edge | 114+ | Same engine as Chrome |
+| Safari | 17.2+ | Relaxed-SIMD (17.2), tail calls (15) |
+| Firefox | Not supported | No tail call support as of Firefox 130 |
 
-Node.js 18+ is supported.
+Node.js 22+ is recommended (tail calls via V8). Node.js 18+ works if your V8 version supports the required WASM features.
 
 ## Known Limitations
 
 These are upstream OCCT V8.0.0-rc4 issues, not occt-wasm bugs:
 
-- **STL import** -- `StlAPI_Reader.Read` throws internally (3 test skips)
-- **IGES** -- TKDEIGES excluded from link; no IGES import/export yet
-- **Variable fillet [r1,r2]** -- memory OOB crash on some geometries (4 test skips)
-- **Helical sweep** -- not yet implemented
-- **Multi-section sweep** -- ThruSections produces zero-volume on some inputs (1 test skip)
-- **Single WASM thread** -- no Web Worker parallelism; one kernel instance per page recommended
+- **IGES** -- TKDEIGES excluded from link; no IGES import/export
+- **Zero-length extrusion** -- WASM exception escapes JS catch boundary (1 test skip)
+- **Single WASM thread** -- each kernel instance is single-threaded; use `OcctWorker` (see above) to move work off the main thread
+- **Firefox** -- not supported due to missing WASM tail call support
 
-These will be addressed as OCCT V8.0.0 final is released.
+These will be addressed as OCCT V8.0.0 final is released and browser support improves.
 
 ## License
 
@@ -211,4 +342,4 @@ These will be addressed as OCCT V8.0.0 final is released.
 
 **Compiled WASM output**: LGPL-2.1-only (inherits from [OCCT](https://dev.opencascade.org/resources/download))
 
-The LGPL requires that end users can replace the LGPL component. For web applications, this is satisfied by loading the `.wasm` file from a URL (which users can intercept via `InitOptions.wasmUrl`). If you ship a desktop app with the WASM embedded, consult the [LGPL FAQ](https://www.gnu.org/licenses/lgpl-3.0.en.html).
+The LGPL requires that end users can replace the LGPL component. For web applications, this is satisfied by loading the `.wasm` file from a URL (which users can override via `OcctKernel.init({ wasm: '...' })`). If you ship a desktop app with the WASM embedded, consult the [LGPL FAQ](https://www.gnu.org/licenses/lgpl-3.0.en.html).
