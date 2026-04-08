@@ -19,7 +19,7 @@ TS wrapper (ts/) → tsc → occt-wasm
 - `facade/` — C++ facade (OcctKernel class + Embind bindings)
 - `ts/` — TypeScript wrapper (occt-wasm npm package)
 - `xtask/` — Rust build orchestration (clap + anyhow + xshell)
-- `occt/` — OCCT V8.0.0-rc4 (git submodule)
+- `occt/` — OCCT V8.0.0-rc5 (git submodule)
 - `3rdparty/` — Isolated third-party headers (RapidJSON for glTF, gitignored)
 - `scripts/` — build.sh, symbol_dispose.js, publish.sh, fetch-rapidjson.sh, bench-check.js
 - `test/` — Vitest integration tests (integration, expanded, xcaf, bench) + benchmark.ts

@@ -1,6 +1,6 @@
 # occt-wasm
 
-[OpenCascade](https://www.opencascade.com/) V8 compiled to WebAssembly with a clean TypeScript API. Smaller bundles, branded types, arena-based memory, and modern tooling.
+[OpenCascade](https://github.com/Open-Cascade-SAS/OCCT) V8 compiled to WebAssembly with a clean TypeScript API. Smaller bundles, branded types, arena-based memory, and modern tooling.
 
 > **Looking for a higher-level CAD library?** [brepjs](https://github.com/nicholasgasior/brepjs) builds on occt-wasm with a friendlier API for parametric modeling, sketching, and production CAD applications. Use occt-wasm directly when you need full control over OCCT operations.
 
@@ -265,7 +265,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 ## Architecture
 
 ```
-OCCT V8.0.0-rc4 C++ (git submodule)
+OCCT V8.0.0-rc5 C++ (git submodule)
     -> emcmake cmake (48 static libs)
     -> C++ facade (OcctKernel class, arena-based u32 IDs)
     -> Embind bindings
@@ -327,7 +327,7 @@ Node.js 22+ is recommended (tail calls via V8). Node.js 18+ works if your V8 ver
 
 ## Known Limitations
 
-These are upstream OCCT V8.0.0-rc4 issues, not occt-wasm bugs:
+These are upstream OCCT V8.0.0-rc5 issues, not occt-wasm bugs:
 
 - **IGES** -- TKDEIGES excluded from link; no IGES import/export
 - **Zero-length extrusion** -- WASM exception escapes JS catch boundary (1 test skip)
