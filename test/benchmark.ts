@@ -157,7 +157,7 @@ await bench("tessellate(fused, 0.1)", () => {
 
 await bench("fillet(box, 1.0)", () => {
   const box = kernel.makeBox(10, 10, 10);
-  const edges = kernel.getSubShapes(box, 6); // TopAbs_EDGE
+  const edges = kernel.getSubShapes(box, "edge");
   const edgeVec = new occtModule.VectorUint32();
   const edgeCount = edges.size();
   for (let i = 0; i < edgeCount; i++) {
