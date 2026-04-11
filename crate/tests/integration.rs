@@ -26,7 +26,7 @@ fn try_kernel() -> Option<OcctKernel> {
                 );
                 None
             } else {
-                panic!("Unexpected kernel init error: {e}");
+                panic!("Unexpected kernel init error: {e:?}");
             }
         }
     }

@@ -574,8 +574,7 @@ pub fn emit_rust_host(methods: &[&MethodSpec]) -> String {
 
     let _ = writeln!(buf, "}}");
 
-    let trimmed = buf.trim_end().to_owned() + "\n";
-    trimmed
+    buf.trim_end().to_owned() + "\n"
 }
 
 #[cfg(test)]

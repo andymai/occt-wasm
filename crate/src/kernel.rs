@@ -149,6 +149,10 @@ impl OcctKernel {
         let mut config = wasmtime::Config::new();
         config.wasm_simd(true);
         config.wasm_tail_call(true);
+        config.wasm_relaxed_simd(true);
+        // The WASM binary uses wasm-opt --experimental-new-eh to convert
+        // Emscripten's legacy exceptions to the new (exnref) encoding.
+        config.wasm_exceptions(true);
 
         let engine = Engine::new(&config)?;
         let wasm_bytes = decompress_wasm();

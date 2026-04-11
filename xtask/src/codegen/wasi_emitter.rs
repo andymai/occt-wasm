@@ -203,25 +203,29 @@ fn emit_wasi_method(buf: &mut String, spec: &MethodSpec) {
             let _ = writeln!(buf, "        return 0;");
         }
         ReturnType::MeshData => {
+            // MeshData has deleted operator=, use destroy + placement new
+            let _ = writeln!(buf, "        g_mesh_buf.~MeshData();");
             let _ = writeln!(
                 buf,
-                "        g_mesh_buf = g_kernel->{name}({args});",
+                "        new (&g_mesh_buf) MeshData(g_kernel->{name}({args}));",
                 name = spec.name
             );
             let _ = writeln!(buf, "        return 0;");
         }
         ReturnType::MeshBatchData => {
+            let _ = writeln!(buf, "        g_mesh_batch_buf.~MeshBatchData();");
             let _ = writeln!(
                 buf,
-                "        g_mesh_batch_buf = g_kernel->{name}({args});",
+                "        new (&g_mesh_batch_buf) MeshBatchData(g_kernel->{name}({args}));",
                 name = spec.name
             );
             let _ = writeln!(buf, "        return 0;");
         }
         ReturnType::EdgeData => {
+            let _ = writeln!(buf, "        g_edge_buf.~EdgeData();");
             let _ = writeln!(
                 buf,
-                "        g_edge_buf = g_kernel->{name}({args});",
+                "        new (&g_edge_buf) EdgeData(g_kernel->{name}({args}));",
                 name = spec.name
             );
             let _ = writeln!(buf, "        return 0;");
@@ -286,6 +290,7 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf, "#include <cstdlib>");
     let _ = writeln!(buf, "#include <cstring>");
     let _ = writeln!(buf, "#include <limits>");
+    let _ = writeln!(buf, "#include <new>");
     let _ = writeln!(buf, "#include <string>");
     let _ = writeln!(buf, "#include <vector>");
     let _ = writeln!(buf);
@@ -680,8 +685,7 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
     // Close extern "C"
     let _ = writeln!(buf, "}} // extern \"C\"");
 
-    let trimmed = buf.trim_end().to_owned() + "\n";
-    trimmed
+    buf.trim_end().to_owned() + "\n"
 }
 
 #[cfg(test)]

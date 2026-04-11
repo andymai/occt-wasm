@@ -459,8 +459,7 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
     }
 
     // Trim trailing whitespace.
-    let trimmed = buf.trim_end().to_owned() + "\n";
-    trimmed
+    buf.trim_end().to_owned() + "\n"
 }
 
 /// Generate the contents of `facade/generated/bindings.cpp` as a reference
@@ -667,8 +666,7 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
 
     let _ = writeln!(buf, "}}");
 
-    let trimmed = buf.trim_end().to_owned() + "\n";
-    trimmed
+    buf.trim_end().to_owned() + "\n"
 }
 
 #[cfg(test)]
