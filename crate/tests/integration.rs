@@ -9,8 +9,15 @@
 
 use occt_wasm::OcctKernel;
 
-/// Try to create a kernel. Returns None if the embedded WASM is a placeholder.
+/// Try to create a kernel. Returns None if the embedded WASM is a placeholder
+/// or if running in debug mode (WASM compilation is ~100x slower in debug).
 fn try_kernel() -> Option<OcctKernel> {
+    if cfg!(debug_assertions) {
+        eprintln!(
+            "Skipping test: WASM compilation too slow in debug mode. Use `cargo test --release`."
+        );
+        return None;
+    }
     match OcctKernel::new() {
         Ok(k) => Some(k),
         Err(e) => {
