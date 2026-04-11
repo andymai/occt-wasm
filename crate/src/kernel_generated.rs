@@ -580,8 +580,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_fuse_all.call(
             &mut self.store,
             (shape_ids_ptr as i32, shape_ids_len as i32),
-        )?;
+        );
         self.free_bytes(shape_ids_ptr)?;
+        let result = result?;
         self.check_error("fuse_all")?;
         if result == 0 {
             return Err(self.read_last_error("fuse_all"));
@@ -600,8 +601,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_cut_all.call(
             &mut self.store,
             (shape_id.0, tool_ids_ptr as i32, tool_ids_len as i32),
-        )?;
+        );
         self.free_bytes(tool_ids_ptr)?;
+        let result = result?;
         self.check_error("cut_all")?;
         if result == 0 {
             return Err(self.read_last_error("cut_all"));
@@ -619,7 +621,13 @@ impl crate::kernel::OcctKernel {
         let op_codes_ptr = self.write_bytes(&op_codes_bytes)?;
         let op_codes_len = op_codes.len() as u32;
         let tool_ids_bytes: Vec<u8> = tool_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
-        let tool_ids_ptr = self.write_bytes(&tool_ids_bytes)?;
+        let tool_ids_ptr = match self.write_bytes(&tool_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(op_codes_ptr);
+                return Err(e);
+            }
+        };
         let tool_ids_len = tool_ids.len() as u32;
         let result = self.generated.fn_boolean_pipeline.call(
             &mut self.store,
@@ -630,9 +638,10 @@ impl crate::kernel::OcctKernel {
                 tool_ids_ptr as i32,
                 tool_ids_len as i32,
             ),
-        )?;
+        );
         self.free_bytes(op_codes_ptr)?;
         self.free_bytes(tool_ids_ptr)?;
+        let result = result?;
         self.check_error("boolean_pipeline")?;
         if result == 0 {
             return Err(self.read_last_error("boolean_pipeline"));
@@ -651,8 +660,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_split.call(
             &mut self.store,
             (shape_id.0, tool_ids_ptr as i32, tool_ids_len as i32),
-        )?;
+        );
         self.free_bytes(tool_ids_ptr)?;
+        let result = result?;
         self.check_error("split")?;
         if result == 0 {
             return Err(self.read_last_error("split"));
@@ -712,8 +722,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_fillet.call(
             &mut self.store,
             (solid_id.0, edge_ids_ptr as i32, edge_ids_len as i32, radius),
-        )?;
+        );
         self.free_bytes(edge_ids_ptr)?;
+        let result = result?;
         self.check_error("fillet")?;
         if result == 0 {
             return Err(self.read_last_error("fillet"));
@@ -738,8 +749,9 @@ impl crate::kernel::OcctKernel {
                 edge_ids_len as i32,
                 distance,
             ),
-        )?;
+        );
         self.free_bytes(edge_ids_ptr)?;
+        let result = result?;
         self.check_error("chamfer")?;
         if result == 0 {
             return Err(self.read_last_error("chamfer"));
@@ -766,8 +778,9 @@ impl crate::kernel::OcctKernel {
                 distance,
                 angle_deg,
             ),
-        )?;
+        );
         self.free_bytes(edge_ids_ptr)?;
+        let result = result?;
         self.check_error("chamfer_dist_angle")?;
         if result == 0 {
             return Err(self.read_last_error("chamfer_dist_angle"));
@@ -792,8 +805,9 @@ impl crate::kernel::OcctKernel {
                 face_ids_len as i32,
                 thickness,
             ),
-        )?;
+        );
         self.free_bytes(face_ids_ptr)?;
+        let result = result?;
         self.check_error("shell")?;
         if result == 0 {
             return Err(self.read_last_error("shell"));
@@ -856,8 +870,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_defeature.call(
             &mut self.store,
             (shape_id.0, face_ids_ptr as i32, face_ids_len as i32),
-        )?;
+        );
         self.free_bytes(face_ids_ptr)?;
+        let result = result?;
         self.check_error("defeature")?;
         if result == 0 {
             return Err(self.read_last_error("defeature"));
@@ -915,16 +930,37 @@ impl crate::kernel::OcctKernel {
         let solid_ids_ptr = self.write_bytes(&solid_ids_bytes)?;
         let solid_ids_len = solid_ids.len() as u32;
         let edge_counts_bytes: Vec<u8> = edge_counts.iter().flat_map(|v| v.to_le_bytes()).collect();
-        let edge_counts_ptr = self.write_bytes(&edge_counts_bytes)?;
+        let edge_counts_ptr = match self.write_bytes(&edge_counts_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(solid_ids_ptr);
+                return Err(e);
+            }
+        };
         let edge_counts_len = edge_counts.len() as u32;
         let flat_edge_ids_bytes: Vec<u8> = flat_edge_ids
             .iter()
             .flat_map(|h| h.0.to_le_bytes())
             .collect();
-        let flat_edge_ids_ptr = self.write_bytes(&flat_edge_ids_bytes)?;
+        let flat_edge_ids_ptr = match self.write_bytes(&flat_edge_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(solid_ids_ptr);
+                let _ = self.free_bytes(edge_counts_ptr);
+                return Err(e);
+            }
+        };
         let flat_edge_ids_len = flat_edge_ids.len() as u32;
         let radii_bytes: Vec<u8> = radii.iter().flat_map(|v| v.to_le_bytes()).collect();
-        let radii_ptr = self.write_bytes(&radii_bytes)?;
+        let radii_ptr = match self.write_bytes(&radii_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(solid_ids_ptr);
+                let _ = self.free_bytes(edge_counts_ptr);
+                let _ = self.free_bytes(flat_edge_ids_ptr);
+                return Err(e);
+            }
+        };
         let radii_len = radii.len() as u32;
         let len = self.generated.fn_fillet_batch.call(
             &mut self.store,
@@ -938,11 +974,12 @@ impl crate::kernel::OcctKernel {
                 radii_ptr as i32,
                 radii_len as i32,
             ),
-        )?;
+        );
         self.free_bytes(solid_ids_ptr)?;
         self.free_bytes(edge_counts_ptr)?;
         self.free_bytes(flat_edge_ids_ptr)?;
         self.free_bytes(radii_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("fillet_batch"));
         }
@@ -1105,8 +1142,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_transform.call(
             &mut self.store,
             (id.0, matrix_ptr as i32, matrix_len as i32),
-        )?;
+        );
         self.free_bytes(matrix_ptr)?;
+        let result = result?;
         self.check_error("transform")?;
         if result == 0 {
             return Err(self.read_last_error("transform"));
@@ -1125,8 +1163,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_general_transform.call(
             &mut self.store,
             (id.0, matrix_ptr as i32, matrix_len as i32),
-        )?;
+        );
         self.free_bytes(matrix_ptr)?;
+        let result = result?;
         self.check_error("general_transform")?;
         if result == 0 {
             return Err(self.read_last_error("general_transform"));
@@ -1143,7 +1182,13 @@ impl crate::kernel::OcctKernel {
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
         let offsets_bytes: Vec<u8> = offsets.iter().flat_map(|v| v.to_le_bytes()).collect();
-        let offsets_ptr = self.write_bytes(&offsets_bytes)?;
+        let offsets_ptr = match self.write_bytes(&offsets_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(ids_ptr);
+                return Err(e);
+            }
+        };
         let offsets_len = offsets.len() as u32;
         let len = self.generated.fn_translate_batch.call(
             &mut self.store,
@@ -1153,9 +1198,10 @@ impl crate::kernel::OcctKernel {
                 offsets_ptr as i32,
                 offsets_len as i32,
             ),
-        )?;
+        );
         self.free_bytes(ids_ptr)?;
         self.free_bytes(offsets_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("translate_batch"));
         }
@@ -1167,14 +1213,21 @@ impl crate::kernel::OcctKernel {
         let m1_ptr = self.write_bytes(&m1_bytes)?;
         let m1_len = m1.len() as u32;
         let m2_bytes: Vec<u8> = m2.iter().flat_map(|v| v.to_le_bytes()).collect();
-        let m2_ptr = self.write_bytes(&m2_bytes)?;
+        let m2_ptr = match self.write_bytes(&m2_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(m1_ptr);
+                return Err(e);
+            }
+        };
         let m2_len = m2.len() as u32;
         let len = self.generated.fn_compose_transform.call(
             &mut self.store,
             (m1_ptr as i32, m1_len as i32, m2_ptr as i32, m2_len as i32),
-        )?;
+        );
         self.free_bytes(m1_ptr)?;
         self.free_bytes(m2_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("compose_transform"));
         }
@@ -1190,7 +1243,13 @@ impl crate::kernel::OcctKernel {
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
         let matrices_bytes: Vec<u8> = matrices.iter().flat_map(|v| v.to_le_bytes()).collect();
-        let matrices_ptr = self.write_bytes(&matrices_bytes)?;
+        let matrices_ptr = match self.write_bytes(&matrices_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(ids_ptr);
+                return Err(e);
+            }
+        };
         let matrices_len = matrices.len() as u32;
         let len = self.generated.fn_transform_batch.call(
             &mut self.store,
@@ -1200,9 +1259,10 @@ impl crate::kernel::OcctKernel {
                 matrices_ptr as i32,
                 matrices_len as i32,
             ),
-        )?;
+        );
         self.free_bytes(ids_ptr)?;
         self.free_bytes(matrices_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("transform_batch"));
         }
@@ -1214,7 +1274,13 @@ impl crate::kernel::OcctKernel {
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
         let params_bytes: Vec<u8> = params.iter().flat_map(|v| v.to_le_bytes()).collect();
-        let params_ptr = self.write_bytes(&params_bytes)?;
+        let params_ptr = match self.write_bytes(&params_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(ids_ptr);
+                return Err(e);
+            }
+        };
         let params_len = params.len() as u32;
         let len = self.generated.fn_rotate_batch.call(
             &mut self.store,
@@ -1224,9 +1290,10 @@ impl crate::kernel::OcctKernel {
                 params_ptr as i32,
                 params_len as i32,
             ),
-        )?;
+        );
         self.free_bytes(ids_ptr)?;
         self.free_bytes(params_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("rotate_batch"));
         }
@@ -1238,7 +1305,13 @@ impl crate::kernel::OcctKernel {
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
         let params_bytes: Vec<u8> = params.iter().flat_map(|v| v.to_le_bytes()).collect();
-        let params_ptr = self.write_bytes(&params_bytes)?;
+        let params_ptr = match self.write_bytes(&params_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(ids_ptr);
+                return Err(e);
+            }
+        };
         let params_len = params.len() as u32;
         let len = self.generated.fn_scale_batch.call(
             &mut self.store,
@@ -1248,9 +1321,10 @@ impl crate::kernel::OcctKernel {
                 params_ptr as i32,
                 params_len as i32,
             ),
-        )?;
+        );
         self.free_bytes(ids_ptr)?;
         self.free_bytes(params_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("scale_batch"));
         }
@@ -1262,7 +1336,13 @@ impl crate::kernel::OcctKernel {
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
         let params_bytes: Vec<u8> = params.iter().flat_map(|v| v.to_le_bytes()).collect();
-        let params_ptr = self.write_bytes(&params_bytes)?;
+        let params_ptr = match self.write_bytes(&params_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(ids_ptr);
+                return Err(e);
+            }
+        };
         let params_len = params.len() as u32;
         let len = self.generated.fn_mirror_batch.call(
             &mut self.store,
@@ -1272,9 +1352,10 @@ impl crate::kernel::OcctKernel {
                 params_ptr as i32,
                 params_len as i32,
             ),
-        )?;
+        );
         self.free_bytes(ids_ptr)?;
         self.free_bytes(params_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("mirror_batch"));
         }
@@ -1312,8 +1393,9 @@ impl crate::kernel::OcctKernel {
         let result = self
             .generated
             .fn_make_wire
-            .call(&mut self.store, (edge_ids_ptr as i32, edge_ids_len as i32))?;
+            .call(&mut self.store, (edge_ids_ptr as i32, edge_ids_len as i32));
         self.free_bytes(edge_ids_ptr)?;
+        let result = result?;
         self.check_error("make_wire")?;
         if result == 0 {
             return Err(self.read_last_error("make_wire"));
@@ -1368,8 +1450,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_sew.call(
             &mut self.store,
             (shape_ids_ptr as i32, shape_ids_len as i32, tolerance),
-        )?;
+        );
         self.free_bytes(shape_ids_ptr)?;
+        let result = result?;
         self.check_error("sew")?;
         if result == 0 {
             return Err(self.read_last_error("sew"));
@@ -1384,8 +1467,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_make_compound.call(
             &mut self.store,
             (shape_ids_ptr as i32, shape_ids_len as i32),
-        )?;
+        );
         self.free_bytes(shape_ids_ptr)?;
+        let result = result?;
         self.check_error("make_compound")?;
         if result == 0 {
             return Err(self.read_last_error("make_compound"));
@@ -1509,8 +1593,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_make_bezier_edge.call(
             &mut self.store,
             (flat_points_ptr as i32, flat_points_len as i32),
-        )?;
+        );
         self.free_bytes(flat_points_ptr)?;
+        let result = result?;
         self.check_error("make_bezier_edge")?;
         if result == 0 {
             return Err(self.read_last_error("make_bezier_edge"));
@@ -1606,8 +1691,9 @@ impl crate::kernel::OcctKernel {
                 hole_wire_ids_ptr as i32,
                 hole_wire_ids_len as i32,
             ),
-        )?;
+        );
         self.free_bytes(hole_wire_ids_ptr)?;
+        let result = result?;
         self.check_error("add_holes_in_face")?;
         if result == 0 {
             return Err(self.read_last_error("add_holes_in_face"));
@@ -1627,8 +1713,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_remove_holes_from_face.call(
             &mut self.store,
             (face_id.0, hole_indices_ptr as i32, hole_indices_len as i32),
-        )?;
+        );
         self.free_bytes(hole_indices_ptr)?;
+        let result = result?;
         self.check_error("remove_holes_from_face")?;
         if result == 0 {
             return Err(self.read_last_error("remove_holes_from_face"));
@@ -1659,8 +1746,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_build_solid_from_faces.call(
             &mut self.store,
             (face_ids_ptr as i32, face_ids_len as i32, tolerance),
-        )?;
+        );
         self.free_bytes(face_ids_ptr)?;
+        let result = result?;
         self.check_error("build_solid_from_faces")?;
         if result == 0 {
             return Err(self.read_last_error("build_solid_from_faces"));
@@ -1679,8 +1767,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_sew_and_solidify.call(
             &mut self.store,
             (face_ids_ptr as i32, face_ids_len as i32, tolerance),
-        )?;
+        );
         self.free_bytes(face_ids_ptr)?;
+        let result = result?;
         self.check_error("sew_and_solidify")?;
         if result == 0 {
             return Err(self.read_last_error("sew_and_solidify"));
@@ -1746,8 +1835,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_bspline_surface.call(
             &mut self.store,
             (flat_points_ptr as i32, flat_points_len as i32, rows, cols),
-        )?;
+        );
         self.free_bytes(flat_points_ptr)?;
+        let result = result?;
         self.check_error("bspline_surface")?;
         if result == 0 {
             return Err(self.read_last_error("bspline_surface"));
@@ -1772,8 +1862,9 @@ impl crate::kernel::OcctKernel {
         let len = self.generated.fn_get_sub_shapes.call(
             &mut self.store,
             (id.0, shape_type_ptr as i32, shape_type_len as i32),
-        )?;
+        );
         self.free_bytes(shape_type_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("get_sub_shapes"));
         }
@@ -1871,8 +1962,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_downcast.call(
             &mut self.store,
             (id.0, target_type_ptr as i32, target_type_len as i32),
-        )?;
+        );
         self.free_bytes(target_type_ptr)?;
+        let result = result?;
         self.check_error("downcast")?;
         if result == 0 {
             return Err(self.read_last_error("downcast"));
@@ -2187,8 +2279,9 @@ impl crate::kernel::OcctKernel {
                 flat_points_len as i32,
                 i32::from(periodic),
             ),
-        )?;
+        );
         self.free_bytes(flat_points_ptr)?;
+        let result = result?;
         self.check_error("interpolate_points")?;
         if result == 0 {
             return Err(self.read_last_error("interpolate_points"));
@@ -2218,8 +2311,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_approximate_points.call(
             &mut self.store,
             (flat_points_ptr as i32, flat_points_len as i32, tolerance),
-        )?;
+        );
         self.free_bytes(flat_points_ptr)?;
+        let result = result?;
         self.check_error("approximate_points")?;
         if result == 0 {
             return Err(self.read_last_error("approximate_points"));
@@ -2259,8 +2353,9 @@ impl crate::kernel::OcctKernel {
                 plane_xy,
                 plane_xz,
             ),
-        )?;
+        );
         self.free_bytes(flat_points2d_ptr)?;
+        let result = result?;
         self.check_error("lift_curve2d_to_plane")?;
         if result == 0 {
             return Err(self.read_last_error("lift_curve2d_to_plane"));
@@ -2297,8 +2392,9 @@ impl crate::kernel::OcctKernel {
         let len = self
             .generated
             .fn_query_batch
-            .call(&mut self.store, (ids_ptr as i32, ids_len as i32))?;
+            .call(&mut self.store, (ids_ptr as i32, ids_len as i32));
         self.free_bytes(ids_ptr)?;
+        let len = len?;
         if len < 0 {
             return Err(self.read_last_error("query_batch"));
         }
@@ -2370,8 +2466,9 @@ impl crate::kernel::OcctKernel {
                 wire_ids_len as i32,
                 i32::from(is_solid),
             ),
-        )?;
+        );
         self.free_bytes(wire_ids_ptr)?;
+        let result = result?;
         self.check_error("loft")?;
         if result == 0 {
             return Err(self.read_last_error("loft"));
@@ -2398,8 +2495,9 @@ impl crate::kernel::OcctKernel {
                 start_vertex_id.0,
                 end_vertex_id.0,
             ),
-        )?;
+        );
         self.free_bytes(wire_ids_ptr)?;
+        let result = result?;
         self.check_error("loft_with_vertices")?;
         if result == 0 {
             return Err(self.read_last_error("loft_with_vertices"));
@@ -2589,8 +2687,9 @@ impl crate::kernel::OcctKernel {
         let result = self
             .generated
             .fn_import_step
-            .call(&mut self.store, (data_ptr as i32, data_len as i32))?;
+            .call(&mut self.store, (data_ptr as i32, data_len as i32));
         self.free_bytes(data_ptr)?;
+        let result = result?;
         self.check_error("import_step")?;
         if result == 0 {
             return Err(self.read_last_error("import_step"));
@@ -2631,8 +2730,9 @@ impl crate::kernel::OcctKernel {
         let result = self
             .generated
             .fn_import_stl
-            .call(&mut self.store, (data_ptr as i32, data_len as i32))?;
+            .call(&mut self.store, (data_ptr as i32, data_len as i32));
         self.free_bytes(data_ptr)?;
+        let result = result?;
         self.check_error("import_stl")?;
         if result == 0 {
             return Err(self.read_last_error("import_stl"));
@@ -2654,8 +2754,9 @@ impl crate::kernel::OcctKernel {
         let result = self
             .generated
             .fn_from_brep
-            .call(&mut self.store, (data_ptr as i32, data_len as i32))?;
+            .call(&mut self.store, (data_ptr as i32, data_len as i32));
         self.free_bytes(data_ptr)?;
+        let result = result?;
         self.check_error("from_brep")?;
         if result == 0 {
             return Err(self.read_last_error("from_brep"));
@@ -2689,8 +2790,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("translate_with_history"));
         }
@@ -2719,8 +2821,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("fuse_with_history"));
         }
@@ -2749,8 +2852,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("cut_with_history"));
         }
@@ -2772,7 +2876,13 @@ impl crate::kernel::OcctKernel {
             .iter()
             .flat_map(|v| v.to_le_bytes())
             .collect();
-        let input_face_hashes_ptr = self.write_bytes(&input_face_hashes_bytes)?;
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                return Err(e);
+            }
+        };
         let input_face_hashes_len = input_face_hashes.len() as u32;
         let status = self.generated.fn_fillet_with_history.call(
             &mut self.store,
@@ -2785,9 +2895,10 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(edge_ids_ptr)?;
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("fillet_with_history"));
         }
@@ -2828,8 +2939,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("rotate_with_history"));
         }
@@ -2868,8 +2980,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("mirror_with_history"));
         }
@@ -2904,8 +3017,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("scale_with_history"));
         }
@@ -2934,8 +3048,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("intersect_with_history"));
         }
@@ -2957,7 +3072,13 @@ impl crate::kernel::OcctKernel {
             .iter()
             .flat_map(|v| v.to_le_bytes())
             .collect();
-        let input_face_hashes_ptr = self.write_bytes(&input_face_hashes_bytes)?;
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                return Err(e);
+            }
+        };
         let input_face_hashes_len = input_face_hashes.len() as u32;
         let status = self.generated.fn_chamfer_with_history.call(
             &mut self.store,
@@ -2970,9 +3091,10 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(edge_ids_ptr)?;
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("chamfer_with_history"));
         }
@@ -2994,7 +3116,13 @@ impl crate::kernel::OcctKernel {
             .iter()
             .flat_map(|v| v.to_le_bytes())
             .collect();
-        let input_face_hashes_ptr = self.write_bytes(&input_face_hashes_bytes)?;
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(face_ids_ptr);
+                return Err(e);
+            }
+        };
         let input_face_hashes_len = input_face_hashes.len() as u32;
         let status = self.generated.fn_shell_with_history.call(
             &mut self.store,
@@ -3007,9 +3135,10 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(face_ids_ptr)?;
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("shell_with_history"));
         }
@@ -3038,8 +3167,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("offset_with_history"));
         }
@@ -3068,8 +3198,9 @@ impl crate::kernel::OcctKernel {
                 input_face_hashes_len as i32,
                 hash_upper_bound,
             ),
-        )?;
+        );
         self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("thicken_with_history"));
         }
@@ -3125,8 +3256,9 @@ impl crate::kernel::OcctKernel {
                 linear_deflection,
                 angular_deflection,
             ),
-        )?;
+        );
         self.free_bytes(ids_ptr)?;
+        let status = status?;
         if status < 0 {
             return Err(self.read_last_error("mesh_batch"));
         }
@@ -3309,8 +3441,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_xcaf_set_name.call(
             &mut self.store,
             (doc_id.0, label_id, name_ptr as i32, name_len as i32),
-        )?;
+        );
         self.free_bytes(name_ptr)?;
+        let result = result?;
         if result < 0 {
             return Err(self.read_last_error("xcaf_set_name"));
         }
@@ -3375,8 +3508,9 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_xcaf_import_step.call(
             &mut self.store,
             (step_data_ptr as i32, step_data_len as i32),
-        )?;
+        );
         self.free_bytes(step_data_ptr)?;
+        let result = result?;
         self.check_error("xcaf_import_step")?;
         Ok(result)
     }

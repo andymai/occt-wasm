@@ -64,19 +64,50 @@ const fn rust_return_type(rt: ReturnType) -> &'static str {
     }
 }
 
+/// Collect the names of heap-allocated parameters (those that need `write_bytes`).
+fn heap_param_names(params: &[FacadeParam]) -> Vec<String> {
+    params
+        .iter()
+        .filter_map(|p| match p {
+            FacadeParam::String(name)
+            | FacadeParam::VectorShapeIds(name)
+            | FacadeParam::VectorDouble(name)
+            | FacadeParam::VectorInt(name) => Some(rust_param_name(name)),
+            _ => None,
+        })
+        .collect()
+}
+
 /// Generate the WASM call arguments for a method.
 ///
 /// This generates the code to prepare and pass arguments to the WASM function.
+/// When a method has multiple heap-allocated params, each allocation is guarded:
+/// if a later `write_bytes` fails, previously allocated buffers are freed before
+/// propagating the error.
 fn emit_wasm_call_setup(buf: &mut String, params: &[FacadeParam]) {
+    // Track which allocations have been completed so far (for cleanup-on-error).
+    let mut allocated_so_far: Vec<String> = Vec::new();
+
     for param in params {
         match param {
             FacadeParam::String(name) => {
                 let rname = rust_param_name(name);
-                let _ = writeln!(
-                    buf,
-                    "        let {rname}_ptr = self.write_bytes({rname}.as_bytes())?;"
-                );
+                // Use match instead of ? to clean up prior allocations on error
+                if allocated_so_far.is_empty() {
+                    let _ = writeln!(
+                        buf,
+                        "        let {rname}_ptr = self.write_bytes({rname}.as_bytes())?;"
+                    );
+                } else {
+                    emit_guarded_write_bytes(
+                        buf,
+                        &rname,
+                        &format!("{rname}.as_bytes()"),
+                        &allocated_so_far,
+                    );
+                }
                 let _ = writeln!(buf, "        let {rname}_len = {rname}.len() as u32;");
+                allocated_so_far.push(rname);
             }
             FacadeParam::VectorShapeIds(name) => {
                 let rname = rust_param_name(name);
@@ -84,11 +115,21 @@ fn emit_wasm_call_setup(buf: &mut String, params: &[FacadeParam]) {
                     buf,
                     "        let {rname}_bytes: Vec<u8> = {rname}.iter().flat_map(|h| h.0.to_le_bytes()).collect();"
                 );
-                let _ = writeln!(
-                    buf,
-                    "        let {rname}_ptr = self.write_bytes(&{rname}_bytes)?;"
-                );
+                if allocated_so_far.is_empty() {
+                    let _ = writeln!(
+                        buf,
+                        "        let {rname}_ptr = self.write_bytes(&{rname}_bytes)?;"
+                    );
+                } else {
+                    emit_guarded_write_bytes(
+                        buf,
+                        &rname,
+                        &format!("&{rname}_bytes"),
+                        &allocated_so_far,
+                    );
+                }
                 let _ = writeln!(buf, "        let {rname}_len = {rname}.len() as u32;");
+                allocated_so_far.push(rname);
             }
             FacadeParam::VectorDouble(name) | FacadeParam::VectorInt(name) => {
                 let rname = rust_param_name(name);
@@ -96,15 +137,46 @@ fn emit_wasm_call_setup(buf: &mut String, params: &[FacadeParam]) {
                     buf,
                     "        let {rname}_bytes: Vec<u8> = {rname}.iter().flat_map(|v| v.to_le_bytes()).collect();"
                 );
-                let _ = writeln!(
-                    buf,
-                    "        let {rname}_ptr = self.write_bytes(&{rname}_bytes)?;"
-                );
+                if allocated_so_far.is_empty() {
+                    let _ = writeln!(
+                        buf,
+                        "        let {rname}_ptr = self.write_bytes(&{rname}_bytes)?;"
+                    );
+                } else {
+                    emit_guarded_write_bytes(
+                        buf,
+                        &rname,
+                        &format!("&{rname}_bytes"),
+                        &allocated_so_far,
+                    );
+                }
                 let _ = writeln!(buf, "        let {rname}_len = {rname}.len() as u32;");
+                allocated_so_far.push(rname);
             }
             _ => {} // scalar types don't need setup
         }
     }
+}
+
+/// Emit a `write_bytes` call that cleans up previously allocated buffers on error.
+fn emit_guarded_write_bytes(
+    buf: &mut String,
+    rname: &str,
+    data_expr: &str,
+    prior_allocs: &[String],
+) {
+    let _ = writeln!(
+        buf,
+        "        let {rname}_ptr = match self.write_bytes({data_expr}) {{"
+    );
+    let _ = writeln!(buf, "            Ok(ptr) => ptr,");
+    let _ = writeln!(buf, "            Err(e) => {{");
+    for prior in prior_allocs {
+        let _ = writeln!(buf, "                let _ = self.free_bytes({prior}_ptr);");
+    }
+    let _ = writeln!(buf, "                return Err(e);");
+    let _ = writeln!(buf, "            }}");
+    let _ = writeln!(buf, "        }};");
 }
 
 /// Generate the WASM call expression arguments.
@@ -228,15 +300,23 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
     };
 
     let fn_field = format!("generated.fn_{snake_name}");
+    let has_heap_params = !heap_param_names(spec.params).is_empty();
+
+    // For methods with heap-allocated params, capture the call result without `?`
+    // so we can always run cleanup before propagating errors.
+    let call_suffix = if has_heap_params { "" } else { "?" };
 
     // Call + result handling based on return type
     match spec.return_type {
         ReturnType::ShapeId => {
             let _ = writeln!(
                 buf,
-                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let result = result?;");
+            }
             let _ = writeln!(buf, "        self.check_error(\"{snake_name}\")?;");
             let _ = writeln!(buf, "        if result == 0 {{");
             let _ = writeln!(
@@ -249,18 +329,24 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
         ReturnType::Uint32 | ReturnType::Double | ReturnType::Int => {
             let _ = writeln!(
                 buf,
-                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let result = result?;");
+            }
             let _ = writeln!(buf, "        self.check_error(\"{snake_name}\")?;");
             let _ = writeln!(buf, "        Ok(result)");
         }
         ReturnType::Bool => {
             let _ = writeln!(
                 buf,
-                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let result = result?;");
+            }
             let _ = writeln!(buf, "        if result < 0 {{");
             let _ = writeln!(
                 buf,
@@ -272,9 +358,12 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
         ReturnType::Void => {
             let _ = writeln!(
                 buf,
-                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let result = result?;");
+            }
             let _ = writeln!(buf, "        if result < 0 {{");
             let _ = writeln!(
                 buf,
@@ -286,9 +375,12 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
         ReturnType::String => {
             let _ = writeln!(
                 buf,
-                "        let len = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let len = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let len = len?;");
+            }
             let _ = writeln!(buf, "        if len < 0 {{");
             let _ = writeln!(
                 buf,
@@ -300,9 +392,12 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
         ReturnType::VectorUint32 => {
             let _ = writeln!(
                 buf,
-                "        let len = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let len = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let len = len?;");
+            }
             let _ = writeln!(buf, "        if len < 0 {{");
             let _ = writeln!(
                 buf,
@@ -314,9 +409,12 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
         ReturnType::VectorDouble => {
             let _ = writeln!(
                 buf,
-                "        let len = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let len = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let len = len?;");
+            }
             let _ = writeln!(buf, "        if len < 0 {{");
             let _ = writeln!(
                 buf,
@@ -328,9 +426,12 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
         ReturnType::VectorInt => {
             let _ = writeln!(
                 buf,
-                "        let len = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let len = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let len = len?;");
+            }
             let _ = writeln!(buf, "        if len < 0 {{");
             let _ = writeln!(
                 buf,
@@ -339,117 +440,40 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
             let _ = writeln!(buf, "        }}");
             let _ = writeln!(buf, "        self.read_vec_i32_result()");
         }
-        ReturnType::BBoxData => {
+        ReturnType::BBoxData
+        | ReturnType::MeshData
+        | ReturnType::MeshBatchData
+        | ReturnType::EdgeData
+        | ReturnType::NurbsCurveData
+        | ReturnType::EvolutionData
+        | ReturnType::ProjectionData
+        | ReturnType::XCAFLabelInfo => {
+            let reader = match spec.return_type {
+                ReturnType::BBoxData => "self.read_bbox_result()",
+                ReturnType::MeshData => "self.read_mesh_result()",
+                ReturnType::MeshBatchData => "self.read_mesh_batch_result()",
+                ReturnType::EdgeData => "self.read_edge_result()",
+                ReturnType::NurbsCurveData => "self.read_nurbs_result()",
+                ReturnType::EvolutionData => "self.read_evolution_result()",
+                ReturnType::ProjectionData => "self.read_projection_result()",
+                ReturnType::XCAFLabelInfo => "self.read_label_info_result()",
+                _ => unreachable!(),
+            };
             let _ = writeln!(
                 buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
+                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
             );
-            emit_wasm_call_cleanup(buf, spec.params);
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let status = status?;");
+            }
             let _ = writeln!(buf, "        if status < 0 {{");
             let _ = writeln!(
                 buf,
                 "            return Err(self.read_last_error(\"{snake_name}\"));"
             );
             let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_bbox_result()");
-        }
-        ReturnType::MeshData => {
-            let _ = writeln!(
-                buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
-            );
-            emit_wasm_call_cleanup(buf, spec.params);
-            let _ = writeln!(buf, "        if status < 0 {{");
-            let _ = writeln!(
-                buf,
-                "            return Err(self.read_last_error(\"{snake_name}\"));"
-            );
-            let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_mesh_result()");
-        }
-        ReturnType::MeshBatchData => {
-            let _ = writeln!(
-                buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
-            );
-            emit_wasm_call_cleanup(buf, spec.params);
-            let _ = writeln!(buf, "        if status < 0 {{");
-            let _ = writeln!(
-                buf,
-                "            return Err(self.read_last_error(\"{snake_name}\"));"
-            );
-            let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_mesh_batch_result()");
-        }
-        ReturnType::EdgeData => {
-            let _ = writeln!(
-                buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
-            );
-            emit_wasm_call_cleanup(buf, spec.params);
-            let _ = writeln!(buf, "        if status < 0 {{");
-            let _ = writeln!(
-                buf,
-                "            return Err(self.read_last_error(\"{snake_name}\"));"
-            );
-            let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_edge_result()");
-        }
-        ReturnType::NurbsCurveData => {
-            let _ = writeln!(
-                buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
-            );
-            emit_wasm_call_cleanup(buf, spec.params);
-            let _ = writeln!(buf, "        if status < 0 {{");
-            let _ = writeln!(
-                buf,
-                "            return Err(self.read_last_error(\"{snake_name}\"));"
-            );
-            let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_nurbs_result()");
-        }
-        ReturnType::EvolutionData => {
-            let _ = writeln!(
-                buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
-            );
-            emit_wasm_call_cleanup(buf, spec.params);
-            let _ = writeln!(buf, "        if status < 0 {{");
-            let _ = writeln!(
-                buf,
-                "            return Err(self.read_last_error(\"{snake_name}\"));"
-            );
-            let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_evolution_result()");
-        }
-        ReturnType::ProjectionData => {
-            let _ = writeln!(
-                buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
-            );
-            emit_wasm_call_cleanup(buf, spec.params);
-            let _ = writeln!(buf, "        if status < 0 {{");
-            let _ = writeln!(
-                buf,
-                "            return Err(self.read_last_error(\"{snake_name}\"));"
-            );
-            let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_projection_result()");
-        }
-        ReturnType::XCAFLabelInfo => {
-            let _ = writeln!(
-                buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple})?;"
-            );
-            emit_wasm_call_cleanup(buf, spec.params);
-            let _ = writeln!(buf, "        if status < 0 {{");
-            let _ = writeln!(
-                buf,
-                "            return Err(self.read_last_error(\"{snake_name}\"));"
-            );
-            let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_label_info_result()");
+            let _ = writeln!(buf, "        {reader}");
         }
     }
 

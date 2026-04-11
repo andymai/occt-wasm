@@ -181,7 +181,7 @@ fn compile_facade_wasi(
 
         cmd!(
             sh,
-            "{clangxx_str} --target=wasm32-wasi-threads
+            "{clangxx_str} --target=wasm32-wasi
             --sysroot={sysroot_str}
             -std=c++17 -fwasm-exceptions -O3 -msimd128
             -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS
@@ -229,15 +229,26 @@ fn link_wasi(
 
     let opt_level = if release { "-O3" } else { "-O2" };
 
+    // Read export names from the generated wasi_exports.cpp
+    let wasi_exports_path = root.join("facade/generated/wasi_exports.cpp");
+    let export_names = extract_export_names(&wasi_exports_path)?;
+    eprintln!("  Exporting {} occt_* functions.", export_names.len());
+
     let mut args: Vec<String> = vec![
-        format!("--target=wasm32-wasi"),
+        "--target=wasm32-wasi".into(),
         format!("--sysroot={sysroot_str}"),
         "-fwasm-exceptions".into(),
         "-msimd128".into(),
         opt_level.into(),
         "-Wl,--no-entry".into(),
-        "-Wl,--export-dynamic".into(),
     ];
+    // Export only the occt_* functions + memory + malloc/free
+    for name in &export_names {
+        args.push(format!("-Wl,--export={name}"));
+    }
+    args.push("-Wl,--export=malloc".into());
+    args.push("-Wl,--export=free".into());
+    args.push("-Wl,--export=memory".into());
 
     if release {
         args.push("-flto".into());
@@ -260,6 +271,33 @@ fn link_wasi(
     }
 
     Ok(())
+}
+
+/// Extract `occt_*` export names from the generated `wasi_exports.cpp`.
+///
+/// Looks for lines matching `<type> occt_<name>(` to find exported function names.
+fn extract_export_names(wasi_exports_path: &Path) -> Result<Vec<String>> {
+    let content = std::fs::read_to_string(wasi_exports_path)
+        .context("failed to read wasi_exports.cpp — run `cargo xtask codegen` first")?;
+    let mut names = Vec::new();
+    for line in content.lines() {
+        // Match lines like "uint32_t occt_make_box(..." or "void occt_destroy() {"
+        let Some(start) = line.find("occt_") else {
+            continue;
+        };
+        if let Some(paren) = line[start..].find('(') {
+            let name = &line[start..start + paren];
+            if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                names.push(name.to_owned());
+            }
+        }
+    }
+    names.sort();
+    names.dedup();
+    if names.is_empty() {
+        bail!("no occt_* exports found in {}", wasi_exports_path.display());
+    }
+    Ok(names)
 }
 
 /// Locate OCCT static lib directory in the WASI build.

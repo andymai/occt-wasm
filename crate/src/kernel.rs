@@ -155,7 +155,7 @@ impl OcctKernel {
         config.wasm_exceptions(true);
 
         let engine = Engine::new(&config)?;
-        let wasm_bytes = decompress_wasm();
+        let wasm_bytes = decompress_wasm()?;
         let module = Module::new(&engine, &wasm_bytes)?;
         let mut store = Store::new(&engine, ());
         let linker = Linker::new(&engine);
@@ -585,9 +585,10 @@ impl Drop for OcctKernel {
 }
 
 /// Decompress the embedded brotli-compressed WASM binary.
-fn decompress_wasm() -> Vec<u8> {
+fn decompress_wasm() -> OcctResult<Vec<u8>> {
     let mut output = Vec::new();
     let mut input: &[u8] = WASM_BINARY;
-    brotli::BrotliDecompress(&mut input, &mut output).expect("embedded WASM binary is corrupt");
-    output
+    brotli::BrotliDecompress(&mut input, &mut output)
+        .map_err(|e| OcctError::Memory(format!("brotli decompression failed: {e}")))?;
+    Ok(output)
 }
