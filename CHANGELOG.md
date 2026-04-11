@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/andymai/occt-wasm/compare/v1.5.0...v1.6.0) (2026-04-11)
+
+
+### Features
+
+* **crate:** add Rust crate for OCCT via wasmtime ([#82](https://github.com/andymai/occt-wasm/issues/82)) ([2775322](https://github.com/andymai/occt-wasm/commit/2775322ed33b5b8991b739556a44a4b491e68b60))
+
 ## [1.5.0](https://github.com/andymai/occt-wasm/compare/v1.4.0...v1.5.0) (2026-03-30)
 
 
