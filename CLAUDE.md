@@ -47,7 +47,7 @@ npm run docker:dist              # Docker: build + copy dist/ to host
 - Rust: edition 2024, brepkit-level lints (deny unsafe/unwrap/panic)
 - C++: clang-format (LLVM, 4-space, 100 col)
 - TypeScript: strict mode, ESM only, branded ShapeHandle type
-- Commits: Conventional Commits (scopes: facade, xtask, ts, docker, ci, docs)
+- Commits: Conventional Commits (scopes: facade, xtask, ts, crate, docker, ci, docs)
 - Errors: facade catches Standard_Failure, re-throws as std::runtime_error
 - Memory: arena-based u32 IDs, Symbol.dispose support, FinalizationRegistry safety net
 - XCAF: per-document label registry (facade IDs), real OCCT XDE for assembly/color/glTF

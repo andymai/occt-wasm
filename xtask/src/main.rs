@@ -7,6 +7,7 @@ use anyhow::Result;
 use clap::Parser;
 
 mod build;
+mod build_wasi;
 mod codegen;
 mod util;
 
@@ -25,6 +26,12 @@ enum Cli {
     },
     /// Build only OCCT static libraries (Milestone 0)
     BuildOcct,
+    /// Build WASI target for Rust crate (requires wasi-sdk)
+    BuildWasi {
+        /// Enable release optimizations (LTO, wasm-opt)
+        #[arg(long)]
+        release: bool,
+    },
     /// Run the facade code generator (v0.1.1)
     Codegen,
     /// Remove all build artifacts
@@ -47,6 +54,7 @@ fn main() -> Result<()> {
     match cli {
         Cli::Build { release, size } => build::build(release, size),
         Cli::BuildOcct => build::build_occt(),
+        Cli::BuildWasi { release } => build_wasi::build_wasi(release),
         Cli::Codegen => codegen::run::run(),
         Cli::Clean { keep_generated } => build::clean(keep_generated),
         Cli::Test { watch } => build::test(watch),

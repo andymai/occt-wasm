@@ -1,0 +1,27 @@
+[package]
+name = "occt-wasm"
+version = "1.5.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "OpenCascade CAD kernel via WebAssembly — no C++ toolchain required"
+keywords = ["cad", "opencascade", "wasm", "brep", "geometry"]
+categories = ["graphics", "science", "wasm"]
+
+[dependencies]
+wasmtime = "31"
+brotli = "7"
+thiserror = "2"
+
+[features]
+default = []
+async = ["wasmtime/async", "dep:tokio"]
+
+[dependencies.tokio]
+version = "1"
+features = ["rt"]
+optional = true
+
+[lints]
+workspace = true
