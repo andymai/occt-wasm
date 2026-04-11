@@ -21,7 +21,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.85"
+          toolchain: "1.93"
           components: rustfmt, clippy
 
       - name: Rust cache
@@ -54,8 +54,9 @@ jobs:
       - name: Codegen drift check
         run: |
           cargo xtask codegen
-          if ! git diff --exit-code facade/generated/; then
-            echo "::error::Generated facade code is out of date. Run 'cargo xtask codegen' and commit."
+          cargo fmt --all
+          if ! git diff --exit-code facade/generated/ crate/src/kernel_generated.rs; then
+            echo "::error::Generated code is out of date. Run 'cargo xtask codegen && cargo fmt --all' and commit."
             exit 1
           fi
           if [ -n "$(git ls-files --others --exclude-standard facade/generated/)" ]; then

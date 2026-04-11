@@ -10,6 +10,7 @@ publish = false
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 xshell = "0.2"
+brotli = "7"
 
 [lints]
 workspace = true
