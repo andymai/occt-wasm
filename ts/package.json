@@ -1,6 +1,6 @@
 {
   "name": "occt-wasm",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "OpenCascade (OCCT) compiled to WebAssembly with a clean TypeScript API",
   "type": "module",
   "exports": {
