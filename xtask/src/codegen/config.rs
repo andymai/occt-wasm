@@ -4478,7 +4478,7 @@ mod tests {
         let methods = target_methods();
         let mut seen = std::collections::HashSet::new();
         for m in methods {
-            assert!(seen.insert(m.name), "duplicate method name: '{}'", m.name,);
+            assert!(seen.insert(m.name), "duplicate method name: '{}'", m.name);
         }
     }
 

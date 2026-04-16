@@ -6,7 +6,7 @@ resolver = "3"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "git+https://github.com/andymai/occt-wasm.git"
-rust-version = "1.93"
+rust-version = "1.95"
 
 [workspace.lints.rust]
 missing_docs = "warn"

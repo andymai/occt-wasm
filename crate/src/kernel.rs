@@ -282,12 +282,14 @@ impl OcctKernel {
     pub(crate) fn write_bytes(&mut self, data: &[u8]) -> OcctResult<u32> {
         let ptr = self.fn_alloc.call(&mut self.store, data.len() as u32)?;
         if ptr == 0 {
+            core::hint::cold_path();
             return Err(OcctError::Memory("allocation failed".to_owned()));
         }
         let mem = self.memory.data_mut(&mut self.store);
         let start = ptr as usize;
         let end = start + data.len();
         if end > mem.len() {
+            core::hint::cold_path();
             return Err(OcctError::Memory("write out of bounds".to_owned()));
         }
         mem[start..end].copy_from_slice(data);
@@ -306,6 +308,7 @@ impl OcctKernel {
         let start = ptr as usize;
         let end = start + len as usize;
         if end > mem.len() {
+            core::hint::cold_path();
             return Err(OcctError::Memory("read out of bounds".to_owned()));
         }
         Ok(mem[start..end].to_vec())
@@ -353,12 +356,17 @@ impl OcctKernel {
     pub(crate) fn check_error(&mut self, operation: &str) -> OcctResult<()> {
         let has_error = self.fn_has_error.call(&mut self.store, ())?;
         if has_error != 0 {
+            // Errors are the exception, not the norm — this branch runs after
+            // every facade call. Hint to LLVM that it's cold so the happy path
+            // stays tight in the instruction cache. (stabilized in Rust 1.95)
+            core::hint::cold_path();
             return Err(self.read_last_error(operation));
         }
         Ok(())
     }
 
     /// Read the last error message from the WASM module.
+    #[cold]
     pub(crate) fn read_last_error(&mut self, operation: &str) -> OcctError {
         let ptr = self.fn_get_error.call(&mut self.store, ()).unwrap_or(0);
         let len = self.fn_get_error_len.call(&mut self.store, ()).unwrap_or(0);
