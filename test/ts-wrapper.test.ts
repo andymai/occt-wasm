@@ -104,7 +104,7 @@ describe("TS wrapper patterns: structured returns (uvBounds → UVBounds)", () =
         // The cylinder has 3 faces (top, bottom, lateral). Find the lateral one.
         let cylinderFaceIdx = -1;
         for (let i = 0; i < faces.size(); i++) {
-            if (kernel.surfaceType(faces.get(i)) === "CYLINDER") {
+            if (kernel.surfaceType(faces.get(i)) === "cylinder") {
                 cylinderFaceIdx = i;
                 break;
             }
