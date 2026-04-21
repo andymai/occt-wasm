@@ -203,6 +203,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("getLinearCenterOfMass", &OcctKernel::getLinearCenterOfMass)
         .function("surfaceCurvature", &OcctKernel::surfaceCurvature)
         .function("uvBounds", &OcctKernel::uvBounds)
+        .function("getFaceCylinderData", &OcctKernel::getFaceCylinderData)
         .function("uvFromPoint", &OcctKernel::uvFromPoint)
         .function("projectPointOnFace", &OcctKernel::projectPointOnFace)
         .function("classifyPointOnFace", &OcctKernel::classifyPointOnFace)

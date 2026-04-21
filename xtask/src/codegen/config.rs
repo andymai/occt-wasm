@@ -2162,6 +2162,23 @@ return {surf.FirstUParameter(), surf.LastUParameter(), surf.FirstVParameter(),
         return_type: ReturnType::VectorDouble,
     },
     MethodSpec {
+        name: "getFaceCylinderData",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+if (surf.GetType() != GeomAbs_Cylinder) {
+    return {};
+}
+gp_Cylinder cyl = surf.Cylinder();
+return {cyl.Radius(), cyl.Direct() ? 1.0 : 0.0};",
+        includes: &["BRepAdaptor_Surface.hxx", "GeomAbs_SurfaceType.hxx", "TopoDS.hxx", "gp_Cylinder.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
         name: "uvFromPoint",
         kind: MethodKind::CustomBody,
         params: &[
@@ -4444,7 +4461,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 171, "expected 171 generable methods");
+        assert_eq!(count, 172, "expected 172 generable methods");
     }
 
     #[test]
