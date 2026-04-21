@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/andymai/occt-wasm/compare/v1.6.0...v1.7.0) (2026-04-21)
+
+
+### Features
+
+* **facade:** add getFaceCylinderData for cylinder radius + direct flag ([#85](https://github.com/andymai/occt-wasm/issues/85)) ([41a0574](https://github.com/andymai/occt-wasm/commit/41a05740f45bc4436a68caa7b2c9e812ca57204b))
+
 ## [1.6.0](https://github.com/andymai/occt-wasm/compare/v1.5.0...v1.6.0) (2026-04-11)
 
 
