@@ -309,6 +309,7 @@ interface RawKernel {
     outerWire(faceId: number): number;
     uvBounds(faceId: number): EmbindVectorF64;
     uvFromPoint(faceId: number, x: number, y: number, z: number): EmbindVectorF64;
+    getFaceCylinderData(faceId: number): EmbindVectorF64;
     projectPointOnFace(faceId: number, x: number, y: number, z: number): EmbindVectorF64;
     classifyPointOnFace(faceId: number, u: number, v: number): string;
     bsplineSurface(flatPoints: EmbindVectorF64, rows: number, cols: number): number;
@@ -1473,6 +1474,25 @@ export class OcctKernel {
         return wrap("uvFromPoint", () =>
             this.#vec2FromEmbind(this.#raw.uvFromPoint(face, point.x, point.y, point.z)),
         );
+    }
+
+    /**
+     * Extract cylinder data from a cylindrical face.
+     *
+     * Returns `null` when the face's underlying surface is not a cylinder,
+     * otherwise `{ radius, isDirect }` where `isDirect` mirrors
+     * `gp_Cylinder::Direct()` (i.e. whether U and V form a right-handed pair).
+     */
+    getFaceCylinderData(face: ShapeHandle): { radius: number; isDirect: boolean } | null {
+        return wrap("getFaceCylinderData", () => {
+            const vec = this.#raw.getFaceCylinderData(face);
+            try {
+                if (vec.size() === 0) return null;
+                return { radius: vec.get(0), isDirect: vec.get(1) !== 0 };
+            } finally {
+                vec.delete();
+            }
+        });
     }
 
     /** Project a 3D point onto a face, returning the closest point as Vec3. */

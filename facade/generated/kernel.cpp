@@ -136,6 +136,7 @@
 #include <gp_Ax2.hxx>
 #include <gp_Ax3.hxx>
 #include <gp_Circ.hxx>
+#include <gp_Cylinder.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Dir2d.hxx>
 #include <gp_Elips.hxx>
@@ -1917,6 +1918,19 @@ std::vector<double> OcctKernel::uvBounds(uint32_t faceId) {
                 surf.LastVParameter()};
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("uvBounds: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::getFaceCylinderData(uint32_t faceId) {
+    try {
+        BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
+        if (surf.GetType() != GeomAbs_Cylinder) {
+            return {};
+        }
+        gp_Cylinder cyl = surf.Cylinder();
+        return {cyl.Radius(), cyl.Direct() ? 1.0 : 0.0};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("getFaceCylinderData: ") + e.what());
     }
 }
 

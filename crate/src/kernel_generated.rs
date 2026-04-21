@@ -123,6 +123,7 @@ pub(crate) struct GeneratedFuncs {
     fn_get_linear_center_of_mass: TypedFunc<(u32,), i32>,
     fn_surface_curvature: TypedFunc<(u32, f64, f64), i32>,
     fn_uv_bounds: TypedFunc<(u32,), i32>,
+    fn_get_face_cylinder_data: TypedFunc<(u32,), i32>,
     fn_uv_from_point: TypedFunc<(u32, f64, f64, f64), i32>,
     fn_project_point_on_face: TypedFunc<(u32, f64, f64, f64), i32>,
     fn_classify_point_on_face: TypedFunc<(u32, f64, f64), i32>,
@@ -312,6 +313,8 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_get_linear_center_of_mass")?,
             fn_surface_curvature: instance.get_typed_func(&mut store, "occt_surface_curvature")?,
             fn_uv_bounds: instance.get_typed_func(&mut store, "occt_uv_bounds")?,
+            fn_get_face_cylinder_data: instance
+                .get_typed_func(&mut store, "occt_get_face_cylinder_data")?,
             fn_uv_from_point: instance.get_typed_func(&mut store, "occt_uv_from_point")?,
             fn_project_point_on_face: instance
                 .get_typed_func(&mut store, "occt_project_point_on_face")?,
@@ -2146,6 +2149,17 @@ impl crate::kernel::OcctKernel {
             .call(&mut self.store, (face_id.0,))?;
         if len < 0 {
             return Err(self.read_last_error("uv_bounds"));
+        }
+        self.read_vec_f64_result()
+    }
+
+    pub fn get_face_cylinder_data(&mut self, face_id: ShapeHandle) -> OcctResult<Vec<f64>> {
+        let len = self
+            .generated
+            .fn_get_face_cylinder_data
+            .call(&mut self.store, (face_id.0,))?;
+        if len < 0 {
+            return Err(self.read_last_error("get_face_cylinder_data"));
         }
         self.read_vec_f64_result()
     }

@@ -98,6 +98,35 @@ describe("TS wrapper patterns: structured returns (uvBounds → UVBounds)", () =
         edges.delete();
     });
 
+    it("getFaceCylinderData returns [radius, isDirect] for a cylindrical face", () => {
+        const cyl = kernel.makeCylinder(7, 20);
+        const faces = kernel.getSubShapes(cyl, "face");
+        // The cylinder has 3 faces (top, bottom, lateral). Find the lateral one.
+        let cylinderFaceIdx = -1;
+        for (let i = 0; i < faces.size(); i++) {
+            if (kernel.surfaceType(faces.get(i)) === "cylinder") {
+                cylinderFaceIdx = i;
+                break;
+            }
+        }
+        expect(cylinderFaceIdx).toBeGreaterThanOrEqual(0);
+        const raw = kernel.getFaceCylinderData(faces.get(cylinderFaceIdx));
+        expect(raw.size()).toBe(2);
+        expect(raw.get(0)).toBeCloseTo(7, 6); // radius
+        expect(raw.get(1)).toBe(1); // isDirect = true
+        raw.delete();
+        faces.delete();
+    });
+
+    it("getFaceCylinderData returns empty vector for a non-cylindrical face", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const faces = kernel.getSubShapes(box, "face");
+        const raw = kernel.getFaceCylinderData(faces.get(0)); // planar
+        expect(raw.size()).toBe(0);
+        raw.delete();
+        faces.delete();
+    });
+
     it("getCenterOfMass raw data can be destructured into Vec3", () => {
         const box = kernel.makeBox(10, 20, 30);
         const raw = kernel.getCenterOfMass(box);
