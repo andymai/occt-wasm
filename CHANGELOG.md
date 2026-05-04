@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/andymai/occt-wasm/compare/v1.7.0...v1.7.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* **build:** docker crate copy + wasi_exports exclusion ([c7c3894](https://github.com/andymai/occt-wasm/commit/c7c3894b377bb104ea1840c869170ab6ed611d2d))
+
 ## [1.7.0](https://github.com/andymai/occt-wasm/compare/v1.6.0...v1.7.0) (2026-04-21)
 
 
