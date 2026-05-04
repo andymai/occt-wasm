@@ -108,12 +108,21 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         .collect();
 
     // Also compile generated facade files (kernel.cpp + bindings.cpp).
+    // Exclude wasi_exports.cpp — that's the C-ABI export layer for the standalone
+    // WASI build (cargo xtask build-wasi), not the Embind/npm path. Linking it here
+    // adds ~60 KB of dead code and, with -O3 -flto on top of newer OCCT objects, can
+    // produce invalid wasm at the linker output.
     let gen_dir = root.join("facade/generated");
     if gen_dir.is_dir() {
         let gen_sources: Vec<PathBuf> = std::fs::read_dir(&gen_dir)?
             .filter_map(Result::ok)
             .map(|e| e.path())
             .filter(|p| p.extension().is_some_and(|e| e == "cpp"))
+            .filter(|p| {
+                p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| !n.starts_with("wasi_"))
+            })
             .collect();
         sources.extend(gen_sources);
     }

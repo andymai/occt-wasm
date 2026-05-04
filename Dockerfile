@@ -26,9 +26,12 @@ WORKDIR /workspace
 COPY .cargo/ .cargo/
 COPY Cargo.toml Cargo.lock* ./
 COPY xtask/Cargo.toml xtask/
-RUN mkdir -p xtask/src && echo 'fn main() {}' > xtask/src/main.rs \
+COPY crate/Cargo.toml crate/
+RUN mkdir -p xtask/src crate/src \
+    && echo 'fn main() {}' > xtask/src/main.rs \
+    && echo 'pub fn placeholder() {}' > crate/src/lib.rs \
     && cargo build --release 2>/dev/null || true \
-    && rm -rf xtask/src
+    && rm -rf xtask/src crate/src
 
 # --- Layer 4: Node dependency cache (changes only when package.json changes) ---
 COPY package.json package-lock.json* ./
@@ -68,8 +71,12 @@ RUN --mount=type=cache,target=/cache/ccache \
     && cmake --build . --parallel \
     && echo "OCCT build complete: $(ls -1 lin32/clang/lib/*.a 2>/dev/null | wc -l) static libs"
 
-# --- Layer 7: xtask source (changes when build logic changes) ---
+# --- Layer 7: xtask + crate source (changes when build logic changes) ---
+# crate/ is a workspace member; cargo parses all member manifests even for `-p xtask`,
+# so its src must be present (a stub lib.rs would also work, but keeping real source
+# avoids a second placeholder dance).
 COPY xtask/ xtask/
+COPY crate/ crate/
 RUN cargo build --release -p xtask
 
 # --- Layer 8: Facade + scripts + TS (changes frequently) ---
