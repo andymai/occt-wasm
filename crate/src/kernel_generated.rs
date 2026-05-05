@@ -47,11 +47,11 @@ pub(crate) struct GeneratedFuncs {
     fn_fillet: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_chamfer: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_chamfer_dist_angle: TypedFunc<(u32, i32, i32, f64, f64), u32>,
-    fn_shell: TypedFunc<(u32, i32, i32, f64), u32>,
+    fn_shell: TypedFunc<(u32, i32, i32, f64, f64), u32>,
     fn_offset: TypedFunc<(u32, f64, f64), u32>,
     fn_draft: TypedFunc<(u32, u32, f64, f64, f64, f64), u32>,
-    fn_thicken: TypedFunc<(u32, f64), u32>,
-    fn_defeature: TypedFunc<(u32, i32, i32), u32>,
+    fn_thicken: TypedFunc<(u32, f64, f64), u32>,
+    fn_defeature: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_reverse_shape: TypedFunc<(u32,), u32>,
     fn_simplify: TypedFunc<(u32,), u32>,
     fn_fillet_variable: TypedFunc<(u32, u32, f64, f64), u32>,
@@ -110,7 +110,7 @@ pub(crate) struct GeneratedFuncs {
     fn_downcast: TypedFunc<(u32, i32, i32), u32>,
     fn_adjacent_faces: TypedFunc<(u32, u32), i32>,
     fn_shared_edges: TypedFunc<(u32, u32), i32>,
-    fn_get_bounding_box: TypedFunc<(u32,), i32>,
+    fn_get_bounding_box: TypedFunc<(u32, i32), i32>,
     fn_get_volume: TypedFunc<(u32,), f64>,
     fn_get_surface_area: TypedFunc<(u32,), f64>,
     fn_get_length: TypedFunc<(u32,), f64>,
@@ -175,9 +175,9 @@ pub(crate) struct GeneratedFuncs {
     fn_scale_with_history: TypedFunc<(u32, f64, f64, f64, f64, i32, i32, i32), i32>,
     fn_intersect_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
     fn_chamfer_with_history: TypedFunc<(u32, i32, i32, f64, i32, i32, i32), i32>,
-    fn_shell_with_history: TypedFunc<(u32, i32, i32, f64, i32, i32, i32), i32>,
-    fn_offset_with_history: TypedFunc<(u32, f64, i32, i32, i32), i32>,
-    fn_thicken_with_history: TypedFunc<(u32, f64, i32, i32, i32), i32>,
+    fn_shell_with_history: TypedFunc<(u32, i32, i32, f64, f64, i32, i32, i32), i32>,
+    fn_offset_with_history: TypedFunc<(u32, f64, f64, i32, i32, i32), i32>,
+    fn_thicken_with_history: TypedFunc<(u32, f64, f64, i32, i32, i32), i32>,
     fn_tessellate: TypedFunc<(u32, f64, f64), i32>,
     fn_mesh_shape: TypedFunc<(u32, f64, f64), i32>,
     fn_mesh_batch: TypedFunc<(i32, i32, f64, f64), i32>,
@@ -799,6 +799,7 @@ impl crate::kernel::OcctKernel {
         solid_id: ShapeHandle,
         face_ids: &[ShapeHandle],
         thickness: f64,
+        tolerance: f64,
     ) -> OcctResult<ShapeHandle> {
         let face_ids_bytes: Vec<u8> = face_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let face_ids_ptr = self.write_bytes(&face_ids_bytes)?;
@@ -810,6 +811,7 @@ impl crate::kernel::OcctKernel {
                 face_ids_ptr as i32,
                 face_ids_len as i32,
                 thickness,
+                tolerance,
             ),
         );
         self.free_bytes(face_ids_ptr)?;
@@ -858,11 +860,16 @@ impl crate::kernel::OcctKernel {
         Ok(ShapeHandle(result))
     }
 
-    pub fn thicken(&mut self, shape_id: ShapeHandle, thickness: f64) -> OcctResult<ShapeHandle> {
+    pub fn thicken(
+        &mut self,
+        shape_id: ShapeHandle,
+        thickness: f64,
+        tolerance: f64,
+    ) -> OcctResult<ShapeHandle> {
         let result = self
             .generated
             .fn_thicken
-            .call(&mut self.store, (shape_id.0, thickness))?;
+            .call(&mut self.store, (shape_id.0, thickness, tolerance))?;
         self.check_error("thicken")?;
         if result == 0 {
             return Err(self.read_last_error("thicken"));
@@ -874,13 +881,19 @@ impl crate::kernel::OcctKernel {
         &mut self,
         shape_id: ShapeHandle,
         face_ids: &[ShapeHandle],
+        tolerance: f64,
     ) -> OcctResult<ShapeHandle> {
         let face_ids_bytes: Vec<u8> = face_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let face_ids_ptr = self.write_bytes(&face_ids_bytes)?;
         let face_ids_len = face_ids.len() as u32;
         let result = self.generated.fn_defeature.call(
             &mut self.store,
-            (shape_id.0, face_ids_ptr as i32, face_ids_len as i32),
+            (
+                shape_id.0,
+                face_ids_ptr as i32,
+                face_ids_len as i32,
+                tolerance,
+            ),
         );
         self.free_bytes(face_ids_ptr)?;
         let result = result?;
@@ -2013,11 +2026,15 @@ impl crate::kernel::OcctKernel {
         self.read_vec_u32_result()
     }
 
-    pub fn get_bounding_box(&mut self, id: ShapeHandle) -> OcctResult<BoundingBox> {
+    pub fn get_bounding_box(
+        &mut self,
+        id: ShapeHandle,
+        use_triangulation: bool,
+    ) -> OcctResult<BoundingBox> {
         let status = self
             .generated
             .fn_get_bounding_box
-            .call(&mut self.store, (id.0,))?;
+            .call(&mut self.store, (id.0, i32::from(use_triangulation)))?;
         if status < 0 {
             return Err(self.read_last_error("get_bounding_box"));
         }
@@ -3147,6 +3164,7 @@ impl crate::kernel::OcctKernel {
         solid_id: ShapeHandle,
         face_ids: &[ShapeHandle],
         thickness: f64,
+        tolerance: f64,
         input_face_hashes: &[i32],
         hash_upper_bound: i32,
     ) -> OcctResult<EvolutionData> {
@@ -3172,6 +3190,7 @@ impl crate::kernel::OcctKernel {
                 face_ids_ptr as i32,
                 face_ids_len as i32,
                 thickness,
+                tolerance,
                 input_face_hashes_ptr as i32,
                 input_face_hashes_len as i32,
                 hash_upper_bound,
@@ -3190,6 +3209,7 @@ impl crate::kernel::OcctKernel {
         &mut self,
         solid_id: ShapeHandle,
         distance: f64,
+        tolerance: f64,
         input_face_hashes: &[i32],
         hash_upper_bound: i32,
     ) -> OcctResult<EvolutionData> {
@@ -3204,6 +3224,7 @@ impl crate::kernel::OcctKernel {
             (
                 solid_id.0,
                 distance,
+                tolerance,
                 input_face_hashes_ptr as i32,
                 input_face_hashes_len as i32,
                 hash_upper_bound,
@@ -3221,6 +3242,7 @@ impl crate::kernel::OcctKernel {
         &mut self,
         shape_id: ShapeHandle,
         thickness: f64,
+        tolerance: f64,
         input_face_hashes: &[i32],
         hash_upper_bound: i32,
     ) -> OcctResult<EvolutionData> {
@@ -3235,6 +3257,7 @@ impl crate::kernel::OcctKernel {
             (
                 shape_id.0,
                 thickness,
+                tolerance,
                 input_face_hashes_ptr as i32,
                 input_face_hashes_len as i32,
                 hash_upper_bound,

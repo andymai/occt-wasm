@@ -154,7 +154,7 @@ describe("OcctKernel", () => {
     describe("query", () => {
         it("computes bounding box of a box", () => {
             const box = kernel.makeBox(10, 20, 30);
-            const bbox = kernel.getBoundingBox(box);
+            const bbox = kernel.getBoundingBox(box, true);
 
             expect(bbox.xmin).toBeCloseTo(0, 5);
             expect(bbox.ymin).toBeCloseTo(0, 5);

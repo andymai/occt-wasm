@@ -97,7 +97,7 @@ describe("primitives (extended)", () => {
         expect(kernel.getShapeType(id)).toBe("solid");
         // 10 x 10 x 10 = 1000
         expect(kernel.getVolume(id)).toBeCloseTo(1000, 0);
-        const bbox = kernel.getBoundingBox(id);
+        const bbox = kernel.getBoundingBox(id, true);
         expect(bbox.xmin).toBeCloseTo(1, 5);
         expect(bbox.ymin).toBeCloseTo(2, 5);
         expect(bbox.zmin).toBeCloseTo(3, 5);
@@ -214,7 +214,7 @@ describe("modeling (extended)", () => {
         // Pick just the first face to remove (open face for the shell)
         const faceVec = new Module.VectorUint32();
         faceVec.push_back(faces.get(0));
-        const result = kernel.shell(box, faceVec, 2.0);
+        const result = kernel.shell(box, faceVec, 2.0, 1e-6);
         expect(result).toBeGreaterThan(0);
         // A hollow shell has less volume than the original solid
         expect(kernel.getVolume(result)).toBeLessThan(kernel.getVolume(box));
@@ -488,7 +488,7 @@ describe("transforms (extended)", () => {
         for (const v of values) mat.push_back(v);
         const result = kernel.transform(box, mat);
         expect(result).toBeGreaterThan(0);
-        const bbox = kernel.getBoundingBox(result);
+        const bbox = kernel.getBoundingBox(result, true);
         expect(bbox.xmin).toBeCloseTo(50, 1);
         mat.delete();
     });
@@ -1023,7 +1023,7 @@ describe("projection (HLR)", () => {
 describe("modifiers", () => {
     it("thicken gives a surface shell thickness (face → solid)", () => {
         const face = makeSquareFace(10);
-        const result = kernel.thicken(face, 2.0);
+        const result = kernel.thicken(face, 2.0, 1e-6);
         expect(result).toBeGreaterThan(0);
         expect(kernel.getVolume(result)).toBeGreaterThan(0);
     });
@@ -1039,7 +1039,7 @@ describe("modifiers", () => {
         // Just try to defeature one face
         faceVec.push_back(allFaces.get(0));
         try {
-            const result = kernel.defeature(withBoss, faceVec);
+            const result = kernel.defeature(withBoss, faceVec, 1e-6);
             expect(result).toBeGreaterThanOrEqual(0);
         } catch {
             // defeature is fragile on OCCT V8 RC4 — just verify no WASM abort
@@ -1166,8 +1166,8 @@ describe("batch operations", () => {
         expect(results.size()).toBe(2);
         const id0 = results.get(0);
         const id1 = results.get(1);
-        const bbox0 = kernel.getBoundingBox(id0);
-        const bbox1 = kernel.getBoundingBox(id1);
+        const bbox0 = kernel.getBoundingBox(id0, true);
+        const bbox1 = kernel.getBoundingBox(id1, true);
         expect(bbox0.xmin).toBeCloseTo(10, 1);
         expect(bbox1.ymin).toBeCloseTo(20, 1);
         results.delete();

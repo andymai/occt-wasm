@@ -156,7 +156,8 @@ class OcctKernel {
     uint32_t chamfer(uint32_t solidId, std::vector<uint32_t> edgeIds, double distance);
     uint32_t chamferDistAngle(uint32_t solidId, std::vector<uint32_t> edgeIds, double distance,
                               double angleDeg);
-    uint32_t shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness);
+    uint32_t shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness,
+                   double tolerance);
     uint32_t offset(uint32_t solidId, double distance, double tolerance);
     uint32_t draft(uint32_t shapeId, uint32_t faceId, double angleRad, double dx, double dy,
                    double dz);
@@ -265,7 +266,7 @@ class OcctKernel {
     uint32_t fromBREP(const std::string& data);
 
     // --- Query / Measure ---
-    BBoxData getBoundingBox(uint32_t id);
+    BBoxData getBoundingBox(uint32_t id, bool useTriangulation);
     double getVolume(uint32_t id);
     double getSurfaceArea(uint32_t id);
     double getLength(uint32_t id);
@@ -298,8 +299,8 @@ class OcctKernel {
     uint32_t approximatePoints(std::vector<double> flatPoints, double tolerance);
 
     // --- Modifier (expanded) ---
-    uint32_t thicken(uint32_t shapeId, double thickness);
-    uint32_t defeature(uint32_t shapeId, std::vector<uint32_t> faceIds);
+    uint32_t thicken(uint32_t shapeId, double thickness, double tolerance);
+    uint32_t defeature(uint32_t shapeId, std::vector<uint32_t> faceIds, double tolerance);
     uint32_t reverseShape(uint32_t id);
     uint32_t simplify(uint32_t id);
     uint32_t filletVariable(uint32_t solidId, uint32_t edgeId, double startRadius,
@@ -329,11 +330,11 @@ class OcctKernel {
                                      double distance, std::vector<int> inputFaceHashes,
                                      int hashUpperBound);
     EvolutionData shellWithHistory(uint32_t solidId, std::vector<uint32_t> faceIds,
-                                   double thickness, std::vector<int> inputFaceHashes,
-                                   int hashUpperBound);
-    EvolutionData offsetWithHistory(uint32_t solidId, double distance,
+                                   double thickness, double tolerance,
+                                   std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData offsetWithHistory(uint32_t solidId, double distance, double tolerance,
                                     std::vector<int> inputFaceHashes, int hashUpperBound);
-    EvolutionData thickenWithHistory(uint32_t shapeId, double thickness,
+    EvolutionData thickenWithHistory(uint32_t shapeId, double thickness, double tolerance,
                                      std::vector<int> inputFaceHashes, int hashUpperBound);
 
     // --- Projection (HLR) ---

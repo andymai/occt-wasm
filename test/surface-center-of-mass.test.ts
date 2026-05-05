@@ -50,7 +50,7 @@ describe("getSurfaceCenterOfMass", () => {
         let zMaxFaceId = -1;
         for (let i = 0; i < faces.size(); i++) {
             const fid = faces.get(i);
-            const bb = kernel.getBoundingBox(fid);
+            const bb = kernel.getBoundingBox(fid, true);
             if (bb.zmin > 9.9 && bb.zmax < 10.1) {
                 zMaxFaceId = fid;
                 break;

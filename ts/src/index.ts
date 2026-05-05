@@ -225,7 +225,7 @@ export interface OcctRawKernel {
     fillet(solidId: number, edgeIds: EmbindVectorU32, radius: number): number;
     chamfer(solidId: number, edgeIds: EmbindVectorU32, distance: number): number;
     chamferDistAngle(solidId: number, edgeIds: EmbindVectorU32, distance: number, angleDeg: number): number;
-    shell(solidId: number, faceIds: EmbindVectorU32, thickness: number): number;
+    shell(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number): number;
     offset(solidId: number, distance: number, tolerance: number): number;
     draft(shapeId: number, faceId: number, angle: number, dx: number, dy: number, dz: number): number;
 
@@ -318,7 +318,7 @@ export interface OcctRawKernel {
     fromBREP(data: string): number;
 
     // Query
-    getBoundingBox(id: number): BoundingBox;
+    getBoundingBox(id: number, useTriangulation: boolean): BoundingBox;
     getVolume(id: number): number;
     getSurfaceArea(id: number): number;
     getLength(id: number): number;
@@ -357,8 +357,8 @@ export interface OcctRawKernel {
     projectEdges(shapeId: number, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, xx: number, xy: number, xz: number, hasXAxis: boolean): RawProjectionData;
 
     // Modifiers
-    thicken(shapeId: number, thickness: number): number;
-    defeature(shapeId: number, faceIds: EmbindVectorU32): number;
+    thicken(shapeId: number, thickness: number, tolerance: number): number;
+    defeature(shapeId: number, faceIds: EmbindVectorU32, tolerance: number): number;
     reverseShape(id: number): number;
     simplify(id: number): number;
     filletVariable(solidId: number, edgeId: number, startRadius: number, endRadius: number): number;
@@ -374,9 +374,9 @@ export interface OcctRawKernel {
     scaleWithHistory(id: number, cx: number, cy: number, cz: number, factor: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     intersectWithHistory(a: number, b: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     chamferWithHistory(solidId: number, edgeIds: EmbindVectorU32, distance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
-    shellWithHistory(solidId: number, faceIds: EmbindVectorU32, thickness: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
-    offsetWithHistory(solidId: number, distance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
-    thickenWithHistory(shapeId: number, thickness: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    shellWithHistory(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    offsetWithHistory(solidId: number, distance: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    thickenWithHistory(shapeId: number, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
 
     // Null shape
     makeNullShape(): number;
@@ -738,10 +738,20 @@ export class OcctKernel {
         });
     }
 
-    shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number): ShapeHandle {
+    /**
+     * Hollow a solid by removing the listed faces and offsetting remaining
+     * faces inward by `thickness`.
+     *
+     * @param tolerance - OCCT precision for the thick-solid reconstruction.
+     *     Use `1e-6` for precise shells (matches brepjs default); `1e-3` is a
+     *     coarser legacy value that survives more inputs but produces
+     *     different topology than brepjs.
+     */
+    shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number,
+          tolerance: number): ShapeHandle {
         return wrap("shell", () => {
             const vec = this.#makeVectorU32(facesToRemove);
-            try { return handle(this.#raw.shell(solid, vec, thickness)); }
+            try { return handle(this.#raw.shell(solid, vec, thickness, tolerance)); }
             finally { vec.delete(); }
         });
     }
@@ -1434,8 +1444,23 @@ export class OcctKernel {
     // Query / Measure
     // =======================================================================
 
-    getBoundingBox(shape: ShapeHandle): BoundingBox {
-        return wrap("getBoundingBox", () => this.#raw.getBoundingBox(shape));
+    /**
+     * Compute the axis-aligned bounding box of a shape.
+     *
+     * Uses `BRepBndLib::AddOptimal` for surface-precise bounds independent of
+     * tessellation state. The simpler `BRepBndLib::Add` falls back to BSpline
+     * pole hulls when triangulation is absent, which overshoots curved
+     * geometry by ~0.27·r for arcs of radius r — that was the source of the
+     * uniform 1.2 mm bounds shift versus brepjs in occt-wasm 2.0.
+     *
+     * @param useTriangulation - If `true`, use existing triangulation as the
+     *     starting bound and refine via surface analysis (faster). If `false`,
+     *     do the surface analysis from scratch (slower, but doesn't depend on
+     *     prior tessellation). Both modes produce tight bounds; brepjs's
+     *     `BRepBndLib.Add(shape, box, true)` corresponds to `true` here.
+     */
+    getBoundingBox(shape: ShapeHandle, useTriangulation: boolean): BoundingBox {
+        return wrap("getBoundingBox", () => this.#raw.getBoundingBox(shape, useTriangulation));
     }
 
     getVolume(shape: ShapeHandle): number {
@@ -1708,14 +1733,28 @@ export class OcctKernel {
     // Modifiers
     // =======================================================================
 
-    thicken(shape: ShapeHandle, thickness: number): ShapeHandle {
-        return wrap("thicken", () => handle(this.#raw.thicken(shape, thickness)));
+    /**
+     * Thicken a face/shell into a solid (or grow a solid uniformly).
+     *
+     * @param tolerance - OCCT precision for the offset reconstruction. Use
+     *     `1e-6` for precise thickening (matches brepjs default); `1e-3` is a
+     *     coarser legacy value.
+     */
+    thicken(shape: ShapeHandle, thickness: number, tolerance: number): ShapeHandle {
+        return wrap("thicken", () => handle(this.#raw.thicken(shape, thickness, tolerance)));
     }
 
-    defeature(shape: ShapeHandle, faces: ShapeHandle[]): ShapeHandle {
+    /**
+     * Remove faces from a solid by closing them off (zero-thickness shell).
+     *
+     * @param tolerance - OCCT precision for the reconstruction. Use `1e-6`
+     *     for precise feature removal (matches brepjs default); `1e-3` is a
+     *     coarser legacy value.
+     */
+    defeature(shape: ShapeHandle, faces: ShapeHandle[], tolerance: number): ShapeHandle {
         return wrap("defeature", () => {
             const vec = this.#makeVectorU32(faces);
-            try { return handle(this.#raw.defeature(shape, vec)); }
+            try { return handle(this.#raw.defeature(shape, vec, tolerance)); }
             finally { vec.delete(); }
         });
     }
@@ -1834,27 +1873,27 @@ export class OcctKernel {
         });
     }
 
-    shellWithHistory(solid: ShapeHandle, faces: ShapeHandle[], thickness: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+    shellWithHistory(solid: ShapeHandle, faces: ShapeHandle[], thickness: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("shellWithHistory", () => {
             const faceVec = this.#makeVectorU32(faces);
             const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.shellWithHistory(solid, faceVec, thickness, hashes, hashUpperBound)); }
+            try { return this.#extractEvolution(this.#raw.shellWithHistory(solid, faceVec, thickness, tolerance, hashes, hashUpperBound)); }
             finally { faceVec.delete(); hashes.delete(); }
         });
     }
 
-    offsetWithHistory(solid: ShapeHandle, distance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+    offsetWithHistory(solid: ShapeHandle, distance: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("offsetWithHistory", () => {
             const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.offsetWithHistory(solid, distance, hashes, hashUpperBound)); }
+            try { return this.#extractEvolution(this.#raw.offsetWithHistory(solid, distance, tolerance, hashes, hashUpperBound)); }
             finally { hashes.delete(); }
         });
     }
 
-    thickenWithHistory(shape: ShapeHandle, thickness: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+    thickenWithHistory(shape: ShapeHandle, thickness: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("thickenWithHistory", () => {
             const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.thickenWithHistory(shape, thickness, hashes, hashUpperBound)); }
+            try { return this.#extractEvolution(this.#raw.thickenWithHistory(shape, thickness, tolerance, hashes, hashUpperBound)); }
             finally { hashes.delete(); }
         });
     }
@@ -1962,7 +2001,7 @@ export class OcctKernel {
     /** Return a human-readable summary of a shape for debugging. */
     describe(shape: ShapeHandle): string {
         const type = this.getShapeType(shape);
-        const bbox = this.getBoundingBox(shape);
+        const bbox = this.getBoundingBox(shape, true);
         const dims = `[${(bbox.xmax - bbox.xmin).toFixed(2)} x ${(bbox.ymax - bbox.ymin).toFixed(2)} x ${(bbox.zmax - bbox.zmin).toFixed(2)}]`;
         const parts: string[] = [`${type} ${dims}`];
 

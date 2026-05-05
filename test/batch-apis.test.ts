@@ -244,7 +244,7 @@ describe("mirrorBatch", () => {
         const mirrored = result.get(0);
 
         // Check the bounding box is on the negative X side
-        const bbox = kernel.getBoundingBox(mirrored);
+        const bbox = kernel.getBoundingBox(mirrored, true);
         expect(bbox.xmax).toBeLessThanOrEqual(0);
         expect(bbox.xmin).toBeCloseTo(-6, 0);
 
