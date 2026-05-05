@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/andymai/occt-wasm/compare/v1.7.1...v2.0.0) (2026-05-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **facade:** expose ruled, tolerance, surfaceCenterOfMass for issue #90 parity ([#94](https://github.com/andymai/occt-wasm/issues/94))
+
+### Features
+
+* **facade:** expose ruled, tolerance, surfaceCenterOfMass for issue [#90](https://github.com/andymai/occt-wasm/issues/90) parity ([#94](https://github.com/andymai/occt-wasm/issues/94)) ([7be8725](https://github.com/andymai/occt-wasm/commit/7be8725e6f87e2ed8bbdfe02b73060ba446ecca4))
+* **ts:** expose raw module + kernel for third-party adapters ([#92](https://github.com/andymai/occt-wasm/issues/92)) ([98efd81](https://github.com/andymai/occt-wasm/commit/98efd8142936c7549440d0878f4f6f0024507709))
+
 ## [1.7.1](https://github.com/andymai/occt-wasm/compare/v1.7.0...v1.7.1) (2026-05-04)
 
 
