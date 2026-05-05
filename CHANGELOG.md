@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/andymai/occt-wasm/compare/v2.0.0...v3.0.0) (2026-05-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **facade:** close issue #90 parity gap — tolerance, AddOptimal bounds, shell sign ([#98](https://github.com/andymai/occt-wasm/issues/98))
+
+### Features
+
+* **facade:** close issue [#90](https://github.com/andymai/occt-wasm/issues/90) parity gap — tolerance, AddOptimal bounds, shell sign ([#98](https://github.com/andymai/occt-wasm/issues/98)) ([6fcf155](https://github.com/andymai/occt-wasm/commit/6fcf155bce52a2e0a97698fcc120b498c50e3f6e))
+
 ## [2.0.0](https://github.com/andymai/occt-wasm/compare/v1.7.1...v2.0.0) (2026-05-05)
 
 
