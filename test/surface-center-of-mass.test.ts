@@ -88,19 +88,57 @@ describe("getSurfaceCenterOfMass", () => {
         faces.delete();
     });
 
-    it("differs from getCenterOfMass (which is volume-based) when called on a face", () => {
-        // Sanity check: the two methods are not aliases. For a face,
-        // getCenterOfMass(face) returns volume CoM (often (0,0,0) for a 2D
-        // shape with zero volume), while getSurfaceCenterOfMass returns the
-        // area-weighted point on the face.
+    it("differs from getCenterOfMass (volume-based) when called on the same face", () => {
+        // The two methods are not aliases. getCenterOfMass uses
+        // BRepGProp::VolumeProperties (returns origin for a 2D face with zero
+        // volume); getSurfaceCenterOfMass uses BRepGProp::SurfaceProperties
+        // (returns the area-weighted point on the face).
         const box = kernel.makeBox(10, 10, 10);
         const faces = kernel.getSubShapes(box, "face");
         const fid = faces.get(0);
         const surfaceCom = vecToArray(kernel.getSurfaceCenterOfMass(fid));
-        // surfaceCom should be on the face (one coord pinned to 0 or 10,
-        // the other two near 5).
-        const onPlane = surfaceCom.filter((c) => Math.abs(c) < 0.01 || Math.abs(c - 10) < 0.01);
-        expect(onPlane.length).toBeGreaterThanOrEqual(1);
+        const volumeCom = vecToArray(kernel.getCenterOfMass(fid));
+        // Volume CoM of a face should be at (or very near) the origin since
+        // a face has zero volume — OCCT returns the default-constructed gp_Pnt.
+        expect(volumeCom[0]).toBeCloseTo(0, 6);
+        expect(volumeCom[1]).toBeCloseTo(0, 6);
+        expect(volumeCom[2]).toBeCloseTo(0, 6);
+        // Surface CoM should be on the face — far enough from origin that
+        // the divergence is unambiguous (face center is at (5, 5, 0) or similar).
+        const surfaceMagnitude = Math.hypot(surfaceCom[0]!, surfaceCom[1]!, surfaceCom[2]!);
+        expect(surfaceMagnitude).toBeGreaterThan(1);
         faces.delete();
+    });
+
+    it("loftWithVertices accepts ruled flag at position 3", () => {
+        // Regression for the breaking ABI change: ruled was inserted as the
+        // 3rd positional arg, before startVertexId/endVertexId. A caller that
+        // forgets to update would silently pass startVertex as ruled.
+        const wires = new Module.VectorUint32();
+        // Build two square wires at z=0 and z=10
+        const makeSquareWire = (z: number) => {
+            const e1 = kernel.makeLineEdge(0, 0, z, 5, 0, z);
+            const e2 = kernel.makeLineEdge(5, 0, z, 5, 5, z);
+            const e3 = kernel.makeLineEdge(5, 5, z, 0, 5, z);
+            const e4 = kernel.makeLineEdge(0, 5, z, 0, 0, z);
+            const ev = new Module.VectorUint32();
+            ev.push_back(e1); ev.push_back(e2); ev.push_back(e3); ev.push_back(e4);
+            const wire = kernel.makeWire(ev);
+            ev.delete();
+            return wire;
+        };
+        wires.push_back(makeSquareWire(0));
+        wires.push_back(makeSquareWire(10));
+        // ruled=true, no start/end vertex
+        const ruledLoft = kernel.loftWithVertices(wires, true, true, 0, 0);
+        const smoothLoft = kernel.loftWithVertices(wires, true, false, 0, 0);
+        expect(ruledLoft).toBeGreaterThan(0);
+        expect(smoothLoft).toBeGreaterThan(0);
+        // Both succeed and produce non-zero volume; their geometry differs.
+        // (Topology comparison is brittle; existence + non-degeneracy is the
+        // contract we care about for the param-plumbing regression.)
+        expect(kernel.getVolume(ruledLoft)).toBeGreaterThan(0);
+        expect(kernel.getVolume(smoothLoft)).toBeGreaterThan(0);
+        wires.delete();
     });
 });
