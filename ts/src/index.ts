@@ -75,11 +75,25 @@ import type {
 import { JoinType, OcctError, TransitionMode } from "./types.js";
 
 // ---------------------------------------------------------------------------
-// Internal Embind types
+// Raw Embind types
+//
+// These describe the WASM-level surface that sits beneath the public
+// `OcctKernel` class. They're exposed (via `getRawModule()` / `getRawKernel()`)
+// so that integrators — most notably brepjs's `OcctWasmAdapter` — can pair
+// the public class with adapters that take the raw module + Embind kernel
+// directly, without losing TypeScript types or bypassing `OcctKernel.init()`.
 // ---------------------------------------------------------------------------
 
-interface EmscriptenModule {
-    OcctKernel: new () => RawKernel;
+/**
+ * The Emscripten module exposed by `occt-wasm.js`. Provides Embind class
+ * constructors, std::vector wrappers, and typed-array views into WASM
+ * linear memory.
+ *
+ * Returned by {@link OcctKernel.getRawModule}. Structurally compatible with
+ * brepjs's `OcctWasmModule` interface.
+ */
+export interface OcctWasmModule {
+    OcctKernel: new () => OcctRawKernel;
     VectorUint32: new () => EmbindVectorU32;
     VectorDouble: new () => EmbindVectorF64;
     VectorInt: new () => EmbindVectorI32;
@@ -168,7 +182,18 @@ interface EmbindVectorI32 {
     delete(): void;
 }
 
-interface RawKernel {
+/**
+ * The raw Embind kernel — direct mirror of the C++ `OcctKernel` class
+ * compiled to WASM. Operates on `u32` arena handles instead of branded
+ * {@link ShapeHandle} values.
+ *
+ * Returned by {@link OcctKernel.getRawKernel}. Structurally compatible with
+ * brepjs's `OcctKernelWasm` interface. Prefer the public `OcctKernel` class
+ * unless you specifically need to hand the raw kernel to a third-party
+ * adapter — calling raw methods bypasses `OcctError` wrapping and the branded
+ * handle types.
+ */
+export interface OcctRawKernel {
     // Arena
     release(id: number): void;
     releaseAll(): void;
@@ -445,7 +470,7 @@ function vecToHandles(vec: EmbindVectorU32): ShapeHandle[] {
  * garbage-collected without being disposed. Prefer `using` or explicit
  * `kernel[Symbol.dispose]()` — the FinalizationRegistry is a last resort.
  */
-const kernelRegistry = new FinalizationRegistry<RawKernel>((raw) => {
+const kernelRegistry = new FinalizationRegistry<OcctRawKernel>((raw) => {
     try {
         raw.releaseAll();
         raw.delete();
@@ -467,10 +492,10 @@ const kernelRegistry = new FinalizationRegistry<RawKernel>((raw) => {
  * instances, but deterministic disposal is strongly preferred.
  */
 export class OcctKernel {
-    readonly #raw: RawKernel;
-    readonly #module: EmscriptenModule;
+    readonly #raw: OcctRawKernel;
+    readonly #module: OcctWasmModule;
 
-    private constructor(module: EmscriptenModule) {
+    private constructor(module: OcctWasmModule) {
         this.#module = module;
         this.#raw = new module.OcctKernel();
         kernelRegistry.register(this, this.#raw, this);
@@ -497,7 +522,7 @@ export class OcctKernel {
         const imported = await import(/* webpackIgnore: true */ "./occt-wasm.js");
         const createModule = imported.default as (
             opts: Record<string, unknown>,
-        ) => Promise<EmscriptenModule>;
+        ) => Promise<OcctWasmModule>;
 
         const moduleOpts: Record<string, unknown> = {};
 
@@ -1928,6 +1953,38 @@ export class OcctKernel {
         kernelRegistry.unregister(this);
         this.#raw.releaseAll();
         this.#raw.delete();
+    }
+
+    // =======================================================================
+    // Raw module / kernel access (for third-party adapters)
+    // =======================================================================
+
+    /**
+     * Return the underlying Emscripten module. Intended for integrators who
+     * need to hand the raw module to a third-party adapter (e.g.
+     * `brepjs.OcctWasmAdapter`) without bypassing {@link OcctKernel.init}.
+     *
+     * The module is owned by this `OcctKernel` instance — disposing the
+     * kernel does not invalidate the module reference, but the raw kernel
+     * obtained via {@link getRawKernel} *will* be deleted.
+     */
+    getRawModule(): OcctWasmModule {
+        return this.#module;
+    }
+
+    /**
+     * Return the underlying raw Embind kernel. Intended for integrators who
+     * need to hand the raw kernel to a third-party adapter (e.g.
+     * `brepjs.OcctWasmAdapter`).
+     *
+     * Lifecycle: the raw kernel is owned by this `OcctKernel`. Calling
+     * `kernel[Symbol.dispose]()` (or letting the FinalizationRegistry collect
+     * the wrapper) will `releaseAll()` and `delete()` the raw kernel — so the
+     * adapter must not outlive the `OcctKernel` it was constructed from.
+     * Do not call `delete()` or `releaseAll()` on the raw kernel directly.
+     */
+    getRawKernel(): OcctRawKernel {
+        return this.#raw;
     }
 
     // =======================================================================
