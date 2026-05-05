@@ -57,7 +57,7 @@ try {
     // --- Measurements ---
     const vol = kernel.getVolume(final);
     const area = kernel.getSurfaceArea(final);
-    const bbox = kernel.getBoundingBox(final);
+    const bbox = kernel.getBoundingBox(final, true);
 
     console.log(`\nResult:`);
     console.log(`  Volume:       ${vol.toFixed(2)} mm^3`);

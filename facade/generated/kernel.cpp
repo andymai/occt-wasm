@@ -593,14 +593,14 @@ uint32_t OcctKernel::chamferDistAngle(uint32_t solidId, std::vector<uint32_t> ed
     }
 }
 
-uint32_t OcctKernel::shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness) {
+uint32_t OcctKernel::shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness, double tolerance) {
     try {
         NCollection_List<TopoDS_Shape> facesToRemove;
         for (uint32_t fid : faceIds) {
             facesToRemove.Append(get(fid));
         }
         BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(get(solidId), facesToRemove, thickness, 1e-3);
+        maker.MakeThickSolidByJoin(get(solidId), facesToRemove, -thickness, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("shell: operation failed");
@@ -640,12 +640,12 @@ uint32_t OcctKernel::draft(uint32_t shapeId, uint32_t faceId, double angleRad, d
     }
 }
 
-uint32_t OcctKernel::thicken(uint32_t shapeId, double thickness) {
+uint32_t OcctKernel::thicken(uint32_t shapeId, double thickness, double tolerance) {
     try {
         const auto& shape = get(shapeId);
         if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
             BRepOffset_MakeOffset offsetMaker;
-            offsetMaker.Initialize(shape, thickness, 1e-3, BRepOffset_Skin, false, false, GeomAbs_Arc, true);
+            offsetMaker.Initialize(shape, thickness, tolerance, BRepOffset_Skin, false, false, GeomAbs_Arc, true);
             offsetMaker.MakeOffsetShape();
             if (!offsetMaker.IsDone()) {
                 throw std::runtime_error("thicken: offset operation failed");
@@ -654,7 +654,7 @@ uint32_t OcctKernel::thicken(uint32_t shapeId, double thickness) {
         }
         NCollection_List<TopoDS_Shape> emptyList;
         BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(shape, emptyList, thickness, 1e-3);
+        maker.MakeThickSolidByJoin(shape, emptyList, thickness, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("thicken: operation failed");
@@ -665,14 +665,14 @@ uint32_t OcctKernel::thicken(uint32_t shapeId, double thickness) {
     }
 }
 
-uint32_t OcctKernel::defeature(uint32_t shapeId, std::vector<uint32_t> faceIds) {
+uint32_t OcctKernel::defeature(uint32_t shapeId, std::vector<uint32_t> faceIds, double tolerance) {
     try {
         NCollection_List<TopoDS_Shape> facesToRemove;
         for (uint32_t fid : faceIds) {
             facesToRemove.Append(get(fid));
         }
         BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(get(shapeId), facesToRemove, 0.0, 1e-3);
+        maker.MakeThickSolidByJoin(get(shapeId), facesToRemove, 0.0, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("defeature: operation failed");
@@ -1737,11 +1737,11 @@ std::vector<uint32_t> OcctKernel::sharedEdges(uint32_t faceA, uint32_t faceB) {
 
 // === query ===
 
-BBoxData OcctKernel::getBoundingBox(uint32_t id) {
+BBoxData OcctKernel::getBoundingBox(uint32_t id, bool useTriangulation) {
     try {
         const auto& shape = get(id);
         Bnd_Box box;
-        BRepBndLib::Add(shape, box);
+        BRepBndLib::AddOptimal(shape, box, useTriangulation, false);
         if (box.IsVoid()) {
             throw std::runtime_error("getBoundingBox: shape has no geometry");
         }
@@ -2832,7 +2832,7 @@ EvolutionData OcctKernel::chamferWithHistory(uint32_t solidId, std::vector<uint3
     }
 }
 
-EvolutionData OcctKernel::shellWithHistory(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness, std::vector<int> inputFaceHashes, int hashUpperBound) {
+EvolutionData OcctKernel::shellWithHistory(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness, double tolerance, std::vector<int> inputFaceHashes, int hashUpperBound) {
     try {
         const auto& solid = get(solidId);
         NCollection_List<TopoDS_Shape> facesToRemove;
@@ -2840,7 +2840,7 @@ EvolutionData OcctKernel::shellWithHistory(uint32_t solidId, std::vector<uint32_
             facesToRemove.Append(get(fid));
         }
         BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(solid, facesToRemove, thickness, 1e-3);
+        maker.MakeThickSolidByJoin(solid, facesToRemove, -thickness, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("shellWithHistory: operation failed");
@@ -2852,11 +2852,11 @@ EvolutionData OcctKernel::shellWithHistory(uint32_t solidId, std::vector<uint32_
     }
 }
 
-EvolutionData OcctKernel::offsetWithHistory(uint32_t solidId, double distance, std::vector<int> inputFaceHashes, int hashUpperBound) {
+EvolutionData OcctKernel::offsetWithHistory(uint32_t solidId, double distance, double tolerance, std::vector<int> inputFaceHashes, int hashUpperBound) {
     try {
         const auto& solid = get(solidId);
         BRepOffsetAPI_MakeOffsetShape maker;
-        maker.PerformByJoin(solid, distance, 1e-3);
+        maker.PerformByJoin(solid, distance, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("offsetWithHistory: operation failed");
@@ -2868,7 +2868,7 @@ EvolutionData OcctKernel::offsetWithHistory(uint32_t solidId, double distance, s
     }
 }
 
-EvolutionData OcctKernel::thickenWithHistory(uint32_t shapeId, double thickness, std::vector<int> inputFaceHashes, int hashUpperBound) {
+EvolutionData OcctKernel::thickenWithHistory(uint32_t shapeId, double thickness, double tolerance, std::vector<int> inputFaceHashes, int hashUpperBound) {
     try {
         const auto& shape = get(shapeId);
         
@@ -2876,7 +2876,7 @@ EvolutionData OcctKernel::thickenWithHistory(uint32_t shapeId, double thickness,
         // hollowing)
         if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
             BRepOffset_MakeOffset offsetMaker;
-            offsetMaker.Initialize(shape, thickness, 1e-3, BRepOffset_Skin, false, false,
+            offsetMaker.Initialize(shape, thickness, tolerance, BRepOffset_Skin, false, false,
                                    GeomAbs_Arc, true);
             offsetMaker.MakeOffsetShape();
             if (!offsetMaker.IsDone()) {
@@ -2891,7 +2891,7 @@ EvolutionData OcctKernel::thickenWithHistory(uint32_t shapeId, double thickness,
         
         NCollection_List<TopoDS_Shape> emptyList;
         BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(shape, emptyList, thickness, 1e-3);
+        maker.MakeThickSolidByJoin(shape, emptyList, thickness, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("thickenWithHistory: operation failed");

@@ -96,7 +96,7 @@ fn bounding_box() {
         return;
     };
     let shape = kernel.make_box(10.0, 20.0, 30.0).unwrap();
-    let bbox = kernel.get_bounding_box(shape).unwrap();
+    let bbox = kernel.get_bounding_box(shape, true).unwrap();
     assert!((bbox.min.x).abs() < 0.01);
     assert!((bbox.min.y).abs() < 0.01);
     assert!((bbox.min.z).abs() < 0.01);

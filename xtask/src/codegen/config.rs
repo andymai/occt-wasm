@@ -449,17 +449,24 @@ return store(maker.Shape());",
         kind: MethodKind::CustomBody,
         params: &[
             FacadeParam::ShapeId("solidId"), FacadeParam::VectorShapeIds("faceIds"),
-            FacadeParam::Double("thickness"),
+            FacadeParam::Double("thickness"), FacadeParam::Double("tolerance"),
         ],
         occt_class: "",
         ctor_args: "",
+        // OCCT's MakeThickSolidByJoin offset sign selects which side of the
+        // original surface the walls grow on: positive thickens outward
+        // (bounding box grows by `thickness` on every open direction),
+        // negative hollows inward (bounding box preserved). We negate so
+        // `shell(solid, faces, thickness)` reads as "hollow `solid` inward by
+        // `thickness`" — the conventional CAD interpretation, matching the
+        // OCCT tutorial's `MakeThickSolidByJoin(body, faces, -thickness/50, ...)`.
         setup_code: "\
 NCollection_List<TopoDS_Shape> facesToRemove;
 for (uint32_t fid : faceIds) {
     facesToRemove.Append(get(fid));
 }
 BRepOffsetAPI_MakeThickSolid maker;
-maker.MakeThickSolidByJoin(get(solidId), facesToRemove, thickness, 1e-3);
+maker.MakeThickSolidByJoin(get(solidId), facesToRemove, -thickness, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"shell: operation failed\");
@@ -517,14 +524,17 @@ return store(maker.Shape());",
     MethodSpec {
         name: "thicken",
         kind: MethodKind::CustomBody,
-        params: &[FacadeParam::ShapeId("shapeId"), FacadeParam::Double("thickness")],
+        params: &[
+            FacadeParam::ShapeId("shapeId"), FacadeParam::Double("thickness"),
+            FacadeParam::Double("tolerance"),
+        ],
         occt_class: "",
         ctor_args: "",
         setup_code: "\
 const auto& shape = get(shapeId);
 if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
     BRepOffset_MakeOffset offsetMaker;
-    offsetMaker.Initialize(shape, thickness, 1e-3, BRepOffset_Skin, false, false, GeomAbs_Arc, true);
+    offsetMaker.Initialize(shape, thickness, tolerance, BRepOffset_Skin, false, false, GeomAbs_Arc, true);
     offsetMaker.MakeOffsetShape();
     if (!offsetMaker.IsDone()) {
         throw std::runtime_error(\"thicken: offset operation failed\");
@@ -533,7 +543,7 @@ if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
 }
 NCollection_List<TopoDS_Shape> emptyList;
 BRepOffsetAPI_MakeThickSolid maker;
-maker.MakeThickSolidByJoin(shape, emptyList, thickness, 1e-3);
+maker.MakeThickSolidByJoin(shape, emptyList, thickness, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"thicken: operation failed\");
@@ -550,7 +560,10 @@ return store(maker.Shape());",
     MethodSpec {
         name: "defeature",
         kind: MethodKind::CustomBody,
-        params: &[FacadeParam::ShapeId("shapeId"), FacadeParam::VectorShapeIds("faceIds")],
+        params: &[
+            FacadeParam::ShapeId("shapeId"), FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::Double("tolerance"),
+        ],
         occt_class: "",
         ctor_args: "",
         setup_code: "\
@@ -559,7 +572,7 @@ for (uint32_t fid : faceIds) {
     facesToRemove.Append(get(fid));
 }
 BRepOffsetAPI_MakeThickSolid maker;
-maker.MakeThickSolidByJoin(get(shapeId), facesToRemove, 0.0, 1e-3);
+maker.MakeThickSolidByJoin(get(shapeId), facesToRemove, 0.0, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"defeature: operation failed\");
@@ -1926,13 +1939,17 @@ return result;",
     MethodSpec {
         name: "getBoundingBox",
         kind: MethodKind::CustomBody,
-        params: &[FacadeParam::ShapeId("id")],
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Bool("useTriangulation")],
         occt_class: "",
         ctor_args: "",
+        // AddOptimal gives surface-precise bounds independent of tessellation
+        // state (Add falls back to BSpline pole hulls without triangulation,
+        // overshooting curved geometry by ~0.27*r). useShapeTolerance=false
+        // matches brepjs's call surface.
         setup_code: "\
 const auto& shape = get(id);
 Bnd_Box box;
-BRepBndLib::Add(shape, box);
+BRepBndLib::AddOptimal(shape, box, useTriangulation, false);
 if (box.IsVoid()) {
     throw std::runtime_error(\"getBoundingBox: shape has no geometry\");
 }
@@ -3473,11 +3490,13 @@ return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);"
         kind: MethodKind::CustomBody,
         params: &[
             FacadeParam::ShapeId("solidId"), FacadeParam::VectorShapeIds("faceIds"),
-            FacadeParam::Double("thickness"),
+            FacadeParam::Double("thickness"), FacadeParam::Double("tolerance"),
             FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
         ],
         occt_class: "",
         ctor_args: "",
+        // Mirror `shell`: negate offset so positive `thickness` hollows
+        // inward (preserves bounds) instead of thickening outward.
         setup_code: "\
 const auto& solid = get(solidId);
 NCollection_List<TopoDS_Shape> facesToRemove;
@@ -3485,7 +3504,7 @@ for (uint32_t fid : faceIds) {
     facesToRemove.Append(get(fid));
 }
 BRepOffsetAPI_MakeThickSolid maker;
-maker.MakeThickSolidByJoin(solid, facesToRemove, thickness, 1e-3);
+maker.MakeThickSolidByJoin(solid, facesToRemove, -thickness, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"shellWithHistory: operation failed\");
@@ -3501,6 +3520,7 @@ return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);"
         kind: MethodKind::CustomBody,
         params: &[
             FacadeParam::ShapeId("solidId"), FacadeParam::Double("distance"),
+            FacadeParam::Double("tolerance"),
             FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
         ],
         occt_class: "",
@@ -3508,7 +3528,7 @@ return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);"
         setup_code: "\
 const auto& solid = get(solidId);
 BRepOffsetAPI_MakeOffsetShape maker;
-maker.PerformByJoin(solid, distance, 1e-3);
+maker.PerformByJoin(solid, distance, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"offsetWithHistory: operation failed\");
@@ -3524,6 +3544,7 @@ return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);"
         kind: MethodKind::CustomBody,
         params: &[
             FacadeParam::ShapeId("shapeId"), FacadeParam::Double("thickness"),
+            FacadeParam::Double("tolerance"),
             FacadeParam::VectorInt("inputFaceHashes"), FacadeParam::Int("hashUpperBound"),
         ],
         occt_class: "",
@@ -3535,7 +3556,7 @@ const auto& shape = get(shapeId);
 // hollowing)
 if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
     BRepOffset_MakeOffset offsetMaker;
-    offsetMaker.Initialize(shape, thickness, 1e-3, BRepOffset_Skin, false, false,
+    offsetMaker.Initialize(shape, thickness, tolerance, BRepOffset_Skin, false, false,
                            GeomAbs_Arc, true);
     offsetMaker.MakeOffsetShape();
     if (!offsetMaker.IsDone()) {
@@ -3550,7 +3571,7 @@ if (shape.ShapeType() == TopAbs_FACE || shape.ShapeType() == TopAbs_SHELL) {
 
 NCollection_List<TopoDS_Shape> emptyList;
 BRepOffsetAPI_MakeThickSolid maker;
-maker.MakeThickSolidByJoin(shape, emptyList, thickness, 1e-3);
+maker.MakeThickSolidByJoin(shape, emptyList, thickness, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"thickenWithHistory: operation failed\");

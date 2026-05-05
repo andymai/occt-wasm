@@ -136,7 +136,7 @@ describe("transforms", () => {
         const box = kernel.makeBox(10, 10, 10);
         const moved = kernel.translate(box, 100, 200, 300);
         expect(moved).toBeGreaterThan(0);
-        const bbox = kernel.getBoundingBox(moved);
+        const bbox = kernel.getBoundingBox(moved, true);
         expect(bbox.xmin).toBeCloseTo(100, 1);
         expect(bbox.ymin).toBeCloseTo(200, 1);
         expect(bbox.zmin).toBeCloseTo(300, 1);
@@ -162,7 +162,7 @@ describe("transforms", () => {
         const box = kernel.makeBox(10, 10, 10);
         const mirrored = kernel.mirror(box, 0, 0, 0, 1, 0, 0);
         expect(mirrored).toBeGreaterThan(0);
-        const bbox = kernel.getBoundingBox(mirrored);
+        const bbox = kernel.getBoundingBox(mirrored, true);
         expect(bbox.xmax).toBeCloseTo(0, 1);
         expect(bbox.xmin).toBeCloseTo(-10, 1);
     });

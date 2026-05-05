@@ -121,7 +121,7 @@ describe("invalid IDs", () => {
 
     it("getBoundingBox(99999) — bounding box of non-existent shape throws", () => {
         expectThrows(
-            () => kernel.getBoundingBox(BOGUS),
+            () => kernel.getBoundingBox(BOGUS, true),
             "getBoundingBox(bogus id)",
         );
     });
@@ -286,7 +286,7 @@ describe("degenerate geometry", () => {
         faceVec.push_back(faces.get(0)); // open one face
         let result: number | undefined;
         try {
-            result = kernel.shell(box, faceVec, 50); // thickness >> solid size
+            result = kernel.shell(box, faceVec, 50, 1e-6); // thickness >> solid size
         } catch {
             faceVec.delete();
             faces.delete();
@@ -525,7 +525,7 @@ describe("type mismatches", () => {
         const faceVec = new Module.VectorUint32();
         try {
             expectThrows(
-                () => kernel.shell(edge, faceVec, 1.0),
+                () => kernel.shell(edge, faceVec, 1.0, 1e-6),
                 "shell on edge",
             );
         } finally {
