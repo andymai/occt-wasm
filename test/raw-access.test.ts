@@ -58,6 +58,20 @@ describe("OcctKernel raw access", () => {
         expect(kernel.getRawKernel()).toBe(kernel.getRawKernel());
     });
 
+    it("dispose is idempotent if the raw kernel is deleted externally first", async () => {
+        // An integrator following Embind teardown conventions might call
+        // raw.delete() when tearing down their adapter. The wrapper's
+        // [Symbol.dispose]() must not crash when it later runs releaseAll() /
+        // delete() on the already-deleted Embind object.
+        const wasmPath = resolve(__dirname, "../ts/dist/occt-wasm.wasm");
+        const wasmBinary = readFileSync(wasmPath);
+        const ephemeral = await OcctKernel.init({ wasm: wasmBinary });
+        ephemeral.getRawKernel().delete();
+        // Should not throw — the catch in [Symbol.dispose]() absorbs the
+        // double-delete error from Embind.
+        expect(() => ephemeral[Symbol.dispose]()).not.toThrow();
+    });
+
     it("simulates a brepjs-style adapter handoff", () => {
         const module = kernel.getRawModule();
         const raw = kernel.getRawKernel();

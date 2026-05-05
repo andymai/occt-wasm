@@ -1951,8 +1951,14 @@ export class OcctKernel {
 
     [Symbol.dispose](): void {
         kernelRegistry.unregister(this);
-        this.#raw.releaseAll();
-        this.#raw.delete();
+        try {
+            this.#raw.releaseAll();
+            this.#raw.delete();
+        } catch {
+            // Raw kernel was already deleted externally (e.g. by an adapter
+            // following Embind teardown conventions) — ignore, matching the
+            // FinalizationRegistry callback's behavior.
+        }
     }
 
     // =======================================================================
