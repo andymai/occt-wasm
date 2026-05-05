@@ -453,13 +453,20 @@ return store(maker.Shape());",
         ],
         occt_class: "",
         ctor_args: "",
+        // OCCT's MakeThickSolidByJoin offset sign selects which side of the
+        // original surface the walls grow on: positive thickens outward
+        // (bounding box grows by `thickness` on every open direction),
+        // negative hollows inward (bounding box preserved). We negate so
+        // `shell(solid, faces, thickness)` reads as "hollow `solid` inward by
+        // `thickness`" — the conventional CAD interpretation, matching the
+        // OCCT tutorial's `MakeThickSolidByJoin(body, faces, -thickness/50, ...)`.
         setup_code: "\
 NCollection_List<TopoDS_Shape> facesToRemove;
 for (uint32_t fid : faceIds) {
     facesToRemove.Append(get(fid));
 }
 BRepOffsetAPI_MakeThickSolid maker;
-maker.MakeThickSolidByJoin(get(solidId), facesToRemove, thickness, tolerance);
+maker.MakeThickSolidByJoin(get(solidId), facesToRemove, -thickness, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"shell: operation failed\");
@@ -3488,6 +3495,8 @@ return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);"
         ],
         occt_class: "",
         ctor_args: "",
+        // Mirror `shell`: negate offset so positive `thickness` hollows
+        // inward (preserves bounds) instead of thickening outward.
         setup_code: "\
 const auto& solid = get(solidId);
 NCollection_List<TopoDS_Shape> facesToRemove;
@@ -3495,7 +3504,7 @@ for (uint32_t fid : faceIds) {
     facesToRemove.Append(get(fid));
 }
 BRepOffsetAPI_MakeThickSolid maker;
-maker.MakeThickSolidByJoin(solid, facesToRemove, thickness, tolerance);
+maker.MakeThickSolidByJoin(solid, facesToRemove, -thickness, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"shellWithHistory: operation failed\");

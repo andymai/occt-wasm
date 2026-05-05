@@ -600,7 +600,7 @@ uint32_t OcctKernel::shell(uint32_t solidId, std::vector<uint32_t> faceIds, doub
             facesToRemove.Append(get(fid));
         }
         BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(get(solidId), facesToRemove, thickness, tolerance);
+        maker.MakeThickSolidByJoin(get(solidId), facesToRemove, -thickness, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("shell: operation failed");
@@ -2840,7 +2840,7 @@ EvolutionData OcctKernel::shellWithHistory(uint32_t solidId, std::vector<uint32_
             facesToRemove.Append(get(fid));
         }
         BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(solid, facesToRemove, thickness, tolerance);
+        maker.MakeThickSolidByJoin(solid, facesToRemove, -thickness, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("shellWithHistory: operation failed");
