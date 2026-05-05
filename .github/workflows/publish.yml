@@ -3,6 +3,12 @@ name: Publish
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to publish (e.g. v2.0.0)"
+        required: true
+        type: string
 
 jobs:
   build:
@@ -21,13 +27,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           registry-url: https://registry.npmjs.org
+
+      # npm trusted publishing (OIDC) requires npm CLI >= 11.5.1.
+      # Node 22 ships with npm 10.x, so upgrade in-place.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: cd ts && npm ci
@@ -38,7 +49,8 @@ jobs:
           name: occt-wasm-dist
           path: ts/dist/
 
+      # Authenticates via OIDC trusted publisher configured on npmjs.com
+      # (Settings -> Trusted Publisher Management -> GitHub Actions).
+      # No NODE_AUTH_TOKEN needed - short-lived OIDC token issued per run.
       - name: Publish to npm
         run: cd ts && npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
