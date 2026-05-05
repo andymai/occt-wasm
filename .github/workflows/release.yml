@@ -43,16 +43,14 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
 
+      # Node 24 ships with npm 11.x, which supports OIDC trusted publishing
+      # (added in npm 11.5.1). Avoids the in-place npm self-upgrade bug
+      # (`MODULE_NOT_FOUND: promise-retry`) that bites Node 22's npm 10.x.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: https://registry.npmjs.org
-
-      # npm trusted publishing (OIDC) requires npm CLI >= 11.5.1.
-      # Node 22 ships with npm 10.x, so upgrade in-place.
-      - name: Upgrade npm
-        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: cd ts && npm ci
