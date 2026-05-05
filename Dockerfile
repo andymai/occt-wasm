@@ -92,6 +92,14 @@ RUN --mount=type=cache,target=/cache/ccache \
     cargo xtask build --release \
     && echo "WASM size: $(du -h dist/occt-wasm.wasm | cut -f1)"
 
+# Copy ts/scripts/ here (after WASM build) so the build cache for the
+# expensive WASM link step isn't invalidated by edits to copy-wasm.sh.
+COPY ts/scripts/ ts/scripts/
+
+# Build TS package (prebuild copies dist/occt-wasm.{js,wasm} to ts/dist/,
+# which OcctKernel.init() resolves relative to its own location).
+RUN cd ts && npm run build
+
 # Test
 RUN cd ts && npx vitest run
 

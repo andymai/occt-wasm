@@ -48,7 +48,7 @@ pub(crate) struct GeneratedFuncs {
     fn_chamfer: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_chamfer_dist_angle: TypedFunc<(u32, i32, i32, f64, f64), u32>,
     fn_shell: TypedFunc<(u32, i32, i32, f64), u32>,
-    fn_offset: TypedFunc<(u32, f64), u32>,
+    fn_offset: TypedFunc<(u32, f64, f64), u32>,
     fn_draft: TypedFunc<(u32, u32, f64, f64, f64, f64), u32>,
     fn_thicken: TypedFunc<(u32, f64), u32>,
     fn_defeature: TypedFunc<(u32, i32, i32), u32>,
@@ -115,6 +115,7 @@ pub(crate) struct GeneratedFuncs {
     fn_get_surface_area: TypedFunc<(u32,), f64>,
     fn_get_length: TypedFunc<(u32,), f64>,
     fn_get_center_of_mass: TypedFunc<(u32,), i32>,
+    fn_get_surface_center_of_mass: TypedFunc<(u32,), i32>,
     fn_vertex_position: TypedFunc<(u32,), i32>,
     fn_surface_type: TypedFunc<(u32,), i32>,
     fn_surface_normal: TypedFunc<(u32, f64, f64), i32>,
@@ -144,8 +145,8 @@ pub(crate) struct GeneratedFuncs {
     fn_pipe: TypedFunc<(u32, u32), u32>,
     fn_simple_pipe: TypedFunc<(u32, u32), u32>,
     fn_revolve_vec: TypedFunc<(u32, f64, f64, f64, f64, f64, f64, f64), u32>,
-    fn_loft: TypedFunc<(i32, i32, i32), u32>,
-    fn_loft_with_vertices: TypedFunc<(i32, i32, i32, u32, u32), u32>,
+    fn_loft: TypedFunc<(i32, i32, i32, i32), u32>,
+    fn_loft_with_vertices: TypedFunc<(i32, i32, i32, i32, u32, u32), u32>,
     fn_sweep: TypedFunc<(u32, u32, i32), u32>,
     fn_sweep_pipe_shell: TypedFunc<(u32, u32, i32, i32), u32>,
     fn_draft_prism: TypedFunc<(u32, f64, f64, f64, f64), u32>,
@@ -304,6 +305,8 @@ impl GeneratedFuncs {
             fn_get_length: instance.get_typed_func(&mut store, "occt_get_length")?,
             fn_get_center_of_mass: instance
                 .get_typed_func(&mut store, "occt_get_center_of_mass")?,
+            fn_get_surface_center_of_mass: instance
+                .get_typed_func(&mut store, "occt_get_surface_center_of_mass")?,
             fn_vertex_position: instance.get_typed_func(&mut store, "occt_vertex_position")?,
             fn_surface_type: instance.get_typed_func(&mut store, "occt_surface_type")?,
             fn_surface_normal: instance.get_typed_func(&mut store, "occt_surface_normal")?,
@@ -818,11 +821,16 @@ impl crate::kernel::OcctKernel {
         Ok(ShapeHandle(result))
     }
 
-    pub fn offset(&mut self, solid_id: ShapeHandle, distance: f64) -> OcctResult<ShapeHandle> {
+    pub fn offset(
+        &mut self,
+        solid_id: ShapeHandle,
+        distance: f64,
+        tolerance: f64,
+    ) -> OcctResult<ShapeHandle> {
         let result = self
             .generated
             .fn_offset
-            .call(&mut self.store, (solid_id.0, distance))?;
+            .call(&mut self.store, (solid_id.0, distance, tolerance))?;
         self.check_error("offset")?;
         if result == 0 {
             return Err(self.read_last_error("offset"));
@@ -2054,6 +2062,17 @@ impl crate::kernel::OcctKernel {
         self.read_vec_f64_result()
     }
 
+    pub fn get_surface_center_of_mass(&mut self, face_id: ShapeHandle) -> OcctResult<Vec<f64>> {
+        let len = self
+            .generated
+            .fn_get_surface_center_of_mass
+            .call(&mut self.store, (face_id.0,))?;
+        if len < 0 {
+            return Err(self.read_last_error("get_surface_center_of_mass"));
+        }
+        self.read_vec_f64_result()
+    }
+
     pub fn vertex_position(&mut self, vertex_id: ShapeHandle) -> OcctResult<Vec<f64>> {
         let len = self
             .generated
@@ -2469,7 +2488,12 @@ impl crate::kernel::OcctKernel {
         Ok(ShapeHandle(result))
     }
 
-    pub fn loft(&mut self, wire_ids: &[ShapeHandle], is_solid: bool) -> OcctResult<ShapeHandle> {
+    pub fn loft(
+        &mut self,
+        wire_ids: &[ShapeHandle],
+        is_solid: bool,
+        ruled: bool,
+    ) -> OcctResult<ShapeHandle> {
         let wire_ids_bytes: Vec<u8> = wire_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let wire_ids_ptr = self.write_bytes(&wire_ids_bytes)?;
         let wire_ids_len = wire_ids.len() as u32;
@@ -2479,6 +2503,7 @@ impl crate::kernel::OcctKernel {
                 wire_ids_ptr as i32,
                 wire_ids_len as i32,
                 i32::from(is_solid),
+                i32::from(ruled),
             ),
         );
         self.free_bytes(wire_ids_ptr)?;
@@ -2494,6 +2519,7 @@ impl crate::kernel::OcctKernel {
         &mut self,
         wire_ids: &[ShapeHandle],
         is_solid: bool,
+        ruled: bool,
         start_vertex_id: ShapeHandle,
         end_vertex_id: ShapeHandle,
     ) -> OcctResult<ShapeHandle> {
@@ -2506,6 +2532,7 @@ impl crate::kernel::OcctKernel {
                 wire_ids_ptr as i32,
                 wire_ids_len as i32,
                 i32::from(is_solid),
+                i32::from(ruled),
                 start_vertex_id.0,
                 end_vertex_id.0,
             ),

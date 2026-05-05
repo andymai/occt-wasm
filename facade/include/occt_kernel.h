@@ -157,16 +157,16 @@ class OcctKernel {
     uint32_t chamferDistAngle(uint32_t solidId, std::vector<uint32_t> edgeIds, double distance,
                               double angleDeg);
     uint32_t shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness);
-    uint32_t offset(uint32_t solidId, double distance);
+    uint32_t offset(uint32_t solidId, double distance, double tolerance);
     uint32_t draft(uint32_t shapeId, uint32_t faceId, double angleRad, double dx, double dy,
                    double dz);
 
     // --- Sweep operations ---
     uint32_t pipe(uint32_t profileId, uint32_t spineId);
     uint32_t simplePipe(uint32_t profileId, uint32_t spineId);
-    uint32_t loft(std::vector<uint32_t> wireIds, bool isSolid);
-    uint32_t loftWithVertices(std::vector<uint32_t> wireIds, bool isSolid, uint32_t startVertexId,
-                              uint32_t endVertexId);
+    uint32_t loft(std::vector<uint32_t> wireIds, bool isSolid, bool ruled);
+    uint32_t loftWithVertices(std::vector<uint32_t> wireIds, bool isSolid, bool ruled,
+                              uint32_t startVertexId, uint32_t endVertexId);
     uint32_t sweep(uint32_t wireId, uint32_t spineId, int transitionMode);
     uint32_t sweepPipeShell(uint32_t profileId, uint32_t spineId, bool freenet, bool smooth);
     uint32_t draftPrism(uint32_t shapeId, double dx, double dy, double dz, double angleDeg);
@@ -270,6 +270,7 @@ class OcctKernel {
     double getSurfaceArea(uint32_t id);
     double getLength(uint32_t id);
     std::vector<double> getCenterOfMass(uint32_t id);
+    std::vector<double> getSurfaceCenterOfMass(uint32_t faceId);
     std::vector<double> getLinearCenterOfMass(uint32_t id);
     std::vector<double> surfaceCurvature(uint32_t faceId, double u, double v);
 

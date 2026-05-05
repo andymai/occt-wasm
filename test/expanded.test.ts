@@ -124,7 +124,7 @@ describe("modeling operations", () => {
 
     it("offsets a solid", () => {
         const box = kernel.makeBox(10, 10, 10);
-        const offset = kernel.offset(box, 1.0);
+        const offset = kernel.offset(box, 1.0, 1e-6);
         expect(offset).toBeGreaterThan(0);
         // Offset solid should have larger volume
         expect(kernel.getVolume(offset)).toBeGreaterThan(kernel.getVolume(box));

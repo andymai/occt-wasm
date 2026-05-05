@@ -270,7 +270,7 @@ describe("sweeps", () => {
         const wireVec = new Module.VectorUint32();
         wireVec.push_back(wire1);
         wireVec.push_back(wire2);
-        const result = kernel.loft(wireVec, true);
+        const result = kernel.loft(wireVec, true, false);
         expect(result).toBeGreaterThan(0);
         expect(kernel.getVolume(result)).toBeGreaterThan(0);
         wireVec.delete();

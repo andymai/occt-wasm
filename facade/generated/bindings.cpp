@@ -195,6 +195,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("getSurfaceArea", &OcctKernel::getSurfaceArea)
         .function("getLength", &OcctKernel::getLength)
         .function("getCenterOfMass", &OcctKernel::getCenterOfMass)
+        .function("getSurfaceCenterOfMass", &OcctKernel::getSurfaceCenterOfMass)
         .function("vertexPosition", &OcctKernel::vertexPosition)
         .function("surfaceType", &OcctKernel::surfaceType)
         .function("surfaceNormal", &OcctKernel::surfaceNormal)

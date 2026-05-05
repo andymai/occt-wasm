@@ -472,12 +472,16 @@ return store(maker.Shape());",
     MethodSpec {
         name: "offset",
         kind: MethodKind::CustomBody,
-        params: &[FacadeParam::ShapeId("solidId"), FacadeParam::Double("distance")],
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::Double("distance"),
+            FacadeParam::Double("tolerance"),
+        ],
         occt_class: "",
         ctor_args: "",
         setup_code: "\
 BRepOffsetAPI_MakeOffsetShape maker;
-maker.PerformByJoin(get(solidId), distance, 1e-3);
+maker.PerformByJoin(get(solidId), distance, tolerance);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"offset: operation failed\");
@@ -2001,6 +2005,22 @@ return {com.X(), com.Y(), com.Z()};",
         return_type: ReturnType::VectorDouble,
     },
     MethodSpec {
+        name: "getSurfaceCenterOfMass",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& face = get(faceId);
+GProp_GProps props;
+BRepGProp::SurfaceProperties(face, props);
+gp_Pnt com = props.CentreOfMass();
+return {com.X(), com.Y(), com.Z()};",
+        includes: &["BRepGProp.hxx", "GProp_GProps.hxx", "gp_Pnt.hxx"],
+        category: "query",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
         name: "vertexPosition",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("vertexId")],
@@ -2710,11 +2730,12 @@ return store(maker.Shape());",
         params: &[
             FacadeParam::VectorShapeIds("wireIds"),
             FacadeParam::Bool("isSolid"),
+            FacadeParam::Bool("ruled"),
         ],
         occt_class: "",
         ctor_args: "",
         setup_code: "\
-BRepOffsetAPI_ThruSections maker(isSolid);
+BRepOffsetAPI_ThruSections maker(isSolid, ruled);
 for (uint32_t wid : wireIds) {
     maker.AddWire(TopoDS::Wire(get(wid)));
 }
@@ -2733,13 +2754,14 @@ return store(maker.Shape());",
         params: &[
             FacadeParam::VectorShapeIds("wireIds"),
             FacadeParam::Bool("isSolid"),
+            FacadeParam::Bool("ruled"),
             FacadeParam::ShapeId("startVertexId"),
             FacadeParam::ShapeId("endVertexId"),
         ],
         occt_class: "",
         ctor_args: "",
         setup_code: "\
-BRepOffsetAPI_ThruSections maker(isSolid);
+BRepOffsetAPI_ThruSections maker(isSolid, ruled);
 if (startVertexId != 0) {
     maker.AddVertex(TopoDS::Vertex(get(startVertexId)));
 }
@@ -4461,7 +4483,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 172, "expected 172 generable methods");
+        assert_eq!(count, 173, "expected 173 generable methods");
     }
 
     #[test]
