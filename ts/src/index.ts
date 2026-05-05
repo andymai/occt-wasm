@@ -226,14 +226,14 @@ export interface OcctRawKernel {
     chamfer(solidId: number, edgeIds: EmbindVectorU32, distance: number): number;
     chamferDistAngle(solidId: number, edgeIds: EmbindVectorU32, distance: number, angleDeg: number): number;
     shell(solidId: number, faceIds: EmbindVectorU32, thickness: number): number;
-    offset(solidId: number, distance: number): number;
+    offset(solidId: number, distance: number, tolerance: number): number;
     draft(shapeId: number, faceId: number, angle: number, dx: number, dy: number, dz: number): number;
 
     // Sweeps
     pipe(profileId: number, spineId: number): number;
     simplePipe(profileId: number, spineId: number): number;
-    loft(wireIds: EmbindVectorU32, isSolid: boolean): number;
-    loftWithVertices(wireIds: EmbindVectorU32, isSolid: boolean, startVertexId: number, endVertexId: number): number;
+    loft(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean): number;
+    loftWithVertices(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean, startVertexId: number, endVertexId: number): number;
     sweep(wireId: number, spineId: number, transitionMode: number): number;
     sweepPipeShell(profileId: number, spineId: number, freenet: boolean, smooth: boolean): number;
     draftPrism(shapeId: number, dx: number, dy: number, dz: number, angleDeg: number): number;
@@ -323,6 +323,7 @@ export interface OcctRawKernel {
     getSurfaceArea(id: number): number;
     getLength(id: number): number;
     getCenterOfMass(id: number): EmbindVectorF64;
+    getSurfaceCenterOfMass(faceId: number): EmbindVectorF64;
     getLinearCenterOfMass(id: number): EmbindVectorF64;
     surfaceCurvature(faceId: number, u: number, v: number): EmbindVectorF64;
 
@@ -745,8 +746,15 @@ export class OcctKernel {
         });
     }
 
-    offset(solid: ShapeHandle, distance: number): ShapeHandle {
-        return wrap("offset", () => handle(this.#raw.offset(solid, distance)));
+    /**
+     * Offset all faces of a solid by `distance`.
+     *
+     * @param tolerance - OCCT precision for the offset reconstruction. Use
+     *     `1e-6` for precise offsets (matches brepjs default); `1e-3` is a
+     *     coarser legacy value.
+     */
+    offset(solid: ShapeHandle, distance: number, tolerance: number): ShapeHandle {
+        return wrap("offset", () => handle(this.#raw.offset(solid, distance, tolerance)));
     }
 
     draft(shape: ShapeHandle, face: ShapeHandle, angleRad: number, direction: Vec3): ShapeHandle {
@@ -767,18 +775,25 @@ export class OcctKernel {
         return wrap("simplePipe", () => handle(this.#raw.simplePipe(profile, spine)));
     }
 
-    loft(wires: ShapeHandle[], isSolid: boolean): ShapeHandle {
+    /**
+     * Loft a solid (or shell) through a sequence of wire profiles.
+     *
+     * @param ruled - When `true`, sections are joined by ruled (linear)
+     *     surfaces; when `false`, by smooth B-spline surfaces. The two modes
+     *     produce dramatically different topology for the same input.
+     */
+    loft(wires: ShapeHandle[], isSolid: boolean, ruled: boolean): ShapeHandle {
         return wrap("loft", () => {
             const vec = this.#makeVectorU32(wires);
-            try { return handle(this.#raw.loft(vec, isSolid)); }
+            try { return handle(this.#raw.loft(vec, isSolid, ruled)); }
             finally { vec.delete(); }
         });
     }
 
-    loftWithVertices(wires: ShapeHandle[], isSolid: boolean, startVertex: ShapeHandle, endVertex: ShapeHandle): ShapeHandle {
+    loftWithVertices(wires: ShapeHandle[], isSolid: boolean, ruled: boolean, startVertex: ShapeHandle, endVertex: ShapeHandle): ShapeHandle {
         return wrap("loftWithVertices", () => {
             const vec = this.#makeVectorU32(wires);
-            try { return handle(this.#raw.loftWithVertices(vec, isSolid, startVertex, endVertex)); }
+            try { return handle(this.#raw.loftWithVertices(vec, isSolid, ruled, startVertex, endVertex)); }
             finally { vec.delete(); }
         });
     }
@@ -1438,6 +1453,21 @@ export class OcctKernel {
     getCenterOfMass(shape: ShapeHandle): Vec3 {
         return wrap("getCenterOfMass", () => {
             const v = this.#raw.getCenterOfMass(shape);
+            return this.#vec3FromEmbind(v);
+        });
+    }
+
+    /**
+     * Surface (area-weighted) center of mass for a face. Equivalent to
+     * `BRepGProp::SurfaceProperties(face, props).CentreOfMass()`.
+     *
+     * Use this for face fingerprinting and finder predicates rather than a
+     * tessellation-based centroid — for non-planar faces (cylinders, holed
+     * planes) the two diverge.
+     */
+    getSurfaceCenterOfMass(face: ShapeHandle): Vec3 {
+        return wrap("getSurfaceCenterOfMass", () => {
+            const v = this.#raw.getSurfaceCenterOfMass(face);
             return this.#vec3FromEmbind(v);
         });
     }

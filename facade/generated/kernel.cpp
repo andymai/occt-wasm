@@ -611,10 +611,10 @@ uint32_t OcctKernel::shell(uint32_t solidId, std::vector<uint32_t> faceIds, doub
     }
 }
 
-uint32_t OcctKernel::offset(uint32_t solidId, double distance) {
+uint32_t OcctKernel::offset(uint32_t solidId, double distance, double tolerance) {
     try {
         BRepOffsetAPI_MakeOffsetShape maker;
-        maker.PerformByJoin(get(solidId), distance, 1e-3);
+        maker.PerformByJoin(get(solidId), distance, tolerance);
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error("offset: operation failed");
@@ -1798,6 +1798,18 @@ std::vector<double> OcctKernel::getCenterOfMass(uint32_t id) {
     }
 }
 
+std::vector<double> OcctKernel::getSurfaceCenterOfMass(uint32_t faceId) {
+    try {
+        const auto& face = get(faceId);
+        GProp_GProps props;
+        BRepGProp::SurfaceProperties(face, props);
+        gp_Pnt com = props.CentreOfMass();
+        return {com.X(), com.Y(), com.Z()};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("getSurfaceCenterOfMass: ") + e.what());
+    }
+}
+
 std::vector<double> OcctKernel::vertexPosition(uint32_t vertexId) {
     try {
         gp_Pnt p = BRep_Tool::Pnt(TopoDS::Vertex(get(vertexId)));
@@ -2326,9 +2338,9 @@ uint32_t OcctKernel::revolveVec(uint32_t shapeId, double cx, double cy, double c
     }
 }
 
-uint32_t OcctKernel::loft(std::vector<uint32_t> wireIds, bool isSolid) {
+uint32_t OcctKernel::loft(std::vector<uint32_t> wireIds, bool isSolid, bool ruled) {
     try {
-        BRepOffsetAPI_ThruSections maker(isSolid);
+        BRepOffsetAPI_ThruSections maker(isSolid, ruled);
         for (uint32_t wid : wireIds) {
             maker.AddWire(TopoDS::Wire(get(wid)));
         }
@@ -2342,9 +2354,9 @@ uint32_t OcctKernel::loft(std::vector<uint32_t> wireIds, bool isSolid) {
     }
 }
 
-uint32_t OcctKernel::loftWithVertices(std::vector<uint32_t> wireIds, bool isSolid, uint32_t startVertexId, uint32_t endVertexId) {
+uint32_t OcctKernel::loftWithVertices(std::vector<uint32_t> wireIds, bool isSolid, bool ruled, uint32_t startVertexId, uint32_t endVertexId) {
     try {
-        BRepOffsetAPI_ThruSections maker(isSolid);
+        BRepOffsetAPI_ThruSections maker(isSolid, ruled);
         if (startVertexId != 0) {
             maker.AddVertex(TopoDS::Vertex(get(startVertexId)));
         }

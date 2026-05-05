@@ -268,7 +268,7 @@ describe("degenerate geometry", () => {
         const box = kernel.makeBox(5, 5, 5);
         let result: number | undefined;
         try {
-            result = kernel.offset(box, -10);
+            result = kernel.offset(box, -10, 1e-6);
         } catch {
             return;
         }
@@ -302,7 +302,7 @@ describe("degenerate geometry", () => {
         const wireVec = new Module.VectorUint32();
         try {
             wireVec.push_back(wire);
-            expectThrows(() => kernel.loft(wireVec, true), "loft with 1 wire");
+            expectThrows(() => kernel.loft(wireVec, true, false), "loft with 1 wire");
         } finally {
             wireVec.delete();
         }
@@ -311,7 +311,7 @@ describe("degenerate geometry", () => {
     it("loft with an empty wire vector throws", () => {
         const wireVec = new Module.VectorUint32();
         try {
-            expectThrows(() => kernel.loft(wireVec, true), "loft with 0 wires");
+            expectThrows(() => kernel.loft(wireVec, true, false), "loft with 0 wires");
         } finally {
             wireVec.delete();
         }
