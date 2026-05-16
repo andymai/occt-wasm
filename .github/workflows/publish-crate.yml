@@ -1,0 +1,92 @@
+name: Publish crate to crates.io
+
+# Publishes the `occt-wasm` Rust crate at `crate/` to crates.io.
+#
+# Triggers:
+#   - workflow_dispatch (manual, with version sanity check)
+#   - push of a tag like `crate-v3.0.0` (recommended path)
+#
+# Auth: OIDC trusted publishing via crates.io. Requires a one-time setup
+# on crates.io → Account Settings → Trusted Publishers, adding this repo
+# + this workflow filename + the `crates-io` environment name.
+#
+# The embedded WASM (`crate/src/occt-wasm.wasm.br`) is read from the repo
+# as-is. Refresh it locally with `cargo xtask build-wasi --release && brotli
+# -q 11 -o crate/src/occt-wasm.wasm.br target/wasm32-wasip1/release/occt-wasm.wasm`
+# and commit before tagging.
+
+on:
+  push:
+    tags:
+      - "crate-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Crate version that should be in crate/Cargo.toml (sanity check)."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: cargo publish
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # Actions are pinned to commit SHAs (not tags) because this workflow holds
+      # `id-token: write` and runs `cargo publish` — a tag re-point would
+      # otherwise hand a malicious revision the OIDC token + publish slot.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Verify version matches tag / dispatch input
+        shell: bash
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          actual=$(grep -m1 '^version' crate/Cargo.toml | sed -E 's/version *= *"([^"]+)".*/\1/')
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            expected="${REF_NAME#crate-v}"
+          else
+            expected="$DISPATCH_VERSION"
+          fi
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::crate/Cargo.toml version is $actual, expected $expected"
+            exit 1
+          fi
+          echo "Publishing occt-wasm v$actual"
+
+      - name: Verify embedded WASM is present and reasonable
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=crate/src/occt-wasm.wasm.br
+          if [[ ! -f "$file" ]]; then
+            echo "::error::$file missing"
+            exit 1
+          fi
+          size=$(stat -c%s "$file")
+          if (( size < 1000000 )); then
+            echo "::error::$file is suspiciously small ($size bytes) — likely a placeholder"
+            exit 1
+          fi
+          echo "Embedded WASM: $size bytes"
+
+      - name: Authenticate with crates.io (OIDC)
+        id: auth
+        uses: rust-lang/crates-io-auth-action@b7e9a28eded4986ec6b1fa40eeee8f8f165559ec # v1
+
+      - name: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish -p occt-wasm
