@@ -41,7 +41,7 @@
 //! by wasmtime. Shape data lives in an arena inside the WASM sandbox,
 //! referenced by opaque [`ShapeHandle`] values.
 
-#![doc(html_root_url = "https://docs.rs/occt-wasm/3.0.0")]
+#![doc(html_root_url = "https://docs.rs/occt-wasm/3.0.1")]
 // Generated code does cross-boundary integer casting (u32 <-> i32 for WASM ABI)
 // and has parameter names from the C++ facade that trigger similar_names.
 #![allow(
