@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.1.0](https://github.com/andymai/occt-wasm/compare/v3.0.0...v3.1.0) (2026-05-16)
+
+
+### Features
+
+* **crate:** publish occt-wasm to crates.io + add OIDC publish workflow ([#104](https://github.com/andymai/occt-wasm/issues/104)) ([8012869](https://github.com/andymai/occt-wasm/commit/8012869919436dbf622aea99f2fa57174421b48d))
+
+
+### Bug Fixes
+
+* **xtask:** rewrite WASI build path with emcc -sSTANDALONE_WASM ([#107](https://github.com/andymai/occt-wasm/issues/107)) ([f1c134d](https://github.com/andymai/occt-wasm/commit/f1c134d46159e33523895910bbbc052d7c6b48b5)), closes [#106](https://github.com/andymai/occt-wasm/issues/106)
+
 ## [3.0.0](https://github.com/andymai/occt-wasm/compare/v2.0.0...v3.0.0) (2026-05-05)
 
 
