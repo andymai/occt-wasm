@@ -76,7 +76,7 @@ The same OCCT WASM is available as a [Rust crate](https://crates.io/crates/occt-
 
 ```toml
 [dependencies]
-occt-wasm = "1"
+occt-wasm = "3"
 ```
 
 ```rust
@@ -391,4 +391,4 @@ These will be addressed as OCCT V8.0.0 final is released and browser support imp
 
 **Compiled WASM output**: LGPL-2.1-only (inherits from [OCCT](https://dev.opencascade.org/resources/download))
 
-The LGPL requires that end users can replace the LGPL component. For web applications, this is satisfied by loading the `.wasm` file from a URL (which users can override via `OcctKernel.init({ wasm: '...' })`). If you ship a desktop app with the WASM embedded, consult the [LGPL FAQ](https://www.gnu.org/licenses/lgpl-3.0.en.html).
+The LGPL requires that end users can replace the LGPL component. For web applications, this is satisfied by loading the `.wasm` file from a URL (which users can override via `OcctKernel.init({ wasm: '...' })`). If you ship a desktop app with the WASM embedded, consult the [LGPL-2.1 FAQ](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html).

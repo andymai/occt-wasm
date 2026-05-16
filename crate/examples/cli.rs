@@ -88,8 +88,10 @@ fn run(step_out: Option<&std::path::Path>) -> Result<(), OcctError> {
     // --- STEP export ---
     let step_data = kernel.export_step(final_shape)?;
     if let Some(path) = step_out {
-        fs::write(path, &step_data)
-            .map_err(|e| OcctError::Memory(format!("write {}: {e}", path.display())))?;
+        fs::write(path, &step_data).map_err(|e| OcctError::Operation {
+            operation: "export_step_write".to_owned(),
+            message: format!("write {}: {e}", path.display()),
+        })?;
         println!("\nSTEP exported to: {}", path.display());
     } else {
         println!("\nTip: pass --step output.step to export the result");
