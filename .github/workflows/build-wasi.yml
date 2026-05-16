@@ -1,0 +1,85 @@
+name: Build WASI
+
+# Refreshes the embedded `crate/src/occt-wasm.wasm.br` shipped to crates.io and
+# fails when the committed bytes drift from what the current sources produce.
+#
+# Uses the existing `ghcr.io/andymai/occt-wasm-builder` image — same emcc
+# toolchain + pre-built OCCT static libs as the npm build. xtask::build_wasi
+# compiles the C-ABI facade and links with `em++ -sSTANDALONE_WASM=1`, so the
+# only thing this workflow does on top is run the build, brotli, and diff.
+
+on:
+  pull_request:
+    paths:
+      - facade/**
+      - xtask/src/**
+      - 3rdparty/**
+      - crate/src/occt-wasm.wasm.br
+      - .gitmodules
+      - .github/workflows/build-wasi.yml
+  push:
+    branches: [main]
+    paths:
+      - facade/**
+      - xtask/src/**
+      - 3rdparty/**
+      - crate/src/occt-wasm.wasm.br
+      - .gitmodules
+      - .github/workflows/build-wasi.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-wasi-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: WASI build + stale-check
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/andymai/occt-wasm-builder:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Link pre-built OCCT libs from builder image
+        run: |
+          cp -r /workspace/occt/build occt/build
+          cp -r /workspace/3rdparty 3rdparty
+
+      - name: Snapshot committed crate WASM
+        # Snapshot before the build overwrites the file. cmp works without
+        # needing a usable .git inside the container.
+        run: cp crate/src/occt-wasm.wasm.br /tmp/committed.wasm.br
+
+      - name: Build WASI WASM + brotli install
+        run: cargo xtask build-wasi --release
+
+      - name: Stale-check vs. committed crate WASM
+        id: stale
+        shell: bash
+        run: |
+          set -euo pipefail
+          new_size=$(stat -c%s crate/src/occt-wasm.wasm.br)
+          if cmp -s /tmp/committed.wasm.br crate/src/occt-wasm.wasm.br; then
+            echo "crate/src/occt-wasm.wasm.br is up to date ($new_size bytes)."
+          else
+            echo "::error file=crate/src/occt-wasm.wasm.br::Committed bytes diverge from the rebuild. Regenerate locally with: cargo xtask build-wasi --release && git add crate/src/occt-wasm.wasm.br. The fresh artifact is uploaded to this run."
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload fresh .wasm.br when stale
+        if: steps.stale.outputs.stale == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: occt-wasm.wasm.br-fresh
+          path: crate/src/occt-wasm.wasm.br
+          retention-days: 14
+
+      - name: Fail when stale
+        if: steps.stale.outputs.stale == 'true'
+        run: exit 1
