@@ -5,6 +5,7 @@
 [OpenCascade](https://github.com/Open-Cascade-SAS/OCCT) V8 compiled to WebAssembly with a clean TypeScript API.
 
 [![npm](https://img.shields.io/npm/v/occt-wasm)](https://www.npmjs.com/package/occt-wasm)
+[![Crates.io](https://img.shields.io/crates/v/occt-wasm.svg)](https://crates.io/crates/occt-wasm)
 [![CI](https://github.com/andymai/occt-wasm/actions/workflows/ci.yml/badge.svg)](https://github.com/andymai/occt-wasm/actions/workflows/ci.yml)
 [![Last release](https://img.shields.io/github/release-date/andymai/occt-wasm?label=last%20release)](https://github.com/andymai/occt-wasm/releases)
 [![Commit activity](https://img.shields.io/github/commit-activity/m/andymai/occt-wasm?label=commits%2Fmonth)](https://github.com/andymai/occt-wasm/commits/main)
@@ -68,6 +69,28 @@ import { OcctKernel } from "occt-wasm";
   // kernel is disposed at end of block
 }
 ```
+
+## Rust Crate
+
+The same OCCT WASM is available as a [Rust crate](https://crates.io/crates/occt-wasm) for native targets (servers, CLIs, build scripts) — no C++ toolchain required:
+
+```toml
+[dependencies]
+occt-wasm = "1"
+```
+
+```rust
+use occt_wasm::OcctKernel;
+
+let mut kernel = OcctKernel::new()?;
+let box_shape = kernel.make_box(10.0, 20.0, 30.0)?;
+let sphere = kernel.make_sphere(8.0)?;
+let fused = kernel.fuse(box_shape, sphere)?;
+let mesh = kernel.tessellate(fused, 0.1, 0.5)?;
+let step = kernel.export_step(fused)?;
+```
+
+The crate embeds a brotli-compressed WASM binary (~4 MB) and runs it via [wasmtime](https://wasmtime.dev/). Same 170+ facade methods as the TS API. See [`crate/README.md`](./crate/README.md) and [docs.rs/occt-wasm](https://docs.rs/occt-wasm) for full details.
 
 ## Initialization
 
