@@ -2,14 +2,14 @@
 
 # occt-wasm
 
-[OpenCascade](https://github.com/Open-Cascade-SAS/OCCT) V8 compiled to WebAssembly with a clean TypeScript API.
-
 [![npm](https://img.shields.io/npm/v/occt-wasm)](https://www.npmjs.com/package/occt-wasm)
 [![Crates.io](https://img.shields.io/crates/v/occt-wasm.svg)](https://crates.io/crates/occt-wasm)
 [![CI](https://github.com/andymai/occt-wasm/actions/workflows/ci.yml/badge.svg)](https://github.com/andymai/occt-wasm/actions/workflows/ci.yml)
 [![Last release](https://img.shields.io/github/release-date/andymai/occt-wasm?label=last%20release)](https://github.com/andymai/occt-wasm/releases)
 [![Commit activity](https://img.shields.io/github/commit-activity/m/andymai/occt-wasm?label=commits%2Fmonth)](https://github.com/andymai/occt-wasm/commits/main)
 [![License](https://img.shields.io/badge/tooling-MIT%20OR%20Apache--2.0-blue.svg)](#license) [![WASM License](https://img.shields.io/badge/wasm%20output-LGPL--2.1--only-blue.svg)](#license)
+
+[OpenCascade](https://github.com/Open-Cascade-SAS/OCCT) V8 compiled to WebAssembly with a clean TypeScript API.
 
 Smaller bundles, branded types, arena-based memory, and modern tooling.
 
@@ -26,6 +26,16 @@ Smaller bundles, branded types, arena-based memory, and modern tooling.
 - **Structured error handling** -- `OcctErrorCode` enum for programmatic `switch/case` instead of string parsing
 - **Web Worker support** -- `OcctWorker` class for off-main-thread CAD operations via [Comlink](https://github.com/GoogleChromeLabs/comlink)
 - **Modern browser targets** -- WASM SIMD, relaxed-SIMD, tail calls, wasm-exceptions
+
+## Scope
+
+To set expectations, this library deliberately does not:
+
+- **Provide a higher-level CAD modeling API** — parametric sketching, constraints, feature trees, and ergonomic modeling belong in [brepjs](https://github.com/andymai/brepjs), which wraps occt-wasm for that purpose
+- **Manage memory automatically beyond arena handles** — shapes are freed when the kernel is disposed or you call `release()`; there is no per-shape garbage collection
+- **Support Firefox or other non-WASM-SIMD browsers** — the build requires WASM SIMD, relaxed-SIMD, tail calls, and wasm exceptions; Firefox lacks tail call support as of v130
+- **Include OCCT visualization or display modules** — TKV3d, TKHLR (except the HLR facade), and the AIS interactive context are excluded; bring your own renderer (Three.js, Babylon.js, etc.)
+- **Support IGES import/export** -- TKDEIGES is excluded from the link; use STEP for interchange
 
 ## Install
 
@@ -336,7 +346,9 @@ Compared against other OCCT-to-WASM builds (all include STEP, XCAF, glTF):
 
 Run benchmarks locally: `npx tsx test/benchmark.ts`
 
-## Building from Source
+## Development
+
+### Building from Source
 
 ```bash
 # Prerequisites: Rust 1.85+, emsdk 5.0.3
@@ -384,6 +396,10 @@ These are upstream OCCT V8.0.0-rc5 issues, not occt-wasm bugs:
 - **Firefox** -- not supported due to missing WASM tail call support
 
 These will be addressed as OCCT V8.0.0 final is released and browser support improves.
+
+## Contributing
+
+This project is open source. Bug reports and feature requests are welcome via GitHub Issues. For pull requests, please open an issue first to discuss the change.
 
 ## License
 
