@@ -17,12 +17,12 @@
     "builder:push": "./scripts/builder-image.sh"
   },
   "devDependencies": {
-    "@commitlint/cli": "^19",
-    "@commitlint/config-conventional": "^19",
-    "@playwright/test": "^1.58.2",
+    "@commitlint/cli": "^21",
+    "@commitlint/config-conventional": "^21",
+    "@playwright/test": "^1.60.0",
     "husky": "^9",
     "opencascade.js": "^1.1.1",
     "serve": "^14.2.6",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.6"
   }
 }
