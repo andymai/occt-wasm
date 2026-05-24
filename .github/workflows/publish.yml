@@ -25,7 +25,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
 
@@ -33,7 +33,7 @@ jobs:
       # (added in npm 11.5.1). Avoids the in-place npm self-upgrade bug
       # (`MODULE_NOT_FOUND: promise-retry`) that bites Node 22's npm 10.x.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
@@ -42,7 +42,7 @@ jobs:
         run: cd ts && npm ci
 
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: occt-wasm-dist
           path: ts/dist/

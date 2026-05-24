@@ -19,7 +19,7 @@ jobs:
     container:
       image: ghcr.io/andymai/occt-wasm-builder:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           submodules: recursive
 
@@ -29,7 +29,7 @@ jobs:
           cp -r /workspace/3rdparty 3rdparty
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
 
@@ -56,7 +56,7 @@ jobs:
         run: set -o pipefail; npx vitest run test/bench.test.ts 2>&1 | node scripts/bench-check.js
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: occt-wasm-dist
           path: ts/dist/
