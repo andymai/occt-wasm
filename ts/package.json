@@ -46,10 +46,10 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8",
     "@typescript-eslint/parser": "^8",
-    "eslint": "^9",
+    "eslint": "^10",
     "typedoc": "^0.28.18",
-    "typescript": "^5.7",
-    "vitest": "^3"
+    "typescript": "^6.0",
+    "vitest": "^4"
   },
   "dependencies": {
     "comlink": "^4.4.2"
