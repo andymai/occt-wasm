@@ -399,3 +399,24 @@ describe("OcctErrorCode enum values", () => {
         expect(OcctErrorCode.Unknown).toBe("UNKNOWN");
     });
 });
+
+// ============================================================================
+// Known OCCT V8.0.0 gaps (tracked, not yet usable)
+// ============================================================================
+
+describe("OCCT V8.0.0 known gaps", () => {
+    // V8.0.0 final fixed STL import and multi-section loft (now covered as
+    // positive tests). filletVariable still corrupts WASM memory: the op
+    // returns a plausible shape, but a later indirect call (e.g. toBREP)
+    // dies with "null function or function signature mismatch". Localized
+    // heap/function-pointer corruption — makeBox/getVolume survive, BREP
+    // serialization does not. Re-test on the next OCCT bump.
+    it.skip("filletVariable rounds an edge with start/end radii (corrupts WASM on V8.0.0)", () => {
+        const box = kernel.makeBox(20, 20, 20);
+        const edges = kernel.getSubShapes(box, "edge");
+        const result = kernel.filletVariable(box, edges.get(0), 1.0, 3.0);
+        expect(result).toBeGreaterThan(0);
+        expect(kernel.getVolume(result)).toBeLessThan(kernel.getVolume(box));
+        edges.delete();
+    });
+});

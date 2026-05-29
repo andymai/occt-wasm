@@ -280,6 +280,16 @@ describe("I/O extended", () => {
         const stl = kernel.exportStl(box, 0.5);
         expect(stl.length).toBeGreaterThan(80); // STL header is 80 bytes
     });
+
+    it("round-trips STL (export ascii -> import)", () => {
+        const box = kernel.makeBox(10, 20, 30);
+        const ascii = kernel.exportStl(box, 0.5, true);
+        expect(ascii.length).toBeGreaterThan(0);
+        const imported = kernel.importStl(ascii);
+        expect(imported).toBeGreaterThan(0);
+        expect(kernel.isNull(imported)).toBe(false);
+        expect(kernel.getShapeType(imported)).not.toBe("");
+    });
 });
 
 describe("healing", () => {

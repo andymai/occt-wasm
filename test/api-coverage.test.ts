@@ -276,6 +276,20 @@ describe("sweeps", () => {
         wireVec.delete();
     });
 
+    it("loft through three monotonic sections produces a non-degenerate solid", () => {
+        // Sections must taper monotonically (10 -> 8 -> 6); a non-monotonic
+        // profile builds a self-intersecting loft that corrupts WASM memory
+        // on OCCT V8.0.0 — see new-features.test.ts for the documented gap.
+        const wireVec = new Module.VectorUint32();
+        wireVec.push_back(makeSquareWireAt(10, 0));
+        wireVec.push_back(makeSquareWireAt(8, 10));
+        wireVec.push_back(makeSquareWireAt(6, 20));
+        const result = kernel.loft(wireVec, true, false);
+        expect(result).toBeGreaterThan(0);
+        expect(kernel.getVolume(result)).toBeGreaterThan(0);
+        wireVec.delete();
+    });
+
     it("draftPrism extrudes a face with zero angle", () => {
         const face = makeSquareFace(10);
         const result = kernel.draftPrism(face, 0, 0, 10, 0);
