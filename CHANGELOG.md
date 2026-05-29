@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.1](https://github.com/andymai/occt-wasm/compare/v3.1.0...v3.1.1) (2026-05-29)
+
+
+### Bug Fixes
+
+* **occt:** bump OCCT submodule to V8.0.0 final ([#121](https://github.com/andymai/occt-wasm/issues/121)) ([c56e9b3](https://github.com/andymai/occt-wasm/commit/c56e9b3e5b0b6d7e484ce862a0687654a86d1dfb))
+
 ## [3.1.0](https://github.com/andymai/occt-wasm/compare/v3.0.0...v3.1.0) (2026-05-16)
 
 
