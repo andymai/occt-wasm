@@ -288,7 +288,7 @@ describe("I/O extended", () => {
         const imported = kernel.importStl(ascii);
         expect(imported).toBeGreaterThan(0);
         expect(kernel.isNull(imported)).toBe(false);
-        expect(kernel.getShapeType(imported)).not.toBe("");
+        expect(["shell", "compound", "solid"]).toContain(kernel.getShapeType(imported));
     });
 });
 
