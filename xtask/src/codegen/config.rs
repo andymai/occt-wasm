@@ -1699,6 +1699,7 @@ auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
     if (t == \"face\") return TopAbs_FACE;
     if (t == \"shell\") return TopAbs_SHELL;
     if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compsolid\") return TopAbs_COMPSOLID;
     if (t == \"compound\") return TopAbs_COMPOUND;
     throw std::runtime_error(\"Unknown shape type: \" + t);
 };
@@ -1866,6 +1867,7 @@ auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
     if (t == \"face\") return TopAbs_FACE;
     if (t == \"shell\") return TopAbs_SHELL;
     if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compsolid\") return TopAbs_COMPSOLID;
     if (t == \"compound\") return TopAbs_COMPOUND;
     throw std::runtime_error(\"Unknown shape type: \" + t);
 };
