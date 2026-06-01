@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/andymai/occt-wasm/compare/v3.1.1...v3.2.0) (2026-06-01)
+
+
+### Features
+
+* native parity fixes — helix length, compsolid subshape, mesh UVs ([#126](https://github.com/andymai/occt-wasm/issues/126)) ([b716a83](https://github.com/andymai/occt-wasm/commit/b716a834e9d936a523a9db8fff43b29205aea520))
+
 ## [3.1.1](https://github.com/andymai/occt-wasm/compare/v3.1.0...v3.1.1) (2026-05-29)
 
 
