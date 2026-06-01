@@ -1390,7 +1390,12 @@ Handle(Geom_CylindricalSurface) cylinder = new Geom_CylindricalSurface(ax3, radi
 // A helix on a cylindrical surface is a 2D line: u = t, v = pitch/(2*pi) * t
 double slope = pitch / (2.0 * M_PI);
 double nTurns = height / pitch;
-double uMax = nTurns * 2.0 * M_PI;
+// gp_Dir2d normalizes (1, slope) to unit length, so advancing the edge
+// parameter by t moves only t / sqrt(1 + slope^2) along u (the angle). Scale
+// the parameter range by that length so the edge actually sweeps nTurns full
+// turns and the full height instead of falling short.
+double dirLen = std::sqrt(1.0 + slope * slope);
+double uMax = nTurns * 2.0 * M_PI * dirLen;
 
 Handle(Geom2d_Line) line2d = new Geom2d_Line(gp_Pnt2d(0, 0), gp_Dir2d(1, slope));
 
