@@ -2933,10 +2933,12 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
         MeshData result;
         result.positionCount = totalNodes * 3;
         result.normalCount = totalNodes * 3;
+        result.uvCount = totalNodes * 2;
         result.indexCount = totalTris * 3;
         
         result.positions = static_cast<float*>(std::malloc(result.positionCount * sizeof(float)));
         result.normals = static_cast<float*>(std::malloc(result.normalCount * sizeof(float)));
+        result.uvs = static_cast<float*>(std::malloc(result.uvCount * sizeof(float)));
         result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(uint32_t)));
         result.faceGroupCount = totalFaces * 3;
         result.faceGroups =
@@ -2944,6 +2946,7 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
         
         if ((!result.positions && result.positionCount > 0) ||
             (!result.normals && result.normalCount > 0) ||
+            (!result.uvs && result.uvCount > 0) ||
             (!result.indices && result.indexCount > 0) ||
             (!result.faceGroups && result.faceGroupCount > 0)) {
             throw std::runtime_error("tessellate: memory allocation failed");
@@ -2971,6 +2974,20 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
                 result.positions[base + 0] = static_cast<float>(p.X());
                 result.positions[base + 1] = static_cast<float>(p.Y());
                 result.positions[base + 2] = static_cast<float>(p.Z());
+            }
+        
+            // UV parameters (zero-filled where the triangulation carries no UV nodes)
+            bool hasUV = tri->HasUVNodes();
+            for (int i = 1; i <= nbNodes; i++) {
+                int uvBase = (vertexOffset + i - 1) * 2;
+                if (hasUV) {
+                    const gp_Pnt2d& uv = tri->UVNode(i);
+                    result.uvs[uvBase + 0] = static_cast<float>(uv.X());
+                    result.uvs[uvBase + 1] = static_cast<float>(uv.Y());
+                } else {
+                    result.uvs[uvBase + 0] = 0.0f;
+                    result.uvs[uvBase + 1] = 0.0f;
+                }
             }
         
             // Normals

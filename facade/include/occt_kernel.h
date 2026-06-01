@@ -19,10 +19,12 @@ TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId);
 struct MeshData {
     float* positions = nullptr;
     float* normals = nullptr;
+    float* uvs = nullptr;
     uint32_t* indices = nullptr;
     int32_t* faceGroups = nullptr; // [triStart, triCount, faceHash] per face
     int positionCount = 0;
     int normalCount = 0;
+    int uvCount = 0;
     int indexCount = 0;
     int faceGroupCount = 0; // number of int32s (faceCount * 3)
 
@@ -32,6 +34,7 @@ struct MeshData {
     MeshData& operator=(const MeshData&) = delete;
     int getPositionsPtr() const;
     int getNormalsPtr() const;
+    int getUvsPtr() const;
     int getIndicesPtr() const;
     int getFaceGroupsPtr() const;
 };

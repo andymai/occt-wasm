@@ -515,12 +515,17 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
     );
     let _ = writeln!(
         buf,
+        "        .function(\"getUvsPtr\", &MeshData::getUvsPtr)"
+    );
+    let _ = writeln!(
+        buf,
         "        .function(\"getIndicesPtr\", &MeshData::getIndicesPtr)"
     );
     let _ = writeln!(
         buf,
         "        .property(\"positionCount\", &MeshData::positionCount)"
     );
+    let _ = writeln!(buf, "        .property(\"uvCount\", &MeshData::uvCount)");
     let _ = writeln!(
         buf,
         "        .property(\"normalCount\", &MeshData::normalCount)"

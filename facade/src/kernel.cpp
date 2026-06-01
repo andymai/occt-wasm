@@ -28,18 +28,20 @@ TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId) {
 MeshData::~MeshData() {
     std::free(positions);
     std::free(normals);
+    std::free(uvs);
     std::free(indices);
     std::free(faceGroups);
 }
 
 MeshData::MeshData(const MeshData& other)
-    : positions(other.positions), normals(other.normals), indices(other.indices),
+    : positions(other.positions), normals(other.normals), uvs(other.uvs), indices(other.indices),
       faceGroups(other.faceGroups), positionCount(other.positionCount),
-      normalCount(other.normalCount), indexCount(other.indexCount),
+      normalCount(other.normalCount), uvCount(other.uvCount), indexCount(other.indexCount),
       faceGroupCount(other.faceGroupCount) {
     auto& mut = const_cast<MeshData&>(other);
     mut.positions = nullptr;
     mut.normals = nullptr;
+    mut.uvs = nullptr;
     mut.indices = nullptr;
     mut.faceGroups = nullptr;
 }
@@ -50,6 +52,10 @@ int MeshData::getPositionsPtr() const {
 
 int MeshData::getNormalsPtr() const {
     return static_cast<int>(reinterpret_cast<uintptr_t>(normals));
+}
+
+int MeshData::getUvsPtr() const {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(uvs));
 }
 
 int MeshData::getIndicesPtr() const {
