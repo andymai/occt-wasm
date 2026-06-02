@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1](https://github.com/andymai/occt-wasm/compare/v3.2.0...v3.2.1) (2026-06-02)
+
+
+### Bug Fixes
+
+* **face:** orient glyph-counter holes via ShapeFix instead of unconditional reverse ([#128](https://github.com/andymai/occt-wasm/issues/128)) ([0792676](https://github.com/andymai/occt-wasm/commit/07926766281296e43d4ec7679950b7ab39c0dc72))
+
 ## [3.2.0](https://github.com/andymai/occt-wasm/compare/v3.1.1...v3.2.0) (2026-06-01)
 
 
