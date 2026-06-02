@@ -1359,15 +1359,21 @@ uint32_t OcctKernel::addHolesInFace(uint32_t faceId, std::vector<uint32_t> holeW
         TopoDS_Face face = TopoDS::Face(get(faceId));
         BRepBuilderAPI_MakeFace maker(face);
         for (uint32_t wid : holeWireIds) {
-            // Holes must be reversed orientation
-            TopoDS_Wire hole = TopoDS::Wire(get(wid));
-            hole.Reverse();
-            maker.Add(hole);
+            maker.Add(TopoDS::Wire(get(wid)));
         }
         if (!maker.IsDone()) {
             throw std::runtime_error("addHolesInFace: construction failed");
         }
-        return store(maker.Shape());
+        // Match opencascade.js: add holes as-is, then let ShapeFix_Face classify
+        // the outer boundary by area and orient each inner wire opposite to it.
+        // The old unconditional hole.Reverse() produced a mis-oriented (invalid)
+        // face whenever a hole didn't arrive same-wound as the outer — exactly
+        // the case for font glyph counters (8, O, A) — leaving the extruded
+        // solid invalid so the fuse/cut (e.g. embossed text) failed.
+        ShapeFix_Face fixer(TopoDS::Face(maker.Shape()));
+        fixer.FixOrientation();
+        fixer.Perform();
+        return store(fixer.Face());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("addHolesInFace: ") + e.what());
     }

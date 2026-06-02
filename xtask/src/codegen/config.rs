@@ -1453,16 +1453,22 @@ return store(filler.Shape());",
 TopoDS_Face face = TopoDS::Face(get(faceId));
 BRepBuilderAPI_MakeFace maker(face);
 for (uint32_t wid : holeWireIds) {
-    // Holes must be reversed orientation
-    TopoDS_Wire hole = TopoDS::Wire(get(wid));
-    hole.Reverse();
-    maker.Add(hole);
+    maker.Add(TopoDS::Wire(get(wid)));
 }
 if (!maker.IsDone()) {
     throw std::runtime_error(\"addHolesInFace: construction failed\");
 }
-return store(maker.Shape());",
-        includes: &["BRepBuilderAPI_MakeFace.hxx", "TopoDS.hxx", "TopoDS_Wire.hxx"],
+// Add holes as-is, then let ShapeFix_Face classify the outer boundary by
+// area and orient each inner wire opposite to it. The old unconditional
+// hole.Reverse() produced a mis-oriented (invalid) face whenever a hole did
+// not arrive same-wound as the outer -- exactly the case for font glyph
+// counters (8, O, A) -- leaving the extruded solid invalid so a fuse/cut
+// (e.g. embossed text) failed.
+ShapeFix_Face fixer(TopoDS::Face(maker.Shape()));
+fixer.FixOrientation();
+fixer.Perform();
+return store(fixer.Face());",
+        includes: &["BRepBuilderAPI_MakeFace.hxx", "TopoDS.hxx", "TopoDS_Wire.hxx", "ShapeFix_Face.hxx"],
         category: "construction",
         return_type: ReturnType::ShapeId,
     },
