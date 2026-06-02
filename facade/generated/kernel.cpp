@@ -1364,12 +1364,12 @@ uint32_t OcctKernel::addHolesInFace(uint32_t faceId, std::vector<uint32_t> holeW
         if (!maker.IsDone()) {
             throw std::runtime_error("addHolesInFace: construction failed");
         }
-        // Match opencascade.js: add holes as-is, then let ShapeFix_Face classify
-        // the outer boundary by area and orient each inner wire opposite to it.
-        // The old unconditional hole.Reverse() produced a mis-oriented (invalid)
-        // face whenever a hole didn't arrive same-wound as the outer — exactly
-        // the case for font glyph counters (8, O, A) — leaving the extruded
-        // solid invalid so the fuse/cut (e.g. embossed text) failed.
+        // Add holes as-is, then let ShapeFix_Face classify the outer boundary by
+        // area and orient each inner wire opposite to it. The old unconditional
+        // hole.Reverse() produced a mis-oriented (invalid) face whenever a hole did
+        // not arrive same-wound as the outer -- exactly the case for font glyph
+        // counters (8, O, A) -- leaving the extruded solid invalid so a fuse/cut
+        // (e.g. embossed text) failed.
         ShapeFix_Face fixer(TopoDS::Face(maker.Shape()));
         fixer.FixOrientation();
         fixer.Perform();
