@@ -2975,16 +2975,29 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
                 continue;
         
             const auto& trsf = loc.Transformation();
+            // Faces from primitives/booleans usually carry an identity location;
+            // skipping the per-vertex affine multiply there is the common-case win.
+            bool identityLoc = loc.IsIdentity();
             int nbNodes = tri->NbNodes();
             int nbTri = tri->NbTriangles();
         
             // Positions
-            for (int i = 1; i <= nbNodes; i++) {
-                gp_Pnt p = tri->Node(i).Transformed(trsf);
-                int base = (vertexOffset + i - 1) * 3;
-                result.positions[base + 0] = static_cast<float>(p.X());
-                result.positions[base + 1] = static_cast<float>(p.Y());
-                result.positions[base + 2] = static_cast<float>(p.Z());
+            if (identityLoc) {
+                for (int i = 1; i <= nbNodes; i++) {
+                    const gp_Pnt& p = tri->Node(i);
+                    int base = (vertexOffset + i - 1) * 3;
+                    result.positions[base + 0] = static_cast<float>(p.X());
+                    result.positions[base + 1] = static_cast<float>(p.Y());
+                    result.positions[base + 2] = static_cast<float>(p.Z());
+                }
+            } else {
+                for (int i = 1; i <= nbNodes; i++) {
+                    gp_Pnt p = tri->Node(i).Transformed(trsf);
+                    int base = (vertexOffset + i - 1) * 3;
+                    result.positions[base + 0] = static_cast<float>(p.X());
+                    result.positions[base + 1] = static_cast<float>(p.Y());
+                    result.positions[base + 2] = static_cast<float>(p.Z());
+                }
             }
         
             // UV parameters (zero-filled where the triangulation carries no UV nodes)
@@ -3005,16 +3018,19 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
             if (!tri->HasNormals()) {
                 BRepLib_ToolTriangulatedShape::ComputeNormals(face, tri);
             }
+            bool hasNormals = tri->HasNormals();
             for (int i = 1; i <= nbNodes; i++) {
                 gp_Dir d(0, 0, 1);
-                if (tri->HasNormals()) {
+                if (hasNormals) {
                     NCollection_Vec3<float> nv;
                     tri->Normal(i, nv);
                     if (nv.x() != 0.0f || nv.y() != 0.0f || nv.z() != 0.0f) {
                         d = gp_Dir(nv.x(), nv.y(), nv.z());
                     }
                 }
-                d = d.Transformed(trsf);
+                if (!identityLoc) {
+                    d = d.Transformed(trsf);
+                }
                 int base = (vertexOffset + i - 1) * 3;
                 result.normals[base + 0] = static_cast<float>(d.X());
                 result.normals[base + 1] = static_cast<float>(d.Y());
@@ -3129,30 +3145,44 @@ MeshBatchData OcctKernel::meshBatch(std::vector<uint32_t> ids, double linearDefl
         for (const auto& fc : faceCache) {
             const auto& tri = fc.tri;
             const auto& trsf = fc.trsf;
+            bool identityTrsf = (trsf.Form() == gp_Identity);
             int nbNodes = tri->NbNodes();
             int nbTri = tri->NbTriangles();
         
-            for (int i = 1; i <= nbNodes; i++) {
-                gp_Pnt p = tri->Node(i).Transformed(trsf);
-                int base = (vertexOffset + i - 1) * 3;
-                result.positions[base + 0] = static_cast<float>(p.X());
-                result.positions[base + 1] = static_cast<float>(p.Y());
-                result.positions[base + 2] = static_cast<float>(p.Z());
+            if (identityTrsf) {
+                for (int i = 1; i <= nbNodes; i++) {
+                    const gp_Pnt& p = tri->Node(i);
+                    int base = (vertexOffset + i - 1) * 3;
+                    result.positions[base + 0] = static_cast<float>(p.X());
+                    result.positions[base + 1] = static_cast<float>(p.Y());
+                    result.positions[base + 2] = static_cast<float>(p.Z());
+                }
+            } else {
+                for (int i = 1; i <= nbNodes; i++) {
+                    gp_Pnt p = tri->Node(i).Transformed(trsf);
+                    int base = (vertexOffset + i - 1) * 3;
+                    result.positions[base + 0] = static_cast<float>(p.X());
+                    result.positions[base + 1] = static_cast<float>(p.Y());
+                    result.positions[base + 2] = static_cast<float>(p.Z());
+                }
             }
         
             if (!tri->HasNormals()) {
                 BRepLib_ToolTriangulatedShape::ComputeNormals(fc.face, tri);
             }
+            bool hasNormals = tri->HasNormals();
             for (int i = 1; i <= nbNodes; i++) {
                 gp_Dir d(0, 0, 1);
-                if (tri->HasNormals()) {
+                if (hasNormals) {
                     NCollection_Vec3<float> nv;
                     tri->Normal(i, nv);
                     if (nv.x() != 0.0f || nv.y() != 0.0f || nv.z() != 0.0f) {
                         d = gp_Dir(nv.x(), nv.y(), nv.z());
                     }
                 }
-                d = d.Transformed(trsf);
+                if (!identityTrsf) {
+                    d = d.Transformed(trsf);
+                }
                 int base = (vertexOffset + i - 1) * 3;
                 result.normals[base + 0] = static_cast<float>(d.X());
                 result.normals[base + 1] = static_cast<float>(d.Y());
