@@ -514,17 +514,36 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
     );
     let _ = writeln!(buf);
     let _ = writeln!(buf, "#include \"occt_kernel.h\"");
+    let _ = writeln!(buf, "#include <cstdint>");
     let _ = writeln!(buf, "#include <emscripten/bind.h>");
     let _ = writeln!(buf);
     let _ = writeln!(buf, "using namespace emscripten;");
     let _ = writeln!(buf);
     let _ = writeln!(buf, "EMSCRIPTEN_BINDINGS(occt_wasm) {{");
 
-    // Vector types
+    // Vector types. Each is given a dataPtr() returning the address of its
+    // contiguous storage, so JS can read large results through one typed-array
+    // view over the heap instead of N per-element get() boundary crossings.
     let _ = writeln!(buf, "    // Vector types");
-    let _ = writeln!(buf, "    register_vector<uint32_t>(\"VectorUint32\");");
-    let _ = writeln!(buf, "    register_vector<double>(\"VectorDouble\");");
-    let _ = writeln!(buf, "    register_vector<int>(\"VectorInt\");");
+    for (cpp_ty, js_name) in [
+        ("uint32_t", "VectorUint32"),
+        ("double", "VectorDouble"),
+        ("int", "VectorInt"),
+    ] {
+        let _ = writeln!(buf, "    register_vector<{cpp_ty}>(\"{js_name}\")");
+        let _ = writeln!(
+            buf,
+            "        .function(\"dataPtr\", +[](const std::vector<{cpp_ty}>& v) {{"
+        );
+        // unsigned int (not int): a heap address above 2 GB would become a
+        // negative JS number, and slice(negativeStart) silently wraps instead
+        // of throwing. Bit-identical on wasm32, but unambiguous.
+        let _ = writeln!(
+            buf,
+            "            return static_cast<unsigned int>(reinterpret_cast<uintptr_t>(v.data()));"
+        );
+        let _ = writeln!(buf, "        }});");
+    }
     let _ = writeln!(buf);
 
     // Struct registrations (static boilerplate)
