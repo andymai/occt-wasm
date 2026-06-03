@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.3](https://github.com/andymai/occt-wasm/compare/v3.2.2...v3.2.3) (2026-06-03)
+
+
+### Bug Fixes
+
+* **ts:** include README in the published npm package ([#140](https://github.com/andymai/occt-wasm/issues/140)) ([8b13312](https://github.com/andymai/occt-wasm/commit/8b13312db8fe27b819d3c1fb79b9e0278df258db))
+
 ## [3.2.2](https://github.com/andymai/occt-wasm/compare/v3.2.1...v3.2.2) (2026-06-03)
 
 
