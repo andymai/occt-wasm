@@ -414,6 +414,14 @@ export interface OcctRawKernel {
     xcafImportSTEP(stepData: string): number;
     xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;
 
+    // Bulk array marshalling — move large arrays in one HEAP copy instead of
+    // N per-element push_back() boundary crossings.
+    allocBytes(byteCount: number): number;
+    freeBytes(ptr: number): void;
+    vectorF64FromHeap(ptr: number, count: number): EmbindVectorF64;
+    vectorU32FromHeap(ptr: number, count: number): EmbindVectorU32;
+    vectorI32FromHeap(ptr: number, count: number): EmbindVectorI32;
+
     delete(): void;
 }
 
@@ -2066,6 +2074,11 @@ export class OcctKernel {
     // Private helpers
     // =======================================================================
 
+    // Each push_back() is a JS->WASM boundary crossing. Below this element count,
+    // the per-element loop still beats a malloc + bulk HEAP copy + free round-trip;
+    // above it, the single bulk copy wins (measured ~50% of cost on point methods).
+    static readonly #BULK_THRESHOLD = 64;
+
     #makeVector<T extends { push_back(v: number): void }>(
         ctor: new () => T,
         values: number[] | ShapeHandle[],
@@ -2077,26 +2090,78 @@ export class OcctKernel {
         return vec;
     }
 
+    // Copy an array into WASM memory in one shot, then build the vector C++-side.
+    // allocBytes() may grow the heap, so the backing buffer is read after it; a
+    // fresh typed-array view is layered over it at the malloc'd (aligned) offset.
+    #bulkF64(values: ArrayLike<number>): EmbindVectorF64 {
+        const ptr = this.#raw.allocBytes(values.length * 8);
+        new Float64Array(this.#module.HEAPU32.buffer, ptr, values.length).set(values);
+        try {
+            return this.#raw.vectorF64FromHeap(ptr, values.length);
+        } finally {
+            this.#raw.freeBytes(ptr);
+        }
+    }
+
+    #bulkU32(values: ArrayLike<number>): EmbindVectorU32 {
+        const ptr = this.#raw.allocBytes(values.length * 4);
+        new Uint32Array(this.#module.HEAPU32.buffer, ptr, values.length).set(values);
+        try {
+            return this.#raw.vectorU32FromHeap(ptr, values.length);
+        } finally {
+            this.#raw.freeBytes(ptr);
+        }
+    }
+
+    #bulkI32(values: ArrayLike<number>): EmbindVectorI32 {
+        const ptr = this.#raw.allocBytes(values.length * 4);
+        new Int32Array(this.#module.HEAPU32.buffer, ptr, values.length).set(values);
+        try {
+            return this.#raw.vectorI32FromHeap(ptr, values.length);
+        } finally {
+            this.#raw.freeBytes(ptr);
+        }
+    }
+
     #makeVectorU32(ids: ShapeHandle[] | number[]): EmbindVectorU32 {
-        return this.#makeVector(this.#module.VectorUint32, ids);
+        if (ids.length < OcctKernel.#BULK_THRESHOLD) {
+            return this.#makeVector(this.#module.VectorUint32, ids);
+        }
+        return this.#bulkU32(ids as number[]);
     }
 
     #makeVectorF64(values: number[]): EmbindVectorF64 {
-        return this.#makeVector(this.#module.VectorDouble, values);
+        if (values.length < OcctKernel.#BULK_THRESHOLD) {
+            return this.#makeVector(this.#module.VectorDouble, values);
+        }
+        return this.#bulkF64(values);
     }
 
     #makeVectorI32(values: number[]): EmbindVectorI32 {
-        return this.#makeVector(this.#module.VectorInt, values);
+        if (values.length < OcctKernel.#BULK_THRESHOLD) {
+            return this.#makeVector(this.#module.VectorInt, values);
+        }
+        return this.#bulkI32(values);
     }
 
     #flattenPoints(points: Vec3[]): EmbindVectorF64 {
-        const vec = new this.#module.VectorDouble();
-        for (const p of points) {
-            vec.push_back(p.x);
-            vec.push_back(p.y);
-            vec.push_back(p.z);
+        if (points.length * 3 < OcctKernel.#BULK_THRESHOLD) {
+            const vec = new this.#module.VectorDouble();
+            for (const p of points) {
+                vec.push_back(p.x);
+                vec.push_back(p.y);
+                vec.push_back(p.z);
+            }
+            return vec;
         }
-        return vec;
+        const flat = new Float64Array(points.length * 3);
+        let j = 0;
+        for (const p of points) {
+            flat[j++] = p.x;
+            flat[j++] = p.y;
+            flat[j++] = p.z;
+        }
+        return this.#bulkF64(flat);
     }
 
     #vec2FromEmbind(vec: EmbindVectorF64): { u: number; v: number } {
