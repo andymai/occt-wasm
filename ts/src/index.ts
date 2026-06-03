@@ -2094,10 +2094,10 @@ export class OcctKernel {
 
     // Reverse of the #bulk* helpers: read a returned vector into a JS array.
     // Each get() is a JS->WASM crossing, so above the threshold we fetch the
-    // vector's contiguous storage pointer once and copy the whole block via a
-    // typed-array view (2 crossings total, regardless of length). The view
-    // aliases live WASM memory, so Array.from copies it out before the caller
-    // frees the vector or any later allocation grows the heap.
+    // vector's contiguous storage pointer once and copy the whole block in one
+    // shot (2 crossings total, regardless of length). heap.slice() detaches a
+    // copy of those WASM bytes before the typed-array view is built, so the
+    // caller can free the vector afterward with no aliasing concern.
     #readVector(
         vec: EmbindVectorF64 | EmbindVectorI32 | EmbindVectorU32,
         HeapArray: Float64ArrayConstructor | Int32ArrayConstructor | Uint32ArrayConstructor,

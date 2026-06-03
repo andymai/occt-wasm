@@ -535,9 +535,12 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
             buf,
             "        .function(\"dataPtr\", +[](const std::vector<{cpp_ty}>& v) {{"
         );
+        // unsigned int (not int): a heap address above 2 GB would become a
+        // negative JS number, and slice(negativeStart) silently wraps instead
+        // of throwing. Bit-identical on wasm32, but unambiguous.
         let _ = writeln!(
             buf,
-            "            return static_cast<int>(reinterpret_cast<uintptr_t>(v.data()));"
+            "            return static_cast<unsigned int>(reinterpret_cast<uintptr_t>(v.data()));"
         );
         let _ = writeln!(buf, "        }});");
     }

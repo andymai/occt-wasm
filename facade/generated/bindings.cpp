@@ -10,15 +10,15 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
     // Vector types
     register_vector<uint32_t>("VectorUint32")
         .function("dataPtr", +[](const std::vector<uint32_t>& v) {
-            return static_cast<int>(reinterpret_cast<uintptr_t>(v.data()));
+            return static_cast<unsigned int>(reinterpret_cast<uintptr_t>(v.data()));
         });
     register_vector<double>("VectorDouble")
         .function("dataPtr", +[](const std::vector<double>& v) {
-            return static_cast<int>(reinterpret_cast<uintptr_t>(v.data()));
+            return static_cast<unsigned int>(reinterpret_cast<uintptr_t>(v.data()));
         });
     register_vector<int>("VectorInt")
         .function("dataPtr", +[](const std::vector<int>& v) {
-            return static_cast<int>(reinterpret_cast<uintptr_t>(v.data()));
+            return static_cast<unsigned int>(reinterpret_cast<uintptr_t>(v.data()));
         });
 
     // MeshData
