@@ -67,7 +67,7 @@ if (!existsSync(BASELINE_PATH)) {
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
 let regressions = 0;
 
-console.log('\nRegression check (threshold: 15%):');
+console.log(`\nRegression check (fails at >${THRESHOLD * 100}% AND >${MIN_ABSOLUTE_MS}ms):`);
 for (const [name, median] of Object.entries(results)) {
     const base = baseline[name];
     if (base === undefined) {
@@ -89,7 +89,7 @@ for (const [name, median] of Object.entries(results)) {
 }
 
 if (regressions > 0) {
-    console.log(`\n${regressions} benchmark(s) regressed >15%. Failing.`);
+    console.log(`\n${regressions} benchmark(s) regressed >${THRESHOLD * 100}% AND >${MIN_ABSOLUTE_MS}ms. Failing.`);
     process.exit(1);
 } else {
     console.log('\nNo performance regressions detected.');
