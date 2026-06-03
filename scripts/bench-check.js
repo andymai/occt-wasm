@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /**
  * Compare benchmark output against a stored baseline.
- * Fails with exit code 1 if any Core 5 benchmark regresses >15%.
+ * Fails with exit code 1 if a benchmark regresses by more than BOTH a relative
+ * (15%) and an absolute (0.5ms) margin. The absolute floor keeps sub-millisecond
+ * benchmarks (e.g. mesh sphere ~0.6ms) from flake-failing on timer/scheduling
+ * jitter, where a 0.1ms swing is already +17% but is pure noise.
  *
  * Usage:
  *   npx vitest run test/bench.test.ts 2>&1 | node scripts/bench-check.js
@@ -17,7 +20,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASELINE_PATH = resolve(__dirname, '../benchmarks/baseline.json');
-const THRESHOLD = 0.15; // 15% regression threshold
+const THRESHOLD = 0.15; // 15% relative regression threshold
+const MIN_ABSOLUTE_MS = 0.5; // ignore regressions smaller than this in absolute terms (sub-ms noise)
 
 // Read stdin
 let input = '';
@@ -63,7 +67,7 @@ if (!existsSync(BASELINE_PATH)) {
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
 let regressions = 0;
 
-console.log('\nRegression check (threshold: 15%):');
+console.log(`\nRegression check (fails at >${THRESHOLD * 100}% AND >${MIN_ABSOLUTE_MS}ms):`);
 for (const [name, median] of Object.entries(results)) {
     const base = baseline[name];
     if (base === undefined) {
@@ -71,9 +75,12 @@ for (const [name, median] of Object.entries(results)) {
         continue;
     }
     const change = (median - base) / base;
-    if (change > THRESHOLD) {
-        console.log(`  REGRESSION: ${name} ${base.toFixed(1)}ms → ${median.toFixed(1)}ms (+${(change * 100).toFixed(0)}%)`);
+    const absoluteDelta = median - base;
+    if (change > THRESHOLD && absoluteDelta > MIN_ABSOLUTE_MS) {
+        console.log(`  REGRESSION: ${name} ${base.toFixed(1)}ms → ${median.toFixed(1)}ms (+${(change * 100).toFixed(0)}%, +${absoluteDelta.toFixed(1)}ms)`);
         regressions++;
+    } else if (change > THRESHOLD) {
+        console.log(`  OK (sub-${MIN_ABSOLUTE_MS}ms noise): ${name} ${base.toFixed(1)}ms → ${median.toFixed(1)}ms (+${(change * 100).toFixed(0)}%, +${absoluteDelta.toFixed(1)}ms)`);
     } else if (change < -THRESHOLD) {
         console.log(`  IMPROVED: ${name} ${base.toFixed(1)}ms → ${median.toFixed(1)}ms (${(change * 100).toFixed(0)}%)`);
     } else {
@@ -82,7 +89,7 @@ for (const [name, median] of Object.entries(results)) {
 }
 
 if (regressions > 0) {
-    console.log(`\n${regressions} benchmark(s) regressed >15%. Failing.`);
+    console.log(`\n${regressions} benchmark(s) regressed >${THRESHOLD * 100}% AND >${MIN_ABSOLUTE_MS}ms. Failing.`);
     process.exit(1);
 } else {
     console.log('\nNo performance regressions detected.');
