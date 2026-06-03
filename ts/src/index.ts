@@ -165,6 +165,7 @@ interface EmbindVectorU32 {
     push_back(v: number): void;
     get(i: number): number;
     size(): number;
+    dataPtr(): number;
     delete(): void;
 }
 
@@ -172,6 +173,7 @@ interface EmbindVectorF64 {
     push_back(v: number): void;
     get(i: number): number;
     size(): number;
+    dataPtr(): number;
     delete(): void;
 }
 
@@ -179,6 +181,7 @@ interface EmbindVectorI32 {
     push_back(v: number): void;
     get(i: number): number;
     size(): number;
+    dataPtr(): number;
     delete(): void;
 }
 
@@ -442,36 +445,6 @@ function wrap<T>(operation: string, fn: () => T): T {
         }
         throw new OcctError(operation, String(e));
     }
-}
-
-function vecToNumbers(vec: EmbindVectorF64 | EmbindVectorI32): number[] {
-    const result: number[] = [];
-    for (let i = 0; i < vec.size(); i++) {
-        result.push(vec.get(i));
-    }
-    return result;
-}
-
-/**
- * Extract the first n elements from an Embind vector into an array,
- * then delete the vector and return the result.
- */
-function extractFromVector(vec: EmbindVectorF64 | EmbindVectorI32, count: number): number[] {
-    const result: number[] = [];
-    for (let i = 0; i < count; i++) {
-        result.push(vec.get(i));
-    }
-    vec.delete();
-    return result;
-}
-
-function vecToHandles(vec: EmbindVectorU32): ShapeHandle[] {
-    const result: ShapeHandle[] = [];
-    for (let i = 0; i < vec.size(); i++) {
-        result.push(handle(vec.get(i)));
-    }
-    vec.delete();
-    return result;
 }
 
 /**
@@ -1088,9 +1061,7 @@ export class OcctKernel {
             const v2 = this.#makeVectorF64(m2);
             try {
                 const result = this.#raw.composeTransform(v1, v2);
-                const out = vecToNumbers(result);
-                result.delete();
-                return out;
+                return this.#drainVector(result, Float64Array);
             } finally {
                 v1.delete();
                 v2.delete();
@@ -1109,7 +1080,7 @@ export class OcctKernel {
             const off = this.#makeVectorF64(offsets);
             try {
                 const result = this.#raw.translateBatch(ids, off);
-                return vecToHandles(result);
+                return this.#vecToHandles(result);
             } finally {
                 ids.delete();
                 off.delete();
@@ -1133,8 +1104,7 @@ export class OcctKernel {
             const ids = this.#makeVectorU32(shapes);
             try {
                 const raw = this.#raw.queryBatch(ids);
-                const arr = vecToNumbers(raw);
-                raw.delete();
+                const arr = this.#drainVector(raw, Float64Array);
                 const STRIDE = 14;
                 const SHAPE_TYPES: ShapeType[] = ["compound", "compsolid", "solid", "shell", "face", "wire", "edge", "vertex", "shape"];
                 const results: ShapeQueryResult[] = [];
@@ -1162,7 +1132,7 @@ export class OcctKernel {
             const flatEdges = this.#makeVectorU32(ops.flatMap(op => op.edges));
             const radii = this.#makeVectorF64(ops.map(op => op.radius));
             try {
-                return vecToHandles(this.#raw.filletBatch(solids, edgeCounts, flatEdges, radii));
+                return this.#vecToHandles(this.#raw.filletBatch(solids, edgeCounts, flatEdges, radii));
             } finally {
                 solids.delete(); edgeCounts.delete(); flatEdges.delete(); radii.delete();
             }
@@ -1175,7 +1145,7 @@ export class OcctKernel {
             const ids = this.#makeVectorU32(shapes);
             const mats = this.#makeVectorF64(matrices);
             try {
-                return vecToHandles(this.#raw.transformBatch(ids, mats));
+                return this.#vecToHandles(this.#raw.transformBatch(ids, mats));
             } finally { ids.delete(); mats.delete(); }
         });
     }
@@ -1186,7 +1156,7 @@ export class OcctKernel {
             const ids = this.#makeVectorU32(shapes);
             const p = this.#makeVectorF64(params);
             try {
-                return vecToHandles(this.#raw.rotateBatch(ids, p));
+                return this.#vecToHandles(this.#raw.rotateBatch(ids, p));
             } finally { ids.delete(); p.delete(); }
         });
     }
@@ -1197,7 +1167,7 @@ export class OcctKernel {
             const ids = this.#makeVectorU32(shapes);
             const p = this.#makeVectorF64(params);
             try {
-                return vecToHandles(this.#raw.scaleBatch(ids, p));
+                return this.#vecToHandles(this.#raw.scaleBatch(ids, p));
             } finally { ids.delete(); p.delete(); }
         });
     }
@@ -1208,7 +1178,7 @@ export class OcctKernel {
             const ids = this.#makeVectorU32(shapes);
             const p = this.#makeVectorF64(params);
             try {
-                return vecToHandles(this.#raw.mirrorBatch(ids, p));
+                return this.#vecToHandles(this.#raw.mirrorBatch(ids, p));
             } finally { ids.delete(); p.delete(); }
         });
     }
@@ -1246,7 +1216,7 @@ export class OcctKernel {
     isVertex(shape: ShapeHandle): boolean { return this.getShapeType(shape) === "vertex"; }
 
     getSubShapes(shape: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): ShapeHandle[] {
-        return wrap("getSubShapes", () => vecToHandles(this.#raw.getSubShapes(shape, type)));
+        return wrap("getSubShapes", () => this.#vecToHandles(this.#raw.getSubShapes(shape, type)));
     }
 
     downcast(shape: ShapeHandle, targetType: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): ShapeHandle {
@@ -1278,24 +1248,22 @@ export class OcctKernel {
     }
 
     sharedEdges(faceA: ShapeHandle, faceB: ShapeHandle): ShapeHandle[] {
-        return wrap("sharedEdges", () => vecToHandles(this.#raw.sharedEdges(faceA, faceB)));
+        return wrap("sharedEdges", () => this.#vecToHandles(this.#raw.sharedEdges(faceA, faceB)));
     }
 
     adjacentFaces(shape: ShapeHandle, face: ShapeHandle): ShapeHandle[] {
-        return wrap("adjacentFaces", () => vecToHandles(this.#raw.adjacentFaces(shape, face)));
+        return wrap("adjacentFaces", () => this.#vecToHandles(this.#raw.adjacentFaces(shape, face)));
     }
 
     iterShapes(shape: ShapeHandle): ShapeHandle[] {
-        return wrap("iterShapes", () => vecToHandles(this.#raw.iterShapes(shape)));
+        return wrap("iterShapes", () => this.#vecToHandles(this.#raw.iterShapes(shape)));
     }
 
     /** Returns a flat array mapping edge hashes to face hashes. */
     edgeToFaceMap(shape: ShapeHandle, hashUpperBound: number): number[] {
         return wrap("edgeToFaceMap", () => {
             const vec = this.#raw.edgeToFaceMap(shape, hashUpperBound);
-            const result = vecToNumbers(vec);
-            vec.delete();
-            return result;
+            return this.#drainVector(vec, Int32Array);
         });
     }
 
@@ -1670,10 +1638,10 @@ export class OcctKernel {
                 degree: raw.degree,
                 rational: raw.rational,
                 periodic: raw.periodic,
-                knots: extractFromVector(raw.knots, raw.knots.size()),
-                multiplicities: extractFromVector(raw.multiplicities, raw.multiplicities.size()),
-                poles: extractFromVector(raw.poles, raw.poles.size()),
-                weights: extractFromVector(raw.weights, raw.weights.size()),
+                knots: this.#drainVector(raw.knots, Float64Array),
+                multiplicities: this.#drainVector(raw.multiplicities, Int32Array),
+                poles: this.#drainVector(raw.poles, Float64Array),
+                weights: this.#drainVector(raw.weights, Float64Array),
             };
             return result;
         });
@@ -2074,8 +2042,9 @@ export class OcctKernel {
     // Private helpers
     // =======================================================================
 
-    // Each push_back() is a JS->WASM boundary crossing. Below this element count,
-    // the per-element loop still beats a malloc + bulk HEAP copy + free round-trip;
+    // Per-element push_back()/get() each cross the JS->WASM boundary. Below this
+    // element count the per-element loop still beats the bulk HEAP-copy path (a
+    // malloc round-trip on the way in, a typed-array view + copy on the way out);
     // above it, the single bulk copy wins (measured ~50% of cost on point methods).
     static readonly #BULK_THRESHOLD = 64;
 
@@ -2120,6 +2089,50 @@ export class OcctKernel {
             return this.#raw.vectorI32FromHeap(ptr, values.length);
         } finally {
             this.#raw.freeBytes(ptr);
+        }
+    }
+
+    // Reverse of the #bulk* helpers: read a returned vector into a JS array.
+    // Each get() is a JS->WASM crossing, so above the threshold we fetch the
+    // vector's contiguous storage pointer once and copy the whole block via a
+    // typed-array view (2 crossings total, regardless of length). The view
+    // aliases live WASM memory, so Array.from copies it out before the caller
+    // frees the vector or any later allocation grows the heap.
+    #readVector(
+        vec: EmbindVectorF64 | EmbindVectorI32 | EmbindVectorU32,
+        HeapArray: Float64ArrayConstructor | Int32ArrayConstructor | Uint32ArrayConstructor,
+        count: number,
+    ): number[] {
+        if (count < OcctKernel.#BULK_THRESHOLD) {
+            const out = new Array<number>(count);
+            for (let i = 0; i < count; i++) {
+                out[i] = vec.get(i);
+            }
+            return out;
+        }
+        const ptr = vec.dataPtr();
+        const heap = this.#module.HEAPU32.buffer as ArrayBuffer;
+        const buffer = heap.slice(ptr, ptr + count * HeapArray.BYTES_PER_ELEMENT);
+        return Array.from(new HeapArray(buffer));
+    }
+
+    // Read a vector to numbers, then delete it. Every call site reads-then-frees.
+    #drainVector(
+        vec: EmbindVectorF64 | EmbindVectorI32,
+        HeapArray: Float64ArrayConstructor | Int32ArrayConstructor,
+    ): number[] {
+        try {
+            return this.#readVector(vec, HeapArray, vec.size());
+        } finally {
+            vec.delete();
+        }
+    }
+
+    #vecToHandles(vec: EmbindVectorU32): ShapeHandle[] {
+        try {
+            return this.#readVector(vec, Uint32Array, vec.size()).map((id) => handle(id));
+        } finally {
+            vec.delete();
         }
     }
 
@@ -2252,12 +2265,9 @@ export class OcctKernel {
     }
 
     #extractEvolution(raw: RawEvolutionData): EvolutionData {
-        const modified = vecToNumbers(raw.modified);
-        raw.modified.delete();
-        const generated = vecToNumbers(raw.generated);
-        raw.generated.delete();
-        const deleted = vecToNumbers(raw.deleted);
-        raw.deleted.delete();
+        const modified = this.#drainVector(raw.modified, Int32Array);
+        const generated = this.#drainVector(raw.generated, Int32Array);
+        const deleted = this.#drainVector(raw.deleted, Int32Array);
         return {
             result: handle(raw.resultId),
             modified,
