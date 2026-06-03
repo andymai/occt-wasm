@@ -189,10 +189,9 @@ fn emit_setup_shape(buf: &mut String, spec: &MethodSpec) {
     let _ = writeln!(buf, "}}");
 }
 
-/// Emit a `CustomBody` method — the `setup_code` field contains the complete body.
-fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
-    let name = spec.name;
-    let ret_type = match spec.return_type {
+/// Map a `ReturnType` to its C++ type spelling.
+const fn cpp_return_type(ret: ReturnType) -> &'static str {
+    match ret {
         ReturnType::ShapeId | ReturnType::Uint32 => "uint32_t",
         ReturnType::Bool => "bool",
         ReturnType::Void => "void",
@@ -210,7 +209,13 @@ fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
         ReturnType::EdgeData => "EdgeData",
         ReturnType::ProjectionData => "ProjectionData",
         ReturnType::XCAFLabelInfo => "XCAFLabelInfo",
-    };
+    }
+}
+
+/// Emit a `CustomBody` method — the `setup_code` field contains the complete body.
+fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
+    let name = spec.name;
+    let ret_type = cpp_return_type(spec.return_type);
 
     let _ = writeln!(
         buf,
@@ -229,6 +234,25 @@ fn emit_custom_body(buf: &mut String, spec: &MethodSpec) {
         "        throw std::runtime_error(std::string(\"{name}: \") + e.what());"
     );
     let _ = writeln!(buf, "    }}");
+    let _ = writeln!(buf, "}}");
+}
+
+/// Emit a `CustomBodyRaw` method — `setup_code` is the full body, emitted with
+/// no `Standard_Failure` try/catch wrapper (for methods that never enter OCCT).
+fn emit_custom_body_raw(buf: &mut String, spec: &MethodSpec) {
+    let ret_type = cpp_return_type(spec.return_type);
+
+    let _ = writeln!(
+        buf,
+        "{ret_type} OcctKernel::{name}({params}) {{",
+        name = spec.name,
+        params = param_list(spec.params)
+    );
+
+    for line in spec.setup_code.lines() {
+        let _ = writeln!(buf, "    {line}");
+    }
+
     let _ = writeln!(buf, "}}");
 }
 
@@ -447,6 +471,7 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
                 MethodKind::FilletLike => emit_fillet_like(&mut buf, spec),
                 MethodKind::SetupShape => emit_setup_shape(&mut buf, spec),
                 MethodKind::CustomBody => emit_custom_body(&mut buf, spec),
+                MethodKind::CustomBodyRaw => emit_custom_body_raw(&mut buf, spec),
                 MethodKind::Skip => {}
             }
             let _ = writeln!(buf);

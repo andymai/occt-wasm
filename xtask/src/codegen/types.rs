@@ -29,6 +29,12 @@ pub enum MethodKind {
     /// (everything between the opening `try {` and closing `} catch`).
     CustomBody,
 
+    /// Inline C++ body emitted verbatim, with no `Standard_Failure` try/catch
+    /// wrapper. For methods that never call into OCCT (e.g. the marshal helpers
+    /// that only touch malloc/free and raw memory), where a `Standard_Failure`
+    /// catch would be dead code.
+    CustomBodyRaw,
+
     /// Not auto-generated — the hand-written implementation uses complex
     /// multi-step logic that doesn't fit a template.
     Skip,

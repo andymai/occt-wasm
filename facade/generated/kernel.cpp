@@ -147,6 +147,7 @@
 #include <gp_Pnt2d.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
+#include <stdexcept>
 
 #include <algorithm>
 #include <cmath>
@@ -3680,48 +3681,31 @@ std::string OcctKernel::xcafExportGLTF(uint32_t docId, double linDeflection, dou
 // === marshal ===
 
 int OcctKernel::allocBytes(int byteCount) {
-    try {
-        return static_cast<int>(
-            reinterpret_cast<uintptr_t>(std::malloc(static_cast<size_t>(byteCount))));
-    } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("allocBytes: ") + e.what());
+    void* p = std::malloc(static_cast<size_t>(byteCount));
+    if (!p) {
+        throw std::runtime_error("allocBytes: malloc failed (out of WASM linear memory)");
     }
+    return static_cast<int>(reinterpret_cast<uintptr_t>(p));
 }
 
 void OcctKernel::freeBytes(int ptr) {
-    try {
-        std::free(reinterpret_cast<void*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr))));
-    } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("freeBytes: ") + e.what());
-    }
+    std::free(reinterpret_cast<void*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr))));
 }
 
 std::vector<double> OcctKernel::vectorF64FromHeap(int ptr, int count) {
-    try {
-        const double* p =
-            reinterpret_cast<const double*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
-        return std::vector<double>(p, p + count);
-    } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("vectorF64FromHeap: ") + e.what());
-    }
+    const double* p =
+        reinterpret_cast<const double*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+    return std::vector<double>(p, p + count);
 }
 
 std::vector<uint32_t> OcctKernel::vectorU32FromHeap(int ptr, int count) {
-    try {
-        const uint32_t* p =
-            reinterpret_cast<const uint32_t*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
-        return std::vector<uint32_t>(p, p + count);
-    } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("vectorU32FromHeap: ") + e.what());
-    }
+    const uint32_t* p =
+        reinterpret_cast<const uint32_t*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+    return std::vector<uint32_t>(p, p + count);
 }
 
 std::vector<int> OcctKernel::vectorI32FromHeap(int ptr, int count) {
-    try {
-        const int* p =
-            reinterpret_cast<const int*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
-        return std::vector<int>(p, p + count);
-    } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("vectorI32FromHeap: ") + e.what());
-    }
+    const int* p =
+        reinterpret_cast<const int*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+    return std::vector<int>(p, p + count);
 }

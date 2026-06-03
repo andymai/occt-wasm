@@ -4549,20 +4549,23 @@ return tmpPath;",
     // measured as ~50% of the cost of point-array methods like interpolatePoints.
     // Emitted to the Embind target only (filtered out of WASI/crate in run.rs):
     // the crate marshals via wasmtime linear memory and has no use for them.
+    // These never enter OCCT, so they use CustomBodyRaw (no Standard_Failure
+    // catch — that would be dead code). allocBytes throws on malloc failure so
+    // the JS side never silently writes a typed-array view at offset 0.
     MethodSpec {
         name: "allocBytes",
-        kind: MethodKind::CustomBody,
+        kind: MethodKind::CustomBodyRaw,
         params: &[FacadeParam::Int("byteCount")],
         occt_class: "",
         ctor_args: "",
-        setup_code: "return static_cast<int>(\n    reinterpret_cast<uintptr_t>(std::malloc(static_cast<size_t>(byteCount))));",
-        includes: &["cstdlib"],
+        setup_code: "void* p = std::malloc(static_cast<size_t>(byteCount));\nif (!p) {\n    throw std::runtime_error(\"allocBytes: malloc failed (out of WASM linear memory)\");\n}\nreturn static_cast<int>(reinterpret_cast<uintptr_t>(p));",
+        includes: &["cstdlib", "stdexcept"],
         category: "marshal",
         return_type: ReturnType::Int,
     },
     MethodSpec {
         name: "freeBytes",
-        kind: MethodKind::CustomBody,
+        kind: MethodKind::CustomBodyRaw,
         params: &[FacadeParam::Int("ptr")],
         occt_class: "",
         ctor_args: "",
@@ -4573,7 +4576,7 @@ return tmpPath;",
     },
     MethodSpec {
         name: "vectorF64FromHeap",
-        kind: MethodKind::CustomBody,
+        kind: MethodKind::CustomBodyRaw,
         params: &[FacadeParam::Int("ptr"), FacadeParam::Int("count")],
         occt_class: "",
         ctor_args: "",
@@ -4584,7 +4587,7 @@ return tmpPath;",
     },
     MethodSpec {
         name: "vectorU32FromHeap",
-        kind: MethodKind::CustomBody,
+        kind: MethodKind::CustomBodyRaw,
         params: &[FacadeParam::Int("ptr"), FacadeParam::Int("count")],
         occt_class: "",
         ctor_args: "",
@@ -4595,7 +4598,7 @@ return tmpPath;",
     },
     MethodSpec {
         name: "vectorI32FromHeap",
-        kind: MethodKind::CustomBody,
+        kind: MethodKind::CustomBodyRaw,
         params: &[FacadeParam::Int("ptr"), FacadeParam::Int("count")],
         occt_class: "",
         ctor_args: "",
@@ -4631,7 +4634,10 @@ mod tests {
     #[test]
     fn all_generable_methods_have_occt_class_or_custom_body() {
         for m in target_methods() {
-            if m.kind != MethodKind::Skip && m.kind != MethodKind::CustomBody {
+            if m.kind != MethodKind::Skip
+                && m.kind != MethodKind::CustomBody
+                && m.kind != MethodKind::CustomBodyRaw
+            {
                 assert!(
                     !m.occt_class.is_empty(),
                     "generable method '{}' is missing occt_class",
