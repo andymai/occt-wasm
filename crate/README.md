@@ -15,7 +15,7 @@ occt-wasm = "3"
 
 ## Why
 
-OCCT is a 2.5 MLoC C++ library. Building it from source takes ~10 minutes and a working Emscripten or system toolchain. This crate ships the WASM artifact in the package itself (~4 MB compressed → ~21 MB on first load), so you get a fully functional CAD kernel from `cargo build`.
+OCCT is a 2.5 MLoC C++ library. Building it from source takes ~10 minutes and a working Emscripten or system toolchain. This crate ships the WASM artifact in the package itself (~4.7 MB compressed → ~21 MB on first load), so you get a fully functional CAD kernel from `cargo build`.
 
 Use this crate when you want OCCT inside a Rust server, CLI, or build script — without taking on the OCCT build pipeline. For the browser, use the [`occt-wasm` npm package](https://www.npmjs.com/package/occt-wasm) instead; it wraps the same WASM via Embind.
 
@@ -75,7 +75,7 @@ See the [API docs](https://docs.rs/occt-wasm) for the complete list.
 
 ## Performance
 
-First `OcctKernel::new()` decompresses ~4 MB of brotli and JIT-compiles the WASM module. Expect ~100–500 ms depending on the host. Subsequent calls run at native wasmtime speed — typically within ~2x of native OCCT for compute-heavy operations, and dominated by the wasmtime boundary crossing for tiny operations.
+First `OcctKernel::new()` decompresses ~4.7 MB of brotli and JIT-compiles the WASM module. Expect ~100–500 ms depending on the host. Subsequent calls run at native wasmtime speed — typically within ~2x of native OCCT for compute-heavy operations, and dominated by the wasmtime boundary crossing for tiny operations.
 
 Re-use one `OcctKernel` per worker thread; creation is the slow part, individual calls are cheap.
 

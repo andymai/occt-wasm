@@ -19,7 +19,7 @@ Smaller bundles, branded types, arena-based memory, and modern tooling.
 
 ## Highlights
 
-- **~4 MB brotli** -- roughly 2x smaller than opencascade.js
+- **~4.5 MB brotli** -- roughly 2x smaller than opencascade.js
 - **Comprehensive API** -- primitives, booleans, sweeps, XCAF assemblies, curves, surfaces, STEP/STL/glTF/BREP I/O, topology, shape evolution tracking
 - **Arena-based API** -- u32 shape handles, no manual `.delete()`, `Symbol.dispose` support
 - **TypeScript-first** -- branded `ShapeHandle`, union types for shapes/surfaces/curves, structured returns
@@ -100,7 +100,7 @@ let mesh = kernel.tessellate(fused, 0.1, 0.5)?;
 let step = kernel.export_step(fused)?;
 ```
 
-The crate embeds a brotli-compressed WASM binary (~4 MB) and runs it via [wasmtime](https://wasmtime.dev/). Same 170+ facade methods as the TS API. See [`crate/README.md`](./crate/README.md) and [docs.rs/occt-wasm](https://docs.rs/occt-wasm) for full details.
+The crate embeds a brotli-compressed WASM binary (~4.7 MB) and runs it via [wasmtime](https://wasmtime.dev/). Same 170+ facade methods as the TS API. See [`crate/README.md`](./crate/README.md) and [docs.rs/occt-wasm](https://docs.rs/occt-wasm) for full details.
 
 ## Initialization
 
@@ -324,12 +324,12 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 ## Architecture
 
 ```
-OCCT V8.0.0-rc5 C++ (git submodule)
+OCCT V8.0.0 C++ (git submodule)
     -> emcmake cmake (48 static libs)
     -> C++ facade (OcctKernel class, arena-based u32 IDs)
     -> Embind bindings
     -> emcc link (-O3, -flto, -fwasm-exceptions, SIMD) -> .wasm
-    -> wasm-opt -O4 --converge --gufa -> dist/ (20.3 MB)
+    -> wasm-opt -O4 --converge --gufa -> dist/ (20.8 MB)
 ```
 
 Built with Rust xtask (`cargo xtask build`), tested with Vitest.
@@ -338,11 +338,11 @@ Built with Rust xtask (`cargo xtask build`), tested with Vitest.
 
 Compared against other OCCT-to-WASM builds (all include STEP, XCAF, glTF):
 
-| Build              | brotli |
-| ------------------ | ------ |
-| **occt-wasm**      | ~4 MB  |
-| opencascade.js     | ~9 MB  |
-| brepjs-opencascade | ~5 MB  |
+| Build              | brotli  |
+| ------------------ | ------- |
+| **occt-wasm**      | ~4.5 MB |
+| opencascade.js     | ~9 MB   |
+| brepjs-opencascade | ~5 MB   |
 
 Run benchmarks locally: `npx tsx test/benchmark.ts`
 
@@ -388,14 +388,14 @@ Node.js 22+ is recommended (tail calls via V8). Node.js 18+ works if your V8 ver
 
 ## Known Limitations
 
-These are upstream OCCT V8.0.0-rc5 issues, not occt-wasm bugs:
+These are upstream OCCT V8.0.0 issues, not occt-wasm bugs:
 
 - **IGES** -- TKDEIGES excluded from link; no IGES import/export
 - **Zero-length extrusion** -- WASM exception escapes JS catch boundary (1 test skip)
 - **Single WASM thread** -- each kernel instance is single-threaded; use `OcctWorker` (see above) to move work off the main thread
 - **Firefox** -- not supported due to missing WASM tail call support
 
-These will be addressed as OCCT V8.0.0 final is released and browser support improves.
+These will be addressed as upstream OCCT and browser support improve.
 
 ## Contributing
 
