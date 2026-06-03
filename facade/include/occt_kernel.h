@@ -396,6 +396,15 @@ class OcctKernel {
     uint32_t fixFaceOrientations(uint32_t id);
     uint32_t removeDegenerateEdges(uint32_t id);
 
+    // --- Bulk array marshalling (Embind heap transfer) ---
+    // Lets the JS wrapper hand large arrays to the kernel in one HEAP copy
+    // instead of N per-element push_back() boundary crossings.
+    int allocBytes(int byteCount);
+    void freeBytes(int ptr);
+    std::vector<double> vectorF64FromHeap(int ptr, int count);
+    std::vector<uint32_t> vectorU32FromHeap(int ptr, int count);
+    std::vector<int> vectorI32FromHeap(int ptr, int count);
+
   private:
     uint32_t store(const TopoDS_Shape& shape);
     const TopoDS_Shape& get(uint32_t id) const;

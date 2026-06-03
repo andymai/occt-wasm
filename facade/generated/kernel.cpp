@@ -132,6 +132,7 @@
 #include <XCAFDoc_ColorTool.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
+#include <cstdlib>
 #include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Ax3.hxx>
@@ -3673,5 +3674,54 @@ std::string OcctKernel::xcafExportGLTF(uint32_t docId, double linDeflection, dou
         return tmpPath;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafExportGLTF: ") + e.what());
+    }
+}
+
+// === marshal ===
+
+int OcctKernel::allocBytes(int byteCount) {
+    try {
+        return static_cast<int>(
+            reinterpret_cast<uintptr_t>(std::malloc(static_cast<size_t>(byteCount))));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("allocBytes: ") + e.what());
+    }
+}
+
+void OcctKernel::freeBytes(int ptr) {
+    try {
+        std::free(reinterpret_cast<void*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr))));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("freeBytes: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::vectorF64FromHeap(int ptr, int count) {
+    try {
+        const double* p =
+            reinterpret_cast<const double*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+        return std::vector<double>(p, p + count);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("vectorF64FromHeap: ") + e.what());
+    }
+}
+
+std::vector<uint32_t> OcctKernel::vectorU32FromHeap(int ptr, int count) {
+    try {
+        const uint32_t* p =
+            reinterpret_cast<const uint32_t*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+        return std::vector<uint32_t>(p, p + count);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("vectorU32FromHeap: ") + e.what());
+    }
+}
+
+std::vector<int> OcctKernel::vectorI32FromHeap(int ptr, int count) {
+    try {
+        const int* p =
+            reinterpret_cast<const int*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+        return std::vector<int>(p, p + count);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("vectorI32FromHeap: ") + e.what());
     }
 }

@@ -55,14 +55,23 @@ pub fn run() -> Result<()> {
     eprintln!("  Wrote {}", kernel_path.display());
     eprintln!("  Wrote {}", bindings_path.display());
 
+    // The "marshal" helpers (allocBytes/freeBytes/vector*FromHeap) exist only to
+    // speed up the Embind/JS boundary. The crate marshals via wasmtime linear
+    // memory directly, so exclude them from the WASI C-ABI and Rust host API.
+    let host_methods: Vec<&_> = generable
+        .iter()
+        .copied()
+        .filter(|m| m.category != "marshal")
+        .collect();
+
     // Emit WASI C-ABI exports
-    let wasi_cpp = wasi_emitter::emit_wasi_exports(&generable);
+    let wasi_cpp = wasi_emitter::emit_wasi_exports(&host_methods);
     let wasi_path = facade_out.join("wasi_exports.cpp");
     std::fs::write(&wasi_path, &wasi_cpp).context("failed to write wasi_exports.cpp")?;
     eprintln!("  Wrote {}", wasi_path.display());
 
     // Emit Rust host API
-    let rust_src = rust_emitter::emit_rust_host(&generable);
+    let rust_src = rust_emitter::emit_rust_host(&host_methods);
     let rust_path = crate_out.join("kernel_generated.rs");
     std::fs::write(&rust_path, &rust_src).context("failed to write kernel_generated.rs")?;
     eprintln!("  Wrote {}", rust_path.display());

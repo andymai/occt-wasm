@@ -296,5 +296,12 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("xcafGetRootLabels", &OcctKernel::xcafGetRootLabels)
         .function("xcafExportSTEP", &OcctKernel::xcafExportSTEP)
         .function("xcafImportSTEP", &OcctKernel::xcafImportSTEP)
-        .function("xcafExportGLTF", &OcctKernel::xcafExportGLTF);
+        .function("xcafExportGLTF", &OcctKernel::xcafExportGLTF)
+
+        // marshal
+        .function("allocBytes", &OcctKernel::allocBytes)
+        .function("freeBytes", &OcctKernel::freeBytes)
+        .function("vectorF64FromHeap", &OcctKernel::vectorF64FromHeap)
+        .function("vectorU32FromHeap", &OcctKernel::vectorU32FromHeap)
+        .function("vectorI32FromHeap", &OcctKernel::vectorI32FromHeap);
 }
