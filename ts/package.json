@@ -21,6 +21,7 @@
   "scripts": {
     "build": "tsc",
     "prebuild": "bash scripts/copy-wasm.sh",
+    "prepack": "cp ../README.md README.md",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
