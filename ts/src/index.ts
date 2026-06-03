@@ -1654,11 +1654,13 @@ export class OcctKernel {
         planeX: Vec3,
     ): ShapeHandle {
         return wrap("liftCurve2dToPlane", () => {
-            const flat = new this.#module.VectorDouble();
+            const flatArr = new Array<number>(points2d.length * 2);
+            let j = 0;
             for (const p of points2d) {
-                flat.push_back(p.x);
-                flat.push_back(p.y);
+                flatArr[j++] = p.x;
+                flatArr[j++] = p.y;
             }
+            const flat = this.#makeVectorF64(flatArr);
             try {
                 return handle(this.#raw.liftCurve2dToPlane(
                     flat,

@@ -117,6 +117,31 @@ describe("wrapper bulk return path: edgeToFaceMap (Int32 read)", () => {
     });
 });
 
+describe("wrapper bulk input path: liftCurve2dToPlane (Float64 write)", () => {
+    const ORIGIN = { x: 0, y: 0, z: 0 };
+    const Z = { x: 0, y: 0, z: 1 };
+    const X = { x: 1, y: 0, z: 0 };
+
+    it("below threshold: few 2D points (push_back path)", () => {
+        const pts = Array.from({ length: 5 }, (_, i) => ({ x: i, y: 0 }));
+        const edge = kernel.liftCurve2dToPlane(pts, ORIGIN, Z, X);
+        const bbox = kernel.getBoundingBox(edge, false);
+        expect(bbox.xmax).toBeCloseTo(4, 6);
+    });
+
+    it("above threshold: many 2D points marshal via heap copy (#bulkF64 path)", () => {
+        // 40 points * 2 = 80 doubles, above the 64 threshold → bulk inbound copy.
+        const pts = Array.from({ length: 40 }, (_, i) => ({ x: i, y: Math.sin(i) }));
+        const edge = kernel.liftCurve2dToPlane(pts, ORIGIN, Z, X);
+        // (u,v) lifts to (u, v, 0) on the XY plane: x spans 0..39, z is flat.
+        const bbox = kernel.getBoundingBox(edge, false);
+        expect(bbox.xmin).toBeCloseTo(0, 6);
+        expect(bbox.xmax).toBeCloseTo(39, 6);
+        expect(bbox.zmin).toBeCloseTo(0, 6);
+        expect(bbox.zmax).toBeCloseTo(0, 6);
+    });
+});
+
 describe("wrapper bulk return path: getNurbsCurveData poles (Float64 read)", () => {
     it("above threshold: many poles read back finite, endpoints match input (dataPtr path)", () => {
         const pts = Array.from({ length: 30 }, (_, i) => ({ x: i, y: Math.sin(i), z: 0 }));
