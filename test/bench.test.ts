@@ -189,6 +189,50 @@ describe("Core 5 — raw facade benchmarks", () => {
         expect(r.median).toBeLessThan(200);
     });
 
+    // interpolatePoints is marshalling-dominated (cheap OCCT interpolation, large
+    // point-array input), so these two benchmarks run the *same* interpolation and
+    // differ only in how the points cross the JS->WASM boundary: per-element
+    // push_back (pre-#133) vs a single bulk heap copy (#133). The median gap is the
+    // marshalling win — ~2x for large inputs.
+    const INTERP_PTS = 500;
+    const INTERP_CALLS = 50;
+    const interpFlat = new Float64Array(INTERP_PTS * 3);
+    for (let i = 0; i < INTERP_PTS; i++) {
+        interpFlat[i * 3] = i * 0.1;
+        interpFlat[i * 3 + 1] = Math.sin(i * 0.1);
+        interpFlat[i * 3 + 2] = 0;
+    }
+
+    it(`interpolatePoints ×${INTERP_CALLS} push_back`, () => {
+        const r = bench(`interpolatePoints ×${INTERP_CALLS} push_back`, () => {
+            for (let c = 0; c < INTERP_CALLS; c++) {
+                const v = new Module.VectorDouble();
+                for (let i = 0; i < interpFlat.length; i++) v.push_back(interpFlat[i]);
+                const e = kernel.interpolatePoints(v, false);
+                v.delete();
+                kernel.release(e);
+            }
+        });
+        record(r);
+        expect(r.median).toBeLessThan(500);
+    });
+
+    it(`interpolatePoints ×${INTERP_CALLS} bulk`, () => {
+        const r = bench(`interpolatePoints ×${INTERP_CALLS} bulk`, () => {
+            for (let c = 0; c < INTERP_CALLS; c++) {
+                const ptr = kernel.allocBytes(interpFlat.length * 8);
+                new Float64Array(Module.HEAPU32.buffer, ptr, interpFlat.length).set(interpFlat);
+                const v = kernel.vectorF64FromHeap(ptr, interpFlat.length);
+                kernel.freeBytes(ptr);
+                const e = kernel.interpolatePoints(v, false);
+                v.delete();
+                kernel.release(e);
+            }
+        });
+        record(r);
+        expect(r.median).toBeLessThan(500);
+    });
+
     it("print results", () => {
         console.log(
             "\n| Benchmark | Min (ms) | Median (ms) | Mean (ms) | Max (ms) |"
