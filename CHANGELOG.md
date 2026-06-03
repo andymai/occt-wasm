@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.2.2](https://github.com/andymai/occt-wasm/compare/v3.2.1...v3.2.2) (2026-06-03)
+
+
+### Performance
+
+* **facade:** skip per-vertex transform for identity-located faces ([#131](https://github.com/andymai/occt-wasm/issues/131)) ([adbb6c3](https://github.com/andymai/occt-wasm/commit/adbb6c3a9315d381d1c4a048f27e9ae483f33016))
+* **ts:** bulk-marshal large arrays across the WASM boundary (~2.3x) ([#133](https://github.com/andymai/occt-wasm/issues/133)) ([33b644b](https://github.com/andymai/occt-wasm/commit/33b644b1b61d89bb9fa5d94abf55f68370a74f03))
+* **ts:** bulk-marshal liftCurve2dToPlane points ([#135](https://github.com/andymai/occt-wasm/issues/135)) ([1f7f7d8](https://github.com/andymai/occt-wasm/commit/1f7f7d85437c22612e40d22c4ab20ac7ce434b96))
+* **ts:** bulk-read large returned vectors across the WASM boundary ([#134](https://github.com/andymai/occt-wasm/issues/134)) ([9e216fa](https://github.com/andymai/occt-wasm/commit/9e216fa0bdd15eadbf94672e934af43094040786))
+
 ## [3.2.1](https://github.com/andymai/occt-wasm/compare/v3.2.0...v3.2.1) (2026-06-02)
 
 
