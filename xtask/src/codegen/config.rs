@@ -427,17 +427,39 @@ return store(splitter.Shape());",
     // ── Modeling ────────────────────────────────────────────────────
     MethodSpec {
         name: "extrude",
-        kind: MethodKind::SimpleShape,
+        kind: MethodKind::CustomBody,
         params: &[
             FacadeParam::ShapeId("shapeId"),
             FacadeParam::Double("dx"),
             FacadeParam::Double("dy"),
             FacadeParam::Double("dz"),
         ],
-        occt_class: "BRepPrimAPI_MakePrism",
-        ctor_args: "get(shapeId), gp_Vec(dx, dy, dz)",
-        setup_code: "",
-        includes: &["gp_Vec.hxx"],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepPrimAPI_MakePrism maker(get(shapeId), gp_Vec(dx, dy, dz));
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"extrude: construction failed\");
+}
+TopoDS_Shape result = maker.Shape();
+// A profile face whose normal opposes the extrusion direction yields an
+// inside-out (negative-volume) solid. opencascade's boolean tolerated these;
+// occt-wasm's strict BOP rejects them (returns empty). Normalize any reversed
+// solid to outward orientation so downstream booleans work -- notably engraved
+// text, where glyph faces carry arbitrary winding.
+if (result.ShapeType() == TopAbs_SOLID) {
+    GProp_GProps props;
+    BRepGProp::VolumeProperties(result, props);
+    if (props.Mass() < 0.0) {
+        result.Reverse();
+    }
+}
+return store(result);",
+        includes: &[
+            "BRepGProp.hxx", "BRepPrimAPI_MakePrism.hxx", "GProp_GProps.hxx",
+            "TopoDS_Shape.hxx", "gp_Vec.hxx",
+        ],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
