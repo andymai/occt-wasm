@@ -421,6 +421,7 @@ class OcctKernel {
   private:
     uint32_t store(const TopoDS_Shape& shape);
     const TopoDS_Shape& get(uint32_t id) const;
+    TopoDS_Shape normalizeSolidOrientation(const TopoDS_Shape& shape);
     MeshData buildMeshData(const TopoDS_Shape& shape, double linearDeflection,
                            double angularDeflection, bool relative);
 

@@ -573,7 +573,7 @@ uint32_t OcctKernel::extrude(uint32_t shapeId, double dx, double dy, double dz) 
         if (!maker.IsDone()) {
             throw std::runtime_error("extrude: construction failed");
         }
-        return store(maker.Shape());
+        return store(normalizeSolidOrientation(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("extrude: ") + e.what());
     }
@@ -586,7 +586,9 @@ uint32_t OcctKernel::revolve(uint32_t shapeId, double px, double py, double pz, 
         if (!maker.IsDone()) {
             throw std::runtime_error("revolve: construction failed");
         }
-        return store(maker.Shape());
+        // A profile face whose normal opposes the axis of revolution yields the same
+        // inside-out solid as extrude; normalize so downstream booleans accept it.
+        return store(normalizeSolidOrientation(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("revolve: ") + e.what());
     }

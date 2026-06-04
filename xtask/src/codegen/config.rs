@@ -427,23 +427,29 @@ return store(splitter.Shape());",
     // ── Modeling ────────────────────────────────────────────────────
     MethodSpec {
         name: "extrude",
-        kind: MethodKind::SimpleShape,
+        kind: MethodKind::CustomBody,
         params: &[
             FacadeParam::ShapeId("shapeId"),
             FacadeParam::Double("dx"),
             FacadeParam::Double("dy"),
             FacadeParam::Double("dz"),
         ],
-        occt_class: "BRepPrimAPI_MakePrism",
-        ctor_args: "get(shapeId), gp_Vec(dx, dy, dz)",
-        setup_code: "",
-        includes: &["gp_Vec.hxx"],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepPrimAPI_MakePrism maker(get(shapeId), gp_Vec(dx, dy, dz));
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"extrude: construction failed\");
+}
+return store(normalizeSolidOrientation(maker.Shape()));",
+        includes: &["BRepPrimAPI_MakePrism.hxx", "gp_Vec.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
         name: "revolve",
-        kind: MethodKind::SimpleShape,
+        kind: MethodKind::CustomBody,
         params: &[
             FacadeParam::ShapeId("shapeId"),
             FacadeParam::Double("px"),
@@ -454,10 +460,18 @@ return store(splitter.Shape());",
             FacadeParam::Double("dz"),
             FacadeParam::Double("angleRad"),
         ],
-        occt_class: "BRepPrimAPI_MakeRevol",
-        ctor_args: "get(shapeId), gp_Ax1(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz)), angleRad",
-        setup_code: "",
-        includes: &["gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx"],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepPrimAPI_MakeRevol maker(get(shapeId), gp_Ax1(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz)), angleRad);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"revolve: construction failed\");
+}
+// A profile face whose normal opposes the axis of revolution yields the same
+// inside-out solid as extrude; normalize so downstream booleans accept it.
+return store(normalizeSolidOrientation(maker.Shape()));",
+        includes: &["BRepPrimAPI_MakeRevol.hxx", "gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
