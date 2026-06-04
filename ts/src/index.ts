@@ -21,6 +21,7 @@ export {
     TransitionMode,
     type AddChildOptions,
     type AddShapeOptions,
+    type AlignAnchor,
     type BoundingBox,
     type Color3,
     type CurveKind,
@@ -50,7 +51,23 @@ export {
 export { XCAFDocument, type EmscriptenFS } from "./xcaf-document.js";
 import { XCAFDocument as XCAFDocumentImpl, type EmscriptenFS } from "./xcaf-document.js";
 
+export {
+    renderMultiviewSVG,
+    renderShapeSVG,
+    type MultiviewSvgOptions,
+    type SvgViewOptions,
+    type ViewName,
+} from "./svg.js";
+import {
+    renderMultiviewSVG as renderMultiviewSVGImpl,
+    renderShapeSVG as renderShapeSVGImpl,
+    type MultiviewSvgOptions,
+    type SvgViewOptions,
+    type ViewName,
+} from "./svg.js";
+
 import type {
+    AlignAnchor,
     BoundingBox,
     CurveKind,
     CurvatureData,
@@ -988,6 +1005,36 @@ export class OcctKernel {
         return wrap("translate", () => handle(this.#raw.translate(shape, dx, dy, dz)));
     }
 
+    /**
+     * Translate along X so the chosen bounding-box anchor lands at `target`.
+     * Returns a new shape; the input is left untouched.
+     */
+    alignX(shape: ShapeHandle, target = 0, anchor: AlignAnchor = "center"): ShapeHandle {
+        return wrap("alignX", () => {
+            const bb = this.getBoundingBox(shape, false);
+            const cur = anchor === "min" ? bb.xmin : anchor === "max" ? bb.xmax : (bb.xmin + bb.xmax) / 2;
+            return handle(this.#raw.translate(shape, target - cur, 0, 0));
+        });
+    }
+
+    /** Translate along Y so the chosen bounding-box anchor lands at `target`. */
+    alignY(shape: ShapeHandle, target = 0, anchor: AlignAnchor = "center"): ShapeHandle {
+        return wrap("alignY", () => {
+            const bb = this.getBoundingBox(shape, false);
+            const cur = anchor === "min" ? bb.ymin : anchor === "max" ? bb.ymax : (bb.ymin + bb.ymax) / 2;
+            return handle(this.#raw.translate(shape, 0, target - cur, 0));
+        });
+    }
+
+    /** Translate along Z so the chosen bounding-box anchor lands at `target`. */
+    alignZ(shape: ShapeHandle, target = 0, anchor: AlignAnchor = "center"): ShapeHandle {
+        return wrap("alignZ", () => {
+            const bb = this.getBoundingBox(shape, false);
+            const cur = anchor === "min" ? bb.zmin : anchor === "max" ? bb.zmax : (bb.zmin + bb.zmax) / 2;
+            return handle(this.#raw.translate(shape, 0, 0, target - cur));
+        });
+    }
+
     rotate(
         shape: ShapeHandle,
         axis: { point: Vec3; direction: Vec3 },
@@ -1705,6 +1752,23 @@ export class OcctKernel {
                 hiddenSharp: handle(raw.hiddenSharp),
             };
         });
+    }
+
+    /**
+     * Render a single named view of a shape to a standalone SVG string via
+     * hidden-line removal. Visible edges are solid, hidden edges dashed.
+     */
+    toSVG(shape: ShapeHandle, view: ViewName = "front", options: SvgViewOptions = {}): string {
+        return wrap("toSVG", () => renderShapeSVGImpl(this, shape, view, options));
+    }
+
+    /**
+     * Render a multiview grid (default Front / Top / Right / Iso) of a shape to
+     * a single SVG string, with per-view gnomons and an overall size annotation.
+     * Aimed at giving an automated agent a readable picture of the geometry.
+     */
+    toMultiviewSVG(shape: ShapeHandle, options: MultiviewSvgOptions = {}): string {
+        return wrap("toMultiviewSVG", () => renderMultiviewSVGImpl(this, shape, options));
     }
 
     // =======================================================================
