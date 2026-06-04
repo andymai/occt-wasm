@@ -111,6 +111,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("makeCone", &OcctKernel::makeCone)
         .function("makeTorus", &OcctKernel::makeTorus)
         .function("makeEllipsoid", &OcctKernel::makeEllipsoid)
+        .function("halfSpace", &OcctKernel::halfSpace)
         .function("makeRectangle", &OcctKernel::makeRectangle)
 
         // booleans
@@ -244,6 +245,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("loftWithVertices", &OcctKernel::loftWithVertices)
         .function("sweep", &OcctKernel::sweep)
         .function("sweepPipeShell", &OcctKernel::sweepPipeShell)
+        .function("sweepOriented", &OcctKernel::sweepOriented)
 
         // healing
         .function("fixShape", &OcctKernel::fixShape)

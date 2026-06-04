@@ -45,6 +45,7 @@
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepPrimAPI_MakeHalfSpace.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepPrimAPI_MakeRevol.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
@@ -318,6 +319,23 @@ uint32_t OcctKernel::makeEllipsoid(double rx, double ry, double rz) {
         return store(xform.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeEllipsoid: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::halfSpace(double ox, double oy, double oz, double nx, double ny, double nz) {
+    try {
+        gp_Pnt origin(ox, oy, oz);
+        gp_Dir normal(nx, ny, nz);
+        gp_Pln plane(origin, normal);
+        TopoDS_Face face = BRepBuilderAPI_MakeFace(plane).Face();
+        gp_Pnt refPnt = origin.Translated(gp_Vec(normal));
+        BRepPrimAPI_MakeHalfSpace maker(face, refPnt);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("halfSpace: construction failed");
+        }
+        return store(maker.Solid());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("halfSpace: ") + e.what());
     }
 }
 
@@ -2427,6 +2445,36 @@ uint32_t OcctKernel::sweepPipeShell(uint32_t profileId, uint32_t spineId, bool f
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("sweepPipeShell: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY, double upZ) {
+    try {
+        BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
+        switch (mode) {
+            case 0:
+                maker.SetMode(Standard_False);
+                break;
+            case 1:
+                maker.SetMode(Standard_True);
+                break;
+            case 2: {
+                gp_Dir up(upX, upY, upZ);
+                maker.SetMode(up);
+                break;
+            }
+            default:
+                throw std::runtime_error("sweepOriented: invalid mode");
+        }
+        maker.Add(get(profileId));
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("sweepOriented: operation failed");
+        }
+        maker.MakeSolid();
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("sweepOriented: ") + e.what());
     }
 }
 

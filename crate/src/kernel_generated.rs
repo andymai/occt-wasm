@@ -32,6 +32,7 @@ pub(crate) struct GeneratedFuncs {
     fn_make_cone: TypedFunc<(f64, f64, f64), u32>,
     fn_make_torus: TypedFunc<(f64, f64), u32>,
     fn_make_ellipsoid: TypedFunc<(f64, f64, f64), u32>,
+    fn_half_space: TypedFunc<(f64, f64, f64, f64, f64, f64), u32>,
     fn_make_rectangle: TypedFunc<(f64, f64), u32>,
     fn_fuse: TypedFunc<(u32, u32), u32>,
     fn_cut: TypedFunc<(u32, u32), u32>,
@@ -149,6 +150,7 @@ pub(crate) struct GeneratedFuncs {
     fn_loft_with_vertices: TypedFunc<(i32, i32, i32, i32, u32, u32), u32>,
     fn_sweep: TypedFunc<(u32, u32, i32), u32>,
     fn_sweep_pipe_shell: TypedFunc<(u32, u32, i32, i32), u32>,
+    fn_sweep_oriented: TypedFunc<(u32, u32, i32, f64, f64, f64), u32>,
     fn_draft_prism: TypedFunc<(u32, f64, f64, f64, f64), u32>,
     fn_fix_shape: TypedFunc<(u32,), u32>,
     fn_unify_same_domain: TypedFunc<(u32,), u32>,
@@ -216,6 +218,7 @@ impl GeneratedFuncs {
             fn_make_cone: instance.get_typed_func(&mut store, "occt_make_cone")?,
             fn_make_torus: instance.get_typed_func(&mut store, "occt_make_torus")?,
             fn_make_ellipsoid: instance.get_typed_func(&mut store, "occt_make_ellipsoid")?,
+            fn_half_space: instance.get_typed_func(&mut store, "occt_half_space")?,
             fn_make_rectangle: instance.get_typed_func(&mut store, "occt_make_rectangle")?,
             fn_fuse: instance.get_typed_func(&mut store, "occt_fuse")?,
             fn_cut: instance.get_typed_func(&mut store, "occt_cut")?,
@@ -349,6 +352,7 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_loft_with_vertices")?,
             fn_sweep: instance.get_typed_func(&mut store, "occt_sweep")?,
             fn_sweep_pipe_shell: instance.get_typed_func(&mut store, "occt_sweep_pipe_shell")?,
+            fn_sweep_oriented: instance.get_typed_func(&mut store, "occt_sweep_oriented")?,
             fn_draft_prism: instance.get_typed_func(&mut store, "occt_draft_prism")?,
             fn_fix_shape: instance.get_typed_func(&mut store, "occt_fix_shape")?,
             fn_unify_same_domain: instance.get_typed_func(&mut store, "occt_unify_same_domain")?,
@@ -512,6 +516,26 @@ impl crate::kernel::OcctKernel {
         self.check_error("make_ellipsoid")?;
         if result == 0 {
             return Err(self.read_last_error("make_ellipsoid"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn half_space(
+        &mut self,
+        ox: f64,
+        oy: f64,
+        oz: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_half_space
+            .call(&mut self.store, (ox, oy, oz, nx, ny, nz))?;
+        self.check_error("half_space")?;
+        if result == 0 {
+            return Err(self.read_last_error("half_space"));
         }
         Ok(ShapeHandle(result))
     }
@@ -2599,6 +2623,26 @@ impl crate::kernel::OcctKernel {
         self.check_error("sweep_pipe_shell")?;
         if result == 0 {
             return Err(self.read_last_error("sweep_pipe_shell"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn sweep_oriented(
+        &mut self,
+        profile_id: ShapeHandle,
+        spine_id: ShapeHandle,
+        mode: i32,
+        up_x: f64,
+        up_y: f64,
+        up_z: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self.generated.fn_sweep_oriented.call(
+            &mut self.store,
+            (profile_id.0, spine_id.0, mode, up_x, up_y, up_z),
+        )?;
+        self.check_error("sweep_oriented")?;
+        if result == 0 {
+            return Err(self.read_last_error("sweep_oriented"));
         }
         Ok(ShapeHandle(result))
     }

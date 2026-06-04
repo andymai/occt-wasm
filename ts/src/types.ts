@@ -164,6 +164,16 @@ export enum TransitionMode {
 }
 
 /** Join type for offset/fillet operations (BRepOffsetAPI_MakeOffset). */
+/** Profile-orientation mode for {@link OcctKernel.sweepOriented}. */
+export enum SweepMode {
+    /** Minimal-torsion parallel transport — profile does not rotate (corrected Frenet). */
+    Fixed = 0,
+    /** Profile follows the spine's principal normal (Frenet trihedron). */
+    Frenet = 1,
+    /** Profile keeps a caller-supplied up/binormal direction constant. */
+    FixedUp = 2,
+}
+
 export enum JoinType {
     /** Arc interpolation at joints (default). */
     Arc = 0,

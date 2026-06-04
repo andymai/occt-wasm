@@ -131,6 +131,44 @@ return store(xform.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "halfSpace",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("ox"),
+            FacadeParam::Double("oy"),
+            FacadeParam::Double("oz"),
+            FacadeParam::Double("nx"),
+            FacadeParam::Double("ny"),
+            FacadeParam::Double("nz"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        // Infinite solid bounded by the plane (origin, normal). The reference
+        // point sits on the +normal side, so the solid fills the half the
+        // normal points into.
+        setup_code: "\
+gp_Pnt origin(ox, oy, oz);
+gp_Dir normal(nx, ny, nz);
+gp_Pln plane(origin, normal);
+TopoDS_Face face = BRepBuilderAPI_MakeFace(plane).Face();
+gp_Pnt refPnt = origin.Translated(gp_Vec(normal));
+BRepPrimAPI_MakeHalfSpace maker(face, refPnt);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"halfSpace: construction failed\");
+}
+return store(maker.Solid());",
+        includes: &[
+            "BRepPrimAPI_MakeHalfSpace.hxx",
+            "BRepBuilderAPI_MakeFace.hxx",
+            "gp_Pln.hxx",
+            "gp_Pnt.hxx",
+            "gp_Dir.hxx",
+            "gp_Vec.hxx",
+        ],
+        category: "primitives",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "makeRectangle",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::Double("width"), FacadeParam::Double("height")],
@@ -2875,6 +2913,53 @@ return store(maker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "sweepOriented",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("profileId"),
+            FacadeParam::ShapeId("spineId"),
+            FacadeParam::Int("mode"),
+            FacadeParam::Double("upX"),
+            FacadeParam::Double("upY"),
+            FacadeParam::Double("upZ"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        // mode 0 = Fixed (corrected Frenet, minimal torsion), 1 = Frenet
+        // (follows the principal normal), 2 = FixedUp (constant binormal).
+        setup_code: "\
+BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
+switch (mode) {
+    case 0:
+        maker.SetMode(Standard_False);
+        break;
+    case 1:
+        maker.SetMode(Standard_True);
+        break;
+    case 2: {
+        gp_Dir up(upX, upY, upZ);
+        maker.SetMode(up);
+        break;
+    }
+    default:
+        throw std::runtime_error(\"sweepOriented: invalid mode\");
+}
+maker.Add(get(profileId));
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"sweepOriented: operation failed\");
+}
+maker.MakeSolid();
+return store(maker.Shape());",
+        includes: &[
+            "BRepOffsetAPI_MakePipeShell.hxx",
+            "TopoDS.hxx",
+            "gp_Dir.hxx",
+        ],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "draftPrism",
         kind: MethodKind::CustomBody,
         params: &[
@@ -4628,7 +4713,7 @@ mod tests {
             .iter()
             .filter(|m| m.kind != MethodKind::Skip)
             .count();
-        assert_eq!(count, 178, "expected 178 generable methods");
+        assert_eq!(count, 180, "expected 180 generable methods");
     }
 
     #[test]

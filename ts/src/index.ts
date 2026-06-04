@@ -18,6 +18,7 @@ export {
     JoinType,
     OcctError,
     OcctErrorCode,
+    SweepMode,
     TransitionMode,
     type AddChildOptions,
     type AddShapeOptions,
@@ -89,7 +90,7 @@ import type {
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, OcctError, TransitionMode } from "./types.js";
+import { JoinType, OcctError, SweepMode, TransitionMode } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Raw Embind types
@@ -226,6 +227,7 @@ export interface OcctRawKernel {
     makeSphere(radius: number): number;
     makeCone(r1: number, r2: number, height: number): number;
     makeTorus(majorRadius: number, minorRadius: number): number;
+    halfSpace(ox: number, oy: number, oz: number, nx: number, ny: number, nz: number): number;
     makeEllipsoid(rx: number, ry: number, rz: number): number;
     makeRectangle(width: number, height: number): number;
 
@@ -256,6 +258,7 @@ export interface OcctRawKernel {
     loftWithVertices(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean, startVertexId: number, endVertexId: number): number;
     sweep(wireId: number, spineId: number, transitionMode: number): number;
     sweepPipeShell(profileId: number, spineId: number, freenet: boolean, smooth: boolean): number;
+    sweepOriented(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number): number;
     draftPrism(shapeId: number, dx: number, dy: number, dz: number, angleDeg: number): number;
     revolveVec(shapeId: number, cx: number, cy: number, cz: number, dx: number, dy: number, dz: number, angle: number): number;
 
@@ -597,6 +600,17 @@ export class OcctKernel {
         return wrap("makeTorus", () => handle(this.#raw.makeTorus(majorRadius, minorRadius)));
     }
 
+    /**
+     * Infinite half-space solid bounded by the plane through `origin` with the
+     * given `normal`. The solid fills the side the normal points into — useful
+     * as an unbounded boolean cutting tool.
+     */
+    halfSpace(origin: Vec3, normal: Vec3): ShapeHandle {
+        return wrap("halfSpace", () =>
+            handle(this.#raw.halfSpace(origin.x, origin.y, origin.z, normal.x, normal.y, normal.z)),
+        );
+    }
+
     /** Create an ellipsoid solid at the origin by scaling a sphere.
      * @param rx - radius along X
      * @param ry - radius along Y
@@ -812,6 +826,22 @@ export class OcctKernel {
 
     sweepPipeShell(profile: ShapeHandle, spine: ShapeHandle, freenet = false, smooth = true): ShapeHandle {
         return wrap("sweepPipeShell", () => handle(this.#raw.sweepPipeShell(profile, spine, freenet, smooth)));
+    }
+
+    /**
+     * Sweep a profile wire along a spine wire with explicit profile-orientation
+     * control. `up` is required for {@link SweepMode.FixedUp} (the constant
+     * binormal direction) and ignored otherwise.
+     */
+    sweepOriented(
+        profile: ShapeHandle,
+        spine: ShapeHandle,
+        mode: SweepMode = SweepMode.Fixed,
+        up: Vec3 = { x: 0, y: 0, z: 1 },
+    ): ShapeHandle {
+        return wrap("sweepOriented", () =>
+            handle(this.#raw.sweepOriented(profile, spine, mode, up.x, up.y, up.z)),
+        );
     }
 
     draftPrism(shape: ShapeHandle, dx: number, dy: number, dz: number, angleDeg: number): ShapeHandle {

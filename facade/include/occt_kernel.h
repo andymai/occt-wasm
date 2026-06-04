@@ -138,6 +138,7 @@ class OcctKernel {
     uint32_t makeSphere(double radius);
     uint32_t makeCone(double r1, double r2, double height);
     uint32_t makeTorus(double majorRadius, double minorRadius);
+    uint32_t halfSpace(double ox, double oy, double oz, double nx, double ny, double nz);
     uint32_t makeEllipsoid(double rx, double ry, double rz);
     uint32_t makeRectangle(double width, double height);
 
@@ -173,6 +174,8 @@ class OcctKernel {
                               uint32_t startVertexId, uint32_t endVertexId);
     uint32_t sweep(uint32_t wireId, uint32_t spineId, int transitionMode);
     uint32_t sweepPipeShell(uint32_t profileId, uint32_t spineId, bool freenet, bool smooth);
+    uint32_t sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY,
+                           double upZ);
     uint32_t draftPrism(uint32_t shapeId, double dx, double dy, double dz, double angleDeg);
     uint32_t revolveVec(uint32_t shapeId, double cx, double cy, double cz, double dx, double dy,
                         double dz, double angle);
