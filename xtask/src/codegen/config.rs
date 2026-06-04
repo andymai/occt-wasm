@@ -442,30 +442,14 @@ maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"extrude: construction failed\");
 }
-TopoDS_Shape result = maker.Shape();
-// A profile face whose normal opposes the extrusion direction yields an
-// inside-out (negative-volume) solid. opencascade's boolean tolerated these;
-// occt-wasm's strict BOP rejects them (returns empty). Normalize any reversed
-// solid to outward orientation so downstream booleans work -- notably engraved
-// text, where glyph faces carry arbitrary winding.
-if (result.ShapeType() == TopAbs_SOLID) {
-    GProp_GProps props;
-    BRepGProp::VolumeProperties(result, props);
-    if (props.Mass() < 0.0) {
-        result.Reverse();
-    }
-}
-return store(result);",
-        includes: &[
-            "BRepGProp.hxx", "BRepPrimAPI_MakePrism.hxx", "GProp_GProps.hxx",
-            "TopoDS_Shape.hxx", "gp_Vec.hxx",
-        ],
+return store(normalizeSolidOrientation(maker.Shape()));",
+        includes: &["BRepPrimAPI_MakePrism.hxx", "gp_Vec.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
         name: "revolve",
-        kind: MethodKind::SimpleShape,
+        kind: MethodKind::CustomBody,
         params: &[
             FacadeParam::ShapeId("shapeId"),
             FacadeParam::Double("px"),
@@ -476,10 +460,18 @@ return store(result);",
             FacadeParam::Double("dz"),
             FacadeParam::Double("angleRad"),
         ],
-        occt_class: "BRepPrimAPI_MakeRevol",
-        ctor_args: "get(shapeId), gp_Ax1(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz)), angleRad",
-        setup_code: "",
-        includes: &["gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx"],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepPrimAPI_MakeRevol maker(get(shapeId), gp_Ax1(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz)), angleRad);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"revolve: construction failed\");
+}
+// A profile face whose normal opposes the axis of revolution yields the same
+// inside-out solid as extrude; normalize so downstream booleans accept it.
+return store(normalizeSolidOrientation(maker.Shape()));",
+        includes: &["BRepPrimAPI_MakeRevol.hxx", "gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },

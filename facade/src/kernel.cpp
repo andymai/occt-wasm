@@ -1,8 +1,11 @@
 #include "occt_kernel.h"
 
+#include <BRepGProp.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
+#include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
+#include <GProp_GProps.hxx>
 #include <NCollection_Vec3.hxx>
 #include <OSD.hxx>
 #include <Poly_Triangulation.hxx>
@@ -11,7 +14,9 @@
 #include <TopLoc_Location.hxx>
 #include <TopTools_ShapeMapHasher.hxx>
 #include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
 #include <TopoDS_Face.hxx>
+#include <TopoDS_Iterator.hxx>
 #include <XCAFApp_Application.hxx>
 #include <cstdlib>
 #include <gp_Dir.hxx>
@@ -102,6 +107,35 @@ const TopoDS_Shape& OcctKernel::get(uint32_t id) const {
         throw std::runtime_error("Invalid shape ID: " + std::to_string(id));
     }
     return it->second;
+}
+
+// A profile face whose normal opposes the sweep direction yields an inside-out
+// (negative-volume) solid. Upstream OpenCascade's boolean tolerated these, but
+// occt-wasm's strict BOP rejects them (returns empty) -- notably for engraved
+// text, where glyph faces carry arbitrary winding. Reverse any negative-volume
+// solid to outward orientation, recursing into compounds so multi-shell sweep
+// results (e.g. a compound profile) are normalized member by member.
+TopoDS_Shape OcctKernel::normalizeSolidOrientation(const TopoDS_Shape& shape) {
+    if (shape.ShapeType() == TopAbs_SOLID) {
+        GProp_GProps props;
+        BRepGProp::VolumeProperties(shape, props);
+        if (props.Mass() < 0.0) {
+            TopoDS_Shape reversed = shape;
+            reversed.Reverse();
+            return reversed;
+        }
+        return shape;
+    }
+    if (shape.ShapeType() == TopAbs_COMPOUND) {
+        TopoDS_Compound rebuilt;
+        BRep_Builder builder;
+        builder.MakeCompound(rebuilt);
+        for (TopoDS_Iterator it(shape); it.More(); it.Next()) {
+            builder.Add(rebuilt, normalizeSolidOrientation(it.Value()));
+        }
+        return rebuilt;
+    }
+    return shape;
 }
 
 // Shared mesh builder for tessellate() and tessellateRelative(). `relative`

@@ -573,20 +573,7 @@ uint32_t OcctKernel::extrude(uint32_t shapeId, double dx, double dy, double dz) 
         if (!maker.IsDone()) {
             throw std::runtime_error("extrude: construction failed");
         }
-        TopoDS_Shape result = maker.Shape();
-        // A profile face whose normal opposes the extrusion direction yields an
-        // inside-out (negative-volume) solid. opencascade's boolean tolerated these;
-        // occt-wasm's strict BOP rejects them (returns empty). Normalize any reversed
-        // solid to outward orientation so downstream booleans work -- notably engraved
-        // text, where glyph faces carry arbitrary winding.
-        if (result.ShapeType() == TopAbs_SOLID) {
-            GProp_GProps props;
-            BRepGProp::VolumeProperties(result, props);
-            if (props.Mass() < 0.0) {
-                result.Reverse();
-            }
-        }
-        return store(result);
+        return store(normalizeSolidOrientation(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("extrude: ") + e.what());
     }
@@ -599,7 +586,9 @@ uint32_t OcctKernel::revolve(uint32_t shapeId, double px, double py, double pz, 
         if (!maker.IsDone()) {
             throw std::runtime_error("revolve: construction failed");
         }
-        return store(maker.Shape());
+        // A profile face whose normal opposes the axis of revolution yields the same
+        // inside-out solid as extrude; normalize so downstream booleans accept it.
+        return store(normalizeSolidOrientation(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("revolve: ") + e.what());
     }
