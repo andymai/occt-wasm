@@ -46,6 +46,11 @@ export interface TessellateOptions {
     linearDeflection?: number | undefined;
     /** Maximum angular deviation in radians. Default: 0.5 */
     angularDeflection?: number | undefined;
+    /**
+     * Interpret `linearDeflection` relative to each edge's length
+     * (scale-independent meshing) instead of as an absolute distance.
+     */
+    relative?: boolean | undefined;
 }
 
 /** Options for WASM module initialization. */
@@ -163,7 +168,6 @@ export enum TransitionMode {
     RoundCorner = 2,
 }
 
-/** Join type for offset/fillet operations (BRepOffsetAPI_MakeOffset). */
 /** Profile-orientation mode for {@link OcctKernel.sweepOriented}. */
 export enum SweepMode {
     /** Minimal-torsion parallel transport — profile does not rotate (corrected Frenet). */
@@ -172,8 +176,11 @@ export enum SweepMode {
     Frenet = 1,
     /** Profile keeps a caller-supplied up/binormal direction constant. */
     FixedUp = 2,
+    /** Orientation driven by an auxiliary guide spine (requires `auxSpine`). */
+    Auxiliary = 3,
 }
 
+/** Join type for offset/fillet operations (BRepOffsetAPI_MakeOffset). */
 export enum JoinType {
     /** Arc interpolation at joints (default). */
     Arc = 0,

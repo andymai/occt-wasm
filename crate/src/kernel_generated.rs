@@ -40,6 +40,7 @@ pub(crate) struct GeneratedFuncs {
     fn_section: TypedFunc<(u32, u32), u32>,
     fn_intersect: TypedFunc<(u32, u32), u32>,
     fn_fuse_all: TypedFunc<(i32, i32), u32>,
+    fn_intersection_cells: TypedFunc<(i32, i32), u32>,
     fn_cut_all: TypedFunc<(u32, i32, i32), u32>,
     fn_boolean_pipeline: TypedFunc<(u32, i32, i32, i32, i32), u32>,
     fn_split: TypedFunc<(u32, i32, i32), u32>,
@@ -116,6 +117,8 @@ pub(crate) struct GeneratedFuncs {
     fn_get_surface_area: TypedFunc<(u32,), f64>,
     fn_get_length: TypedFunc<(u32,), f64>,
     fn_get_center_of_mass: TypedFunc<(u32,), i32>,
+    fn_get_inertia: TypedFunc<(u32,), i32>,
+    fn_contains_point: TypedFunc<(u32, f64, f64, f64, f64), i32>,
     fn_get_surface_center_of_mass: TypedFunc<(u32,), i32>,
     fn_vertex_position: TypedFunc<(u32,), i32>,
     fn_surface_type: TypedFunc<(u32,), i32>,
@@ -136,6 +139,8 @@ pub(crate) struct GeneratedFuncs {
     fn_curve_is_closed: TypedFunc<(u32,), i32>,
     fn_curve_length: TypedFunc<(u32,), f64>,
     fn_interpolate_points: TypedFunc<(i32, i32, i32), u32>,
+    fn_interpolate_points_with_tangents: TypedFunc<(i32, i32, f64, f64, f64, f64, f64, f64), u32>,
+    fn_project_point_on_edge: TypedFunc<(u32, f64, f64, f64), i32>,
     fn_curve_is_periodic: TypedFunc<(u32,), i32>,
     fn_approximate_points: TypedFunc<(i32, i32, f64), u32>,
     fn_lift_curve2d_to_plane:
@@ -150,7 +155,7 @@ pub(crate) struct GeneratedFuncs {
     fn_loft_with_vertices: TypedFunc<(i32, i32, i32, i32, u32, u32), u32>,
     fn_sweep: TypedFunc<(u32, u32, i32), u32>,
     fn_sweep_pipe_shell: TypedFunc<(u32, u32, i32, i32), u32>,
-    fn_sweep_oriented: TypedFunc<(u32, u32, i32, f64, f64, f64), u32>,
+    fn_sweep_oriented: TypedFunc<(u32, u32, i32, f64, f64, f64, u32), u32>,
     fn_draft_prism: TypedFunc<(u32, f64, f64, f64, f64), u32>,
     fn_fix_shape: TypedFunc<(u32,), u32>,
     fn_unify_same_domain: TypedFunc<(u32,), u32>,
@@ -168,6 +173,8 @@ pub(crate) struct GeneratedFuncs {
     fn_import_stl: TypedFunc<(i32, i32), u32>,
     fn_to_brep: TypedFunc<(u32,), i32>,
     fn_from_brep: TypedFunc<(i32, i32), u32>,
+    fn_export_brep_binary: TypedFunc<(u32,), i32>,
+    fn_import_brep_binary: TypedFunc<(i32, i32), u32>,
     fn_translate_with_history: TypedFunc<(u32, f64, f64, f64, i32, i32, i32), i32>,
     fn_fuse_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
     fn_cut_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
@@ -181,6 +188,7 @@ pub(crate) struct GeneratedFuncs {
     fn_offset_with_history: TypedFunc<(u32, f64, f64, i32, i32, i32), i32>,
     fn_thicken_with_history: TypedFunc<(u32, f64, f64, i32, i32, i32), i32>,
     fn_tessellate: TypedFunc<(u32, f64, f64), i32>,
+    fn_tessellate_relative: TypedFunc<(u32, f64, f64), i32>,
     fn_mesh_shape: TypedFunc<(u32, f64, f64), i32>,
     fn_mesh_batch: TypedFunc<(i32, i32, f64, f64), i32>,
     fn_wireframe: TypedFunc<(u32, f64), i32>,
@@ -226,6 +234,8 @@ impl GeneratedFuncs {
             fn_section: instance.get_typed_func(&mut store, "occt_section")?,
             fn_intersect: instance.get_typed_func(&mut store, "occt_intersect")?,
             fn_fuse_all: instance.get_typed_func(&mut store, "occt_fuse_all")?,
+            fn_intersection_cells: instance
+                .get_typed_func(&mut store, "occt_intersection_cells")?,
             fn_cut_all: instance.get_typed_func(&mut store, "occt_cut_all")?,
             fn_boolean_pipeline: instance.get_typed_func(&mut store, "occt_boolean_pipeline")?,
             fn_split: instance.get_typed_func(&mut store, "occt_split")?,
@@ -308,6 +318,8 @@ impl GeneratedFuncs {
             fn_get_length: instance.get_typed_func(&mut store, "occt_get_length")?,
             fn_get_center_of_mass: instance
                 .get_typed_func(&mut store, "occt_get_center_of_mass")?,
+            fn_get_inertia: instance.get_typed_func(&mut store, "occt_get_inertia")?,
+            fn_contains_point: instance.get_typed_func(&mut store, "occt_contains_point")?,
             fn_get_surface_center_of_mass: instance
                 .get_typed_func(&mut store, "occt_get_surface_center_of_mass")?,
             fn_vertex_position: instance.get_typed_func(&mut store, "occt_vertex_position")?,
@@ -335,6 +347,10 @@ impl GeneratedFuncs {
             fn_curve_length: instance.get_typed_func(&mut store, "occt_curve_length")?,
             fn_interpolate_points: instance
                 .get_typed_func(&mut store, "occt_interpolate_points")?,
+            fn_interpolate_points_with_tangents: instance
+                .get_typed_func(&mut store, "occt_interpolate_points_with_tangents")?,
+            fn_project_point_on_edge: instance
+                .get_typed_func(&mut store, "occt_project_point_on_edge")?,
             fn_curve_is_periodic: instance.get_typed_func(&mut store, "occt_curve_is_periodic")?,
             fn_approximate_points: instance
                 .get_typed_func(&mut store, "occt_approximate_points")?,
@@ -372,6 +388,10 @@ impl GeneratedFuncs {
             fn_import_stl: instance.get_typed_func(&mut store, "occt_import_stl")?,
             fn_to_brep: instance.get_typed_func(&mut store, "occt_to_brep")?,
             fn_from_brep: instance.get_typed_func(&mut store, "occt_from_brep")?,
+            fn_export_brep_binary: instance
+                .get_typed_func(&mut store, "occt_export_brep_binary")?,
+            fn_import_brep_binary: instance
+                .get_typed_func(&mut store, "occt_import_brep_binary")?,
             fn_translate_with_history: instance
                 .get_typed_func(&mut store, "occt_translate_with_history")?,
             fn_fuse_with_history: instance.get_typed_func(&mut store, "occt_fuse_with_history")?,
@@ -395,6 +415,8 @@ impl GeneratedFuncs {
             fn_thicken_with_history: instance
                 .get_typed_func(&mut store, "occt_thicken_with_history")?,
             fn_tessellate: instance.get_typed_func(&mut store, "occt_tessellate")?,
+            fn_tessellate_relative: instance
+                .get_typed_func(&mut store, "occt_tessellate_relative")?,
             fn_mesh_shape: instance.get_typed_func(&mut store, "occt_mesh_shape")?,
             fn_mesh_batch: instance.get_typed_func(&mut store, "occt_mesh_batch")?,
             fn_wireframe: instance.get_typed_func(&mut store, "occt_wireframe")?,
@@ -616,6 +638,23 @@ impl crate::kernel::OcctKernel {
         self.check_error("fuse_all")?;
         if result == 0 {
             return Err(self.read_last_error("fuse_all"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn intersection_cells(&mut self, shape_ids: &[ShapeHandle]) -> OcctResult<ShapeHandle> {
+        let shape_ids_bytes: Vec<u8> = shape_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let shape_ids_ptr = self.write_bytes(&shape_ids_bytes)?;
+        let shape_ids_len = shape_ids.len() as u32;
+        let result = self.generated.fn_intersection_cells.call(
+            &mut self.store,
+            (shape_ids_ptr as i32, shape_ids_len as i32),
+        );
+        self.free_bytes(shape_ids_ptr)?;
+        let result = result?;
+        self.check_error("intersection_cells")?;
+        if result == 0 {
+            return Err(self.read_last_error("intersection_cells"));
         }
         Ok(ShapeHandle(result))
     }
@@ -2103,6 +2142,35 @@ impl crate::kernel::OcctKernel {
         self.read_vec_f64_result()
     }
 
+    pub fn get_inertia(&mut self, id: ShapeHandle) -> OcctResult<Vec<f64>> {
+        let len = self
+            .generated
+            .fn_get_inertia
+            .call(&mut self.store, (id.0,))?;
+        if len < 0 {
+            return Err(self.read_last_error("get_inertia"));
+        }
+        self.read_vec_f64_result()
+    }
+
+    pub fn contains_point(
+        &mut self,
+        id: ShapeHandle,
+        x: f64,
+        y: f64,
+        z: f64,
+        tolerance: f64,
+    ) -> OcctResult<bool> {
+        let result = self
+            .generated
+            .fn_contains_point
+            .call(&mut self.store, (id.0, x, y, z, tolerance))?;
+        if result < 0 {
+            return Err(self.read_last_error("contains_point"));
+        }
+        Ok(result != 0)
+    }
+
     pub fn get_surface_center_of_mass(&mut self, face_id: ShapeHandle) -> OcctResult<Vec<f64>> {
         let len = self
             .generated
@@ -2361,6 +2429,58 @@ impl crate::kernel::OcctKernel {
             return Err(self.read_last_error("interpolate_points"));
         }
         Ok(ShapeHandle(result))
+    }
+
+    pub fn interpolate_points_with_tangents(
+        &mut self,
+        flat_points: &[f64],
+        start_tan_x: f64,
+        start_tan_y: f64,
+        start_tan_z: f64,
+        end_tan_x: f64,
+        end_tan_y: f64,
+        end_tan_z: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let flat_points_bytes: Vec<u8> = flat_points.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let flat_points_ptr = self.write_bytes(&flat_points_bytes)?;
+        let flat_points_len = flat_points.len() as u32;
+        let result = self.generated.fn_interpolate_points_with_tangents.call(
+            &mut self.store,
+            (
+                flat_points_ptr as i32,
+                flat_points_len as i32,
+                start_tan_x,
+                start_tan_y,
+                start_tan_z,
+                end_tan_x,
+                end_tan_y,
+                end_tan_z,
+            ),
+        );
+        self.free_bytes(flat_points_ptr)?;
+        let result = result?;
+        self.check_error("interpolate_points_with_tangents")?;
+        if result == 0 {
+            return Err(self.read_last_error("interpolate_points_with_tangents"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn project_point_on_edge(
+        &mut self,
+        edge_id: ShapeHandle,
+        x: f64,
+        y: f64,
+        z: f64,
+    ) -> OcctResult<Vec<f64>> {
+        let len = self
+            .generated
+            .fn_project_point_on_edge
+            .call(&mut self.store, (edge_id.0, x, y, z))?;
+        if len < 0 {
+            return Err(self.read_last_error("project_point_on_edge"));
+        }
+        self.read_vec_f64_result()
     }
 
     pub fn curve_is_periodic(&mut self, id: ShapeHandle) -> OcctResult<bool> {
@@ -2635,10 +2755,19 @@ impl crate::kernel::OcctKernel {
         up_x: f64,
         up_y: f64,
         up_z: f64,
+        aux_spine_id: ShapeHandle,
     ) -> OcctResult<ShapeHandle> {
         let result = self.generated.fn_sweep_oriented.call(
             &mut self.store,
-            (profile_id.0, spine_id.0, mode, up_x, up_y, up_z),
+            (
+                profile_id.0,
+                spine_id.0,
+                mode,
+                up_x,
+                up_y,
+                up_z,
+                aux_spine_id.0,
+            ),
         )?;
         self.check_error("sweep_oriented")?;
         if result == 0 {
@@ -2862,6 +2991,33 @@ impl crate::kernel::OcctKernel {
         self.check_error("from_brep")?;
         if result == 0 {
             return Err(self.read_last_error("from_brep"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn export_brep_binary(&mut self, id: ShapeHandle) -> OcctResult<String> {
+        let len = self
+            .generated
+            .fn_export_brep_binary
+            .call(&mut self.store, (id.0,))?;
+        if len < 0 {
+            return Err(self.read_last_error("export_brep_binary"));
+        }
+        self.read_string_result()
+    }
+
+    pub fn import_brep_binary(&mut self, path: &str) -> OcctResult<ShapeHandle> {
+        let path_ptr = self.write_bytes(path.as_bytes())?;
+        let path_len = path.len() as u32;
+        let result = self
+            .generated
+            .fn_import_brep_binary
+            .call(&mut self.store, (path_ptr as i32, path_len as i32));
+        self.free_bytes(path_ptr)?;
+        let result = result?;
+        self.check_error("import_brep_binary")?;
+        if result == 0 {
+            return Err(self.read_last_error("import_brep_binary"));
         }
         Ok(ShapeHandle(result))
     }
@@ -3327,6 +3483,22 @@ impl crate::kernel::OcctKernel {
         )?;
         if status < 0 {
             return Err(self.read_last_error("tessellate"));
+        }
+        self.read_mesh_result()
+    }
+
+    pub fn tessellate_relative(
+        &mut self,
+        id: ShapeHandle,
+        linear_deflection: f64,
+        angular_deflection: f64,
+    ) -> OcctResult<Mesh> {
+        let status = self.generated.fn_tessellate_relative.call(
+            &mut self.store,
+            (id.0, linear_deflection, angular_deflection),
+        )?;
+        if status < 0 {
+            return Err(self.read_last_error("tessellate_relative"));
         }
         self.read_mesh_result()
     }

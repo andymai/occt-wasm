@@ -2,6 +2,7 @@
 
 #include "occt_kernel.h"
 
+#include <BOPAlgo_CellsBuilder.hxx>
 #include <BRepAdaptor_CompCurve.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
@@ -23,6 +24,7 @@
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepBuilderAPI_TransitionMode.hxx>
 #include <BRepCheck_Analyzer.hxx>
+#include <BRepClass3d_SolidClassifier.hxx>
 #include <BRepClass_FaceClassifier.hxx>
 #include <BRepExtrema_DistShapeShape.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
@@ -53,6 +55,7 @@
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
+#include <BinTools.hxx>
 #include <Bnd_Box.hxx>
 #include <GCPnts_AbscissaPoint.hxx>
 #include <GCPnts_TangentialDeflection.hxx>
@@ -64,6 +67,7 @@
 #include <GeomAPI_Interpolate.hxx>
 #include <GeomAPI_PointsToBSpline.hxx>
 #include <GeomAPI_PointsToBSplineSurface.hxx>
+#include <GeomAPI_ProjectPointOnCurve.hxx>
 #include <GeomAPI_ProjectPointOnSurf.hxx>
 #include <GeomAbs_CurveType.hxx>
 #include <GeomAbs_JoinType.hxx>
@@ -73,6 +77,7 @@
 #include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierCurve.hxx>
 #include <Geom_Circle.hxx>
+#include <Geom_Curve.hxx>
 #include <Geom_CylindricalSurface.hxx>
 #include <Geom_Ellipse.hxx>
 #include <Geom_Plane.hxx>
@@ -143,6 +148,7 @@
 #include <gp_Dir2d.hxx>
 #include <gp_Elips.hxx>
 #include <gp_GTrsf.hxx>
+#include <gp_Mat.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Pnt2d.hxx>
@@ -445,6 +451,41 @@ uint32_t OcctKernel::fuseAll(std::vector<uint32_t> shapeIds) {
         return store(builder.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("fuseAll: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::intersectionCells(std::vector<uint32_t> shapeIds) {
+    try {
+        if (shapeIds.size() < 2) {
+            throw std::runtime_error("intersectionCells: need at least 2 shapes");
+        }
+        std::vector<TopoDS_Shape> shapes;
+        NCollection_List<TopoDS_Shape> args;
+        for (uint32_t sid : shapeIds) {
+            const auto& s = get(sid);
+            shapes.push_back(s);
+            args.Append(s);
+        }
+        BOPAlgo_CellsBuilder builder;
+        builder.SetArguments(args);
+        builder.Perform();
+        if (builder.HasErrors()) {
+            throw std::runtime_error("intersectionCells: build failed");
+        }
+        builder.RemoveAllFromResult();
+        for (size_t i = 0; i < shapes.size(); ++i) {
+            for (size_t j = i + 1; j < shapes.size(); ++j) {
+                NCollection_List<TopoDS_Shape> take;
+                take.Append(shapes[i]);
+                take.Append(shapes[j]);
+                NCollection_List<TopoDS_Shape> avoid;
+                builder.AddToResult(take, avoid, 1, false);
+            }
+        }
+        builder.RemoveInternalBoundaries();
+        return store(builder.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("intersectionCells: ") + e.what());
     }
 }
 
@@ -1831,6 +1872,32 @@ std::vector<double> OcctKernel::getCenterOfMass(uint32_t id) {
     }
 }
 
+std::vector<double> OcctKernel::getInertia(uint32_t id) {
+    try {
+        const auto& shape = get(id);
+        GProp_GProps props;
+        BRepGProp::VolumeProperties(shape, props);
+        gp_Mat m = props.MatrixOfInertia();
+        return {m(1, 1), m(1, 2), m(1, 3),
+                m(2, 1), m(2, 2), m(2, 3),
+                m(3, 1), m(3, 2), m(3, 3)};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("getInertia: ") + e.what());
+    }
+}
+
+bool OcctKernel::containsPoint(uint32_t id, double x, double y, double z, double tolerance) {
+    try {
+        const auto& shape = get(id);
+        BRepClass3d_SolidClassifier classifier(shape);
+        classifier.Perform(gp_Pnt(x, y, z), tolerance);
+        TopAbs_State state = classifier.State();
+        return state == TopAbs_IN || state == TopAbs_ON;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("containsPoint: ") + e.what());
+    }
+}
+
 std::vector<double> OcctKernel::getSurfaceCenterOfMass(uint32_t faceId) {
     try {
         const auto& face = get(faceId);
@@ -2213,6 +2280,57 @@ uint32_t OcctKernel::interpolatePoints(std::vector<double> flatPoints, bool peri
     }
 }
 
+uint32_t OcctKernel::interpolatePointsWithTangents(std::vector<double> flatPoints, double startTanX, double startTanY, double startTanZ, double endTanX, double endTanY, double endTanZ) {
+    try {
+        int nPts = static_cast<int>(flatPoints.size()) / 3;
+        if (nPts < 2) {
+            throw std::runtime_error("interpolatePointsWithTangents: need at least 2 points");
+        }
+        Handle(NCollection_HArray1<gp_Pnt>) pts = new NCollection_HArray1<gp_Pnt>(1, nPts);
+        for (int i = 0; i < nPts; i++) {
+            pts->SetValue(i + 1,
+                          gp_Pnt(flatPoints[i * 3], flatPoints[i * 3 + 1], flatPoints[i * 3 + 2]));
+        }
+        GeomAPI_Interpolate interp(pts, false, 1e-6);
+        gp_Vec startTan(startTanX, startTanY, startTanZ);
+        gp_Vec endTan(endTanX, endTanY, endTanZ);
+        interp.Load(startTan, endTan, Standard_True);
+        interp.Perform();
+        if (!interp.IsDone()) {
+            throw std::runtime_error("interpolatePointsWithTangents: interpolation failed");
+        }
+        BRepBuilderAPI_MakeEdge edgeMaker(interp.Curve());
+        if (!edgeMaker.IsDone()) {
+            throw std::runtime_error("interpolatePointsWithTangents: edge construction failed");
+        }
+        return store(edgeMaker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("interpolatePointsWithTangents: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::projectPointOnEdge(uint32_t edgeId, double x, double y, double z) {
+    try {
+        TopoDS_Edge edge = TopoDS::Edge(get(edgeId));
+        double first, last;
+        Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, first, last);
+        if (curve.IsNull()) {
+            throw std::runtime_error("projectPointOnEdge: edge has no 3D curve");
+        }
+        GeomAPI_ProjectPointOnCurve proj(gp_Pnt(x, y, z), curve, first, last);
+        if (proj.NbPoints() < 1) {
+            throw std::runtime_error("projectPointOnEdge: no projection found");
+        }
+        double param = proj.LowerDistanceParameter();
+        gp_Pnt cp;
+        gp_Vec tan;
+        curve->D1(param, cp, tan);
+        return {cp.X(), cp.Y(), cp.Z(), tan.X(), tan.Y(), tan.Z(), param};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("projectPointOnEdge: ") + e.what());
+    }
+}
+
 bool OcctKernel::curveIsPeriodic(uint32_t id) {
     try {
         const auto& shape = get(id);
@@ -2448,7 +2566,7 @@ uint32_t OcctKernel::sweepPipeShell(uint32_t profileId, uint32_t spineId, bool f
     }
 }
 
-uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY, double upZ) {
+uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY, double upZ, uint32_t auxSpineId) {
     try {
         BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
         switch (mode) {
@@ -2463,6 +2581,9 @@ uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mod
                 maker.SetMode(up);
                 break;
             }
+            case 3:
+                maker.SetMode(TopoDS::Wire(get(auxSpineId)), Standard_True);
+                break;
             default:
                 throw std::runtime_error("sweepOriented: invalid mode");
         }
@@ -2737,6 +2858,29 @@ uint32_t OcctKernel::fromBREP(const std::string& data) {
     }
 }
 
+std::string OcctKernel::exportBrepBinary(uint32_t id) {
+    try {
+        std::string path = "/tmp/export.brep.bin";
+        BinTools::Write(get(id), path.c_str());
+        return path;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("exportBrepBinary: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::importBrepBinary(const std::string& path) {
+    try {
+        TopoDS_Shape shape;
+        BinTools::Read(shape, path.c_str());
+        if (shape.IsNull()) {
+            throw std::runtime_error("importBrepBinary: failed to read shape");
+        }
+        return store(shape);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("importBrepBinary: ") + e.what());
+    }
+}
+
 // === evolution ===
 
 EvolutionData OcctKernel::translateWithHistory(uint32_t id, double dx, double dy, double dz, std::vector<int> inputFaceHashes, int hashUpperBound) {
@@ -2970,157 +3114,17 @@ EvolutionData OcctKernel::thickenWithHistory(uint32_t shapeId, double thickness,
 
 MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double angularDeflection) {
     try {
-        const auto& shape = get(id);
-        
-        BRepMesh_IncrementalMesh mesher(shape, linearDeflection, false, angularDeflection, false);
-        if (!mesher.IsDone()) {
-            throw std::runtime_error("tessellate: meshing failed");
-        }
-        
-        // Count totals
-        int totalNodes = 0;
-        int totalTris = 0;
-        int totalFaces = 0;
-        for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
-            TopLoc_Location loc;
-            auto tri = BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc);
-            if (tri.IsNull())
-                continue;
-            totalNodes += tri->NbNodes();
-            totalTris += tri->NbTriangles();
-            totalFaces++;
-        }
-        
-        MeshData result;
-        result.positionCount = totalNodes * 3;
-        result.normalCount = totalNodes * 3;
-        result.uvCount = totalNodes * 2;
-        result.indexCount = totalTris * 3;
-        
-        result.positions = static_cast<float*>(std::malloc(result.positionCount * sizeof(float)));
-        result.normals = static_cast<float*>(std::malloc(result.normalCount * sizeof(float)));
-        result.uvs = static_cast<float*>(std::malloc(result.uvCount * sizeof(float)));
-        result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(uint32_t)));
-        result.faceGroupCount = totalFaces * 3;
-        result.faceGroups =
-            static_cast<int32_t*>(std::malloc(result.faceGroupCount * sizeof(int32_t)));
-        
-        if ((!result.positions && result.positionCount > 0) ||
-            (!result.normals && result.normalCount > 0) ||
-            (!result.uvs && result.uvCount > 0) ||
-            (!result.indices && result.indexCount > 0) ||
-            (!result.faceGroups && result.faceGroupCount > 0)) {
-            throw std::runtime_error("tessellate: memory allocation failed");
-        }
-        
-        int vertexOffset = 0;
-        int triOffset = 0;
-        int faceGroupIdx = 0;
-        
-        for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
-            const auto& face = TopoDS::Face(ex.Current());
-            TopLoc_Location loc;
-            auto tri = BRep_Tool::Triangulation(face, loc);
-            if (tri.IsNull())
-                continue;
-        
-            const auto& trsf = loc.Transformation();
-            // Faces from primitives/booleans usually carry an identity location;
-            // skipping the per-vertex affine multiply there is the common-case win.
-            bool identityLoc = loc.IsIdentity();
-            int nbNodes = tri->NbNodes();
-            int nbTri = tri->NbTriangles();
-        
-            // Positions
-            if (identityLoc) {
-                for (int i = 1; i <= nbNodes; i++) {
-                    const gp_Pnt& p = tri->Node(i);
-                    int base = (vertexOffset + i - 1) * 3;
-                    result.positions[base + 0] = static_cast<float>(p.X());
-                    result.positions[base + 1] = static_cast<float>(p.Y());
-                    result.positions[base + 2] = static_cast<float>(p.Z());
-                }
-            } else {
-                for (int i = 1; i <= nbNodes; i++) {
-                    gp_Pnt p = tri->Node(i).Transformed(trsf);
-                    int base = (vertexOffset + i - 1) * 3;
-                    result.positions[base + 0] = static_cast<float>(p.X());
-                    result.positions[base + 1] = static_cast<float>(p.Y());
-                    result.positions[base + 2] = static_cast<float>(p.Z());
-                }
-            }
-        
-            // UV parameters (zero-filled where the triangulation carries no UV nodes)
-            bool hasUV = tri->HasUVNodes();
-            for (int i = 1; i <= nbNodes; i++) {
-                int uvBase = (vertexOffset + i - 1) * 2;
-                if (hasUV) {
-                    const gp_Pnt2d& uv = tri->UVNode(i);
-                    result.uvs[uvBase + 0] = static_cast<float>(uv.X());
-                    result.uvs[uvBase + 1] = static_cast<float>(uv.Y());
-                } else {
-                    result.uvs[uvBase + 0] = 0.0f;
-                    result.uvs[uvBase + 1] = 0.0f;
-                }
-            }
-        
-            // Normals
-            if (!tri->HasNormals()) {
-                BRepLib_ToolTriangulatedShape::ComputeNormals(face, tri);
-            }
-            bool hasNormals = tri->HasNormals();
-            for (int i = 1; i <= nbNodes; i++) {
-                gp_Dir d(0, 0, 1);
-                if (hasNormals) {
-                    NCollection_Vec3<float> nv;
-                    tri->Normal(i, nv);
-                    if (nv.x() != 0.0f || nv.y() != 0.0f || nv.z() != 0.0f) {
-                        d = gp_Dir(nv.x(), nv.y(), nv.z());
-                    }
-                }
-                if (!identityLoc) {
-                    d = d.Transformed(trsf);
-                }
-                int base = (vertexOffset + i - 1) * 3;
-                result.normals[base + 0] = static_cast<float>(d.X());
-                result.normals[base + 1] = static_cast<float>(d.Y());
-                result.normals[base + 2] = static_cast<float>(d.Z());
-            }
-        
-            // Triangles (with winding correction for reversed faces)
-            bool isReversed = (face.Orientation() != TopAbs_FORWARD);
-            for (int t = 1; t <= nbTri; t++) {
-                const auto& triangle = tri->Triangle(t);
-                int n1 = triangle.Value(1);
-                int n2 = triangle.Value(2);
-                int n3 = triangle.Value(3);
-        
-                if (isReversed) {
-                    int tmp = n1;
-                    n1 = n2;
-                    n2 = tmp;
-                }
-        
-                result.indices[triOffset + 0] = static_cast<uint32_t>(n1 - 1 + vertexOffset);
-                result.indices[triOffset + 1] = static_cast<uint32_t>(n2 - 1 + vertexOffset);
-                result.indices[triOffset + 2] = static_cast<uint32_t>(n3 - 1 + vertexOffset);
-                triOffset += 3;
-            }
-        
-            // Record face group: [triStart (in index units), triCount (indices), faceHash]
-            int faceTriStart = triOffset - nbTri * 3;
-            int faceHash = static_cast<int>(TopTools_ShapeMapHasher{}(face) % 2147483647);
-            result.faceGroups[faceGroupIdx + 0] = faceTriStart;
-            result.faceGroups[faceGroupIdx + 1] = nbTri * 3;
-            result.faceGroups[faceGroupIdx + 2] = faceHash;
-            faceGroupIdx += 3;
-        
-            vertexOffset += nbNodes;
-        }
-        
-        return result;
+        return buildMeshData(get(id), linearDeflection, angularDeflection, false);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("tessellate: ") + e.what());
+    }
+}
+
+MeshData OcctKernel::tessellateRelative(uint32_t id, double linearDeflection, double angularDeflection) {
+    try {
+        return buildMeshData(get(id), linearDeflection, angularDeflection, true);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("tessellateRelative: ") + e.what());
     }
 }
 

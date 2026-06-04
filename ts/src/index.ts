@@ -240,6 +240,7 @@ export interface OcctRawKernel {
     fuseAll(shapeIds: EmbindVectorU32): number;
     cutAll(shapeId: number, toolIds: EmbindVectorU32): number;
     split(shapeId: number, toolIds: EmbindVectorU32): number;
+    intersectionCells(shapeIds: EmbindVectorU32): number;
 
     // Modeling
     extrude(id: number, dx: number, dy: number, dz: number): number;
@@ -258,7 +259,7 @@ export interface OcctRawKernel {
     loftWithVertices(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean, startVertexId: number, endVertexId: number): number;
     sweep(wireId: number, spineId: number, transitionMode: number): number;
     sweepPipeShell(profileId: number, spineId: number, freenet: boolean, smooth: boolean): number;
-    sweepOriented(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number): number;
+    sweepOriented(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number, auxSpineId: number): number;
     draftPrism(shapeId: number, dx: number, dy: number, dz: number, angleDeg: number): number;
     revolveVec(shapeId: number, cx: number, cy: number, cz: number, dx: number, dy: number, dz: number, angle: number): number;
 
@@ -327,6 +328,7 @@ export interface OcctRawKernel {
 
     // Tessellation
     tessellate(id: number, linDefl: number, angDefl: number): RawMeshData;
+    tessellateRelative(id: number, linDefl: number, angDefl: number): RawMeshData;
     wireframe(id: number, deflection: number): RawEdgeData;
     hasTriangulation(id: number): boolean;
     meshShape(id: number, linDefl: number, angDefl: number): RawMeshData;
@@ -339,6 +341,8 @@ export interface OcctRawKernel {
     exportStl(id: number, linearDeflection: number, ascii: boolean): string;
     toBREP(id: number): string;
     fromBREP(data: string): number;
+    exportBrepBinary(id: number): string;
+    importBrepBinary(path: string): number;
 
     // Query
     getBoundingBox(id: number, useTriangulation: boolean): BoundingBox;
@@ -346,6 +350,8 @@ export interface OcctRawKernel {
     getSurfaceArea(id: number): number;
     getLength(id: number): number;
     getCenterOfMass(id: number): EmbindVectorF64;
+    getInertia(id: number): EmbindVectorF64;
+    containsPoint(id: number, x: number, y: number, z: number, tolerance: number): boolean;
     getSurfaceCenterOfMass(faceId: number): EmbindVectorF64;
     getLinearCenterOfMass(id: number): EmbindVectorF64;
     surfaceCurvature(faceId: number, u: number, v: number): EmbindVectorF64;
@@ -372,6 +378,8 @@ export interface OcctRawKernel {
     curveIsPeriodic(edgeId: number): boolean;
     curveLength(edgeId: number): number;
     interpolatePoints(flatPoints: EmbindVectorF64, periodic: boolean): number;
+    interpolatePointsWithTangents(flatPoints: EmbindVectorF64, startTanX: number, startTanY: number, startTanZ: number, endTanX: number, endTanY: number, endTanZ: number): number;
+    projectPointOnEdge(edgeId: number, x: number, y: number, z: number): EmbindVectorF64;
     approximatePoints(flatPoints: EmbindVectorF64, tolerance: number): number;
     getNurbsCurveData(edgeId: number): RawNurbsCurveData;
     liftCurve2dToPlane(flatPoints2d: EmbindVectorF64, planeOx: number, planeOy: number, planeOz: number, planeZx: number, planeZy: number, planeZz: number, planeXx: number, planeXy: number, planeXz: number): number;
@@ -692,6 +700,19 @@ export class OcctKernel {
         });
     }
 
+    /**
+     * General-fuse cell selection: the union of all regions covered by two or
+     * more of the inputs. Unlike {@link fuseAll} (which keeps every cell), this
+     * keeps only the overlap regions via BOPAlgo_CellsBuilder.
+     */
+    intersectionCells(shapes: ShapeHandle[]): ShapeHandle {
+        return wrap("intersectionCells", () => {
+            const vec = this.#makeVectorU32(shapes);
+            try { return handle(this.#raw.intersectionCells(vec)); }
+            finally { vec.delete(); }
+        });
+    }
+
     // =======================================================================
     // Modeling
     // =======================================================================
@@ -831,16 +852,18 @@ export class OcctKernel {
     /**
      * Sweep a profile wire along a spine wire with explicit profile-orientation
      * control. `up` is required for {@link SweepMode.FixedUp} (the constant
-     * binormal direction) and ignored otherwise.
+     * binormal direction); `auxSpine` is required for {@link SweepMode.Auxiliary}
+     * (the guide wire). Both are ignored for the other modes.
      */
     sweepOriented(
         profile: ShapeHandle,
         spine: ShapeHandle,
         mode: SweepMode = SweepMode.Fixed,
         up: Vec3 = { x: 0, y: 0, z: 1 },
+        auxSpine?: ShapeHandle,
     ): ShapeHandle {
         return wrap("sweepOriented", () =>
-            handle(this.#raw.sweepOriented(profile, spine, mode, up.x, up.y, up.z)),
+            handle(this.#raw.sweepOriented(profile, spine, mode, up.x, up.y, up.z, auxSpine ?? 0)),
         );
     }
 
@@ -1353,7 +1376,10 @@ export class OcctKernel {
         return wrap("tessellate", () => {
             const linDefl = options?.linearDeflection ?? 0.1;
             const angDefl = options?.angularDeflection ?? 0.5;
-            return this.#extractMesh(this.#raw.tessellate(shape, linDefl, angDefl));
+            const raw = options?.relative
+                ? this.#raw.tessellateRelative(shape, linDefl, angDefl)
+                : this.#raw.tessellate(shape, linDefl, angDefl);
+            return this.#extractMesh(raw);
         });
     }
 
@@ -1480,6 +1506,29 @@ export class OcctKernel {
         return wrap("fromBREP", () => handle(this.#raw.fromBREP(data)));
     }
 
+    /** Serialize a shape to binary BREP (smaller/faster than the text format). */
+    toBREPBinary(shape: ShapeHandle): Uint8Array {
+        return wrap("toBREPBinary", () => {
+            const path = this.#raw.exportBrepBinary(shape);
+            const bytes = this.#module.FS.readFile(path);
+            this.#module.FS.unlink(path);
+            return bytes;
+        });
+    }
+
+    /** Load a shape from binary BREP produced by {@link toBREPBinary}. */
+    fromBREPBinary(data: Uint8Array): ShapeHandle {
+        return wrap("fromBREPBinary", () => {
+            const path = "/tmp/occt-import.brep.bin";
+            this.#module.FS.writeFile(path, data);
+            try {
+                return handle(this.#raw.importBrepBinary(path));
+            } finally {
+                this.#module.FS.unlink(path);
+            }
+        });
+    }
+
     cacheStep(stepData: string | ArrayBuffer): string {
         const shape = this.importStep(stepData);
         try {
@@ -1533,6 +1582,23 @@ export class OcctKernel {
             const v = this.#raw.getCenterOfMass(shape);
             return this.#vec3FromEmbind(v);
         });
+    }
+
+    /**
+     * Matrix of inertia about the center of mass, as a row-major 3×3 array
+     * (length 9). Symmetric: `[1]==[3]`, `[2]==[6]`, `[5]==[7]`.
+     */
+    getInertia(shape: ShapeHandle): number[] {
+        return wrap("getInertia", () =>
+            Array.from(this.#drainVector(this.#raw.getInertia(shape), Float64Array)),
+        );
+    }
+
+    /** True if `point` lies inside (or on the boundary of) a solid. */
+    containsPoint(shape: ShapeHandle, point: Vec3, tolerance = 1e-7): boolean {
+        return wrap("containsPoint", () =>
+            this.#raw.containsPoint(shape, point.x, point.y, point.z, tolerance),
+        );
     }
 
     /**
@@ -1697,6 +1763,49 @@ export class OcctKernel {
             const flat = this.#flattenPoints(points);
             try { return handle(this.#raw.interpolatePoints(flat, periodic)); }
             finally { flat.delete(); }
+        });
+    }
+
+    /**
+     * Interpolate a cubic B-spline through the points with clamped start/end
+     * tangent directions.
+     */
+    interpolatePointsWithTangents(
+        points: Vec3[],
+        startTangent: Vec3,
+        endTangent: Vec3,
+    ): ShapeHandle {
+        return wrap("interpolatePointsWithTangents", () => {
+            const flat = this.#flattenPoints(points);
+            try {
+                return handle(
+                    this.#raw.interpolatePointsWithTangents(
+                        flat,
+                        startTangent.x, startTangent.y, startTangent.z,
+                        endTangent.x, endTangent.y, endTangent.z,
+                    ),
+                );
+            } finally {
+                flat.delete();
+            }
+        });
+    }
+
+    /** Closest point on an edge to `point`, with the curve tangent and parameter there. */
+    projectPointOnEdge(
+        edge: ShapeHandle,
+        point: Vec3,
+    ): { point: Vec3; tangent: Vec3; parameter: number } {
+        return wrap("projectPointOnEdge", () => {
+            const r = this.#drainVector(
+                this.#raw.projectPointOnEdge(edge, point.x, point.y, point.z),
+                Float64Array,
+            );
+            return {
+                point: { x: r[0]!, y: r[1]!, z: r[2]! },
+                tangent: { x: r[3]!, y: r[4]!, z: r[5]! },
+                parameter: r[6]!,
+            };
         });
     }
 

@@ -121,6 +121,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("section", &OcctKernel::section)
         .function("intersect", &OcctKernel::intersect)
         .function("fuseAll", &OcctKernel::fuseAll)
+        .function("intersectionCells", &OcctKernel::intersectionCells)
         .function("cutAll", &OcctKernel::cutAll)
         .function("booleanPipeline", &OcctKernel::booleanPipeline)
         .function("split", &OcctKernel::split)
@@ -208,6 +209,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("getSurfaceArea", &OcctKernel::getSurfaceArea)
         .function("getLength", &OcctKernel::getLength)
         .function("getCenterOfMass", &OcctKernel::getCenterOfMass)
+        .function("getInertia", &OcctKernel::getInertia)
+        .function("containsPoint", &OcctKernel::containsPoint)
         .function("getSurfaceCenterOfMass", &OcctKernel::getSurfaceCenterOfMass)
         .function("vertexPosition", &OcctKernel::vertexPosition)
         .function("surfaceType", &OcctKernel::surfaceType)
@@ -232,6 +235,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("curveIsClosed", &OcctKernel::curveIsClosed)
         .function("curveLength", &OcctKernel::curveLength)
         .function("interpolatePoints", &OcctKernel::interpolatePoints)
+        .function("interpolatePointsWithTangents", &OcctKernel::interpolatePointsWithTangents)
+        .function("projectPointOnEdge", &OcctKernel::projectPointOnEdge)
         .function("curveIsPeriodic", &OcctKernel::curveIsPeriodic)
         .function("approximatePoints", &OcctKernel::approximatePoints)
         .function("liftCurve2dToPlane", &OcctKernel::liftCurve2dToPlane)
@@ -266,6 +271,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("importStl", &OcctKernel::importStl)
         .function("toBREP", &OcctKernel::toBREP)
         .function("fromBREP", &OcctKernel::fromBREP)
+        .function("exportBrepBinary", &OcctKernel::exportBrepBinary)
+        .function("importBrepBinary", &OcctKernel::importBrepBinary)
 
         // evolution
         .function("translateWithHistory", &OcctKernel::translateWithHistory)
@@ -283,6 +290,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
 
         // tessellate
         .function("tessellate", &OcctKernel::tessellate)
+        .function("tessellateRelative", &OcctKernel::tessellateRelative)
         .function("meshShape", &OcctKernel::meshShape)
         .function("meshBatch", &OcctKernel::meshBatch)
         .function("wireframe", &OcctKernel::wireframe)

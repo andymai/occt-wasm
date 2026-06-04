@@ -151,6 +151,7 @@ class OcctKernel {
     uint32_t fuseAll(std::vector<uint32_t> shapeIds);
     uint32_t cutAll(uint32_t shapeId, std::vector<uint32_t> toolIds);
     uint32_t split(uint32_t shapeId, std::vector<uint32_t> toolIds);
+    uint32_t intersectionCells(std::vector<uint32_t> shapeIds);
 
     // --- Modeling operations ---
     uint32_t extrude(uint32_t shapeId, double dx, double dy, double dz);
@@ -175,7 +176,7 @@ class OcctKernel {
     uint32_t sweep(uint32_t wireId, uint32_t spineId, int transitionMode);
     uint32_t sweepPipeShell(uint32_t profileId, uint32_t spineId, bool freenet, bool smooth);
     uint32_t sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY,
-                           double upZ);
+                           double upZ, uint32_t auxSpineId);
     uint32_t draftPrism(uint32_t shapeId, double dx, double dy, double dz, double angleDeg);
     uint32_t revolveVec(uint32_t shapeId, double cx, double cy, double cz, double dx, double dy,
                         double dz, double angle);
@@ -257,6 +258,7 @@ class OcctKernel {
 
     // --- Tessellation / Mesh ---
     MeshData tessellate(uint32_t id, double linearDeflection, double angularDeflection);
+    MeshData tessellateRelative(uint32_t id, double linearDeflection, double angularDeflection);
     EdgeData wireframe(uint32_t id, double deflection);
     bool hasTriangulation(uint32_t id);
     MeshData meshShape(uint32_t id, double linearDeflection, double angularDeflection);
@@ -270,6 +272,8 @@ class OcctKernel {
     std::string exportStl(uint32_t id, double linearDeflection, bool ascii);
     std::string toBREP(uint32_t id);
     uint32_t fromBREP(const std::string& data);
+    std::string exportBrepBinary(uint32_t id);
+    uint32_t importBrepBinary(const std::string& path);
 
     // --- Query / Measure ---
     BBoxData getBoundingBox(uint32_t id, bool useTriangulation);
@@ -280,6 +284,8 @@ class OcctKernel {
     std::vector<double> getSurfaceCenterOfMass(uint32_t faceId);
     std::vector<double> getLinearCenterOfMass(uint32_t id);
     std::vector<double> surfaceCurvature(uint32_t faceId, double u, double v);
+    std::vector<double> getInertia(uint32_t id);
+    bool containsPoint(uint32_t id, double x, double y, double z, double tolerance);
 
     // --- Vertex/Surface query ---
     std::vector<double> vertexPosition(uint32_t vertexId);
@@ -302,6 +308,10 @@ class OcctKernel {
     bool curveIsPeriodic(uint32_t edgeId);
     double curveLength(uint32_t edgeId);
     uint32_t interpolatePoints(std::vector<double> flatPoints, bool periodic);
+    uint32_t interpolatePointsWithTangents(std::vector<double> flatPoints, double startTanX,
+                                           double startTanY, double startTanZ, double endTanX,
+                                           double endTanY, double endTanZ);
+    std::vector<double> projectPointOnEdge(uint32_t edgeId, double x, double y, double z);
     uint32_t approximatePoints(std::vector<double> flatPoints, double tolerance);
 
     // --- Modifier (expanded) ---
@@ -411,6 +421,8 @@ class OcctKernel {
   private:
     uint32_t store(const TopoDS_Shape& shape);
     const TopoDS_Shape& get(uint32_t id) const;
+    MeshData buildMeshData(const TopoDS_Shape& shape, double linearDeflection,
+                           double angularDeflection, bool relative);
 
     std::unordered_map<uint32_t, TopoDS_Shape> arena_;
     uint32_t nextId_ = 1;

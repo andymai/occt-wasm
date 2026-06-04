@@ -303,17 +303,17 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | Category         | What's covered                                                                                                 |
 | ---------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Primitives**   | Box, cylinder, sphere, cone, torus, ellipsoid, rectangle, half-space                                           |
-| **Booleans**     | Fuse, cut, common, intersect, section + multi-shape variants                                                   |
+| **Booleans**     | Fuse, cut, common, intersect, section + multi-shape variants, intersection cells                               |
 | **Modeling**     | Extrude, revolve, fillet, chamfer, shell, offset, draft                                                        |
-| **Sweeps**       | Pipe, loft, sweep, oriented sweep (fixed/Frenet/up-axis), draft prism, extrusion laws                          |
+| **Sweeps**       | Pipe, loft, sweep, oriented sweep (fixed/Frenet/up-axis/auxiliary), draft prism, extrusion laws                |
 | **Construction** | Vertices, edges (line/arc/circle/ellipse/bezier/helix), wires, faces, solids, compounds, sewing                |
 | **Transforms**   | Translate, rotate, scale, mirror, align to bounding box, 3x4 matrix, linear/circular patterns                  |
 | **Topology**     | Shape type queries, type predicates, sub-shape extraction, adjacency, hash codes                               |
-| **Tessellation** | Triangle meshes, wireframe polylines, per-face groups, batched multi-shape meshing                             |
-| **I/O**          | STEP, STL, BREP import/export                                                                                  |
-| **Query**        | Bounding box, volume, surface area, length, center of mass, curvature                                          |
+| **Tessellation** | Triangle meshes (absolute or relative deflection), wireframe polylines, per-face groups, batched meshing       |
+| **I/O**          | STEP, STL, BREP (text + binary) import/export                                                                  |
+| **Query**        | Bounding box, volume, surface area, length, center of mass, inertia tensor, point-in-solid, curvature          |
 | **Surfaces**     | Type, normal, UV bounds, point classification, B-spline construction                                           |
-| **Curves**       | Type, point/tangent evaluation, parameters, NURBS data extraction, interpolation                               |
+| **Curves**       | Type, point/tangent eval, parameters, NURBS data, interpolation (incl. clamped tangents), project point        |
 | **Projection**   | Hidden line removal (HLR), multiview SVG render (Front/Top/Right/Iso)                                          |
 | **Modifiers**    | Thicken, defeature, reverse, simplify, variable fillet, 2D wire offset                                         |
 | **Evolution**    | Face-tracking history for translate, fuse, cut, fillet, rotate, mirror, scale, chamfer, shell, offset, thicken |

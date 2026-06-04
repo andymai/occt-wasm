@@ -72,6 +72,7 @@ export interface RawXCAFKernel {
 /** Emscripten FS interface needed for binary glTF export. */
 export interface EmscriptenFS {
     readFile(path: string): Uint8Array;
+    writeFile(path: string, data: Uint8Array): void;
     unlink(path: string): void;
 }
 
