@@ -86,7 +86,7 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         eprintln!("  Compiling {name}.cpp...");
         cmd!(
             sh,
-            "em++ -std=c++17 -fwasm-exceptions -O3 -msimd128 -mrelaxed-simd
+            "em++ -std=c++17 -fwasm-exceptions -O3 -msimd128
             -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS
             -I{occt_inc} -I{facade_inc}
             -w -c {src} -o {obj}"
@@ -127,7 +127,6 @@ fn link(root: &Path, objects: &[PathBuf], release: bool) -> Result<PathBuf> {
     cmd.args([
         "-fwasm-exceptions",
         "-msimd128",
-        "-mrelaxed-simd",
         opt_level,
         "-sSTANDALONE_WASM=1",
         "-sALLOW_MEMORY_GROWTH=1",
@@ -210,7 +209,7 @@ fn convert_eh(sh: &Shell, wasm: &Path) -> Result<()> {
         --enable-bulk-memory --enable-sign-ext
         --enable-nontrapping-float-to-int --enable-mutable-globals
         --enable-exception-handling --enable-reference-types --enable-multivalue
-        --enable-simd --enable-tail-call --enable-relaxed-simd
+        --enable-simd --enable-tail-call
         -o {wasm}"
     )
     .run()?;

@@ -33,7 +33,7 @@ To set expectations, this library deliberately does not:
 
 - **Provide a higher-level CAD modeling API** — parametric sketching, constraints, feature trees, and ergonomic modeling belong in [brepjs](https://github.com/andymai/brepjs), which wraps occt-wasm for that purpose
 - **Manage memory automatically beyond arena handles** — shapes are freed when the kernel is disposed or you call `release()`; there is no per-shape garbage collection
-- **Support Firefox or other non-WASM-SIMD browsers** — the build requires WASM SIMD, relaxed-SIMD, tail calls, and wasm exceptions; Firefox lacks tail call support as of v130
+- **Support non-WASM-SIMD browsers** — the build requires WASM SIMD (baseline `-msimd128`), tail calls, and wasm exceptions; Firefox lacks tail call support as of v130. Relaxed-SIMD is intentionally not used: some Safari/iOS WebKit builds fail to compile relaxed-SIMD modules, and it made geometry non-reproducible across CPUs
 - **Include OCCT visualization or display modules** — TKV3d, TKHLR (except the HLR facade), and the AIS interactive context are excluded; bring your own renderer (Three.js, Babylon.js, etc.)
 - **Support IGES import/export** -- TKDEIGES is excluded from the link; use STEP for interchange
 
