@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.3.0](https://github.com/andymai/occt-wasm/compare/v3.2.3...v3.3.0) (2026-06-07)
+
+
+### Features
+
+* inertia, point-in-solid, binary BREP, clamped B-splines, curve projection, relative meshing, aux-spine sweep, intersection cells ([#144](https://github.com/andymai/occt-wasm/issues/144)) ([94eee2a](https://github.com/andymai/occt-wasm/commit/94eee2a98b90416a62ac6ef76ae38ad61e753e3e))
+* oriented sweep, half-space, and multiview SVG rendering ([#142](https://github.com/andymai/occt-wasm/issues/142)) ([a4f9dee](https://github.com/andymai/occt-wasm/commit/a4f9dee0f8220417397d6028c69a9d743b7e0493))
+
+
+### Bug Fixes
+
+* drop relaxed-SIMD so Safari/iOS can load the kernel ([#148](https://github.com/andymai/occt-wasm/issues/148)) ([b8dd52c](https://github.com/andymai/occt-wasm/commit/b8dd52c138fc741164dacf7ada23ce1815b8bcea))
+* **facade:** normalize negative-volume solids in extrude ([#145](https://github.com/andymai/occt-wasm/issues/145)) ([27a4c45](https://github.com/andymai/occt-wasm/commit/27a4c45113bab5c64f0f87c7e9fd30e04afefc5a))
+
 ## [3.2.3](https://github.com/andymai/occt-wasm/compare/v3.2.2...v3.2.3) (2026-06-03)
 
 
