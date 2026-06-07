@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/andymai/occt-wasm/compare/v3.3.0...v3.3.1) (2026-06-07)
+
+
+### Bug Fixes
+
+* **docker:** align standalone Dockerfile OCCT flags with builder image ([#149](https://github.com/andymai/occt-wasm/issues/149)) ([c4bb4dd](https://github.com/andymai/occt-wasm/commit/c4bb4ddb483cd0b04122b573b1fa3f638bb6ad8f))
+
 ## [3.3.0](https://github.com/andymai/occt-wasm/compare/v3.2.3...v3.3.0) (2026-06-07)
 
 
