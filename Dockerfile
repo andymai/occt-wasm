@@ -65,8 +65,8 @@ RUN --mount=type=cache,target=/cache/ccache \
         -DUSE_FREETYPE=OFF \
         -DUSE_RAPIDJSON=ON \
         -D3RDPARTY_RAPIDJSON_INCLUDE_DIR=/workspace/3rdparty/rapidjson \
-        -DCMAKE_C_FLAGS="-fwasm-exceptions -O2 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS" \
-        -DCMAKE_CXX_FLAGS="-fwasm-exceptions -O2 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS" \
+        -DCMAKE_C_FLAGS="-fwasm-exceptions -O3 -msimd128 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS" \
+        -DCMAKE_CXX_FLAGS="-fwasm-exceptions -O3 -msimd128 -DIGNORE_NO_ATOMICS=1 -DOCCT_NO_PLUGINS" \
         -Wno-dev \
     && cmake --build . --parallel \
     && echo "OCCT build complete: $(ls -1 lin32/clang/lib/*.a 2>/dev/null | wc -l) static libs"
