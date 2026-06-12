@@ -14,7 +14,7 @@ categories = ["graphics", "science", "wasm"]
 
 [dependencies]
 wasmtime = "45"
-brotli = "7"
+brotli = "8"
 thiserror = "2"
 
 [features]
