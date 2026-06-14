@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 /**
- * Compare benchmark output against a stored baseline.
+ * Compare benchmark results against a stored baseline.
  * Fails with exit code 1 if a benchmark regresses by more than BOTH a relative
  * (15%) and an absolute (0.5ms) margin. The absolute floor keeps sub-millisecond
  * benchmarks (e.g. mesh sphere ~0.6ms) from flake-failing on timer/scheduling
  * jitter, where a 0.1ms swing is already +17% but is pure noise.
  *
- * Usage:
- *   npx vitest run test/bench.test.ts 2>&1 | node scripts/bench-check.js
- *   node scripts/bench-check.js < bench-output.txt
+ * Reads results from benchmarks/last-run.json, which test/bench.test.ts writes
+ * directly via fs. (It used to parse the markdown table from vitest's stdout,
+ * but the default reporter suppresses per-test console.log when piped, so the
+ * gate received zero rows and passed silently.)
  *
- * To update the baseline:
- *   node scripts/bench-check.js --update-baseline < bench-output.txt
+ * Usage:
+ *   npx vitest run test/bench.test.ts && node scripts/bench-check.js
+ *   node scripts/bench-check.js --update-baseline   # after a run
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -20,29 +22,26 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASELINE_PATH = resolve(__dirname, '../benchmarks/baseline.json');
+const RESULTS_PATH = resolve(__dirname, '../benchmarks/last-run.json');
 const THRESHOLD = 0.15; // 15% relative regression threshold
 const MIN_ABSOLUTE_MS = 0.5; // ignore regressions smaller than this in absolute terms (sub-ms noise)
 
-// Read stdin
-let input = '';
-process.stdin.setEncoding('utf-8');
-for await (const chunk of process.stdin) {
-    input += chunk;
+if (!existsSync(RESULTS_PATH)) {
+    console.error(
+        `No benchmark results at ${RESULTS_PATH}.\n` +
+        'Run `npx vitest run test/bench.test.ts` first (it writes that file).'
+    );
+    process.exit(1);
 }
 
-// Parse benchmark table from vitest output
-const lines = input.split('\n').filter(l => l.startsWith('|') && !l.includes('---') && !l.includes('Benchmark'));
-const results = {};
-for (const line of lines) {
-    const cols = line.split('|').map(c => c.trim()).filter(Boolean);
-    if (cols.length < 3) continue;
-    const name = cols[0];
-    const median = parseFloat(cols[2]);
-    if (!isNaN(median)) results[name] = median;
-}
+const results = JSON.parse(readFileSync(RESULTS_PATH, 'utf-8'));
 
-if (Object.keys(results).length === 0) {
-    console.log('No benchmark results found in input.');
+// With no baseline there is nothing to gate against — note and exit cleanly.
+// With a baseline, empty/partial results are a FAILURE, not a pass: it usually
+// means the suite didn't fully run (a crash or filter), and the missing-benchmark
+// check below turns that into a hard failure.
+if (Object.keys(results).length === 0 && !existsSync(BASELINE_PATH)) {
+    console.log('No benchmark results recorded (and no baseline to check).');
     process.exit(0);
 }
 
@@ -65,6 +64,19 @@ if (!existsSync(BASELINE_PATH)) {
 }
 
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
+
+// Every benchmark in the baseline must appear in the results. A missing one
+// means the run was empty or partial, so the regression gate never actually ran
+// for it — fail loudly (on stderr, like the missing-file error) instead of
+// passing silently.
+const missing = Object.keys(baseline).filter((name) => !(name in results));
+if (missing.length > 0) {
+    console.error(`\nERROR: ${missing.length} baseline benchmark(s) missing from results:`);
+    for (const name of missing) console.error(`  - ${name}`);
+    console.error('The benchmark run was empty or partial; the regression gate cannot run. Failing.');
+    process.exit(1);
+}
+
 let regressions = 0;
 
 console.log(`\nRegression check (fails at >${THRESHOLD * 100}% AND >${MIN_ABSOLUTE_MS}ms):`);

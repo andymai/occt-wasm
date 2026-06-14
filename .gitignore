@@ -33,3 +33,6 @@ ts/docs/
 # Env
 .env
 .env.local
+
+# Per-run benchmark medians (written by test/bench.test.ts)
+benchmarks/last-run.json
