@@ -27,7 +27,9 @@ if ! grep -qF "$OLD" "$DOCFILE"; then
   exit 1
 fi
 
-sed -i 's|GenericStringRef& operator=(const GenericStringRef& rhs) { s = rhs.s; length = rhs.length; }|GenericStringRef\& operator=(const GenericStringRef\& rhs) { this->~GenericStringRef(); new (this) GenericStringRef(rhs); return *this; }|' "$DOCFILE"
+# sed -i.bak + rm is portable across GNU and BSD/macOS sed (bare `-i` is GNU-only).
+sed -i.bak 's|GenericStringRef& operator=(const GenericStringRef& rhs) { s = rhs.s; length = rhs.length; }|GenericStringRef\& operator=(const GenericStringRef\& rhs) { this->~GenericStringRef(); new (this) GenericStringRef(rhs); return *this; }|' "$DOCFILE"
+rm -f "$DOCFILE.bak"
 
 if ! grep -qF 'new (this) GenericStringRef(rhs)' "$DOCFILE"; then
   echo "error: RapidJSON patch did not apply." >&2
