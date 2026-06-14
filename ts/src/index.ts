@@ -91,6 +91,7 @@ import type {
     Vec3,
 } from "./types.js";
 import { JoinType, SweepMode, TransitionMode, wrap } from "./types.js";
+import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Raw Embind types
@@ -464,14 +465,13 @@ function handle(id: number): ShapeHandle {
     return id as ShapeHandle;
 }
 
-// Allowed values for the closed string-union enums returned by the kernel.
+// Allowed values for the closed string-union enums returned by the kernel,
+// derived from the single source of truth in types.ts so they can't drift.
 // (SurfaceKind/CurveKind are open unions — `string & {}` — so any string is
 // valid by design and needs no check.)
-const SHAPE_TYPE_VALUES = new Set<string>([
-    "compound", "compsolid", "solid", "shell", "face", "wire", "edge", "vertex", "shape",
-]);
-const SHAPE_ORIENTATION_VALUES = new Set<string>(["forward", "reversed", "internal", "external"]);
-const POINT_CLASSIFICATION_VALUES = new Set<string>(["in", "on", "out"]);
+const SHAPE_TYPE_VALUES = new Set<string>(SHAPE_TYPES);
+const SHAPE_ORIENTATION_VALUES = new Set<string>(SHAPE_ORIENTATIONS);
+const POINT_CLASSIFICATION_VALUES = new Set<string>(POINT_CLASSIFICATIONS);
 
 /**
  * Coerce a raw kernel string into a closed union, throwing if the kernel ever
@@ -1216,7 +1216,6 @@ export class OcctKernel {
                 const raw = this.#raw.queryBatch(ids);
                 const arr = this.#drainVector(raw, Float64Array);
                 const STRIDE = 14;
-                const SHAPE_TYPES: ShapeType[] = ["compound", "compsolid", "solid", "shell", "face", "wire", "edge", "vertex", "shape"];
                 const results: ShapeQueryResult[] = [];
                 for (let i = 0; i < shapes.length; i++) {
                     const o = i * STRIDE;

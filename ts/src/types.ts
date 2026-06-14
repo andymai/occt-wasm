@@ -140,14 +140,26 @@ export interface GLTFExportOptions {
     angularDeflection?: number | undefined;
 }
 
+/**
+ * TopAbs_ShapeEnum values returned by getShapeType, in TopAbs ordinal order
+ * (queryBatch indexes this array by the raw enum value). Single source of truth
+ * for both the {@link ShapeType} union and runtime validation.
+ */
+export const SHAPE_TYPES = [
+    "compound", "compsolid", "solid", "shell", "face", "wire", "edge", "vertex", "shape",
+] as const;
 /** TopAbs_ShapeEnum value returned by getShapeType. */
-export type ShapeType = "compound" | "compsolid" | "solid" | "shell" | "face" | "wire" | "edge" | "vertex" | "shape";
+export type ShapeType = (typeof SHAPE_TYPES)[number];
 
+/** TopAbs_Orientation values returned by shapeOrientation. */
+export const SHAPE_ORIENTATIONS = ["forward", "reversed", "internal", "external"] as const;
 /** TopAbs_Orientation value returned by shapeOrientation. */
-export type ShapeOrientation = "forward" | "reversed" | "internal" | "external";
+export type ShapeOrientation = (typeof SHAPE_ORIENTATIONS)[number];
 
+/** BRepClass_FaceClassifier results for a UV point relative to a face boundary. */
+export const POINT_CLASSIFICATIONS = ["in", "on", "out"] as const;
 /** BRepClass_FaceClassifier result for a UV point relative to a face boundary. */
-export type PointClassification = "in" | "on" | "out";
+export type PointClassification = (typeof POINT_CLASSIFICATIONS)[number];
 
 /** Which extreme of a shape's bounding box to align to a target coordinate. */
 export type AlignAnchor = "min" | "center" | "max";
