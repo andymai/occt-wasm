@@ -713,4 +713,28 @@ mod tests {
         assert!(output.contains("pub fn is_valid(&mut self, id: ShapeHandle) -> OcctResult<bool>"));
         assert!(output.contains("Ok(result != 0)"));
     }
+
+    #[test]
+    fn struct_return_method_emits_reader() {
+        // Exercises the `emit_struct_result` path: every struct-returning variant
+        // shares the same status capture + `status < 0` guard + reader expression.
+        static GET_BBOX: MethodSpec = MethodSpec {
+            name: "getBoundingBox",
+            kind: MethodKind::CustomBody,
+            params: &[FacadeParam::ShapeId("id"), FacadeParam::Bool("useTri")],
+            return_type: ReturnType::BBoxData,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "return computeBBox(get(id), useTri);",
+            includes: &[],
+            category: "query",
+        };
+        let output = emit_rust_host(&[&GET_BBOX]);
+        assert!(output.contains(
+            "pub fn get_bounding_box(&mut self, id: ShapeHandle, use_tri: bool) -> OcctResult<BoundingBox>"
+        ));
+        assert!(output.contains("let status = self.generated.fn_get_bounding_box.call"));
+        assert!(output.contains("if status < 0 {"));
+        assert!(output.contains("self.read_bbox_result()"));
+    }
 }
