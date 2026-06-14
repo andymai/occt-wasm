@@ -22,6 +22,13 @@ import type { BooleanOp, TransitionMode } from "./types.js";
 /**
  * Async proxy to an OcctKernel running in a Web Worker.
  * Every method returns a `Promise` wrapping the original return type.
+ *
+ * This is a hand-curated subset of `OcctKernel`, not an automatic
+ * `Remote<OcctKernel>` mapping, because Comlink can only marshal structured-
+ * cloneable values across the worker boundary. Methods that return live class
+ * instances (e.g. `createXCAFDocument` -> `XCAFDocument`) are intentionally
+ * omitted; declaring them here would type-check but fail at runtime. When
+ * adding a kernel method, mirror its exact signature here.
  */
 export interface OcctWorkerProxy {
     // Primitives
@@ -50,12 +57,12 @@ export interface OcctWorkerProxy {
     fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: number): Promise<ShapeHandle>;
     chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: number): Promise<ShapeHandle>;
     shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number, tolerance: number): Promise<ShapeHandle>;
-    offset(solid: ShapeHandle, distance: number): Promise<ShapeHandle>;
+    offset(solid: ShapeHandle, distance: number, tolerance: number): Promise<ShapeHandle>;
     draft(shape: ShapeHandle, face: ShapeHandle, angleRad: number, direction: Vec3): Promise<ShapeHandle>;
 
     // Sweeps
     pipe(profile: ShapeHandle, spine: ShapeHandle): Promise<ShapeHandle>;
-    loft(wires: ShapeHandle[], isSolid: boolean): Promise<ShapeHandle>;
+    loft(wires: ShapeHandle[], isSolid: boolean, ruled: boolean): Promise<ShapeHandle>;
     sweep(wire: ShapeHandle, spine: ShapeHandle, transitionMode?: TransitionMode): Promise<ShapeHandle>;
     draftPrism(shape: ShapeHandle, dx: number, dy: number, dz: number, angleDeg: number): Promise<ShapeHandle>;
 
