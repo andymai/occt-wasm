@@ -4,30 +4,7 @@ use anyhow::{Context, Result, bail};
 use std::path::{Path, PathBuf};
 use xshell::{Shell, cmd};
 
-use crate::util::project_root;
-
-/// Locate OCCT static lib directory (varies by platform detection).
-fn find_occt_lib_dir(occt_build: &Path) -> Result<PathBuf> {
-    // emsdk wasm32 is detected as 32-bit Linux → lin32/clang/lib/
-    let candidates = [
-        occt_build.join("lin32/clang/lib"),
-        occt_build.join("lin/clang/lib"),
-        occt_build.join("lib"),
-    ];
-    for dir in &candidates {
-        if dir.exists() {
-            return Ok(dir.clone());
-        }
-    }
-    bail!(
-        "OCCT static libs not found in any of: {}",
-        candidates
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
-}
+use crate::util::{bytes_to_mb, find_occt_lib_dir, find_wasm_opt, project_root};
 
 /// Step 1: Build OCCT static libraries via emcmake cmake.
 pub fn build_occt() -> Result<()> {
@@ -302,17 +279,7 @@ fn optimize_wasm(sh: &Shell, root: &Path) -> Result<()> {
     let wasm = root.join("dist/occt-wasm.wasm");
     let wasm_str = wasm.display().to_string();
 
-    // Try emsdk's wasm-opt first (has correct feature support), fall back to PATH
-    let wasm_opt_bin = std::env::var("EMSDK")
-        .ok()
-        .map(|e| PathBuf::from(e).join("upstream/bin/wasm-opt"))
-        .filter(|p| p.exists())
-        .or_else(|| {
-            home_dir()
-                .map(|h| h.join("emsdk/upstream/bin/wasm-opt"))
-                .filter(|p| p.exists())
-        })
-        .map_or_else(|| "wasm-opt".into(), |p| p.display().to_string());
+    let wasm_opt_bin = find_wasm_opt();
 
     eprintln!("Step 4: Running wasm-opt...");
     cmd!(
@@ -327,10 +294,6 @@ fn optimize_wasm(sh: &Shell, root: &Path) -> Result<()> {
     .run()?;
 
     Ok(())
-}
-
-fn home_dir() -> Option<PathBuf> {
-    std::env::var("HOME").ok().map(PathBuf::from)
 }
 
 /// Find the newest mtime among all `.h`, `.hxx`, and `.hpp` files in a
@@ -399,8 +362,7 @@ pub fn build(release: bool, size: bool) -> Result<()> {
     // Report
     let wasm_path = root.join("dist/occt-wasm.wasm");
     if wasm_path.exists() {
-        #[allow(clippy::cast_precision_loss)] // file size fits in f64 mantissa
-        let size_mb = std::fs::metadata(&wasm_path)?.len() as f64 / 1_048_576.0;
+        let size_mb = bytes_to_mb(std::fs::metadata(&wasm_path)?.len());
         eprintln!("Build complete: dist/occt-wasm.wasm ({size_mb:.1}MB)");
     }
 

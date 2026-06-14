@@ -26,16 +26,12 @@ use anyhow::{Context, Result, bail};
 use std::path::{Path, PathBuf};
 use xshell::{Shell, cmd};
 
-use crate::util::project_root;
-
-#[allow(clippy::cast_precision_loss)]
-fn bytes_to_mb(n: u64) -> f64 {
-    n as f64 / 1_048_576.0
-}
+use crate::util::{bytes_to_mb, find_occt_lib_dir, find_wasm_opt, project_root};
 
 /// OCCT static libs not exercised by the WASI build's call graph. Excluding
-/// them shrinks the .wasm output without affecting functionality. Mirrors the
-/// exclusion list in `xtask::build` to keep the two paths in sync.
+/// them shrinks the .wasm output without affecting functionality. This list is
+/// intentionally much smaller than `xtask::build`'s — the WASI link prunes far
+/// fewer libs — so the two are NOT kept in sync.
 const EXCLUDED_LIBS: &[&str] = &["libTKDraw.a"];
 
 /// Step 1: Compile facade C++ files for the C-ABI WASI build.
@@ -180,22 +176,6 @@ fn extract_export_names(wasi_exports_path: &Path) -> Result<Vec<String>> {
     Ok(names)
 }
 
-/// Locate the OCCT static-lib directory in an Emscripten build tree.
-fn find_occt_lib_dir(occt_build: &Path) -> Result<PathBuf> {
-    let candidates = ["lib", "lin32/clang/lib", "wasm32/clang/lib"];
-    candidates
-        .iter()
-        .map(|c| occt_build.join(c))
-        .find(|p| p.exists())
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "OCCT static libs not found under {}; tried: {}",
-                occt_build.display(),
-                candidates.join(", "),
-            )
-        })
-}
-
 /// Step 3: Run wasm-opt to convert emcc's legacy exception encoding to the
 /// new exnref encoding that wasmtime accepts when `wasm_exceptions(true)` is set.
 fn convert_eh(sh: &Shell, wasm: &Path) -> Result<()> {
@@ -214,22 +194,6 @@ fn convert_eh(sh: &Shell, wasm: &Path) -> Result<()> {
     )
     .run()?;
     Ok(())
-}
-
-fn find_wasm_opt() -> PathBuf {
-    let candidate = std::env::var("EMSDK")
-        .ok()
-        .map(|e| PathBuf::from(e).join("upstream/bin/wasm-opt"));
-    if let Some(p) = candidate.filter(|p| p.exists()) {
-        return p;
-    }
-    if let Some(home) = std::env::var("HOME").ok().map(PathBuf::from) {
-        let p = home.join("emsdk/upstream/bin/wasm-opt");
-        if p.exists() {
-            return p;
-        }
-    }
-    PathBuf::from("wasm-opt")
 }
 
 /// Step 4: Brotli-compress and install into crate/src/.
