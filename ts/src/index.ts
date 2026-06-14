@@ -91,6 +91,7 @@ import type {
     Vec3,
 } from "./types.js";
 import { JoinType, SweepMode, TransitionMode, wrap } from "./types.js";
+import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Raw Embind types
@@ -462,6 +463,26 @@ export interface OcctRawKernel {
 
 function handle(id: number): ShapeHandle {
     return id as ShapeHandle;
+}
+
+// Allowed values for the closed string-union enums returned by the kernel,
+// derived from the single source of truth in types.ts so they can't drift.
+// (SurfaceKind/CurveKind are open unions — `string & {}` — so any string is
+// valid by design and needs no check.)
+const SHAPE_TYPE_VALUES = new Set<string>(SHAPE_TYPES);
+const SHAPE_ORIENTATION_VALUES = new Set<string>(SHAPE_ORIENTATIONS);
+const POINT_CLASSIFICATION_VALUES = new Set<string>(POINT_CLASSIFICATIONS);
+
+/**
+ * Coerce a raw kernel string into a closed union, throwing if the kernel ever
+ * returns an unexpected value instead of silently casting it into a lie. Called
+ * inside `wrap(...)`, so the throw surfaces as a classified `OcctError`.
+ */
+function asEnum<T extends string>(value: string, allowed: ReadonlySet<string>, label: string): T {
+    if (!allowed.has(value)) {
+        throw new Error(`unexpected ${label} from kernel: "${value}"`);
+    }
+    return value as T;
 }
 
 /**
@@ -1195,7 +1216,6 @@ export class OcctKernel {
                 const raw = this.#raw.queryBatch(ids);
                 const arr = this.#drainVector(raw, Float64Array);
                 const STRIDE = 14;
-                const SHAPE_TYPES: ShapeType[] = ["compound", "compsolid", "solid", "shell", "face", "wire", "edge", "vertex", "shape"];
                 const results: ShapeQueryResult[] = [];
                 for (let i = 0; i < shapes.length; i++) {
                     const o = i * STRIDE;
@@ -1277,7 +1297,9 @@ export class OcctKernel {
     // =======================================================================
 
     getShapeType(shape: ShapeHandle): ShapeType {
-        return wrap("getShapeType", () => this.#raw.getShapeType(shape) as ShapeType);
+        return wrap("getShapeType", () =>
+            asEnum<ShapeType>(this.#raw.getShapeType(shape), SHAPE_TYPE_VALUES, "shape type"),
+        );
     }
 
     /** True if the shape is a compound. */
@@ -1333,7 +1355,13 @@ export class OcctKernel {
     }
 
     shapeOrientation(shape: ShapeHandle): ShapeOrientation {
-        return wrap("shapeOrientation", () => this.#raw.shapeOrientation(shape) as ShapeOrientation);
+        return wrap("shapeOrientation", () =>
+            asEnum<ShapeOrientation>(
+                this.#raw.shapeOrientation(shape),
+                SHAPE_ORIENTATION_VALUES,
+                "shape orientation",
+            ),
+        );
     }
 
     sharedEdges(faceA: ShapeHandle, faceB: ShapeHandle): ShapeHandle[] {
@@ -1695,7 +1723,13 @@ export class OcctKernel {
 
     /** Classify a UV point relative to a face boundary. */
     classifyPointOnFace(face: ShapeHandle, u: number, v: number): PointClassification {
-        return wrap("classifyPointOnFace", () => this.#raw.classifyPointOnFace(face, u, v) as PointClassification);
+        return wrap("classifyPointOnFace", () =>
+            asEnum<PointClassification>(
+                this.#raw.classifyPointOnFace(face, u, v),
+                POINT_CLASSIFICATION_VALUES,
+                "point classification",
+            ),
+        );
     }
 
     /** Create a BSpline surface from a grid of control points. */
