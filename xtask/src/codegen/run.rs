@@ -28,6 +28,9 @@ pub fn run() -> Result<()> {
 
     let all_methods = config::target_methods();
 
+    // Fail fast on malformed specs before emitting anything.
+    config::validate(all_methods).context("method spec validation failed")?;
+
     // Partition into generable and skipped
     let generable: Vec<&_> = all_methods
         .iter()

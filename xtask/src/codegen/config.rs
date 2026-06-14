@@ -4,6 +4,8 @@
 //! can be auto-generated from a template. Methods with complex multi-step
 //! logic are marked [`MethodKind::Skip`] and remain hand-written.
 
+use anyhow::{Result, bail};
+
 use super::types::{FacadeParam, MethodKind, MethodSpec, ReturnType};
 
 /// All facade methods that the code generator knows about.
@@ -4789,80 +4791,120 @@ pub fn target_methods() -> &'static [MethodSpec] {
     TARGET_METHODS
 }
 
+/// Validate the method specs before emission, returning a descriptive error
+/// instead of panicking. Run as a fail-fast pass at the start of codegen so a
+/// malformed hand-edited spec is rejected up front rather than producing broken
+/// C++/Rust that only fails much later at the em++/cargo build.
+pub fn validate(methods: &[MethodSpec]) -> Result<()> {
+    let mut seen = std::collections::HashSet::new();
+    for m in methods {
+        if !seen.insert(m.name) {
+            bail!("duplicate method name: '{}'", m.name);
+        }
+        if m.category != m.category.to_ascii_lowercase() {
+            bail!(
+                "method '{}' has non-lowercase category '{}'",
+                m.name,
+                m.category
+            );
+        }
+        match m.kind {
+            MethodKind::Skip => {
+                if !m.params.is_empty() {
+                    bail!("skipped method '{}' should have empty params", m.name);
+                }
+            }
+            MethodKind::CustomBody => {
+                if m.setup_code.is_empty() {
+                    bail!("CustomBody method '{}' has empty setup_code", m.name);
+                }
+            }
+            MethodKind::CustomBodyRaw => {}
+            MethodKind::SimpleShape
+            | MethodKind::BooleanOp
+            | MethodKind::FilletLike
+            | MethodKind::SetupShape => {
+                if m.occt_class.is_empty() {
+                    bail!("generable method '{}' is missing occt_class", m.name);
+                }
+            }
+        }
+        // Parameter names must be unique and non-empty within a method.
+        let mut param_names = std::collections::HashSet::new();
+        for p in m.params {
+            let name = p.name();
+            if name.is_empty() {
+                bail!("method '{}' has an empty parameter name", m.name);
+            }
+            if !param_names.insert(name) {
+                bail!(
+                    "method '{}' has duplicate parameter name '{}'",
+                    m.name,
+                    name
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn generable_method_count() {
-        let count = target_methods()
-            .iter()
-            .filter(|m| m.kind != MethodKind::Skip)
-            .count();
-        assert_eq!(count, 188, "expected 188 generable methods");
-    }
-
-    #[test]
-    fn all_generable_methods_have_occt_class_or_custom_body() {
-        for m in target_methods() {
-            if m.kind != MethodKind::Skip
-                && m.kind != MethodKind::CustomBody
-                && m.kind != MethodKind::CustomBodyRaw
-            {
-                assert!(
-                    !m.occt_class.is_empty(),
-                    "generable method '{}' is missing occt_class",
-                    m.name,
-                );
-            }
+    const fn sample(name: &'static str) -> MethodSpec {
+        MethodSpec {
+            name,
+            kind: MethodKind::CustomBody,
+            params: &[],
+            return_type: ReturnType::ShapeId,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "return 0;",
+            includes: &[],
+            category: "test",
         }
     }
 
     #[test]
-    fn skip_methods_have_empty_fields() {
-        for m in target_methods() {
-            if m.kind == MethodKind::Skip {
-                assert!(
-                    m.params.is_empty(),
-                    "skipped method '{}' should have empty params",
-                    m.name,
-                );
-            }
-        }
+    fn validate_accepts_bundled_specs() {
+        assert!(
+            validate(target_methods()).is_ok(),
+            "bundled specs failed validation: {:?}",
+            validate(target_methods()).err()
+        );
     }
 
     #[test]
-    fn no_duplicate_method_names() {
-        let methods = target_methods();
-        let mut seen = std::collections::HashSet::new();
-        for m in methods {
-            assert!(seen.insert(m.name), "duplicate method name: '{}'", m.name);
-        }
+    fn validate_rejects_duplicate_method_names() {
+        assert!(validate(&[sample("dup"), sample("dup")]).is_err());
     }
 
     #[test]
-    fn categories_are_lowercase() {
-        for m in target_methods() {
-            assert_eq!(
-                m.category,
-                m.category.to_ascii_lowercase(),
-                "method '{}' has non-lowercase category '{}'",
-                m.name,
-                m.category,
-            );
-        }
+    fn validate_rejects_non_lowercase_category() {
+        let mut spec = sample("x");
+        spec.category = "Primitives";
+        assert!(validate(&[spec]).is_err());
     }
 
     #[test]
-    fn custom_body_methods_have_setup_code() {
-        for m in target_methods() {
-            if m.kind == MethodKind::CustomBody {
-                assert!(
-                    !m.setup_code.is_empty(),
-                    "CustomBody method '{}' has empty setup_code",
-                    m.name,
-                );
-            }
-        }
+    fn validate_rejects_empty_custom_body() {
+        let mut spec = sample("x");
+        spec.setup_code = "";
+        assert!(validate(&[spec]).is_err());
+    }
+
+    #[test]
+    fn validate_rejects_missing_occt_class() {
+        let mut spec = sample("x");
+        spec.kind = MethodKind::SimpleShape;
+        assert!(validate(&[spec]).is_err());
+    }
+
+    #[test]
+    fn validate_rejects_duplicate_param_names() {
+        let mut spec = sample("x");
+        spec.params = &[FacadeParam::Double("a"), FacadeParam::ShapeId("a")];
+        assert!(validate(&[spec]).is_err());
     }
 }

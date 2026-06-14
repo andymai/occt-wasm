@@ -70,7 +70,6 @@ pub enum FacadeParam {
 
 impl FacadeParam {
     /// Returns the parameter name.
-    #[allow(dead_code)] // Will be used when parser validates signatures.
     pub const fn name(self) -> &'static str {
         match self {
             Self::ShapeId(n)
