@@ -25,7 +25,7 @@ import type {
     AddChildOptions,
     GLTFExportOptions,
 } from "./types.js";
-import { OcctError, OcctErrorCode } from "./types.js";
+import { OcctError, OcctErrorCode, wrap } from "./types.js";
 
 /** Raw XCAF methods on the Embind kernel (internal). */
 export interface RawXCAFKernel {
@@ -78,14 +78,6 @@ export interface EmscriptenFS {
 
 function tag(n: number): LabelTag {
     return n as LabelTag;
-}
-
-function wrap<T>(op: string, fn: () => T): T {
-    try {
-        return fn();
-    } catch (e: unknown) {
-        throw e instanceof Error ? new OcctError(op, e.message) : new OcctError(op, String(e));
-    }
 }
 
 export class XCAFDocument {

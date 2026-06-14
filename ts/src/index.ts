@@ -90,7 +90,7 @@ import type {
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, OcctError, SweepMode, TransitionMode } from "./types.js";
+import { JoinType, SweepMode, TransitionMode, wrap } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Raw Embind types
@@ -462,17 +462,6 @@ export interface OcctRawKernel {
 
 function handle(id: number): ShapeHandle {
     return id as ShapeHandle;
-}
-
-function wrap<T>(operation: string, fn: () => T): T {
-    try {
-        return fn();
-    } catch (e: unknown) {
-        if (e instanceof Error) {
-            throw new OcctError(operation, e.message);
-        }
-        throw new OcctError(operation, String(e));
-    }
 }
 
 /**
@@ -1530,16 +1519,18 @@ export class OcctKernel {
     }
 
     cacheStep(stepData: string | ArrayBuffer): string {
-        const shape = this.importStep(stepData);
-        try {
-            return this.toBREP(shape);
-        } finally {
-            this.release(shape);
-        }
+        return wrap("cacheStep", () => {
+            const shape = this.importStep(stepData);
+            try {
+                return this.toBREP(shape);
+            } finally {
+                this.release(shape);
+            }
+        });
     }
 
     loadCached(brep: string): ShapeHandle {
-        return this.fromBREP(brep);
+        return wrap("loadCached", () => this.fromBREP(brep));
     }
 
     // =======================================================================
