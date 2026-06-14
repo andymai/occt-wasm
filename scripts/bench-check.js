@@ -65,14 +65,15 @@ if (!existsSync(BASELINE_PATH)) {
 
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
 
-// Every benchmark in the baseline must appear in the output. A missing one means
-// the table was empty or partial, so the regression gate never actually ran for
-// it — fail loudly instead of passing silently.
+// Every benchmark in the baseline must appear in the results. A missing one
+// means the run was empty or partial, so the regression gate never actually ran
+// for it — fail loudly (on stderr, like the missing-file error) instead of
+// passing silently.
 const missing = Object.keys(baseline).filter((name) => !(name in results));
 if (missing.length > 0) {
-    console.log(`\nERROR: ${missing.length} baseline benchmark(s) missing from output:`);
-    for (const name of missing) console.log(`  - ${name}`);
-    console.log('The benchmark table was empty or partial; the regression gate cannot run. Failing.');
+    console.error(`\nERROR: ${missing.length} baseline benchmark(s) missing from results:`);
+    for (const name of missing) console.error(`  - ${name}`);
+    console.error('The benchmark run was empty or partial; the regression gate cannot run. Failing.');
     process.exit(1);
 }
 

@@ -40,10 +40,14 @@ afterAll(() => {
     // benchmark `it` fails, so a partial run yields a partial file that
     // scripts/bench-check.js then rejects via its missing-benchmark check.
     const medians = Object.fromEntries(ALL_RESULTS.map((r) => [r.name, r.median]));
-    writeFileSync(
-        resolve(__dirname, "../benchmarks/last-run.json"),
-        JSON.stringify(medians, null, 2) + "\n"
-    );
+    try {
+        writeFileSync(
+            resolve(__dirname, "../benchmarks/last-run.json"),
+            JSON.stringify(medians, null, 2) + "\n"
+        );
+    } catch (err) {
+        console.error("bench.test.ts: failed to write benchmarks/last-run.json:", err);
+    }
 });
 
 // ---------------------------------------------------------------------------
