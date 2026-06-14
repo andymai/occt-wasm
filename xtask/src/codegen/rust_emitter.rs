@@ -253,10 +253,26 @@ fn wasm_typed_func_type(spec: &MethodSpec) -> String {
         })
         .collect();
 
+    // All non-scalar returns cross the WASM boundary as an `i32` status/length;
+    // the match is exhaustive so a new `ReturnType` is a compile error.
     let ret_type = match spec.return_type {
         ReturnType::ShapeId | ReturnType::Uint32 => "u32",
         ReturnType::Double => "f64",
-        _ => "i32",
+        ReturnType::Bool
+        | ReturnType::Void
+        | ReturnType::Int
+        | ReturnType::String
+        | ReturnType::VectorUint32
+        | ReturnType::VectorDouble
+        | ReturnType::VectorInt
+        | ReturnType::BBoxData
+        | ReturnType::NurbsCurveData
+        | ReturnType::EvolutionData
+        | ReturnType::MeshData
+        | ReturnType::MeshBatchData
+        | ReturnType::EdgeData
+        | ReturnType::ProjectionData
+        | ReturnType::XCAFLabelInfo => "i32",
     };
 
     if param_count == 0 {
@@ -305,6 +321,27 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
     // For methods with heap-allocated params, capture the call result without `?`
     // so we can always run cleanup before propagating errors.
     let call_suffix = if has_heap_params { "" } else { "?" };
+
+    // Emit the call + error-check + reader shared by every struct-returning
+    // method. Each struct variant passes its own reader expression, which keeps
+    // the outer match exhaustive (no wildcard, no `unreachable!`).
+    let emit_struct_result = |buf: &mut String, reader: &str| {
+        let _ = writeln!(
+            buf,
+            "        let status = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
+        );
+        if has_heap_params {
+            emit_wasm_call_cleanup(buf, spec.params);
+            let _ = writeln!(buf, "        let status = status?;");
+        }
+        let _ = writeln!(buf, "        if status < 0 {{");
+        let _ = writeln!(
+            buf,
+            "            return Err(self.read_last_error(\"{snake_name}\"));"
+        );
+        let _ = writeln!(buf, "        }}");
+        let _ = writeln!(buf, "        {reader}");
+    };
 
     // Call + result handling based on return type
     match spec.return_type {
@@ -440,41 +477,14 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
             let _ = writeln!(buf, "        }}");
             let _ = writeln!(buf, "        self.read_vec_i32_result()");
         }
-        ReturnType::BBoxData
-        | ReturnType::MeshData
-        | ReturnType::MeshBatchData
-        | ReturnType::EdgeData
-        | ReturnType::NurbsCurveData
-        | ReturnType::EvolutionData
-        | ReturnType::ProjectionData
-        | ReturnType::XCAFLabelInfo => {
-            let reader = match spec.return_type {
-                ReturnType::BBoxData => "self.read_bbox_result()",
-                ReturnType::MeshData => "self.read_mesh_result()",
-                ReturnType::MeshBatchData => "self.read_mesh_batch_result()",
-                ReturnType::EdgeData => "self.read_edge_result()",
-                ReturnType::NurbsCurveData => "self.read_nurbs_result()",
-                ReturnType::EvolutionData => "self.read_evolution_result()",
-                ReturnType::ProjectionData => "self.read_projection_result()",
-                ReturnType::XCAFLabelInfo => "self.read_label_info_result()",
-                _ => unreachable!(),
-            };
-            let _ = writeln!(
-                buf,
-                "        let status = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
-            );
-            if has_heap_params {
-                emit_wasm_call_cleanup(buf, spec.params);
-                let _ = writeln!(buf, "        let status = status?;");
-            }
-            let _ = writeln!(buf, "        if status < 0 {{");
-            let _ = writeln!(
-                buf,
-                "            return Err(self.read_last_error(\"{snake_name}\"));"
-            );
-            let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        {reader}");
-        }
+        ReturnType::BBoxData => emit_struct_result(buf, "self.read_bbox_result()"),
+        ReturnType::MeshData => emit_struct_result(buf, "self.read_mesh_result()"),
+        ReturnType::MeshBatchData => emit_struct_result(buf, "self.read_mesh_batch_result()"),
+        ReturnType::EdgeData => emit_struct_result(buf, "self.read_edge_result()"),
+        ReturnType::NurbsCurveData => emit_struct_result(buf, "self.read_nurbs_result()"),
+        ReturnType::EvolutionData => emit_struct_result(buf, "self.read_evolution_result()"),
+        ReturnType::ProjectionData => emit_struct_result(buf, "self.read_projection_result()"),
+        ReturnType::XCAFLabelInfo => emit_struct_result(buf, "self.read_label_info_result()"),
     }
 
     let _ = writeln!(buf, "    }}");
@@ -702,5 +712,29 @@ mod tests {
         let output = emit_rust_host(&[&IS_VALID]);
         assert!(output.contains("pub fn is_valid(&mut self, id: ShapeHandle) -> OcctResult<bool>"));
         assert!(output.contains("Ok(result != 0)"));
+    }
+
+    #[test]
+    fn struct_return_method_emits_reader() {
+        // Exercises the `emit_struct_result` path: every struct-returning variant
+        // shares the same status capture + `status < 0` guard + reader expression.
+        static GET_BBOX: MethodSpec = MethodSpec {
+            name: "getBoundingBox",
+            kind: MethodKind::CustomBody,
+            params: &[FacadeParam::ShapeId("id"), FacadeParam::Bool("useTri")],
+            return_type: ReturnType::BBoxData,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "return computeBBox(get(id), useTri);",
+            includes: &[],
+            category: "query",
+        };
+        let output = emit_rust_host(&[&GET_BBOX]);
+        assert!(output.contains(
+            "pub fn get_bounding_box(&mut self, id: ShapeHandle, use_tri: bool) -> OcctResult<BoundingBox>"
+        ));
+        assert!(output.contains("let status = self.generated.fn_get_bounding_box.call"));
+        assert!(output.contains("if status < 0 {"));
+        assert!(output.contains("self.read_bbox_result()"));
     }
 }
