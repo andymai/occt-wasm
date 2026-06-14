@@ -19,9 +19,9 @@ TS wrapper (ts/) → tsc → occt-wasm
 - `facade/` — C++ facade (OcctKernel class + Embind bindings)
 - `ts/` — TypeScript wrapper (occt-wasm npm package)
 - `xtask/` — Rust build orchestration (clap + anyhow + xshell)
-- `occt/` — OCCT V8.0.0 (final) + 1 WASM patch (git submodule from andymai/OCCT fork)
+- `occt/` — OCCT V8.0.0 + 1 WASM patch (git submodule from andymai/OCCT fork)
 - `3rdparty/` — Isolated third-party headers (RapidJSON for glTF, gitignored)
-- `scripts/` — build.sh, symbol_dispose.js, publish.sh, fetch-rapidjson.sh, bench-check.js
+- `scripts/` — builder-image.sh, fetch-rapidjson.sh, publish.sh, symbol_dispose.js, bench-check.js
 - `test/` — Vitest integration tests (integration, expanded, xcaf, bench) + benchmark.ts
 - `benchmarks/` — CI benchmark baselines (baseline.json)
 - `examples/` — Browser demos (Three.js with tessellation + glTF)
@@ -30,12 +30,13 @@ TS wrapper (ts/) → tsc → occt-wasm
 ## Commands
 
 ```bash
-cargo xtask build-occt    # Build OCCT static libs (Milestone 0)
+cargo xtask build-occt    # Build OCCT static libs
 cargo xtask build         # Full build: OCCT + facade → .wasm
 cargo xtask build --release  # Release build with LTO + wasm-opt
+cargo xtask build-wasi    # Standalone WASI .wasm for the Rust crate (refreshes crate/src/occt-wasm.wasm.br)
 cargo xtask clean         # Remove build artifacts
 cargo xtask test          # Run Vitest integration tests
-cargo xtask codegen       # Generate facade from OCCT headers (v0.1.1)
+cargo xtask codegen       # Regenerate facade + Rust host from xtask/src/codegen/config.rs specs
 ./scripts/publish.sh      # Local npm publish (requires tagged commit)
 ./scripts/publish.sh --dry-run  # Verify build without publishing
 npm run docker:build             # Docker: full build + test
