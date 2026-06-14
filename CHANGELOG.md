@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.3.2](https://github.com/andymai/occt-wasm/compare/v3.3.1...v3.3.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* **bench:** make the regression gate read results from a file ([#166](https://github.com/andymai/occt-wasm/issues/166)) ([9f53a82](https://github.com/andymai/occt-wasm/commit/9f53a824b7018cffe8e8f234c7054a6ede163ca7))
+* **facade:** guard meshBatch allocations and drop dead sweep branch ([#165](https://github.com/andymai/occt-wasm/issues/165)) ([440e6dd](https://github.com/andymai/occt-wasm/commit/440e6dda83e85287b941dbda102edd13bab24fe2))
+* **ts:** correct worker proxy signatures for offset and loft ([#158](https://github.com/andymai/occt-wasm/issues/158)) ([0162226](https://github.com/andymai/occt-wasm/commit/0162226ecebdf7f52ff18fe12a44b9963e656e09))
+* **ts:** validate closed-union enums from the kernel instead of blind casts ([#164](https://github.com/andymai/occt-wasm/issues/164)) ([c09e546](https://github.com/andymai/occt-wasm/commit/c09e546985425db35522f0f066f6a5c38411ba94))
+
 ## [3.3.1](https://github.com/andymai/occt-wasm/compare/v3.3.0...v3.3.1) (2026-06-07)
 
 
