@@ -100,20 +100,57 @@ fn call_args(params: &[FacadeParam]) -> String {
 }
 
 /// The C return type for a given `ReturnType`.
+///
+/// All non-scalar returns (strings, vectors, structs) cross the C ABI as an
+/// `int32_t` status/length, with the payload read back out of band. The match
+/// is exhaustive so a newly added `ReturnType` is a compile error rather than
+/// silently falling through to `int32_t`.
 const fn c_return_type(rt: ReturnType) -> &'static str {
     match rt {
         ReturnType::ShapeId | ReturnType::Uint32 => "uint32_t",
         ReturnType::Double => "double",
-        _ => "int32_t",
+        ReturnType::Bool
+        | ReturnType::Void
+        | ReturnType::Int
+        | ReturnType::String
+        | ReturnType::VectorUint32
+        | ReturnType::VectorDouble
+        | ReturnType::VectorInt
+        | ReturnType::BBoxData
+        | ReturnType::NurbsCurveData
+        | ReturnType::EvolutionData
+        | ReturnType::MeshData
+        | ReturnType::MeshBatchData
+        | ReturnType::EdgeData
+        | ReturnType::ProjectionData
+        | ReturnType::XCAFLabelInfo => "int32_t",
     }
 }
 
 /// The error sentinel value for a return type.
+///
+/// Exhaustive for the same reason as [`c_return_type`]: the `int32_t`-returning
+/// variants share the `-1` sentinel, but each is listed so adding a variant
+/// forces a deliberate choice.
 const fn error_sentinel(rt: ReturnType) -> &'static str {
     match rt {
         ReturnType::ShapeId | ReturnType::Uint32 => "0",
         ReturnType::Double => "std::numeric_limits<double>::quiet_NaN()",
-        _ => "-1",
+        ReturnType::Bool
+        | ReturnType::Void
+        | ReturnType::Int
+        | ReturnType::String
+        | ReturnType::VectorUint32
+        | ReturnType::VectorDouble
+        | ReturnType::VectorInt
+        | ReturnType::BBoxData
+        | ReturnType::NurbsCurveData
+        | ReturnType::EvolutionData
+        | ReturnType::MeshData
+        | ReturnType::MeshBatchData
+        | ReturnType::EdgeData
+        | ReturnType::ProjectionData
+        | ReturnType::XCAFLabelInfo => "-1",
     }
 }
 
