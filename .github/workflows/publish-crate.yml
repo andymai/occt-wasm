@@ -29,6 +29,11 @@ on:
 permissions:
   contents: read
 
+# Never cancel an in-flight crate publish: a half-run cargo publish must finish.
+concurrency:
+  group: publish-crate-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     name: cargo publish

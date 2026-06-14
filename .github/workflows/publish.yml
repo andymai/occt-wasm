@@ -10,6 +10,11 @@ on:
         required: true
         type: string
 
+# Never cancel an in-flight publish: a half-run npm publish must finish.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     uses: ./.github/workflows/build-wasm.yml
