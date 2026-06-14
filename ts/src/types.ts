@@ -417,6 +417,13 @@ export function wrap<T>(operation: string, fn: () => T): T {
     try {
         return fn();
     } catch (e: unknown) {
+        if (e instanceof OcctError) {
+            // Already classified by an inner wrapped call. Preserve the original
+            // (most-specific) code and just retag the operation, so re-wrapping
+            // a passthrough like cacheStep/loadCached doesn't reclassify e.g.
+            // ImportExportFailed down to KernelError.
+            throw new OcctError(operation, e.message, e.code);
+        }
         if (e instanceof Error) {
             throw new OcctError(operation, e.message);
         }

@@ -122,6 +122,26 @@ describe("OcctErrorCode classification", () => {
         expect(err.code).toBe(OcctErrorCode.DocumentClosed);
     });
 
+    it("preserves the inner code when wrap re-tags an OcctError", async () => {
+        // A passthrough method (e.g. loadCached) wraps an already-wrapped inner
+        // call (fromBREP -> ImportExportFailed). Re-wrapping under an operation
+        // name that isn't in IO_OPS must not downgrade the code to KernelError.
+        const { wrap } = await import(resolve(__dirname, "../ts/src/types.ts"));
+        const thrown = (() => {
+            try {
+                wrap("loadCached", () => {
+                    throw new OcctError("fromBREP", "bad data");
+                });
+            } catch (e) {
+                return e as InstanceType<typeof OcctError>;
+            }
+            return undefined;
+        })();
+        expect(thrown).toBeInstanceOf(OcctError);
+        expect(thrown.operation).toBe("loadCached");
+        expect(thrown.code).toBe(OcctErrorCode.ImportExportFailed);
+    });
+
     it("preserves Error inheritance", () => {
         const err = new OcctError("op", "msg");
         expect(err instanceof Error).toBe(true);
