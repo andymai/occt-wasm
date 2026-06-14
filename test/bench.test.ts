@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { resolve } from "node:path";
+import { writeFileSync } from "node:fs";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let Module: any;
@@ -34,6 +35,15 @@ afterAll(() => {
         kernel.releaseAll();
         kernel.delete();
     }
+    // Write medians to a file (not console) so the regression gate doesn't depend
+    // on vitest's reporter replaying per-test console.log. Runs even when a
+    // benchmark `it` fails, so a partial run yields a partial file that
+    // scripts/bench-check.js then rejects via its missing-benchmark check.
+    const medians = Object.fromEntries(ALL_RESULTS.map((r) => [r.name, r.median]));
+    writeFileSync(
+        resolve(__dirname, "../benchmarks/last-run.json"),
+        JSON.stringify(medians, null, 2) + "\n"
+    );
 });
 
 // ---------------------------------------------------------------------------
