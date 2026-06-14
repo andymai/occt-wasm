@@ -464,6 +464,27 @@ function handle(id: number): ShapeHandle {
     return id as ShapeHandle;
 }
 
+// Allowed values for the closed string-union enums returned by the kernel.
+// (SurfaceKind/CurveKind are open unions — `string & {}` — so any string is
+// valid by design and needs no check.)
+const SHAPE_TYPE_VALUES = new Set<string>([
+    "compound", "compsolid", "solid", "shell", "face", "wire", "edge", "vertex", "shape",
+]);
+const SHAPE_ORIENTATION_VALUES = new Set<string>(["forward", "reversed", "internal", "external"]);
+const POINT_CLASSIFICATION_VALUES = new Set<string>(["in", "on", "out"]);
+
+/**
+ * Coerce a raw kernel string into a closed union, throwing if the kernel ever
+ * returns an unexpected value instead of silently casting it into a lie. Called
+ * inside `wrap(...)`, so the throw surfaces as a classified `OcctError`.
+ */
+function asEnum<T extends string>(value: string, allowed: ReadonlySet<string>, label: string): T {
+    if (!allowed.has(value)) {
+        throw new Error(`unexpected ${label} from kernel: "${value}"`);
+    }
+    return value as T;
+}
+
 /**
  * Safety net: releases the raw Embind kernel if an OcctKernel instance is
  * garbage-collected without being disposed. Prefer `using` or explicit
@@ -1277,7 +1298,9 @@ export class OcctKernel {
     // =======================================================================
 
     getShapeType(shape: ShapeHandle): ShapeType {
-        return wrap("getShapeType", () => this.#raw.getShapeType(shape) as ShapeType);
+        return wrap("getShapeType", () =>
+            asEnum<ShapeType>(this.#raw.getShapeType(shape), SHAPE_TYPE_VALUES, "shape type"),
+        );
     }
 
     /** True if the shape is a compound. */
@@ -1333,7 +1356,13 @@ export class OcctKernel {
     }
 
     shapeOrientation(shape: ShapeHandle): ShapeOrientation {
-        return wrap("shapeOrientation", () => this.#raw.shapeOrientation(shape) as ShapeOrientation);
+        return wrap("shapeOrientation", () =>
+            asEnum<ShapeOrientation>(
+                this.#raw.shapeOrientation(shape),
+                SHAPE_ORIENTATION_VALUES,
+                "shape orientation",
+            ),
+        );
     }
 
     sharedEdges(faceA: ShapeHandle, faceB: ShapeHandle): ShapeHandle[] {
@@ -1695,7 +1724,13 @@ export class OcctKernel {
 
     /** Classify a UV point relative to a face boundary. */
     classifyPointOnFace(face: ShapeHandle, u: number, v: number): PointClassification {
-        return wrap("classifyPointOnFace", () => this.#raw.classifyPointOnFace(face, u, v) as PointClassification);
+        return wrap("classifyPointOnFace", () =>
+            asEnum<PointClassification>(
+                this.#raw.classifyPointOnFace(face, u, v),
+                POINT_CLASSIFICATION_VALUES,
+                "point classification",
+            ),
+        );
     }
 
     /** Create a BSpline surface from a grid of control points. */
