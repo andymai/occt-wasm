@@ -683,9 +683,7 @@ export class OcctKernel {
      * @throws OcctError */
     fuseAll(shapes: ShapeHandle[]): ShapeHandle {
         return wrap("fuseAll", () => {
-            const vec = this.#makeVectorU32(shapes);
-            try { return handle(this.#raw.fuseAll(vec)); }
-            finally { vec.delete(); }
+            return this.#withU32(shapes, (vec) => handle(this.#raw.fuseAll(vec)));
         });
     }
 
@@ -693,9 +691,7 @@ export class OcctKernel {
      * @throws OcctError */
     cutAll(shape: ShapeHandle, tools: ShapeHandle[]): ShapeHandle {
         return wrap("cutAll", () => {
-            const vec = this.#makeVectorU32(tools);
-            try { return handle(this.#raw.cutAll(shape, vec)); }
-            finally { vec.delete(); }
+            return this.#withU32(tools, (vec) => handle(this.#raw.cutAll(shape, vec)));
         });
     }
 
@@ -704,9 +700,7 @@ export class OcctKernel {
      * @throws OcctError */
     split(shape: ShapeHandle, tools: ShapeHandle[]): ShapeHandle {
         return wrap("split", () => {
-            const vec = this.#makeVectorU32(tools);
-            try { return handle(this.#raw.split(shape, vec)); }
-            finally { vec.delete(); }
+            return this.#withU32(tools, (vec) => handle(this.#raw.split(shape, vec)));
         });
     }
 
@@ -717,9 +711,7 @@ export class OcctKernel {
      */
     intersectionCells(shapes: ShapeHandle[]): ShapeHandle {
         return wrap("intersectionCells", () => {
-            const vec = this.#makeVectorU32(shapes);
-            try { return handle(this.#raw.intersectionCells(vec)); }
-            finally { vec.delete(); }
+            return this.#withU32(shapes, (vec) => handle(this.#raw.intersectionCells(vec)));
         });
     }
 
@@ -759,25 +751,19 @@ export class OcctKernel {
      * @throws OcctError */
     fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: number): ShapeHandle {
         return wrap("fillet", () => {
-            const vec = this.#makeVectorU32(edges);
-            try { return handle(this.#raw.fillet(solid, vec, radius)); }
-            finally { vec.delete(); }
+            return this.#withU32(edges, (vec) => handle(this.#raw.fillet(solid, vec, radius)));
         });
     }
 
     chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: number): ShapeHandle {
         return wrap("chamfer", () => {
-            const vec = this.#makeVectorU32(edges);
-            try { return handle(this.#raw.chamfer(solid, vec, distance)); }
-            finally { vec.delete(); }
+            return this.#withU32(edges, (vec) => handle(this.#raw.chamfer(solid, vec, distance)));
         });
     }
 
     chamferDistAngle(solid: ShapeHandle, edges: ShapeHandle[], distance: number, angleDeg: number): ShapeHandle {
         return wrap("chamferDistAngle", () => {
-            const vec = this.#makeVectorU32(edges);
-            try { return handle(this.#raw.chamferDistAngle(solid, vec, distance, angleDeg)); }
-            finally { vec.delete(); }
+            return this.#withU32(edges, (vec) => handle(this.#raw.chamferDistAngle(solid, vec, distance, angleDeg)));
         });
     }
 
@@ -793,9 +779,7 @@ export class OcctKernel {
     shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number,
           tolerance: number): ShapeHandle {
         return wrap("shell", () => {
-            const vec = this.#makeVectorU32(facesToRemove);
-            try { return handle(this.#raw.shell(solid, vec, thickness, tolerance)); }
-            finally { vec.delete(); }
+            return this.#withU32(facesToRemove, (vec) => handle(this.#raw.shell(solid, vec, thickness, tolerance)));
         });
     }
 
@@ -837,17 +821,13 @@ export class OcctKernel {
      */
     loft(wires: ShapeHandle[], isSolid: boolean, ruled: boolean): ShapeHandle {
         return wrap("loft", () => {
-            const vec = this.#makeVectorU32(wires);
-            try { return handle(this.#raw.loft(vec, isSolid, ruled)); }
-            finally { vec.delete(); }
+            return this.#withU32(wires, (vec) => handle(this.#raw.loft(vec, isSolid, ruled)));
         });
     }
 
     loftWithVertices(wires: ShapeHandle[], isSolid: boolean, ruled: boolean, startVertex: ShapeHandle, endVertex: ShapeHandle): ShapeHandle {
         return wrap("loftWithVertices", () => {
-            const vec = this.#makeVectorU32(wires);
-            try { return handle(this.#raw.loftWithVertices(vec, isSolid, ruled, startVertex, endVertex)); }
-            finally { vec.delete(); }
+            return this.#withU32(wires, (vec) => handle(this.#raw.loftWithVertices(vec, isSolid, ruled, startVertex, endVertex)));
         });
     }
 
@@ -980,9 +960,7 @@ export class OcctKernel {
 
     makeWire(edges: ShapeHandle[]): ShapeHandle {
         return wrap("makeWire", () => {
-            const vec = this.#makeVectorU32(edges);
-            try { return handle(this.#raw.makeWire(vec)); }
-            finally { vec.delete(); }
+            return this.#withU32(edges, (vec) => handle(this.#raw.makeWire(vec)));
         });
     }
 
@@ -996,17 +974,13 @@ export class OcctKernel {
 
     addHolesInFace(face: ShapeHandle, holeWires: ShapeHandle[]): ShapeHandle {
         return wrap("addHolesInFace", () => {
-            const vec = this.#makeVectorU32(holeWires);
-            try { return handle(this.#raw.addHolesInFace(face, vec)); }
-            finally { vec.delete(); }
+            return this.#withU32(holeWires, (vec) => handle(this.#raw.addHolesInFace(face, vec)));
         });
     }
 
     removeHolesFromFace(face: ShapeHandle, holeIndices: number[]): ShapeHandle {
         return wrap("removeHolesFromFace", () => {
-            const vec = this.#makeVectorI32(holeIndices);
-            try { return handle(this.#raw.removeHolesFromFace(face, vec)); }
-            finally { vec.delete(); }
+            return this.#withI32(holeIndices, (vec) => handle(this.#raw.removeHolesFromFace(face, vec)));
         });
     }
 
@@ -1016,33 +990,25 @@ export class OcctKernel {
 
     sew(shapes: ShapeHandle[], tolerance = 1e-6): ShapeHandle {
         return wrap("sew", () => {
-            const vec = this.#makeVectorU32(shapes);
-            try { return handle(this.#raw.sew(vec, tolerance)); }
-            finally { vec.delete(); }
+            return this.#withU32(shapes, (vec) => handle(this.#raw.sew(vec, tolerance)));
         });
     }
 
     sewAndSolidify(faces: ShapeHandle[], tolerance = 1e-6): ShapeHandle {
         return wrap("sewAndSolidify", () => {
-            const vec = this.#makeVectorU32(faces);
-            try { return handle(this.#raw.sewAndSolidify(vec, tolerance)); }
-            finally { vec.delete(); }
+            return this.#withU32(faces, (vec) => handle(this.#raw.sewAndSolidify(vec, tolerance)));
         });
     }
 
     buildSolidFromFaces(faces: ShapeHandle[], tolerance = 1e-6): ShapeHandle {
         return wrap("buildSolidFromFaces", () => {
-            const vec = this.#makeVectorU32(faces);
-            try { return handle(this.#raw.buildSolidFromFaces(vec, tolerance)); }
-            finally { vec.delete(); }
+            return this.#withU32(faces, (vec) => handle(this.#raw.buildSolidFromFaces(vec, tolerance)));
         });
     }
 
     makeCompound(shapes: ShapeHandle[]): ShapeHandle {
         return wrap("makeCompound", () => {
-            const vec = this.#makeVectorU32(shapes);
-            try { return handle(this.#raw.makeCompound(vec)); }
-            finally { vec.delete(); }
+            return this.#withU32(shapes, (vec) => handle(this.#raw.makeCompound(vec)));
         });
     }
 
@@ -1132,18 +1098,14 @@ export class OcctKernel {
     /** Apply a 3x4 row-major affine transformation matrix (12 doubles: [r00,r01,r02,tx, r10,r11,r12,ty, r20,r21,r22,tz]). */
     transform(shape: ShapeHandle, matrix: number[]): ShapeHandle {
         return wrap("transform", () => {
-            const vec = this.#makeVectorF64(matrix);
-            try { return handle(this.#raw.transform(shape, vec)); }
-            finally { vec.delete(); }
+            return this.#withF64(matrix, (vec) => handle(this.#raw.transform(shape, vec)));
         });
     }
 
     /** Apply a general (possibly non-affine) 3x4 row-major transformation matrix (12 doubles). */
     generalTransform(shape: ShapeHandle, matrix: number[]): ShapeHandle {
         return wrap("generalTransform", () => {
-            const vec = this.#makeVectorF64(matrix);
-            try { return handle(this.#raw.generalTransform(shape, vec)); }
-            finally { vec.delete(); }
+            return this.#withF64(matrix, (vec) => handle(this.#raw.generalTransform(shape, vec)));
         });
     }
 
@@ -1166,17 +1128,13 @@ export class OcctKernel {
 
     /** Compose two 3x4 row-major transformation matrices. Returns a 12-element array. */
     composeTransform(m1: number[], m2: number[]): number[] {
-        return wrap("composeTransform", () => {
-            const v1 = this.#makeVectorF64(m1);
-            const v2 = this.#makeVectorF64(m2);
-            try {
-                const result = this.#raw.composeTransform(v1, v2);
-                return this.#drainVector(result, Float64Array);
-            } finally {
-                v1.delete();
-                v2.delete();
-            }
-        });
+        return wrap("composeTransform", () =>
+            this.#withF64(m1, (v1) =>
+                this.#withF64(m2, (v2) =>
+                    this.#drainVector(this.#raw.composeTransform(v1, v2), Float64Array),
+                ),
+            ),
+        );
     }
 
     // =======================================================================
@@ -1185,36 +1143,31 @@ export class OcctKernel {
 
     /** Translate multiple shapes by their respective offsets in a single WASM call. */
     translateBatch(shapes: ShapeHandle[], offsets: number[]): ShapeHandle[] {
-        return wrap("translateBatch", () => {
-            const ids = this.#makeVectorU32(shapes);
-            const off = this.#makeVectorF64(offsets);
-            try {
-                const result = this.#raw.translateBatch(ids, off);
-                return this.#vecToHandles(result);
-            } finally {
-                ids.delete();
-                off.delete();
-            }
-        });
+        return wrap("translateBatch", () =>
+            this.#withU32(shapes, (ids) =>
+                this.#withF64(offsets, (off) =>
+                    this.#vecToHandles(this.#raw.translateBatch(ids, off)),
+                ),
+            ),
+        );
     }
 
     /** Chain boolean operations in a single WASM call. */
     booleanPipeline(base: ShapeHandle, opCodes: BooleanOp[], tools: ShapeHandle[]): ShapeHandle {
-        return wrap("booleanPipeline", () => {
-            const ops = this.#makeVectorI32(opCodes);
-            const ids = this.#makeVectorU32(tools);
-            try { return handle(this.#raw.booleanPipeline(base, ops, ids)); }
-            finally { ops.delete(); ids.delete(); }
-        });
+        return wrap("booleanPipeline", () =>
+            this.#withI32(opCodes, (ops) =>
+                this.#withU32(tools, (ids) =>
+                    handle(this.#raw.booleanPipeline(base, ops, ids)),
+                ),
+            ),
+        );
     }
 
     /** Query multiple shapes in a single WASM call: bbox, volume, area, center of mass, type, validity. */
     queryBatch(shapes: ShapeHandle[]): ShapeQueryResult[] {
-        return wrap("queryBatch", () => {
-            const ids = this.#makeVectorU32(shapes);
-            try {
-                const raw = this.#raw.queryBatch(ids);
-                const arr = this.#drainVector(raw, Float64Array);
+        return wrap("queryBatch", () =>
+            this.#withU32(shapes, (ids) => {
+                const arr = this.#drainVector(this.#raw.queryBatch(ids), Float64Array);
                 const STRIDE = 14;
                 const results: ShapeQueryResult[] = [];
                 for (let i = 0; i < shapes.length; i++) {
@@ -1229,67 +1182,69 @@ export class OcctKernel {
                     });
                 }
                 return results;
-            } finally { ids.delete(); }
-        });
+            }),
+        );
     }
 
     /** Fillet multiple solids in a single WASM call. */
     filletBatch(ops: Array<{ solid: ShapeHandle; edges: ShapeHandle[]; radius: number }>): ShapeHandle[] {
-        return wrap("filletBatch", () => {
-            const solids = this.#makeVectorU32(ops.map(op => op.solid));
-            const edgeCounts = this.#makeVectorI32(ops.map(op => op.edges.length));
-            const flatEdges = this.#makeVectorU32(ops.flatMap(op => op.edges));
-            const radii = this.#makeVectorF64(ops.map(op => op.radius));
-            try {
-                return this.#vecToHandles(this.#raw.filletBatch(solids, edgeCounts, flatEdges, radii));
-            } finally {
-                solids.delete(); edgeCounts.delete(); flatEdges.delete(); radii.delete();
-            }
-        });
+        return wrap("filletBatch", () =>
+            this.#withU32(ops.map((op) => op.solid), (solids) =>
+                this.#withI32(ops.map((op) => op.edges.length), (edgeCounts) =>
+                    this.#withU32(ops.flatMap((op) => op.edges), (flatEdges) =>
+                        this.#withF64(ops.map((op) => op.radius), (radii) =>
+                            this.#vecToHandles(
+                                this.#raw.filletBatch(solids, edgeCounts, flatEdges, radii),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        );
     }
 
     /** Apply 3x4 affine transforms to multiple shapes in a single WASM call. */
     transformBatch(shapes: ShapeHandle[], matrices: number[]): ShapeHandle[] {
-        return wrap("transformBatch", () => {
-            const ids = this.#makeVectorU32(shapes);
-            const mats = this.#makeVectorF64(matrices);
-            try {
-                return this.#vecToHandles(this.#raw.transformBatch(ids, mats));
-            } finally { ids.delete(); mats.delete(); }
-        });
+        return wrap("transformBatch", () =>
+            this.#withU32(shapes, (ids) =>
+                this.#withF64(matrices, (mats) =>
+                    this.#vecToHandles(this.#raw.transformBatch(ids, mats)),
+                ),
+            ),
+        );
     }
 
     /** Rotate multiple shapes in a single WASM call. */
     rotateBatch(shapes: ShapeHandle[], params: number[]): ShapeHandle[] {
-        return wrap("rotateBatch", () => {
-            const ids = this.#makeVectorU32(shapes);
-            const p = this.#makeVectorF64(params);
-            try {
-                return this.#vecToHandles(this.#raw.rotateBatch(ids, p));
-            } finally { ids.delete(); p.delete(); }
-        });
+        return wrap("rotateBatch", () =>
+            this.#withU32(shapes, (ids) =>
+                this.#withF64(params, (p) =>
+                    this.#vecToHandles(this.#raw.rotateBatch(ids, p)),
+                ),
+            ),
+        );
     }
 
     /** Scale multiple shapes in a single WASM call. */
     scaleBatch(shapes: ShapeHandle[], params: number[]): ShapeHandle[] {
-        return wrap("scaleBatch", () => {
-            const ids = this.#makeVectorU32(shapes);
-            const p = this.#makeVectorF64(params);
-            try {
-                return this.#vecToHandles(this.#raw.scaleBatch(ids, p));
-            } finally { ids.delete(); p.delete(); }
-        });
+        return wrap("scaleBatch", () =>
+            this.#withU32(shapes, (ids) =>
+                this.#withF64(params, (p) =>
+                    this.#vecToHandles(this.#raw.scaleBatch(ids, p)),
+                ),
+            ),
+        );
     }
 
     /** Mirror multiple shapes in a single WASM call. */
     mirrorBatch(shapes: ShapeHandle[], params: number[]): ShapeHandle[] {
-        return wrap("mirrorBatch", () => {
-            const ids = this.#makeVectorU32(shapes);
-            const p = this.#makeVectorF64(params);
-            try {
-                return this.#vecToHandles(this.#raw.mirrorBatch(ids, p));
-            } finally { ids.delete(); p.delete(); }
-        });
+        return wrap("mirrorBatch", () =>
+            this.#withU32(shapes, (ids) =>
+                this.#withF64(params, (p) =>
+                    this.#vecToHandles(this.#raw.mirrorBatch(ids, p)),
+                ),
+            ),
+        );
     }
 
     // =======================================================================
@@ -1440,11 +1395,10 @@ export class OcctKernel {
 
     /** Tessellate multiple shapes in a single WASM call. */
     meshBatch(shapes: ShapeHandle[], options?: TessellateOptions): MeshBatchData {
-        return wrap("meshBatch", () => {
-            const ids = this.#makeVectorU32(shapes);
-            const linDefl = options?.linearDeflection ?? 0.1;
-            const angDefl = options?.angularDeflection ?? 0.5;
-            try {
+        return wrap("meshBatch", () =>
+            this.#withU32(shapes, (ids) => {
+                const linDefl = options?.linearDeflection ?? 0.1;
+                const angDefl = options?.angularDeflection ?? 0.5;
                 const raw = this.#raw.meshBatch(ids, linDefl, angDefl);
                 try {
                     const positions = new Float32Array(
@@ -1483,10 +1437,8 @@ export class OcctKernel {
                 } finally {
                     raw.delete();
                 }
-            } finally {
-                ids.delete();
-            }
-        });
+            }),
+        );
     }
 
     // =======================================================================
@@ -1871,17 +1823,14 @@ export class OcctKernel {
                 flatArr[j++] = p.x;
                 flatArr[j++] = p.y;
             }
-            const flat = this.#makeVectorF64(flatArr);
-            try {
-                return handle(this.#raw.liftCurve2dToPlane(
+            return this.#withF64(flatArr, (flat) =>
+                handle(this.#raw.liftCurve2dToPlane(
                     flat,
                     planeOrigin.x, planeOrigin.y, planeOrigin.z,
                     planeZ.x, planeZ.y, planeZ.z,
                     planeX.x, planeX.y, planeX.z,
-                ));
-            } finally {
-                flat.delete();
-            }
+                )),
+            );
         });
     }
 
@@ -1959,9 +1908,7 @@ export class OcctKernel {
      */
     defeature(shape: ShapeHandle, faces: ShapeHandle[], tolerance: number): ShapeHandle {
         return wrap("defeature", () => {
-            const vec = this.#makeVectorU32(faces);
-            try { return handle(this.#raw.defeature(shape, vec, tolerance)); }
-            finally { vec.delete(); }
+            return this.#withU32(faces, (vec) => handle(this.#raw.defeature(shape, vec, tolerance)));
         });
     }
 
@@ -1988,35 +1935,32 @@ export class OcctKernel {
 
     translateWithHistory(shape: ShapeHandle, dx: number, dy: number, dz: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("translateWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.translateWithHistory(shape, dx, dy, dz, hashes, hashUpperBound)); }
-            finally { hashes.delete(); }
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.translateWithHistory(shape, dx, dy, dz, hashes, hashUpperBound)));
         });
     }
 
     fuseWithHistory(a: ShapeHandle, b: ShapeHandle, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("fuseWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.fuseWithHistory(a, b, hashes, hashUpperBound)); }
-            finally { hashes.delete(); }
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.fuseWithHistory(a, b, hashes, hashUpperBound)));
         });
     }
 
     cutWithHistory(a: ShapeHandle, b: ShapeHandle, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("cutWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.cutWithHistory(a, b, hashes, hashUpperBound)); }
-            finally { hashes.delete(); }
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.cutWithHistory(a, b, hashes, hashUpperBound)));
         });
     }
 
     filletWithHistory(solid: ShapeHandle, edges: ShapeHandle[], radius: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
-        return wrap("filletWithHistory", () => {
-            const edgeVec = this.#makeVectorU32(edges);
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.filletWithHistory(solid, edgeVec, radius, hashes, hashUpperBound)); }
-            finally { edgeVec.delete(); hashes.delete(); }
-        });
+        return wrap("filletWithHistory", () =>
+            this.#withU32(edges, (edgeVec) =>
+                this.#withI32(inputFaceHashes, (hashes) =>
+                    this.#extractEvolution(
+                        this.#raw.filletWithHistory(solid, edgeVec, radius, hashes, hashUpperBound),
+                    ),
+                ),
+            ),
+        );
     }
 
     rotateWithHistory(
@@ -2026,81 +1970,78 @@ export class OcctKernel {
         inputFaceHashes: number[],
         hashUpperBound: number,
     ): EvolutionData {
-        return wrap("rotateWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try {
-                return this.#extractEvolution(this.#raw.rotateWithHistory(
+        return wrap("rotateWithHistory", () =>
+            this.#withI32(inputFaceHashes, (hashes) =>
+                this.#extractEvolution(this.#raw.rotateWithHistory(
                     shape,
                     axis.point.x, axis.point.y, axis.point.z,
                     axis.direction.x, axis.direction.y, axis.direction.z,
                     angleRad, hashes, hashUpperBound,
-                ));
-            } finally { hashes.delete(); }
-        });
+                )),
+            ),
+        );
     }
 
     mirrorWithHistory(shape: ShapeHandle, point: Vec3, normal: Vec3, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
-        return wrap("mirrorWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try {
-                return this.#extractEvolution(this.#raw.mirrorWithHistory(
+        return wrap("mirrorWithHistory", () =>
+            this.#withI32(inputFaceHashes, (hashes) =>
+                this.#extractEvolution(this.#raw.mirrorWithHistory(
                     shape, point.x, point.y, point.z, normal.x, normal.y, normal.z,
                     hashes, hashUpperBound,
-                ));
-            } finally { hashes.delete(); }
-        });
+                )),
+            ),
+        );
     }
 
     scaleWithHistory(shape: ShapeHandle, center: Vec3, factor: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
-        return wrap("scaleWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try {
-                return this.#extractEvolution(this.#raw.scaleWithHistory(
+        return wrap("scaleWithHistory", () =>
+            this.#withI32(inputFaceHashes, (hashes) =>
+                this.#extractEvolution(this.#raw.scaleWithHistory(
                     shape, center.x, center.y, center.z, factor, hashes, hashUpperBound,
-                ));
-            } finally { hashes.delete(); }
-        });
+                )),
+            ),
+        );
     }
 
     intersectWithHistory(a: ShapeHandle, b: ShapeHandle, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("intersectWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.intersectWithHistory(a, b, hashes, hashUpperBound)); }
-            finally { hashes.delete(); }
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.intersectWithHistory(a, b, hashes, hashUpperBound)));
         });
     }
 
     chamferWithHistory(solid: ShapeHandle, edges: ShapeHandle[], distance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
-        return wrap("chamferWithHistory", () => {
-            const edgeVec = this.#makeVectorU32(edges);
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.chamferWithHistory(solid, edgeVec, distance, hashes, hashUpperBound)); }
-            finally { edgeVec.delete(); hashes.delete(); }
-        });
+        return wrap("chamferWithHistory", () =>
+            this.#withU32(edges, (edgeVec) =>
+                this.#withI32(inputFaceHashes, (hashes) =>
+                    this.#extractEvolution(
+                        this.#raw.chamferWithHistory(solid, edgeVec, distance, hashes, hashUpperBound),
+                    ),
+                ),
+            ),
+        );
     }
 
     shellWithHistory(solid: ShapeHandle, faces: ShapeHandle[], thickness: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
-        return wrap("shellWithHistory", () => {
-            const faceVec = this.#makeVectorU32(faces);
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.shellWithHistory(solid, faceVec, thickness, tolerance, hashes, hashUpperBound)); }
-            finally { faceVec.delete(); hashes.delete(); }
-        });
+        return wrap("shellWithHistory", () =>
+            this.#withU32(faces, (faceVec) =>
+                this.#withI32(inputFaceHashes, (hashes) =>
+                    this.#extractEvolution(
+                        this.#raw.shellWithHistory(solid, faceVec, thickness, tolerance, hashes, hashUpperBound),
+                    ),
+                ),
+            ),
+        );
     }
 
     offsetWithHistory(solid: ShapeHandle, distance: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("offsetWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.offsetWithHistory(solid, distance, tolerance, hashes, hashUpperBound)); }
-            finally { hashes.delete(); }
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.offsetWithHistory(solid, distance, tolerance, hashes, hashUpperBound)));
         });
     }
 
     thickenWithHistory(shape: ShapeHandle, thickness: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("thickenWithHistory", () => {
-            const hashes = this.#makeVectorI32(inputFaceHashes);
-            try { return this.#extractEvolution(this.#raw.thickenWithHistory(shape, thickness, tolerance, hashes, hashUpperBound)); }
-            finally { hashes.delete(); }
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.thickenWithHistory(shape, thickness, tolerance, hashes, hashUpperBound)));
         });
     }
 
@@ -2385,6 +2326,36 @@ export class OcctKernel {
             return this.#makeVector(this.#module.VectorInt, values);
         }
         return this.#bulkI32(values);
+    }
+
+    // Scope guards: build a vector, run `fn` with it, and always delete it.
+    // Replaces the make/try/finally/delete boilerplate at every vector-arg call
+    // site so the cleanup can't be forgotten or mis-copied.
+    #withU32<R>(ids: ShapeHandle[] | number[], fn: (vec: EmbindVectorU32) => R): R {
+        const vec = this.#makeVectorU32(ids);
+        try {
+            return fn(vec);
+        } finally {
+            vec.delete();
+        }
+    }
+
+    #withF64<R>(values: number[], fn: (vec: EmbindVectorF64) => R): R {
+        const vec = this.#makeVectorF64(values);
+        try {
+            return fn(vec);
+        } finally {
+            vec.delete();
+        }
+    }
+
+    #withI32<R>(values: number[], fn: (vec: EmbindVectorI32) => R): R {
+        const vec = this.#makeVectorI32(values);
+        try {
+            return fn(vec);
+        } finally {
+            vec.delete();
+        }
     }
 
     #flattenPoints(points: Vec3[]): EmbindVectorF64 {
