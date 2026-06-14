@@ -25,7 +25,7 @@ Smaller bundles, branded types, arena-based memory, and modern tooling.
 - **TypeScript-first** -- branded `ShapeHandle`, union types for shapes/surfaces/curves, structured returns
 - **Structured error handling** -- `OcctErrorCode` enum for programmatic `switch/case` instead of string parsing
 - **Web Worker support** -- `OcctWorker` class for off-main-thread CAD operations via [Comlink](https://github.com/GoogleChromeLabs/comlink)
-- **Modern browser targets** -- WASM SIMD, relaxed-SIMD, tail calls, wasm-exceptions
+- **Modern browser targets** -- WASM SIMD, tail calls, wasm-exceptions
 
 ## Scope
 
@@ -325,11 +325,11 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 
 ```
 OCCT V8.0.0 C++ (git submodule)
-    -> emcmake cmake (48 static libs)
+    -> emcmake cmake (static libs)
     -> C++ facade (OcctKernel class, arena-based u32 IDs)
     -> Embind bindings
     -> emcc link (-O3, -flto, -fwasm-exceptions, SIMD) -> .wasm
-    -> wasm-opt -O4 --converge --gufa -> dist/ (20.8 MB)
+    -> wasm-opt -O4 --converge --gufa -> dist/
 ```
 
 Built with Rust xtask (`cargo xtask build`), tested with Vitest.
@@ -351,7 +351,7 @@ Run benchmarks locally: `npx tsx test/benchmark.ts`
 ### Building from Source
 
 ```bash
-# Prerequisites: Rust 1.85+, emsdk 5.0.3
+# Prerequisites: Rust 1.95+, emsdk 5.0.3
 git clone --recurse-submodules https://github.com/andymai/occt-wasm
 cd occt-wasm
 npm install && cd ts && npm install && cd ..
@@ -375,14 +375,17 @@ npm run docker:dist     # Build + copy dist/ artifacts to host
 
 ## Browser Compatibility
 
-occt-wasm requires modern browsers with WASM SIMD, relaxed-SIMD, tail calls, and exception handling:
+occt-wasm requires modern browsers with WASM SIMD, tail calls, and exception
+handling. WASM **tail calls** are the newest and therefore binding requirement —
+they gate the minimum versions below and are the reason Firefox is unsupported.
+The versions listed are the lowest combinations verified to load the kernel:
 
-| Browser | Minimum Version | Notes                                  |
-| ------- | --------------- | -------------------------------------- |
-| Chrome  | 114+            | Relaxed-SIMD (114), tail calls (112)   |
-| Edge    | 114+            | Same engine as Chrome                  |
-| Safari  | 17.2+           | Relaxed-SIMD (17.2), tail calls (15)   |
-| Firefox | Not supported   | No tail call support as of Firefox 130 |
+| Browser | Minimum (verified) | Notes                                       |
+| ------- | ------------------ | ------------------------------------------- |
+| Chrome  | 114+               | Tail calls landed in 112; 114 is verified   |
+| Edge    | 114+               | Same engine as Chrome                       |
+| Safari  | 17.2+              | Earliest WebKit verified to load the kernel |
+| Firefox | Not supported      | No WASM tail call support as of Firefox 130 |
 
 Node.js 22+ is recommended (tail calls via V8). Node.js 18+ works if your V8 version supports the required WASM features.
 
