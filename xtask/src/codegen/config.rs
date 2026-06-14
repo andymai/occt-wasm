@@ -3052,9 +3052,7 @@ maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"sweep: operation failed\");
 }
-if (maker.MakeSolid()) {
-    return store(maker.Shape());
-}
+maker.MakeSolid();
 return store(maker.Shape());",
         includes: &[
             "BRepOffsetAPI_MakePipeShell.hxx",
@@ -4020,6 +4018,13 @@ result.normals = static_cast<float*>(std::malloc(result.normalCount * sizeof(flo
 result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(uint32_t)));
 result.shapeOffsets =
     static_cast<int32_t*>(std::malloc(result.shapeCount * 4 * sizeof(int32_t)));
+
+if ((!result.positions && result.positionCount > 0) ||
+    (!result.normals && result.normalCount > 0) ||
+    (!result.indices && result.indexCount > 0) ||
+    (!result.shapeOffsets && result.shapeCount > 0)) {
+    throw std::runtime_error(\"meshBatch: memory allocation failed\");
+}
 
 // Second pass: extract geometry from cached face data
 int vertexOffset = 0;
