@@ -112,7 +112,9 @@ describe("*WithHistory wrapper coverage", () => {
     it("thickenWithHistory thickens an open face into a solid", () => {
         const box = kernel.makeBox(10, 10, 10);
         const face = kernel.getSubShapes(box, "face")[0];
-        expectEvolution(kernel.thickenWithHistory(face, 2, 1e-6, faceHashes(box), BOUND));
+        // Track the face itself, not the parent box's faces, so the input-hash
+        // set actually corresponds to the input shape.
+        expectEvolution(kernel.thickenWithHistory(face, 2, 1e-6, [kernel.hashCode(face, BOUND)], BOUND));
     });
 });
 
