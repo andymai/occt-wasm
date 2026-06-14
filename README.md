@@ -375,14 +375,17 @@ npm run docker:dist     # Build + copy dist/ artifacts to host
 
 ## Browser Compatibility
 
-occt-wasm requires modern browsers with WASM SIMD, tail calls, and exception handling:
+occt-wasm requires modern browsers with WASM SIMD, tail calls, and exception
+handling. WASM **tail calls** are the newest and therefore binding requirement —
+they gate the minimum versions below and are the reason Firefox is unsupported.
+The versions listed are the lowest combinations verified to load the kernel:
 
-| Browser | Minimum Version | Notes                                  |
-| ------- | --------------- | -------------------------------------- |
-| Chrome  | 114+            | tail calls (112)                       |
-| Edge    | 114+            | Same engine as Chrome                  |
-| Safari  | 17.2+           | tail calls                             |
-| Firefox | Not supported   | No tail call support as of Firefox 130 |
+| Browser | Minimum (verified) | Notes                                       |
+| ------- | ------------------ | ------------------------------------------- |
+| Chrome  | 114+               | Tail calls landed in 112; 114 is verified   |
+| Edge    | 114+               | Same engine as Chrome                       |
+| Safari  | 17.2+              | Earliest WebKit verified to load the kernel |
+| Firefox | Not supported      | No WASM tail call support as of Firefox 130 |
 
 Node.js 22+ is recommended (tail calls via V8). Node.js 18+ works if your V8 version supports the required WASM features.
 
