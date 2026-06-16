@@ -1009,6 +1009,131 @@ describe("curve operations", () => {
         data.multiplicities.delete();
         data.weights.delete();
     });
+
+    it("getNurbsCurveData reads poles from a Bezier edge (Bezier→BSpline conversion)", () => {
+        const pts = new Module.VectorDouble();
+        pts.push_back(0); pts.push_back(0); pts.push_back(0);
+        pts.push_back(5); pts.push_back(5); pts.push_back(0);
+        pts.push_back(10); pts.push_back(0); pts.push_back(0);
+        const bez = kernel.makeBezierEdge(pts);
+        pts.delete();
+        expect(kernel.curveType(bez)).toBe("bezier");
+        const data = kernel.getNurbsCurveData(bez);
+        expect(data.degree).toBe(2);
+        expect(data.poles.size()).toBe(9);
+        data.poles.delete();
+        data.knots.delete();
+        data.multiplicities.delete();
+        data.weights.delete();
+    });
+
+    // A non-rational degree-2 BSpline with a single knot span: knots [0,1],
+    // mults [3,3], 3 poles. Round-trips through getNurbsCurveData.
+    function makeTestBSpline() {
+        const poles = new Module.VectorDouble();
+        poles.push_back(0); poles.push_back(0); poles.push_back(0);
+        poles.push_back(5); poles.push_back(5); poles.push_back(0);
+        poles.push_back(10); poles.push_back(0); poles.push_back(0);
+        const weights = new Module.VectorDouble();
+        const knots = new Module.VectorDouble();
+        knots.push_back(0); knots.push_back(1);
+        const mults = new Module.VectorInt();
+        mults.push_back(3); mults.push_back(3);
+        const edge = kernel.makeBSplineEdge(poles, weights, knots, mults, 2, false);
+        poles.delete(); weights.delete(); knots.delete(); mults.delete();
+        return edge;
+    }
+
+    it("makeBSplineEdge constructs a BSpline edge that round-trips getNurbsCurveData", () => {
+        const edge = makeTestBSpline();
+        expect(edge).toBeGreaterThan(0);
+        expect(kernel.getShapeType(edge)).toBe("edge");
+        const data = kernel.getNurbsCurveData(edge);
+        expect(data.degree).toBe(2);
+        expect(data.poles.size()).toBe(9);
+        expect(data.rational).toBe(false);
+        data.poles.delete();
+        data.knots.delete();
+        data.multiplicities.delete();
+        data.weights.delete();
+    });
+
+    it("makeBSplineEdge builds a rational curve when weights differ from 1", () => {
+        const poles = new Module.VectorDouble();
+        poles.push_back(0); poles.push_back(0); poles.push_back(0);
+        poles.push_back(5); poles.push_back(5); poles.push_back(0);
+        poles.push_back(10); poles.push_back(0); poles.push_back(0);
+        const weights = new Module.VectorDouble();
+        weights.push_back(1); weights.push_back(2); weights.push_back(1);
+        const knots = new Module.VectorDouble();
+        knots.push_back(0); knots.push_back(1);
+        const mults = new Module.VectorInt();
+        mults.push_back(3); mults.push_back(3);
+        const edge = kernel.makeBSplineEdge(poles, weights, knots, mults, 2, false);
+        poles.delete(); weights.delete(); knots.delete(); mults.delete();
+        const data = kernel.getNurbsCurveData(edge);
+        expect(data.rational).toBe(true);
+        expect(data.weights.size()).toBe(3);
+        data.poles.delete();
+        data.knots.delete();
+        data.multiplicities.delete();
+        data.weights.delete();
+    });
+
+    it("curveDegreeElevate raises the degree", () => {
+        const edge = makeTestBSpline();
+        const elevated = kernel.curveDegreeElevate(edge, 1);
+        const data = kernel.getNurbsCurveData(elevated);
+        expect(data.degree).toBe(3);
+        data.poles.delete();
+        data.knots.delete();
+        data.multiplicities.delete();
+        data.weights.delete();
+    });
+
+    it("curveKnotInsert adds a knot without changing the curve shape", () => {
+        const edge = makeTestBSpline();
+        const before = kernel.getNurbsCurveData(edge);
+        const beforeKnots = before.knots.size();
+        before.poles.delete(); before.knots.delete();
+        before.multiplicities.delete(); before.weights.delete();
+
+        const inserted = kernel.curveKnotInsert(edge, 0.5, 1);
+        const after = kernel.getNurbsCurveData(inserted);
+        expect(after.knots.size()).toBe(beforeKnots + 1);
+        // Shape preserved: curveLength is a GCPnts approximation, so allow ~1e-3.
+        expect(kernel.curveLength(inserted)).toBeCloseTo(kernel.curveLength(edge), 3);
+        after.poles.delete(); after.knots.delete();
+        after.multiplicities.delete(); after.weights.delete();
+    });
+
+    it("curveKnotRemove undoes an inserted knot", () => {
+        const edge = makeTestBSpline();
+        const inserted = kernel.curveKnotInsert(edge, 0.5, 1);
+        const removed = kernel.curveKnotRemove(inserted, 0.5, 1e-3);
+        const data = kernel.getNurbsCurveData(removed);
+        expect(data.knots.size()).toBe(2);
+        data.poles.delete(); data.knots.delete();
+        data.multiplicities.delete(); data.weights.delete();
+    });
+
+    it("curveSplit returns two sub-edges that sum to the original length", () => {
+        const edge = makeTestBSpline();
+        const total = kernel.curveLength(edge);
+        const parts = kernel.curveSplit(edge, 0.5);
+        expect(parts.size()).toBe(2);
+        const left = parts.get(0);
+        const right = parts.get(1);
+        expect(kernel.getShapeType(left)).toBe("edge");
+        expect(kernel.getShapeType(right)).toBe("edge");
+        expect(kernel.curveLength(left) + kernel.curveLength(right)).toBeCloseTo(total, 3);
+        parts.delete();
+    });
+
+    it("curveSplit rejects an out-of-range parameter", () => {
+        const edge = makeTestBSpline();
+        expect(() => kernel.curveSplit(edge, 5)).toThrow();
+    });
 });
 
 // ---------------------------------------------------------------------------

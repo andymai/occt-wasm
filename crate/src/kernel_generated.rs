@@ -88,6 +88,7 @@ pub(crate) struct GeneratedFuncs {
     fn_make_arc_edge: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_ellipse_edge: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_bezier_edge: TypedFunc<(i32, i32), u32>,
+    fn_make_b_spline_edge: TypedFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), u32>,
     fn_make_ellipse_arc: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_helix_wire: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_non_planar_face: TypedFunc<(u32,), u32>,
@@ -146,6 +147,10 @@ pub(crate) struct GeneratedFuncs {
     fn_lift_curve2d_to_plane:
         TypedFunc<(i32, i32, f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_get_nurbs_curve_data: TypedFunc<(u32,), i32>,
+    fn_curve_degree_elevate: TypedFunc<(u32, i32), u32>,
+    fn_curve_knot_insert: TypedFunc<(u32, f64, i32), u32>,
+    fn_curve_knot_remove: TypedFunc<(u32, f64, f64), u32>,
+    fn_curve_split: TypedFunc<(u32, f64), i32>,
     fn_has_triangulation: TypedFunc<(u32,), i32>,
     fn_query_batch: TypedFunc<(i32, i32), i32>,
     fn_pipe: TypedFunc<(u32, u32), u32>,
@@ -285,6 +290,8 @@ impl GeneratedFuncs {
             fn_make_arc_edge: instance.get_typed_func(&mut store, "occt_make_arc_edge")?,
             fn_make_ellipse_edge: instance.get_typed_func(&mut store, "occt_make_ellipse_edge")?,
             fn_make_bezier_edge: instance.get_typed_func(&mut store, "occt_make_bezier_edge")?,
+            fn_make_b_spline_edge: instance
+                .get_typed_func(&mut store, "occt_make_b_spline_edge")?,
             fn_make_ellipse_arc: instance.get_typed_func(&mut store, "occt_make_ellipse_arc")?,
             fn_make_helix_wire: instance.get_typed_func(&mut store, "occt_make_helix_wire")?,
             fn_make_non_planar_face: instance
@@ -358,6 +365,11 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_lift_curve2d_to_plane")?,
             fn_get_nurbs_curve_data: instance
                 .get_typed_func(&mut store, "occt_get_nurbs_curve_data")?,
+            fn_curve_degree_elevate: instance
+                .get_typed_func(&mut store, "occt_curve_degree_elevate")?,
+            fn_curve_knot_insert: instance.get_typed_func(&mut store, "occt_curve_knot_insert")?,
+            fn_curve_knot_remove: instance.get_typed_func(&mut store, "occt_curve_knot_remove")?,
+            fn_curve_split: instance.get_typed_func(&mut store, "occt_curve_split")?,
             fn_has_triangulation: instance.get_typed_func(&mut store, "occt_has_triangulation")?,
             fn_query_batch: instance.get_typed_func(&mut store, "occt_query_batch")?,
             fn_pipe: instance.get_typed_func(&mut store, "occt_pipe")?,
@@ -1690,6 +1702,78 @@ impl crate::kernel::OcctKernel {
         Ok(ShapeHandle(result))
     }
 
+    pub fn make_b_spline_edge(
+        &mut self,
+        poles: &[f64],
+        weights: &[f64],
+        knots: &[f64],
+        multiplicities: &[i32],
+        degree: i32,
+        periodic: bool,
+    ) -> OcctResult<ShapeHandle> {
+        let poles_bytes: Vec<u8> = poles.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let poles_ptr = self.write_bytes(&poles_bytes)?;
+        let poles_len = poles.len() as u32;
+        let weights_bytes: Vec<u8> = weights.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let weights_ptr = match self.write_bytes(&weights_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(poles_ptr);
+                return Err(e);
+            }
+        };
+        let weights_len = weights.len() as u32;
+        let knots_bytes: Vec<u8> = knots.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let knots_ptr = match self.write_bytes(&knots_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(poles_ptr);
+                let _ = self.free_bytes(weights_ptr);
+                return Err(e);
+            }
+        };
+        let knots_len = knots.len() as u32;
+        let multiplicities_bytes: Vec<u8> = multiplicities
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let multiplicities_ptr = match self.write_bytes(&multiplicities_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(poles_ptr);
+                let _ = self.free_bytes(weights_ptr);
+                let _ = self.free_bytes(knots_ptr);
+                return Err(e);
+            }
+        };
+        let multiplicities_len = multiplicities.len() as u32;
+        let result = self.generated.fn_make_b_spline_edge.call(
+            &mut self.store,
+            (
+                poles_ptr as i32,
+                poles_len as i32,
+                weights_ptr as i32,
+                weights_len as i32,
+                knots_ptr as i32,
+                knots_len as i32,
+                multiplicities_ptr as i32,
+                multiplicities_len as i32,
+                degree,
+                i32::from(periodic),
+            ),
+        );
+        self.free_bytes(poles_ptr)?;
+        self.free_bytes(weights_ptr)?;
+        self.free_bytes(knots_ptr)?;
+        self.free_bytes(multiplicities_ptr)?;
+        let result = result?;
+        self.check_error("make_b_spline_edge")?;
+        if result == 0 {
+            return Err(self.read_last_error("make_b_spline_edge"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
     pub fn make_ellipse_arc(
         &mut self,
         cx: f64,
@@ -2566,6 +2650,67 @@ impl crate::kernel::OcctKernel {
             return Err(self.read_last_error("get_nurbs_curve_data"));
         }
         self.read_nurbs_result()
+    }
+
+    pub fn curve_degree_elevate(
+        &mut self,
+        edge_id: ShapeHandle,
+        elevate_by: i32,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_curve_degree_elevate
+            .call(&mut self.store, (edge_id.0, elevate_by))?;
+        self.check_error("curve_degree_elevate")?;
+        if result == 0 {
+            return Err(self.read_last_error("curve_degree_elevate"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn curve_knot_insert(
+        &mut self,
+        edge_id: ShapeHandle,
+        knot: f64,
+        times: i32,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_curve_knot_insert
+            .call(&mut self.store, (edge_id.0, knot, times))?;
+        self.check_error("curve_knot_insert")?;
+        if result == 0 {
+            return Err(self.read_last_error("curve_knot_insert"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn curve_knot_remove(
+        &mut self,
+        edge_id: ShapeHandle,
+        knot: f64,
+        tolerance: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_curve_knot_remove
+            .call(&mut self.store, (edge_id.0, knot, tolerance))?;
+        self.check_error("curve_knot_remove")?;
+        if result == 0 {
+            return Err(self.read_last_error("curve_knot_remove"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn curve_split(&mut self, edge_id: ShapeHandle, param: f64) -> OcctResult<Vec<u32>> {
+        let len = self
+            .generated
+            .fn_curve_split
+            .call(&mut self.store, (edge_id.0, param))?;
+        if len < 0 {
+            return Err(self.read_last_error("curve_split"));
+        }
+        self.read_vec_u32_result()
     }
 
     pub fn has_triangulation(&mut self, id: ShapeHandle) -> OcctResult<bool> {

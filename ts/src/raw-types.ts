@@ -189,6 +189,7 @@ export interface OcctRawKernel {
     makeEllipseEdge(cx: number, cy: number, cz: number, nx: number, ny: number, nz: number, majorRadius: number, minorRadius: number): number;
     makeEllipseArc(cx: number, cy: number, cz: number, nx: number, ny: number, nz: number, majorRadius: number, minorRadius: number, startAngle: number, endAngle: number): number;
     makeBezierEdge(flatPoints: EmbindVectorF64): number;
+    makeBSplineEdge(poles: EmbindVectorF64, weights: EmbindVectorF64, knots: EmbindVectorF64, multiplicities: EmbindVectorI32, degree: number, periodic: boolean): number;
     makeTangentArc(x1: number, y1: number, z1: number, tx: number, ty: number, tz: number, x2: number, y2: number, z2: number): number;
     makeHelixWire(px: number, py: number, pz: number, dx: number, dy: number, dz: number, pitch: number, height: number, radius: number): number;
     makeWire(edgeIds: EmbindVectorU32): number;
@@ -298,6 +299,10 @@ export interface OcctRawKernel {
     projectPointOnEdge(edgeId: number, x: number, y: number, z: number): EmbindVectorF64;
     approximatePoints(flatPoints: EmbindVectorF64, tolerance: number): number;
     getNurbsCurveData(edgeId: number): RawNurbsCurveData;
+    curveDegreeElevate(edgeId: number, elevateBy: number): number;
+    curveKnotInsert(edgeId: number, knot: number, times: number): number;
+    curveKnotRemove(edgeId: number, knot: number, tolerance: number): number;
+    curveSplit(edgeId: number, param: number): EmbindVectorU32;
     liftCurve2dToPlane(flatPoints2d: EmbindVectorF64, planeOx: number, planeOy: number, planeOz: number, planeZx: number, planeZy: number, planeZz: number, planeXx: number, planeXy: number, planeXz: number): number;
 
     // Projection

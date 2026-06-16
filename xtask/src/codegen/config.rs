@@ -1446,6 +1446,70 @@ return store(maker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "makeBSplineEdge",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorDouble("poles"),
+            FacadeParam::VectorDouble("weights"),
+            FacadeParam::VectorDouble("knots"),
+            FacadeParam::VectorInt("multiplicities"),
+            FacadeParam::Int("degree"),
+            FacadeParam::Bool("periodic"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+int nPoles = static_cast<int>(poles.size()) / 3;
+if (nPoles < 2) {
+    throw std::runtime_error(\"makeBSplineEdge: need at least 2 poles\");
+}
+int nKnots = static_cast<int>(knots.size());
+if (nKnots < 2 || static_cast<int>(multiplicities.size()) != nKnots) {
+    throw std::runtime_error(\"makeBSplineEdge: knots and multiplicities must be the same non-trivial length\");
+}
+if (!weights.empty() && static_cast<int>(weights.size()) != nPoles) {
+    throw std::runtime_error(\"makeBSplineEdge: weights length must match pole count\");
+}
+NCollection_Array1<gp_Pnt> polesArr(1, nPoles);
+for (int i = 0; i < nPoles; i++) {
+    polesArr.SetValue(i + 1, gp_Pnt(poles[i * 3], poles[i * 3 + 1], poles[i * 3 + 2]));
+}
+NCollection_Array1<double> knotsArr(1, nKnots);
+NCollection_Array1<int> multsArr(1, nKnots);
+for (int i = 0; i < nKnots; i++) {
+    knotsArr.SetValue(i + 1, knots[i]);
+    multsArr.SetValue(i + 1, multiplicities[i]);
+}
+bool rational = false;
+for (double w : weights) {
+    if (std::abs(w - 1.0) > Precision::Confusion()) {
+        rational = true;
+        break;
+    }
+}
+Handle(Geom_BSplineCurve) curve;
+if (rational) {
+    NCollection_Array1<double> weightsArr(1, nPoles);
+    for (int i = 0; i < nPoles; i++) {
+        weightsArr.SetValue(i + 1, weights[i]);
+    }
+    curve = new Geom_BSplineCurve(polesArr, weightsArr, knotsArr, multsArr, degree, periodic);
+} else {
+    curve = new Geom_BSplineCurve(polesArr, knotsArr, multsArr, degree, periodic);
+}
+BRepBuilderAPI_MakeEdge maker(curve);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeBSplineEdge: edge construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "Geom_BSplineCurve.hxx",
+            "NCollection_Array1.hxx", "Precision.hxx", "cmath", "gp_Pnt.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "makeEllipseArc",
         kind: MethodKind::CustomBody,
         params: &[
@@ -2829,11 +2893,14 @@ return store(edgeMaker.Shape());",
         ctor_args: "",
         setup_code: "\
 BRepAdaptor_Curve adaptor(TopoDS::Edge(get(edgeId)));
-if (adaptor.GetType() != GeomAbs_BSplineCurve) {
-    throw std::runtime_error(\"getNurbsCurveData: edge is not a BSpline curve\");
+Handle(Geom_BSplineCurve) bspline;
+if (adaptor.GetType() == GeomAbs_BSplineCurve) {
+    bspline = adaptor.BSpline();
+} else if (adaptor.GetType() == GeomAbs_BezierCurve) {
+    bspline = GeomConvert::CurveToBSplineCurve(adaptor.Bezier());
+} else {
+    throw std::runtime_error(\"getNurbsCurveData: edge is not a BSpline or Bezier curve\");
 }
-
-Handle(Geom_BSplineCurve) bspline = adaptor.BSpline();
 NurbsCurveData result{};
 result.degree = bspline->Degree();
 result.rational = bspline->IsRational();
@@ -2869,10 +2936,164 @@ if (bspline->IsRational()) {
 return result;",
         includes: &[
             "BRepAdaptor_Curve.hxx", "GeomAbs_CurveType.hxx",
-            "Geom_BSplineCurve.hxx", "TopoDS.hxx", "gp_Pnt.hxx",
+            "Geom_BSplineCurve.hxx", "Geom_BezierCurve.hxx", "GeomConvert.hxx",
+            "TopoDS.hxx", "gp_Pnt.hxx",
         ],
         category: "curve",
         return_type: ReturnType::NurbsCurveData,
+    },
+    MethodSpec {
+        name: "curveDegreeElevate",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("edgeId"), FacadeParam::Int("elevateBy")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Curve adaptor(TopoDS::Edge(get(edgeId)));
+Handle(Geom_BSplineCurve) bspline;
+if (adaptor.GetType() == GeomAbs_BSplineCurve) {
+    bspline = Handle(Geom_BSplineCurve)::DownCast(adaptor.BSpline()->Copy());
+} else if (adaptor.GetType() == GeomAbs_BezierCurve) {
+    bspline = GeomConvert::CurveToBSplineCurve(adaptor.Bezier());
+} else {
+    throw std::runtime_error(\"curveDegreeElevate: edge is not a BSpline or Bezier curve\");
+}
+bspline->IncreaseDegree(bspline->Degree() + elevateBy);
+BRepBuilderAPI_MakeEdge maker(bspline);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"curveDegreeElevate: edge construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepAdaptor_Curve.hxx", "BRepBuilderAPI_MakeEdge.hxx",
+            "GeomAbs_CurveType.hxx", "Geom_BSplineCurve.hxx",
+            "Geom_BezierCurve.hxx", "GeomConvert.hxx", "TopoDS.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "curveKnotInsert",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("edgeId"),
+            FacadeParam::Double("knot"),
+            FacadeParam::Int("times"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Curve adaptor(TopoDS::Edge(get(edgeId)));
+Handle(Geom_BSplineCurve) bspline;
+if (adaptor.GetType() == GeomAbs_BSplineCurve) {
+    bspline = Handle(Geom_BSplineCurve)::DownCast(adaptor.BSpline()->Copy());
+} else if (adaptor.GetType() == GeomAbs_BezierCurve) {
+    bspline = GeomConvert::CurveToBSplineCurve(adaptor.Bezier());
+} else {
+    throw std::runtime_error(\"curveKnotInsert: edge is not a BSpline or Bezier curve\");
+}
+bspline->InsertKnot(knot, times, Precision::Confusion());
+BRepBuilderAPI_MakeEdge maker(bspline);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"curveKnotInsert: edge construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepAdaptor_Curve.hxx", "BRepBuilderAPI_MakeEdge.hxx",
+            "GeomAbs_CurveType.hxx", "Geom_BSplineCurve.hxx",
+            "Geom_BezierCurve.hxx", "GeomConvert.hxx", "Precision.hxx", "TopoDS.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "curveKnotRemove",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("edgeId"),
+            FacadeParam::Double("knot"),
+            FacadeParam::Double("tolerance"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Curve adaptor(TopoDS::Edge(get(edgeId)));
+Handle(Geom_BSplineCurve) bspline;
+if (adaptor.GetType() == GeomAbs_BSplineCurve) {
+    bspline = Handle(Geom_BSplineCurve)::DownCast(adaptor.BSpline()->Copy());
+} else if (adaptor.GetType() == GeomAbs_BezierCurve) {
+    bspline = GeomConvert::CurveToBSplineCurve(adaptor.Bezier());
+} else {
+    throw std::runtime_error(\"curveKnotRemove: edge is not a BSpline or Bezier curve\");
+}
+int index = 0;
+for (int i = 1; i <= bspline->NbKnots(); i++) {
+    if (std::abs(bspline->Knot(i) - knot) <= tolerance) {
+        index = i;
+        break;
+    }
+}
+if (index == 0) {
+    throw std::runtime_error(\"curveKnotRemove: knot value not found\");
+}
+int mult = bspline->Multiplicity(index);
+if (!bspline->RemoveKnot(index, mult - 1, tolerance)) {
+    throw std::runtime_error(\"curveKnotRemove: knot cannot be removed within tolerance\");
+}
+BRepBuilderAPI_MakeEdge maker(bspline);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"curveKnotRemove: edge construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepAdaptor_Curve.hxx", "BRepBuilderAPI_MakeEdge.hxx", "cmath",
+            "GeomAbs_CurveType.hxx", "Geom_BSplineCurve.hxx",
+            "Geom_BezierCurve.hxx", "GeomConvert.hxx", "TopoDS.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "curveSplit",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("edgeId"), FacadeParam::Double("param")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_Curve adaptor(TopoDS::Edge(get(edgeId)));
+Handle(Geom_BSplineCurve) base;
+if (adaptor.GetType() == GeomAbs_BSplineCurve) {
+    base = adaptor.BSpline();
+} else if (adaptor.GetType() == GeomAbs_BezierCurve) {
+    base = GeomConvert::CurveToBSplineCurve(adaptor.Bezier());
+} else {
+    throw std::runtime_error(\"curveSplit: edge is not a BSpline or Bezier curve\");
+}
+double first = base->FirstParameter();
+double last = base->LastParameter();
+if (param <= first || param >= last) {
+    throw std::runtime_error(\"curveSplit: parameter out of range\");
+}
+Handle(Geom_BSplineCurve) left = Handle(Geom_BSplineCurve)::DownCast(base->Copy());
+Handle(Geom_BSplineCurve) right = Handle(Geom_BSplineCurve)::DownCast(base->Copy());
+left->Segment(first, param);
+right->Segment(param, last);
+BRepBuilderAPI_MakeEdge leftMaker(left);
+BRepBuilderAPI_MakeEdge rightMaker(right);
+if (!leftMaker.IsDone() || !rightMaker.IsDone()) {
+    throw std::runtime_error(\"curveSplit: edge construction failed\");
+}
+std::vector<uint32_t> result;
+result.push_back(store(leftMaker.Shape()));
+result.push_back(store(rightMaker.Shape()));
+return result;",
+        includes: &[
+            "BRepAdaptor_Curve.hxx", "BRepBuilderAPI_MakeEdge.hxx",
+            "GeomAbs_CurveType.hxx", "Geom_BSplineCurve.hxx",
+            "Geom_BezierCurve.hxx", "GeomConvert.hxx", "TopoDS.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::VectorUint32,
     },
     MethodSpec {
         name: "hasTriangulation",

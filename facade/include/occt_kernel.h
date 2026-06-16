@@ -197,6 +197,9 @@ class OcctKernel {
                             double majorRadius, double minorRadius, double startAngle,
                             double endAngle);
     uint32_t makeBezierEdge(std::vector<double> flatPoints);
+    uint32_t makeBSplineEdge(std::vector<double> poles, std::vector<double> weights,
+                             std::vector<double> knots, std::vector<int> multiplicities, int degree,
+                             bool periodic);
     uint32_t makeTangentArc(double x1, double y1, double z1, double tx, double ty, double tz,
                             double x2, double y2, double z2);
     uint32_t makeHelixWire(double px, double py, double pz, double dx, double dy, double dz,
@@ -360,6 +363,10 @@ class OcctKernel {
 
     // --- NURBS introspection ---
     NurbsCurveData getNurbsCurveData(uint32_t edgeId);
+    uint32_t curveDegreeElevate(uint32_t edgeId, int elevateBy);
+    uint32_t curveKnotInsert(uint32_t edgeId, double knot, int times);
+    uint32_t curveKnotRemove(uint32_t edgeId, double knot, double tolerance);
+    std::vector<uint32_t> curveSplit(uint32_t edgeId, double param);
 
     // --- Surface construction ---
     uint32_t bsplineSurface(std::vector<double> flatPoints, int rows, int cols);

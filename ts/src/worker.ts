@@ -136,6 +136,11 @@ export interface OcctWorkerProxy {
     curveType(edge: ShapeHandle): Promise<CurveKind>;
     curveLength(edge: ShapeHandle): Promise<number>;
     getNurbsCurveData(edge: ShapeHandle): Promise<NurbsCurveData>;
+    makeBSplineEdge(poles: number[], weights: number[], knots: number[], multiplicities: number[], degree: number, periodic?: boolean): Promise<ShapeHandle>;
+    curveDegreeElevate(edge: ShapeHandle, elevateBy: number): Promise<ShapeHandle>;
+    curveKnotInsert(edge: ShapeHandle, knot: number, times: number): Promise<ShapeHandle>;
+    curveKnotRemove(edge: ShapeHandle, knot: number, tolerance: number): Promise<ShapeHandle>;
+    curveSplit(edge: ShapeHandle, param: number): Promise<[ShapeHandle, ShapeHandle]>;
 
     // Projection
     projectEdges(shape: ShapeHandle, viewOrigin: Vec3, viewDirection: Vec3, xAxis?: Vec3): Promise<ProjectionData>;

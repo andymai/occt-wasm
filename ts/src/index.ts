@@ -587,6 +587,27 @@ export class OcctKernel {
         });
     }
 
+    makeBSplineEdge(
+        poles: number[],
+        weights: number[],
+        knots: number[],
+        multiplicities: number[],
+        degree: number,
+        periodic = false,
+    ): ShapeHandle {
+        return wrap("makeBSplineEdge", () =>
+            this.#withF64(poles, (polesVec) =>
+                this.#withF64(weights, (weightsVec) =>
+                    this.#withF64(knots, (knotsVec) =>
+                        this.#withI32(multiplicities, (multsVec) =>
+                            handle(this.#raw.makeBSplineEdge(polesVec, weightsVec, knotsVec, multsVec, degree, periodic)),
+                        ),
+                    ),
+                ),
+            ),
+        );
+    }
+
     makeTangentArc(start: Vec3, tangent: Vec3, end: Vec3): ShapeHandle {
         return wrap("makeTangentArc", () =>
             handle(this.#raw.makeTangentArc(
@@ -1456,6 +1477,28 @@ export class OcctKernel {
                 weights: this.#drainVector(raw.weights, Float64Array),
             };
             return result;
+        });
+    }
+
+    curveDegreeElevate(edge: ShapeHandle, elevateBy: number): ShapeHandle {
+        return wrap("curveDegreeElevate", () => handle(this.#raw.curveDegreeElevate(edge, elevateBy)));
+    }
+
+    curveKnotInsert(edge: ShapeHandle, knot: number, times: number): ShapeHandle {
+        return wrap("curveKnotInsert", () => handle(this.#raw.curveKnotInsert(edge, knot, times)));
+    }
+
+    curveKnotRemove(edge: ShapeHandle, knot: number, tolerance: number): ShapeHandle {
+        return wrap("curveKnotRemove", () => handle(this.#raw.curveKnotRemove(edge, knot, tolerance)));
+    }
+
+    curveSplit(edge: ShapeHandle, param: number): [ShapeHandle, ShapeHandle] {
+        return wrap("curveSplit", () => {
+            const parts = this.#vecToHandles(this.#raw.curveSplit(edge, param));
+            if (parts.length !== 2) {
+                throw new Error(`curveSplit: expected 2 edges, got ${parts.length}`);
+            }
+            return [parts[0]!, parts[1]!];
         });
     }
 

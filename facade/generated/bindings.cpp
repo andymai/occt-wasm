@@ -176,6 +176,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("makeArcEdge", &OcctKernel::makeArcEdge)
         .function("makeEllipseEdge", &OcctKernel::makeEllipseEdge)
         .function("makeBezierEdge", &OcctKernel::makeBezierEdge)
+        .function("makeBSplineEdge", &OcctKernel::makeBSplineEdge)
         .function("makeEllipseArc", &OcctKernel::makeEllipseArc)
         .function("makeHelixWire", &OcctKernel::makeHelixWire)
         .function("makeNonPlanarFace", &OcctKernel::makeNonPlanarFace)
@@ -241,6 +242,10 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("approximatePoints", &OcctKernel::approximatePoints)
         .function("liftCurve2dToPlane", &OcctKernel::liftCurve2dToPlane)
         .function("getNurbsCurveData", &OcctKernel::getNurbsCurveData)
+        .function("curveDegreeElevate", &OcctKernel::curveDegreeElevate)
+        .function("curveKnotInsert", &OcctKernel::curveKnotInsert)
+        .function("curveKnotRemove", &OcctKernel::curveKnotRemove)
+        .function("curveSplit", &OcctKernel::curveSplit)
 
         // sweep
         .function("pipe", &OcctKernel::pipe)
