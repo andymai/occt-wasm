@@ -23,6 +23,7 @@
 #include <gp_Pnt.hxx>
 #include <gp_Pnt2d.hxx>
 #include <stdexcept>
+#include <vector>
 
 // --- XCAF helpers (used by generated xcaf methods) ---
 
@@ -147,18 +148,29 @@ MeshData OcctKernel::buildMeshData(const TopoDS_Shape& shape, double linearDefle
         throw std::runtime_error("tessellate: meshing failed");
     }
 
+    // Cache each face's triangulation during this single traversal so the fill
+    // pass below reuses it instead of re-exploring the shape and re-fetching
+    // every triangulation handle a second time.
+    struct FaceEntry {
+        Handle(Poly_Triangulation) tri;
+        TopLoc_Location loc;
+        TopoDS_Face face;
+    };
+    std::vector<FaceEntry> faces;
+
     int totalNodes = 0;
     int totalTris = 0;
-    int totalFaces = 0;
     for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        const TopoDS_Face& face = TopoDS::Face(ex.Current());
         TopLoc_Location loc;
-        auto tri = BRep_Tool::Triangulation(TopoDS::Face(ex.Current()), loc);
+        auto tri = BRep_Tool::Triangulation(face, loc);
         if (tri.IsNull())
             continue;
         totalNodes += tri->NbNodes();
         totalTris += tri->NbTriangles();
-        totalFaces++;
+        faces.push_back({tri, loc, face});
     }
+    int totalFaces = static_cast<int>(faces.size());
 
     MeshData result;
     result.positionCount = totalNodes * 3;
@@ -184,12 +196,10 @@ MeshData OcctKernel::buildMeshData(const TopoDS_Shape& shape, double linearDefle
     int triOffset = 0;
     int faceGroupIdx = 0;
 
-    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
-        const auto& face = TopoDS::Face(ex.Current());
-        TopLoc_Location loc;
-        auto tri = BRep_Tool::Triangulation(face, loc);
-        if (tri.IsNull())
-            continue;
+    for (const auto& entry : faces) {
+        const TopoDS_Face& face = entry.face;
+        const TopLoc_Location& loc = entry.loc;
+        Handle(Poly_Triangulation) tri = entry.tri;
 
         const auto& trsf = loc.Transformation();
         bool identityLoc = loc.IsIdentity();
