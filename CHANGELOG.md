@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0](https://github.com/andymai/occt-wasm/compare/v3.3.2...v3.4.0) (2026-06-16)
+
+
+### Features
+
+* **facade:** expose NURBS curve edit/construct + Bezier pole read ([#173](https://github.com/andymai/occt-wasm/issues/173)) ([bd78b64](https://github.com/andymai/occt-wasm/commit/bd78b6414e854750a9dd0873e058a0240cda4207))
+
 ## [3.3.2](https://github.com/andymai/occt-wasm/compare/v3.3.1...v3.3.2) (2026-06-14)
 
 
