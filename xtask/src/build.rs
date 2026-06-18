@@ -281,6 +281,14 @@ fn optimize_wasm(sh: &Shell, root: &Path) -> Result<()> {
 
     let wasm_opt_bin = find_wasm_opt();
 
+    // Deliberately NOT translating legacy `try`/`catch` to the new
+    // `try_table`/`exnref` encoding here (cf. `convert_eh` in build_wasi.rs).
+    // Firefox emits a deprecation warning for legacy EH, but it still runs it;
+    // exnref, by contrast, is rejected by Node's V8 without
+    // --experimental-wasm-exnref and post-dates the Chrome 114 / Safari 17.2
+    // floor. The crate build can use exnref only because wasmtime is configured
+    // to accept it; the npm build targets unmodified browsers AND Node, so
+    // legacy EH stays. Revisit once exnref is default across the support matrix.
     eprintln!("Step 4: Running wasm-opt...");
     cmd!(
         sh,
