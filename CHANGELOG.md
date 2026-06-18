@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.5.0](https://github.com/andymai/occt-wasm/compare/v3.4.0...v3.5.0) (2026-06-18)
+
+
+### Features
+
+* **ts:** support Firefox 121+ ([#178](https://github.com/andymai/occt-wasm/issues/178)) ([50b5681](https://github.com/andymai/occt-wasm/commit/50b5681f55953c3acbb5b655a30f73d44b8ab5b9))
+
+
+### Performance
+
+* **facade:** single-pass buildMeshData tessellation ([#176](https://github.com/andymai/occt-wasm/issues/176)) ([ccee48d](https://github.com/andymai/occt-wasm/commit/ccee48d8eba51adff6fe987ae864e3b594f25433))
+
 ## [3.4.0](https://github.com/andymai/occt-wasm/compare/v3.3.2...v3.4.0) (2026-06-16)
 
 
