@@ -33,7 +33,7 @@ To set expectations, this library deliberately does not:
 
 - **Provide a higher-level CAD modeling API** — parametric sketching, constraints, feature trees, and ergonomic modeling belong in [brepjs](https://github.com/andymai/brepjs), which wraps occt-wasm for that purpose
 - **Manage memory automatically beyond arena handles** — shapes are freed when the kernel is disposed or you call `release()`; there is no per-shape garbage collection
-- **Support non-WASM-SIMD browsers** — the build requires WASM SIMD (baseline `-msimd128`), tail calls, and wasm exceptions; Firefox lacks tail call support as of v130. Relaxed-SIMD is intentionally not used: some Safari/iOS WebKit builds fail to compile relaxed-SIMD modules, and it made geometry non-reproducible across CPUs
+- **Support non-WASM-SIMD browsers** — the build requires WASM SIMD (baseline `-msimd128`), tail calls, and wasm exceptions, so it needs a recent engine (see [Browser Compatibility](#browser-compatibility)). Relaxed-SIMD is intentionally not used: some Safari/iOS WebKit builds fail to compile relaxed-SIMD modules, and it made geometry non-reproducible across CPUs
 - **Include OCCT visualization or display modules** — TKV3d, TKHLR (except the HLR facade), and the AIS interactive context are excluded; bring your own renderer (Three.js, Babylon.js, etc.)
 - **Support IGES import/export** -- TKDEIGES is excluded from the link; use STEP for interchange
 
@@ -377,15 +377,15 @@ npm run docker:dist     # Build + copy dist/ artifacts to host
 
 occt-wasm requires modern browsers with WASM SIMD, tail calls, and exception
 handling. WASM **tail calls** are the newest and therefore binding requirement —
-they gate the minimum versions below and are the reason Firefox is unsupported.
-The versions listed are the lowest combinations verified to load the kernel:
+they gate the minimum versions below. The versions listed are the lowest
+combinations verified to load the kernel:
 
 | Browser | Minimum (verified) | Notes                                       |
 | ------- | ------------------ | ------------------------------------------- |
 | Chrome  | 114+               | Tail calls landed in 112; 114 is verified   |
 | Edge    | 114+               | Same engine as Chrome                       |
 | Safari  | 17.2+              | Earliest WebKit verified to load the kernel |
-| Firefox | Not supported      | No WASM tail call support as of Firefox 130 |
+| Firefox | 121+               | Tail calls shipped in 121; 146 is verified  |
 
 Node.js 22+ is recommended (tail calls via V8). Node.js 18+ works if your V8 version supports the required WASM features.
 
@@ -396,7 +396,6 @@ These are upstream OCCT V8.0.0 issues, not occt-wasm bugs:
 - **IGES** -- TKDEIGES excluded from link; no IGES import/export
 - **Zero-length extrusion** -- WASM exception escapes JS catch boundary (1 test skip)
 - **Single WASM thread** -- each kernel instance is single-threaded; use `OcctWorker` (see above) to move work off the main thread
-- **Firefox** -- not supported due to missing WASM tail call support
 
 These will be addressed as upstream OCCT and browser support improve.
 
