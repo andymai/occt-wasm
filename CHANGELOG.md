@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.1](https://github.com/andymai/occt-wasm/compare/v3.5.0...v3.5.1) (2026-06-23)
+
+
+### Bug Fixes
+
+* **occt:** document and release OCCT V8.0.0.p1 upstream fixes ([#184](https://github.com/andymai/occt-wasm/issues/184)) ([ea061f7](https://github.com/andymai/occt-wasm/commit/ea061f7c3cc6851cc63623a27715f0fda04b98f7))
+
 ## [3.5.0](https://github.com/andymai/occt-wasm/compare/v3.4.0...v3.5.0) (2026-06-18)
 
 
