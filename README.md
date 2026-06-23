@@ -324,7 +324,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 ## Architecture
 
 ```
-OCCT V8.0.0 C++ (git submodule)
+OCCT V8.0.0.p1 C++ (git submodule)
     -> emcmake cmake (static libs)
     -> C++ facade (OcctKernel class, arena-based u32 IDs)
     -> Embind bindings
@@ -391,7 +391,7 @@ Node.js 22+ is recommended (tail calls via V8). Node.js 18+ works if your V8 ver
 
 ## Known Limitations
 
-These are upstream OCCT V8.0.0 issues, not occt-wasm bugs:
+These are upstream OCCT V8.0.0.p1 issues, not occt-wasm bugs:
 
 - **IGES** -- TKDEIGES excluded from link; no IGES import/export
 - **Zero-length extrusion** -- WASM exception escapes JS catch boundary (1 test skip)
