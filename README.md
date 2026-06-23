@@ -399,6 +399,10 @@ These are upstream OCCT V8.0.0.p1 issues, not occt-wasm bugs:
 
 These will be addressed as upstream OCCT and browser support improve.
 
+OCCT V8.0.0.p1 (2026-06) resolved several upstream hangs and crashes that
+affected modeling here: infinite-loop guards in `IntWalk_IWalking` and
+`BRepFill_CompatibleWires`, and a null-curve guard in `BRepExtrema_DistanceSS`.
+
 ## Contributing
 
 This project is open source. Bug reports and feature requests are welcome via GitHub Issues. For pull requests, please open an issue first to discuss the change.
