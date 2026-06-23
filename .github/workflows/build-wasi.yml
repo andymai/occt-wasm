@@ -16,6 +16,7 @@ on:
       - 3rdparty/**
       - crate/src/occt-wasm.wasm.br
       - .gitmodules
+      - occt
       - .github/workflows/build-wasi.yml
   push:
     branches: [main]
@@ -25,6 +26,7 @@ on:
       - 3rdparty/**
       - crate/src/occt-wasm.wasm.br
       - .gitmodules
+      - occt
       - .github/workflows/build-wasi.yml
   workflow_dispatch:
 
