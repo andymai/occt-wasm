@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.0](https://github.com/andymai/occt-wasm/compare/v3.5.1...v3.6.0) (2026-06-24)
+
+
+### Features
+
+* **facade:** add located() cheap location-only move ([#188](https://github.com/andymai/occt-wasm/issues/188)) ([5efe7c4](https://github.com/andymai/occt-wasm/commit/5efe7c44750089e30939d4bfe4f07529ac7a1fcb))
+
 ## [3.5.1](https://github.com/andymai/occt-wasm/compare/v3.5.0...v3.5.1) (2026-06-23)
 
 
