@@ -772,6 +772,17 @@ export class OcctKernel {
         });
     }
 
+    /**
+     * Re-tag a shape with a `TopLoc_Location` from a 3x4 row-major affine matrix
+     * (same 12-double layout as {@link transform}). Shares the underlying topology
+     * instead of deep-copying it, so a pure move is O(1).
+     */
+    located(shape: ShapeHandle, matrix: number[]): ShapeHandle {
+        return wrap("located", () => {
+            return this.#withF64(matrix, (vec) => handle(this.#raw.located(shape, vec)));
+        });
+    }
+
     /** Apply a general (possibly non-affine) 3x4 row-major transformation matrix (12 doubles). */
     generalTransform(shape: ShapeHandle, matrix: number[]): ShapeHandle {
         return wrap("generalTransform", () => {

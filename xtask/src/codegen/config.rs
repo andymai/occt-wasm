@@ -956,6 +956,25 @@ return store(maker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "located",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::VectorDouble("matrix")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (matrix.size() != 12) {
+    throw std::runtime_error(\"located: matrix must have 12 elements (3x4)\");
+}
+gp_Trsf trsf;
+trsf.SetValues(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5], matrix[6],
+               matrix[7], matrix[8], matrix[9], matrix[10], matrix[11]);
+TopLoc_Location loc(trsf);
+return store(get(id).Moved(loc));",
+        includes: &["gp_Trsf.hxx", "TopLoc_Location.hxx"],
+        category: "transforms",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "generalTransform",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("id"), FacadeParam::VectorDouble("matrix")],

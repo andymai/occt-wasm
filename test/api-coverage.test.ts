@@ -519,6 +519,54 @@ describe("transforms (extended)", () => {
         mat.delete();
     });
 
+    it("located moves a shape identically to transform (location re-tag, no copy)", () => {
+        // 3x4 row-major translation matrix: translate by (50, 7, -3).
+        const values = [1, 0, 0, 50, 0, 1, 0, 7, 0, 0, 1, -3];
+
+        const box = kernel.makeBox(10, 10, 10);
+        const origVol = kernel.getVolume(box);
+
+        const matA = new Module.VectorDouble();
+        for (const v of values) matA.push_back(v);
+        const viaTransform = kernel.transform(box, matA);
+        matA.delete();
+
+        const matB = new Module.VectorDouble();
+        for (const v of values) matB.push_back(v);
+        const viaLocated = kernel.located(box, matB);
+        matB.delete();
+
+        expect(viaLocated).toBeGreaterThan(0);
+
+        // Volume is preserved and identical to the deep-copy transform.
+        expect(kernel.getVolume(viaLocated)).toBeCloseTo(origVol, 5);
+        expect(kernel.getVolume(viaLocated)).toBeCloseTo(kernel.getVolume(viaTransform), 5);
+
+        // Bounding box matches the transform result exactly — only the cost differs.
+        const bT = kernel.getBoundingBox(viaTransform, true);
+        const bL = kernel.getBoundingBox(viaLocated, true);
+        expect(bL.xmin).toBeCloseTo(bT.xmin, 5);
+        expect(bL.ymin).toBeCloseTo(bT.ymin, 5);
+        expect(bL.zmin).toBeCloseTo(bT.zmin, 5);
+        expect(bL.xmax).toBeCloseTo(bT.xmax, 5);
+        expect(bL.ymax).toBeCloseTo(bT.ymax, 5);
+        expect(bL.zmax).toBeCloseTo(bT.zmax, 5);
+
+        // Absolute placement check against the requested translation.
+        expect(bL.xmin).toBeCloseTo(50, 5);
+        expect(bL.ymin).toBeCloseTo(7, 5);
+        expect(bL.zmin).toBeCloseTo(-3, 5);
+    });
+
+    it("located rejects a malformed matrix", () => {
+        const box = kernel.makeBox(1, 1, 1);
+        const bad = new Module.VectorDouble();
+        bad.push_back(1);
+        bad.push_back(0);
+        expect(() => kernel.located(box, bad)).toThrow();
+        bad.delete();
+    });
+
     it("linearPattern creates copies along a direction", () => {
         const box = kernel.makeBox(5, 5, 5);
         const result = kernel.linearPattern(box, 1, 0, 0, 10, 3);
