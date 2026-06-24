@@ -153,6 +153,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("linearPattern", &OcctKernel::linearPattern)
         .function("circularPattern", &OcctKernel::circularPattern)
         .function("transform", &OcctKernel::transform)
+        .function("located", &OcctKernel::located)
         .function("generalTransform", &OcctKernel::generalTransform)
         .function("translateBatch", &OcctKernel::translateBatch)
         .function("composeTransform", &OcctKernel::composeTransform)

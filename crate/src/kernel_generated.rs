@@ -67,6 +67,7 @@ pub(crate) struct GeneratedFuncs {
     fn_linear_pattern: TypedFunc<(u32, f64, f64, f64, f64, i32), u32>,
     fn_circular_pattern: TypedFunc<(u32, f64, f64, f64, f64, f64, f64, f64, i32), u32>,
     fn_transform: TypedFunc<(u32, i32, i32), u32>,
+    fn_located: TypedFunc<(u32, i32, i32), u32>,
     fn_general_transform: TypedFunc<(u32, i32, i32), u32>,
     fn_translate_batch: TypedFunc<(i32, i32, i32, i32), i32>,
     fn_compose_transform: TypedFunc<(i32, i32, i32, i32), i32>,
@@ -268,6 +269,7 @@ impl GeneratedFuncs {
             fn_linear_pattern: instance.get_typed_func(&mut store, "occt_linear_pattern")?,
             fn_circular_pattern: instance.get_typed_func(&mut store, "occt_circular_pattern")?,
             fn_transform: instance.get_typed_func(&mut store, "occt_transform")?,
+            fn_located: instance.get_typed_func(&mut store, "occt_located")?,
             fn_general_transform: instance.get_typed_func(&mut store, "occt_general_transform")?,
             fn_translate_batch: instance.get_typed_func(&mut store, "occt_translate_batch")?,
             fn_compose_transform: instance.get_typed_func(&mut store, "occt_compose_transform")?,
@@ -1247,6 +1249,23 @@ impl crate::kernel::OcctKernel {
         self.check_error("transform")?;
         if result == 0 {
             return Err(self.read_last_error("transform"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn located(&mut self, id: ShapeHandle, matrix: &[f64]) -> OcctResult<ShapeHandle> {
+        let matrix_bytes: Vec<u8> = matrix.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let matrix_ptr = self.write_bytes(&matrix_bytes)?;
+        let matrix_len = matrix.len() as u32;
+        let result = self.generated.fn_located.call(
+            &mut self.store,
+            (id.0, matrix_ptr as i32, matrix_len as i32),
+        );
+        self.free_bytes(matrix_ptr)?;
+        let result = result?;
+        self.check_error("located")?;
+        if result == 0 {
+            return Err(self.read_last_error("located"));
         }
         Ok(ShapeHandle(result))
     }

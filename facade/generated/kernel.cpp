@@ -990,6 +990,21 @@ uint32_t OcctKernel::transform(uint32_t id, std::vector<double> matrix) {
     }
 }
 
+uint32_t OcctKernel::located(uint32_t id, std::vector<double> matrix) {
+    try {
+        if (matrix.size() != 12) {
+            throw std::runtime_error("located: matrix must have 12 elements (3x4)");
+        }
+        gp_Trsf trsf;
+        trsf.SetValues(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5], matrix[6],
+                       matrix[7], matrix[8], matrix[9], matrix[10], matrix[11]);
+        TopLoc_Location loc(trsf);
+        return store(get(id).Moved(loc));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("located: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::generalTransform(uint32_t id, std::vector<double> matrix) {
     try {
         if (matrix.size() != 12) {

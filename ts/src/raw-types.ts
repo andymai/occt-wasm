@@ -213,6 +213,7 @@ export interface OcctRawKernel {
     mirror(id: number, px: number, py: number, pz: number, nx: number, ny: number, nz: number): number;
     copy(id: number): number;
     transform(id: number, matrix: EmbindVectorF64): number;
+    located(id: number, matrix: EmbindVectorF64): number;
     generalTransform(id: number, matrix: EmbindVectorF64): number;
     linearPattern(id: number, dx: number, dy: number, dz: number, spacing: number, count: number): number;
     circularPattern(id: number, cx: number, cy: number, cz: number, ax: number, ay: number, az: number, angle: number, count: number): number;

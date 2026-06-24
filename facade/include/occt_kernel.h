@@ -226,6 +226,7 @@ class OcctKernel {
     uint32_t mirror(uint32_t id, double px, double py, double pz, double nx, double ny, double nz);
     uint32_t copy(uint32_t id);
     uint32_t transform(uint32_t id, std::vector<double> matrix);
+    uint32_t located(uint32_t id, std::vector<double> matrix);
     uint32_t generalTransform(uint32_t id, std::vector<double> matrix);
     uint32_t linearPattern(uint32_t id, double dx, double dy, double dz, double spacing, int count);
     uint32_t circularPattern(uint32_t id, double cx, double cy, double cz, double ax, double ay,
