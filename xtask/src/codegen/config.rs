@@ -3645,6 +3645,16 @@ return store(reader.OneShape());",
 const auto& shape = get(id);
 
 STEPControl_Writer writer;
+// The STEP write actor only fixes non-conformant elementary surfaces (e.g. a
+// cone whose stored ConicalSurface has a negative semi-angle) when the
+// DirectFaces shape-processing op runs. That op lives on the shared OCCT \"STEP\"
+// controller actor, whose flags any prior XCAF/STEPCAF export silently clears --
+// after which writer.Transfer() runs no processing and drops conical faces. Set
+// the flags explicitly so single-shape STEP export is independent of that state.
+ShapeProcess::OperationsFlags spFlags;
+spFlags.set(ShapeProcess::Operation::DirectFaces);
+spFlags.set(ShapeProcess::Operation::SplitCommonVertex);
+writer.SetShapeProcessFlags(spFlags);
 IFSelect_ReturnStatus status = writer.Transfer(shape, STEPControl_AsIs);
 if (status != IFSelect_RetDone) {
     throw std::runtime_error(\"exportStep: transfer failed\");
@@ -3672,7 +3682,7 @@ fclose(f);
 return result;",
         includes: &[
             "IFSelect_ReturnStatus.hxx", "STEPControl_Writer.hxx",
-            "STEPControl_StepModelType.hxx",
+            "STEPControl_StepModelType.hxx", "ShapeProcess.hxx",
         ],
         category: "io",
         return_type: ReturnType::String,
@@ -4590,7 +4600,12 @@ if (it == xcafDocs_.end())
 
 Handle(XCAFDoc_ShapeTool) shapeTool =
     XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
-TDF_Label label = shapeTool->AddShape(get(shapeId));
+// makeAssembly=false: add the shape as a single part. With the default (true),
+// a COMPOUND -- e.g. the single-solid compound a boolean cut/fuse returns -- is
+// auto-decomposed into an assembly, so a color set on this (assembly) label is
+// never emitted as a STYLED_ITEM for the underlying solid. Treating a root shape
+// as one part keeps per-label colors attached to its geometry.
+TDF_Label label = shapeTool->AddShape(get(shapeId), Standard_False);
 
 int facadeId = it->second.nextLabelId++;
 it->second.labelRegistry[facadeId] = label;
@@ -4843,6 +4858,16 @@ if (it == xcafDocs_.end())
 STEPCAFControl_Writer writer;
 writer.SetColorMode(Standard_True);
 writer.SetNameMode(Standard_True);
+// STEPCAFControl_Writer does not seed the write actor's shape-processing flags,
+// so non-conformant elementary surfaces (notably cones, whose stored
+// ConicalSurface carries a negative semi-angle) are never fixed and their
+// lateral faces are dropped from the output. Enable DirectFaces explicitly to
+// match the plain exportStep path. (This also re-seeds the shared controller
+// actor, leaving subsequent exportStep calls in a healthy state.)
+ShapeProcess::OperationsFlags spFlags;
+spFlags.set(ShapeProcess::Operation::DirectFaces);
+spFlags.set(ShapeProcess::Operation::SplitCommonVertex);
+writer.SetShapeProcessFlags(spFlags);
 
 if (!writer.Transfer(it->second.doc, STEPControl_AsIs)) {
     throw std::runtime_error(\"xcafExportSTEP: transfer failed\");
@@ -4860,7 +4885,7 @@ std::remove(tmpPath.c_str());
 return content;",
         includes: &[
             "STEPCAFControl_Writer.hxx", "STEPControl_StepModelType.hxx",
-            "Standard_Failure.hxx",
+            "Standard_Failure.hxx", "ShapeProcess.hxx",
         ],
         category: "xcaf",
         return_type: ReturnType::String,
