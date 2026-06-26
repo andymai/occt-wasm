@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.1](https://github.com/andymai/occt-wasm/compare/v3.6.0...v3.6.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* **facade:** preserve cone surfaces and boolean-cut colors in XCAF STEP export ([#195](https://github.com/andymai/occt-wasm/issues/195)) ([af54aed](https://github.com/andymai/occt-wasm/commit/af54aed2e139fa4d09252b5566211a540300478a))
+
 ## [3.6.0](https://github.com/andymai/occt-wasm/compare/v3.5.1...v3.6.0) (2026-06-24)
 
 
