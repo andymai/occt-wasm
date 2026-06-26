@@ -211,4 +211,48 @@ describe("XCAF", () => {
         kernel.release(box);
         kernel.xcafClose(docId);
     });
+
+    // Regression: https://github.com/andymai/occt-wasm/issues/194
+    describe("issue #194 — XCAF STEP export parity with plain exportStep", () => {
+        const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
+
+        it("preserves a cone's CONICAL_SURFACE (matching exportStep)", () => {
+            const docId = kernel.xcafNewDocument();
+            kernel.xcafAddShape(docId, kernel.makeBox(10, 10, 10));
+            kernel.xcafAddShape(docId, kernel.makeCone(8, 0, 24));
+            const step: string = kernel.xcafExportSTEP(docId);
+            expect(count(step, /CONICAL_SURFACE/g)).toBe(1);
+            expect(count(step, /ADVANCED_FACE/g)).toBe(8); // box(6) + cone(2)
+            kernel.xcafClose(docId);
+        });
+
+        it("preserves a cone frustum's CONICAL_SURFACE", () => {
+            const docId = kernel.xcafNewDocument();
+            kernel.xcafAddShape(docId, kernel.makeCone(8, 4, 24));
+            const step: string = kernel.xcafExportSTEP(docId);
+            expect(count(step, /CONICAL_SURFACE/g)).toBe(1);
+            kernel.xcafClose(docId);
+        });
+
+        it("applies a per-label color to a boolean-cut body", () => {
+            const docId = kernel.xcafNewDocument();
+            const cut = kernel.cut(kernel.makeBox(10, 10, 10), kernel.makeCylinder(2, 30));
+            const tag = kernel.xcafAddShape(docId, cut);
+            kernel.xcafSetColor(docId, tag, 0.83, 0.09, 0.13);
+            const step: string = kernel.xcafExportSTEP(docId);
+            expect(count(step, /COLOUR_RGB/g)).toBeGreaterThanOrEqual(1);
+            expect(count(step, /STYLED_ITEM/g)).toBeGreaterThanOrEqual(1);
+            kernel.xcafClose(docId);
+        });
+
+        it("does not corrupt later exportStep calls (no global-state leak)", () => {
+            const conical = () => count(kernel.exportStep(kernel.makeCone(8, 0, 24)), /CONICAL_SURFACE/g);
+            expect(conical()).toBe(1);
+            const docId = kernel.xcafNewDocument();
+            kernel.xcafAddShape(docId, kernel.makeCone(8, 0, 24));
+            kernel.xcafExportSTEP(docId);
+            kernel.xcafClose(docId);
+            expect(conical()).toBe(1); // would be 0 before the fix
+        });
+    });
 });
