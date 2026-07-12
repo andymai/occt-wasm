@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.2](https://github.com/andymai/occt-wasm/compare/v3.6.1...v3.6.2) (2026-07-11)
+
+
+### Bug Fixes
+
+* **deps:** bump crossbeam-epoch to 0.9.20 for RUSTSEC-2026-0204 ([#203](https://github.com/andymai/occt-wasm/issues/203)) ([7eaad21](https://github.com/andymai/occt-wasm/commit/7eaad21fcb4c5429df08773b5f127385e8ef5059))
+
 ## [3.6.1](https://github.com/andymai/occt-wasm/compare/v3.6.0...v3.6.1) (2026-06-26)
 
 
