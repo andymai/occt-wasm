@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.0](https://github.com/andymai/occt-wasm/compare/v3.6.2...v3.7.0) (2026-07-13)
+
+
+### Features
+
+* **facade:** arena memory-management primitives ([#205](https://github.com/andymai/occt-wasm/issues/205), [#206](https://github.com/andymai/occt-wasm/issues/206), [#207](https://github.com/andymai/occt-wasm/issues/207)) ([3da88bc](https://github.com/andymai/occt-wasm/commit/3da88bc00c3bdc25a2e59324b75357c26d47ea31))
+
 ## [3.6.2](https://github.com/andymai/occt-wasm/compare/v3.6.1...v3.6.2) (2026-07-11)
 
 
