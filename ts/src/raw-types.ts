@@ -135,6 +135,8 @@ export interface OcctRawKernel {
     release(id: number): void;
     releaseAll(): void;
     getShapeCount(): number;
+    checkpoint(): number;
+    releaseSince(mark: number): void;
 
     // Primitives
     makeBox(dx: number, dy: number, dz: number): number;
@@ -232,6 +234,8 @@ export interface OcctRawKernel {
     // Topology
     getShapeType(id: number): string;
     getSubShapes(id: number, shapeType: string): EmbindVectorU32;
+    subShapeCount(id: number, shapeType: string): number;
+    subShapeHashes(id: number, shapeType: string, hashUpperBound: number): EmbindVectorI32;
     downcast(id: number, targetType: string): number;
     distanceBetween(a: number, b: number): number;
     isSame(a: number, b: number): boolean;

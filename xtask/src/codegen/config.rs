@@ -1913,6 +1913,74 @@ return result;",
         return_type: ReturnType::VectorUint32,
     },
     MethodSpec {
+        name: "subShapeCount",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::String("shapeType")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compsolid\") return TopAbs_COMPSOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
+TopExp::MapShapes(get(id), parseType(shapeType), map);
+return map.Extent();",
+        includes: &[
+            "TopAbs_ShapeEnum.hxx", "TopExp.hxx",
+            "NCollection_IndexedMap.hxx", "TopTools_ShapeMapHasher.hxx",
+        ],
+        category: "topology",
+        return_type: ReturnType::Int,
+    },
+    MethodSpec {
+        name: "subShapeHashes",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::String("shapeType"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        // Deduplicated sub-shape hashes with no per-sub-shape arena handle,
+        // mirroring edgeToFaceMap's handle-free hash reporting (see issue #206).
+        setup_code: "\
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compsolid\") return TopAbs_COMPSOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
+TopExp::MapShapes(get(id), parseType(shapeType), map);
+std::vector<int> result;
+result.reserve(map.Extent());
+for (int i = 1; i <= map.Extent(); i++) {
+    result.push_back(static_cast<int>(TopTools_ShapeMapHasher{}(map.FindKey(i)) %
+                                      static_cast<size_t>(hashUpperBound)));
+}
+return result;",
+        includes: &[
+            "TopAbs_ShapeEnum.hxx", "TopExp.hxx",
+            "NCollection_IndexedMap.hxx", "TopTools_ShapeMapHasher.hxx",
+        ],
+        category: "topology",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
         name: "distanceBetween",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("a"), FacadeParam::ShapeId("b")],
@@ -2069,7 +2137,10 @@ TopAbs_ShapeEnum target = parseType(targetType);
 if (shape.ShapeType() != target) {
     throw std::runtime_error(\"downcast: shape type mismatch\");
 }
-return store(shape);",
+// The shape is already the requested type, so the cast is a pure identity.
+// Return the existing id instead of storing a duplicate handle, sparing
+// callers the post-downcast release() bookkeeping (see issue #205).
+return id;",
         includes: &["TopAbs_ShapeEnum.hxx", "TopoDS.hxx"],
         category: "topology",
         return_type: ReturnType::ShapeId,
@@ -4515,6 +4586,41 @@ return result;",
         setup_code: "\
 arena_.clear();
 nextId_ = 1;",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::Void,
+    },
+    MethodSpec {
+        name: "checkpoint",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        // The next id to be handed out is the high-water mark: every id
+        // allocated after this call is >= the returned value.
+        setup_code: "return nextId_;",
+        includes: &[],
+        category: "kernel",
+        return_type: ReturnType::Uint32,
+    },
+    MethodSpec {
+        name: "releaseSince",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::Uint32("mark")],
+        occt_class: "",
+        ctor_args: "",
+        // Release every id allocated at or after `mark` (a value from a prior
+        // checkpoint()). nextId_ is left untouched so subsequent allocations
+        // keep climbing -- reusing freed ids would alias live handles a caller
+        // promoted past the mark.
+        setup_code: "\
+for (auto it = arena_.begin(); it != arena_.end();) {
+    if (it->first >= mark) {
+        it = arena_.erase(it);
+    } else {
+        ++it;
+    }
+}",
         includes: &[],
         category: "kernel",
         return_type: ReturnType::Void,

@@ -103,6 +103,8 @@ pub(crate) struct GeneratedFuncs {
     fn_bspline_surface: TypedFunc<(i32, i32, i32, i32), u32>,
     fn_get_shape_type: TypedFunc<(u32,), i32>,
     fn_get_sub_shapes: TypedFunc<(u32, i32, i32), i32>,
+    fn_sub_shape_count: TypedFunc<(u32, i32, i32), i32>,
+    fn_sub_shape_hashes: TypedFunc<(u32, i32, i32, i32), i32>,
     fn_distance_between: TypedFunc<(u32, u32), f64>,
     fn_is_same: TypedFunc<(u32, u32), i32>,
     fn_is_equal: TypedFunc<(u32, u32), i32>,
@@ -201,6 +203,8 @@ pub(crate) struct GeneratedFuncs {
     fn_project_edges: TypedFunc<(u32, f64, f64, f64, f64, f64, f64, f64, f64, f64, i32), i32>,
     fn_release: TypedFunc<(u32,), i32>,
     fn_release_all: TypedFunc<(), i32>,
+    fn_checkpoint: TypedFunc<(), u32>,
+    fn_release_since: TypedFunc<(u32,), i32>,
     fn_get_shape_count: TypedFunc<(), u32>,
     fn_make_null_shape: TypedFunc<(), u32>,
     fn_xcaf_new_document: TypedFunc<(), u32>,
@@ -310,6 +314,8 @@ impl GeneratedFuncs {
             fn_bspline_surface: instance.get_typed_func(&mut store, "occt_bspline_surface")?,
             fn_get_shape_type: instance.get_typed_func(&mut store, "occt_get_shape_type")?,
             fn_get_sub_shapes: instance.get_typed_func(&mut store, "occt_get_sub_shapes")?,
+            fn_sub_shape_count: instance.get_typed_func(&mut store, "occt_sub_shape_count")?,
+            fn_sub_shape_hashes: instance.get_typed_func(&mut store, "occt_sub_shape_hashes")?,
             fn_distance_between: instance.get_typed_func(&mut store, "occt_distance_between")?,
             fn_is_same: instance.get_typed_func(&mut store, "occt_is_same")?,
             fn_is_equal: instance.get_typed_func(&mut store, "occt_is_equal")?,
@@ -437,6 +443,8 @@ impl GeneratedFuncs {
             fn_project_edges: instance.get_typed_func(&mut store, "occt_project_edges")?,
             fn_release: instance.get_typed_func(&mut store, "occt_release")?,
             fn_release_all: instance.get_typed_func(&mut store, "occt_release_all")?,
+            fn_checkpoint: instance.get_typed_func(&mut store, "occt_checkpoint")?,
+            fn_release_since: instance.get_typed_func(&mut store, "occt_release_since")?,
             fn_get_shape_count: instance.get_typed_func(&mut store, "occt_get_shape_count")?,
             fn_make_null_shape: instance.get_typed_func(&mut store, "occt_make_null_shape")?,
             fn_xcaf_new_document: instance.get_typed_func(&mut store, "occt_xcaf_new_document")?,
@@ -2059,6 +2067,44 @@ impl crate::kernel::OcctKernel {
             return Err(self.read_last_error("get_sub_shapes"));
         }
         self.read_vec_u32_result()
+    }
+
+    pub fn sub_shape_count(&mut self, id: ShapeHandle, shape_type: &str) -> OcctResult<i32> {
+        let shape_type_ptr = self.write_bytes(shape_type.as_bytes())?;
+        let shape_type_len = shape_type.len() as u32;
+        let result = self.generated.fn_sub_shape_count.call(
+            &mut self.store,
+            (id.0, shape_type_ptr as i32, shape_type_len as i32),
+        );
+        self.free_bytes(shape_type_ptr)?;
+        let result = result?;
+        self.check_error("sub_shape_count")?;
+        Ok(result)
+    }
+
+    pub fn sub_shape_hashes(
+        &mut self,
+        id: ShapeHandle,
+        shape_type: &str,
+        hash_upper_bound: i32,
+    ) -> OcctResult<Vec<i32>> {
+        let shape_type_ptr = self.write_bytes(shape_type.as_bytes())?;
+        let shape_type_len = shape_type.len() as u32;
+        let len = self.generated.fn_sub_shape_hashes.call(
+            &mut self.store,
+            (
+                id.0,
+                shape_type_ptr as i32,
+                shape_type_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(shape_type_ptr)?;
+        let len = len?;
+        if len < 0 {
+            return Err(self.read_last_error("sub_shape_hashes"));
+        }
+        self.read_vec_i32_result()
     }
 
     pub fn distance_between(&mut self, a: ShapeHandle, b: ShapeHandle) -> OcctResult<f64> {
@@ -3768,6 +3814,23 @@ impl crate::kernel::OcctKernel {
         let result = self.generated.fn_release_all.call(&mut self.store, ())?;
         if result < 0 {
             return Err(self.read_last_error("release_all"));
+        }
+        Ok(())
+    }
+
+    pub fn checkpoint(&mut self) -> OcctResult<u32> {
+        let result = self.generated.fn_checkpoint.call(&mut self.store, ())?;
+        self.check_error("checkpoint")?;
+        Ok(result)
+    }
+
+    pub fn release_since(&mut self, mark: u32) -> OcctResult<()> {
+        let result = self
+            .generated
+            .fn_release_since
+            .call(&mut self.store, (mark,))?;
+        if result < 0 {
+            return Err(self.read_last_error("release_since"));
         }
         Ok(())
     }

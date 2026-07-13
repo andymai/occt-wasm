@@ -703,6 +703,67 @@ describe("topology query (extended)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Arena memory management (issues #205 / #206 / #207)
+// ---------------------------------------------------------------------------
+
+describe("arena memory management", () => {
+    it("downcast is identity for an already-correct-type shape (no new arena slot)", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const faces = kernel.getSubShapes(box, "face");
+        const faceId = faces.get(0);
+        const before = kernel.getShapeCount();
+        const result = kernel.downcast(faceId, "face");
+        expect(result).toBe(faceId); // same handle, not a freshly counted id
+        expect(kernel.getShapeCount()).toBe(before); // no arena churn
+        faces.delete();
+    });
+
+    it("subShapeCount matches getSubShapes length without allocating handles", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const before = kernel.getShapeCount();
+        expect(kernel.subShapeCount(box, "face")).toBe(6);
+        expect(kernel.subShapeCount(box, "edge")).toBe(12);
+        expect(kernel.subShapeCount(box, "vertex")).toBe(8);
+        expect(kernel.getShapeCount()).toBe(before);
+    });
+
+    it("subShapeHashes returns one hash per sub-shape without allocating handles", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const before = kernel.getShapeCount();
+        const hashes = kernel.subShapeHashes(box, "face", 1_000_000);
+        expect(hashes.size()).toBe(6);
+        for (let i = 0; i < hashes.size(); i++) {
+            expect(hashes.get(i)).toBeGreaterThanOrEqual(0);
+            expect(hashes.get(i)).toBeLessThan(1_000_000);
+        }
+        expect(kernel.getShapeCount()).toBe(before);
+        hashes.delete();
+    });
+
+    it("checkpoint + releaseSince bulk-frees only ids allocated after the mark", () => {
+        const keep = kernel.makeBox(1, 1, 1);
+        const mark = kernel.checkpoint();
+        kernel.makeBox(2, 2, 2);
+        const orphan = kernel.makeBox(3, 3, 3);
+        const before = kernel.getShapeCount();
+        expect(before).toBe(3);
+
+        kernel.releaseSince(mark);
+
+        expect(kernel.getShapeCount()).toBe(1); // only `keep` survives
+        expect(kernel.getShapeType(keep)).toBe("solid");
+        expect(() => kernel.getShapeType(orphan)).toThrow();
+    });
+
+    it("releaseSince(checkpoint()) with no intervening allocations is a no-op", () => {
+        kernel.makeBox(1, 1, 1);
+        const before = kernel.getShapeCount();
+        kernel.releaseSince(kernel.checkpoint());
+        expect(kernel.getShapeCount()).toBe(before);
+    });
+});
+
+// ---------------------------------------------------------------------------
 // Tessellation (extended)
 // ---------------------------------------------------------------------------
 

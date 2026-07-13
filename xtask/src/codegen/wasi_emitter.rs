@@ -44,7 +44,7 @@ pub fn camel_to_snake(s: &str) -> String {
 /// String and vector types expand to pointer+length pairs.
 fn param_to_c_abi(param: &FacadeParam) -> String {
     match param {
-        FacadeParam::ShapeId(name) => format!("uint32_t {name}"),
+        FacadeParam::ShapeId(name) | FacadeParam::Uint32(name) => format!("uint32_t {name}"),
         FacadeParam::Double(name) => format!("double {name}"),
         FacadeParam::Bool(name) | FacadeParam::Int(name) => format!("int32_t {name}"),
         FacadeParam::String(name) => format!("const char* {name}_ptr, uint32_t {name}_len"),
@@ -73,9 +73,10 @@ fn c_abi_param_list(params: &[FacadeParam]) -> String {
 /// String/vector types are reconstructed from ptr+len pairs.
 fn param_to_call_arg(param: &FacadeParam) -> String {
     match param {
-        FacadeParam::ShapeId(name) | FacadeParam::Double(name) | FacadeParam::Int(name) => {
-            (*name).to_owned()
-        }
+        FacadeParam::ShapeId(name)
+        | FacadeParam::Double(name)
+        | FacadeParam::Int(name)
+        | FacadeParam::Uint32(name) => (*name).to_owned(),
         FacadeParam::Bool(name) => format!("({name} != 0)"),
         FacadeParam::String(name) => format!("std::string({name}_ptr, {name}_len)"),
         FacadeParam::VectorShapeIds(name) => {

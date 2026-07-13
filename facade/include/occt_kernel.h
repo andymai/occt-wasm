@@ -130,6 +130,8 @@ class OcctKernel {
     void release(uint32_t id);
     void releaseAll();
     uint32_t getShapeCount();
+    uint32_t checkpoint();
+    void releaseSince(uint32_t mark);
 
     // --- Primitives ---
     uint32_t makeBox(double dx, double dy, double dz);
@@ -248,6 +250,8 @@ class OcctKernel {
     // --- Topology query ---
     std::string getShapeType(uint32_t id);
     std::vector<uint32_t> getSubShapes(uint32_t id, const std::string& shapeType);
+    int subShapeCount(uint32_t id, const std::string& shapeType);
+    std::vector<int> subShapeHashes(uint32_t id, const std::string& shapeType, int hashUpperBound);
     uint32_t downcast(uint32_t id, const std::string& targetType);
     double distanceBetween(uint32_t a, uint32_t b);
     bool isSame(uint32_t a, uint32_t b);

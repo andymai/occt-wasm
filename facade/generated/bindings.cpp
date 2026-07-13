@@ -193,6 +193,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // topology
         .function("getShapeType", &OcctKernel::getShapeType)
         .function("getSubShapes", &OcctKernel::getSubShapes)
+        .function("subShapeCount", &OcctKernel::subShapeCount)
+        .function("subShapeHashes", &OcctKernel::subShapeHashes)
         .function("distanceBetween", &OcctKernel::distanceBetween)
         .function("isSame", &OcctKernel::isSame)
         .function("isEqual", &OcctKernel::isEqual)
@@ -307,6 +309,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // kernel
         .function("release", &OcctKernel::release)
         .function("releaseAll", &OcctKernel::releaseAll)
+        .function("checkpoint", &OcctKernel::checkpoint)
+        .function("releaseSince", &OcctKernel::releaseSince)
         .function("getShapeCount", &OcctKernel::getShapeCount)
         .function("makeNullShape", &OcctKernel::makeNullShape)
 

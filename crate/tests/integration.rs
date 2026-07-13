@@ -202,6 +202,32 @@ fn get_sub_shapes() {
 }
 
 #[test]
+fn sub_shape_count_and_hashes() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let shape = kernel.make_box(10.0, 10.0, 10.0).unwrap();
+    assert_eq!(kernel.sub_shape_count(shape, "face").unwrap(), 6);
+    let hashes = kernel.sub_shape_hashes(shape, "face", 1_000_000).unwrap();
+    assert_eq!(hashes.len(), 6, "one hash per face, no handles allocated");
+}
+
+#[test]
+fn checkpoint_release_since() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let _keep = kernel.make_box(1.0, 1.0, 1.0).unwrap();
+    let mark = kernel.checkpoint().unwrap();
+    let _a = kernel.make_box(2.0, 2.0, 2.0).unwrap();
+    let _b = kernel.make_box(3.0, 3.0, 3.0).unwrap();
+    assert_eq!(kernel.get_shape_count().unwrap(), 3);
+    kernel.release_since(mark).unwrap();
+    // Only the pre-checkpoint handle survives.
+    assert_eq!(kernel.get_shape_count().unwrap(), 1);
+}
+
+#[test]
 fn extrude_rectangle() {
     let Some(mut kernel) = try_kernel() else {
         return;

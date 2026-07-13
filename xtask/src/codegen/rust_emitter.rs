@@ -16,6 +16,7 @@ fn param_to_rust(param: &FacadeParam) -> String {
         FacadeParam::Double(name) => format!("{}: f64", rust_param_name(name)),
         FacadeParam::Bool(name) => format!("{}: bool", rust_param_name(name)),
         FacadeParam::Int(name) => format!("{}: i32", rust_param_name(name)),
+        FacadeParam::Uint32(name) => format!("{}: u32", rust_param_name(name)),
         FacadeParam::String(name) => format!("{}: &str", rust_param_name(name)),
         FacadeParam::VectorShapeIds(name) => format!("{}: &[ShapeHandle]", rust_param_name(name)),
         FacadeParam::VectorDouble(name) => format!("{}: &[f64]", rust_param_name(name)),
@@ -188,7 +189,7 @@ fn emit_wasm_call_args(params: &[FacadeParam]) -> String {
         .iter()
         .flat_map(|p| match p {
             FacadeParam::ShapeId(name) => vec![format!("{}.0", rust_param_name(name))],
-            FacadeParam::Double(name) | FacadeParam::Int(name) => {
+            FacadeParam::Double(name) | FacadeParam::Int(name) | FacadeParam::Uint32(name) => {
                 vec![rust_param_name(name)]
             }
             FacadeParam::Bool(name) => vec![format!("i32::from({})", rust_param_name(name))],
@@ -243,7 +244,7 @@ fn wasm_typed_func_type(spec: &MethodSpec) -> String {
         .params
         .iter()
         .flat_map(|p| match p {
-            FacadeParam::ShapeId(_) => vec!["u32"],
+            FacadeParam::ShapeId(_) | FacadeParam::Uint32(_) => vec!["u32"],
             FacadeParam::Double(_) => vec!["f64"],
             FacadeParam::Bool(_) | FacadeParam::Int(_) => vec!["i32"],
             FacadeParam::String(_)

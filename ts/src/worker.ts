@@ -97,6 +97,8 @@ export interface OcctWorkerProxy {
     isVertex(shape: ShapeHandle): Promise<boolean>;
     isShell(shape: ShapeHandle): Promise<boolean>;
     getSubShapes(shape: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): Promise<ShapeHandle[]>;
+    subShapeCount(shape: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): Promise<number>;
+    subShapeHashes(shape: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid", hashUpperBound: number): Promise<number[]>;
     distanceBetween(a: ShapeHandle, b: ShapeHandle): Promise<number>;
     isSame(a: ShapeHandle, b: ShapeHandle): Promise<boolean>;
     isNull(shape: ShapeHandle): Promise<boolean>;
@@ -163,6 +165,8 @@ export interface OcctWorkerProxy {
     // Memory
     release(shape: ShapeHandle): Promise<void>;
     releaseAll(): Promise<void>;
+    checkpoint(): Promise<number>;
+    releaseSince(mark: number): Promise<void>;
     readonly shapeCount: Promise<number>;
 
     // Debugging

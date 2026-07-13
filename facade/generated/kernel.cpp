@@ -1701,6 +1701,54 @@ std::vector<uint32_t> OcctKernel::getSubShapes(uint32_t id, const std::string& s
     }
 }
 
+int OcctKernel::subShapeCount(uint32_t id, const std::string& shapeType) {
+    try {
+        auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+            if (t == "vertex") return TopAbs_VERTEX;
+            if (t == "edge") return TopAbs_EDGE;
+            if (t == "wire") return TopAbs_WIRE;
+            if (t == "face") return TopAbs_FACE;
+            if (t == "shell") return TopAbs_SHELL;
+            if (t == "solid") return TopAbs_SOLID;
+            if (t == "compsolid") return TopAbs_COMPSOLID;
+            if (t == "compound") return TopAbs_COMPOUND;
+            throw std::runtime_error("Unknown shape type: " + t);
+        };
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
+        TopExp::MapShapes(get(id), parseType(shapeType), map);
+        return map.Extent();
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("subShapeCount: ") + e.what());
+    }
+}
+
+std::vector<int> OcctKernel::subShapeHashes(uint32_t id, const std::string& shapeType, int hashUpperBound) {
+    try {
+        auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+            if (t == "vertex") return TopAbs_VERTEX;
+            if (t == "edge") return TopAbs_EDGE;
+            if (t == "wire") return TopAbs_WIRE;
+            if (t == "face") return TopAbs_FACE;
+            if (t == "shell") return TopAbs_SHELL;
+            if (t == "solid") return TopAbs_SOLID;
+            if (t == "compsolid") return TopAbs_COMPSOLID;
+            if (t == "compound") return TopAbs_COMPOUND;
+            throw std::runtime_error("Unknown shape type: " + t);
+        };
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
+        TopExp::MapShapes(get(id), parseType(shapeType), map);
+        std::vector<int> result;
+        result.reserve(map.Extent());
+        for (int i = 1; i <= map.Extent(); i++) {
+            result.push_back(static_cast<int>(TopTools_ShapeMapHasher{}(map.FindKey(i)) %
+                                              static_cast<size_t>(hashUpperBound)));
+        }
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("subShapeHashes: ") + e.what());
+    }
+}
+
 double OcctKernel::distanceBetween(uint32_t a, uint32_t b) {
     try {
         BRepExtrema_DistShapeShape dist(get(a), get(b));
@@ -1825,7 +1873,10 @@ uint32_t OcctKernel::downcast(uint32_t id, const std::string& targetType) {
         if (shape.ShapeType() != target) {
             throw std::runtime_error("downcast: shape type mismatch");
         }
-        return store(shape);
+        // The shape is already the requested type, so the cast is a pure identity.
+        // Return the existing id instead of storing a duplicate handle, sparing
+        // callers the post-downcast release() bookkeeping (see issue #205).
+        return id;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("downcast: ") + e.what());
     }
@@ -3597,6 +3648,28 @@ void OcctKernel::releaseAll() {
         nextId_ = 1;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("releaseAll: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::checkpoint() {
+    try {
+        return nextId_;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("checkpoint: ") + e.what());
+    }
+}
+
+void OcctKernel::releaseSince(uint32_t mark) {
+    try {
+        for (auto it = arena_.begin(); it != arena_.end();) {
+            if (it->first >= mark) {
+                it = arena_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("releaseSince: ") + e.what());
     }
 }
 

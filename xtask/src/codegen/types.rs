@@ -58,6 +58,9 @@ pub enum FacadeParam {
     /// `int` integer.
     Int(&'static str),
 
+    /// `uint32_t` non-shape-ID integer (e.g. an arena high-water mark).
+    Uint32(&'static str),
+
     /// `std::string` value.
     String(&'static str),
 
@@ -77,6 +80,7 @@ impl FacadeParam {
             | Self::VectorShapeIds(n)
             | Self::Bool(n)
             | Self::Int(n)
+            | Self::Uint32(n)
             | Self::String(n)
             | Self::VectorDouble(n)
             | Self::VectorInt(n) => n,

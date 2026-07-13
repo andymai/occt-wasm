@@ -966,6 +966,22 @@ export class OcctKernel {
         return wrap("getSubShapes", () => this.#vecToHandles(this.#raw.getSubShapes(shape, type)));
     }
 
+    /** Count sub-shapes of a type without materialising a handle per sub-shape. */
+    subShapeCount(shape: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): number {
+        return wrap("subShapeCount", () => this.#raw.subShapeCount(shape, type));
+    }
+
+    /**
+     * Deduplicated hashes of a shape's sub-shapes, with no per-sub-shape handle
+     * allocation. Use for hash-only paths (face-hash collection, tagging) that
+     * would otherwise iterate {@link getSubShapes} handles just to release them.
+     */
+    subShapeHashes(shape: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid", hashUpperBound: number): number[] {
+        return wrap("subShapeHashes", () =>
+            this.#drainVector(this.#raw.subShapeHashes(shape, type, hashUpperBound), Int32Array),
+        );
+    }
+
     downcast(shape: ShapeHandle, targetType: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): ShapeHandle {
         return wrap("downcast", () => handle(this.#raw.downcast(shape, targetType)));
     }
@@ -1838,6 +1854,26 @@ export class OcctKernel {
 
     releaseAll(): void {
         this.#raw.releaseAll();
+    }
+
+    /**
+     * Mark the current arena high-water point. Every handle produced after this
+     * call can be reclaimed in one step with {@link releaseSince}. Pair the two
+     * around a logical operation to bulk-free intermediates instead of tracking
+     * each id for individual {@link release}.
+     */
+    checkpoint(): number {
+        return this.#raw.checkpoint();
+    }
+
+    /**
+     * Release every handle allocated at or after `mark` (a value from a prior
+     * {@link checkpoint}). Handles the caller wants to keep must be produced
+     * before the checkpoint, or copied out; ids created after the mark become
+     * invalid once this returns.
+     */
+    releaseSince(mark: number): void {
+        this.#raw.releaseSince(mark);
     }
 
     get shapeCount(): number {

@@ -11,7 +11,7 @@ use super::types::{FacadeParam, MethodKind, MethodSpec, ReturnType};
 /// Format a [`FacadeParam`] as a C++ formal parameter declaration.
 fn param_to_cpp(param: &FacadeParam) -> String {
     match param {
-        FacadeParam::ShapeId(name) => format!("uint32_t {name}"),
+        FacadeParam::ShapeId(name) | FacadeParam::Uint32(name) => format!("uint32_t {name}"),
         FacadeParam::Double(name) => format!("double {name}"),
         FacadeParam::VectorShapeIds(name) => format!("std::vector<uint32_t> {name}"),
         FacadeParam::Bool(name) => format!("bool {name}"),
