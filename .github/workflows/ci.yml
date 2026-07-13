@@ -46,7 +46,7 @@ jobs:
         run: cd ts && npm ci
 
       - name: TypeScript typecheck
-        run: cd ts && npx tsc --noEmit
+        run: cd ts && npx tsgo --noEmit
 
       - name: ESLint
         run: cd ts && npx eslint src/

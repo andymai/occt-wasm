@@ -22,7 +22,7 @@ Tests load the prebuilt WASM from `dist/`, so **run a build before testing**. To
 ```bash
 cd ts && npx vitest run ../test/integration.test.ts   # one file
 cd ts && npx vitest run -t "fuse"                      # tests whose name matches
-cd ts && npx tsc --noEmit && npx eslint src/           # the lint gate — no WASM needed
+cd ts && npx tsgo --noEmit && npx eslint src/          # the lint gate — no WASM needed
 ```
 
 Benchmarks: `npx vitest run test/bench.test.ts` (from repo root, after a build) writes `benchmarks/last-run.json`; `node scripts/bench-check.js` gates it against `baseline.json` (a regression is >15% **and** >0.5ms). Refresh the baseline with `node scripts/bench-check.js --update-baseline` after a run.
@@ -51,7 +51,7 @@ Any facade/codegen change invalidates the committed `wasm.br`. CI's "WASI build 
 Shapes live in a u32-keyed arena (`store`/`get`/`release`/`releaseAll`); IDs are never auto-freed, so the TS wrapper backs them with `Symbol.dispose` + a FinalizationRegistry safety net. Array arguments cross the boundary through `#withU32`/`#withF64`/`#withI32` scope guards (a bulk heap copy above a size threshold). The facade catches OCCT `Standard_Failure` and re-throws `std::runtime_error`; the TS `wrap()` in `types.ts` converts any throw to an `OcctError` whose `code` is inferred by `classifyError` from the operation name + message.
 
 ## CI shape
-- **lint** (no WASM): `cargo fmt --check`, `clippy -D warnings`, `tsc --noEmit`, `eslint`, plus the codegen drift check.
+- **lint** (no WASM): `cargo fmt --check`, `clippy -D warnings`, `tsgo --noEmit` (TS 7 native compiler; `typescript@6` stays for eslint/typedoc's JS API), `eslint`, plus the codegen drift check.
 - **build-test**: builds the Embind WASM in the builder container, runs the full vitest suite + the bench gate.
 - **build-wasi**: the `wasm.br` stale-check above. Releases ship via release-please → npm (OIDC) and a `crate-v*` tag → crates.io.
 

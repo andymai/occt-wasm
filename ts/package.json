@@ -19,11 +19,11 @@
     "dist/"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsgo",
     "prebuild": "bash scripts/copy-wasm.sh",
     "prepack": "cp ../README.md README.md",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "docs": "typedoc"
   },
@@ -47,6 +47,7 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8",
     "@typescript-eslint/parser": "^8",
+    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "eslint": "^10",
     "typedoc": "^0.28.18",
     "typescript": "^6.0",
