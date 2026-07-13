@@ -1,0 +1,38 @@
+CLAUDE.md
+  s_8cd554b7f5b987::t_04f572b27a6d5b 54
+  s_21637f48558cd8::t_8c665e7a12debd 25
+ts/package.json
+  s_8cd554b7f5b987::t_af9cf50694936b 50
+  s_8cd554b7f5b987::t_6000e643deacb1 22
+  s_8cd554b7f5b987::t_b5e75e4bf0cd1a 26
+package.json
+  s_21637f48558cd8::t_b7ac203ccdf8f6 11
+ts/package-lock.json
+  s_8cd554b7f5b987::t_a611520396a495 3,9,17,892-1032
+.github/workflows/ci.yml
+  s_8cd554b7f5b987::t_d76592c7497ca5 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "76f08eaea52630b42747fe0a99a48d3deee13f51",
+  "prompts": {},
+  "sessions": {
+    "s_21637f48558cd8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a8e9d0a2-7ba1-4616-834d-aa8753867dde",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    },
+    "s_8cd554b7f5b987": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc7f709a-4e68-4e71-b510-aecde1145389",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
