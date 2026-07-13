@@ -849,7 +849,7 @@ dependencies = [
 
 [[package]]
 name = "occt-wasm"
-version = "3.2.3"
+version = "3.3.0"
 dependencies = [
  "brotli",
  "thiserror 2.0.18",
