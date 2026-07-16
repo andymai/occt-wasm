@@ -193,6 +193,59 @@ describe("Core 5 — raw facade benchmarks", () => {
         expect(r.median).toBeLessThan(500);
     });
 
+    // Gridfinity-like workloads: booleans against rounded (all-edges-filleted)
+    // tools produce the plane/cylinder/sphere face-face intersections that
+    // dominate real CAD edits, unlike the box/sphere toys above. These are the
+    // benchmarks that respond to OCCT-level boolean work (e.g. the
+    // GeomLib_CheckCurveOnSurface fast path).
+    function roundedBox(dx: number, dy: number, dz: number, r: number): number {
+        const box = kernel.makeBox(dx, dy, dz);
+        const edges = kernel.getSubShapes(box, "edge");
+        const vec = new Module.VectorUint32();
+        const seen = new Set<number>();
+        for (let i = 0; i < edges.size(); i++) {
+            const e = edges.get(i);
+            if (!seen.has(e)) {
+                seen.add(e);
+                vec.push_back(e);
+            }
+        }
+        const out = kernel.fillet(box, vec, r);
+        vec.delete();
+        edges.delete();
+        return out;
+    }
+
+    it("gridfinity plate cutAll 3×3", () => {
+        const r = bench("gridfinity plate cutAll 3×3", () => {
+            const plate = kernel.makeBox(128, 128, 5);
+            const tool = roundedBox(41.5, 41.5, 4.75, 1.6);
+            const tools = new Module.VectorUint32();
+            for (let i = 0; i < 3; i++)
+                for (let j = 0; j < 3; j++)
+                    tools.push_back(kernel.translate(tool, 1.75 + i * 42, 1.75 + j * 42, 1.25));
+            kernel.cutAll(plate, tools);
+            tools.delete();
+        });
+        record(r);
+        expect(r.median).toBeLessThan(1000);
+    });
+
+    it("gridfinity bin fuseAll 5", () => {
+        const r = bench("gridfinity bin fuseAll 5", () => {
+            const foot = roundedBox(41.5, 41.5, 7, 1.6);
+            const args = new Module.VectorUint32();
+            for (let i = 0; i < 2; i++)
+                for (let j = 0; j < 2; j++)
+                    args.push_back(kernel.translate(foot, i * 42, j * 42, 0));
+            args.push_back(kernel.translate(kernel.makeBox(83.5, 83.5, 10), 0, 0, 6));
+            kernel.fuseAll(args);
+            args.delete();
+        });
+        record(r);
+        expect(r.median).toBeLessThan(1000);
+    });
+
     it("meshBatch ×10 spheres (single call)", () => {
         const ids = new Module.VectorUint32();
         for (let i = 0; i < 10; i++) {
