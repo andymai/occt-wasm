@@ -1,0 +1,19 @@
+occt
+  s_6918c5910f76be::t_b1990c25ee0ceb 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "df3e45fe346e2cf7a165ac38a82deab7b29c90f8",
+  "prompts": {},
+  "sessions": {
+    "s_6918c5910f76be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bee9dc9c-bc95-473f-9bd8-416fdf8f832f",
+        "model": "unknown"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
