@@ -1,0 +1,19 @@
+test/bench.test.ts
+  s_6918c5910f76be::t_ea2782d79128c1 196-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "2b5007721ef437af370de38d32ce25bbf9f22733",
+  "prompts": {},
+  "sessions": {
+    "s_6918c5910f76be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bee9dc9c-bc95-473f-9bd8-416fdf8f832f",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
