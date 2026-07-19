@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.1](https://github.com/andymai/occt-wasm/compare/v3.7.0...v3.7.1) (2026-07-16)
+
+
+### Performance
+
+* **occt:** carry GeomLib_CheckCurveOnSurface flat-deviation fast path + gridfinity benchmarks ([#215](https://github.com/andymai/occt-wasm/issues/215)) ([c0b2ca6](https://github.com/andymai/occt-wasm/commit/c0b2ca61743bbe8bd6f5bd500fc1cd2011517ccf))
+
 ## [3.7.0](https://github.com/andymai/occt-wasm/compare/v3.6.2...v3.7.0) (2026-07-13)
 
 
