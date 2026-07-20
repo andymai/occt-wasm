@@ -953,6 +953,60 @@ describe("vertex and surface query", () => {
         faces.delete();
     });
 
+    it("reverseSurfaceU reverses the U parametrization of an indirect cylindrical face", () => {
+        // Mirroring a cylinder yields an indirect (left-handed) cylindrical face
+        // — the motivating case (brepjs#1881), where the U direction must be
+        // reversed to sketch a profile onto the correct circumferential side.
+        const cyl = kernel.makeCylinder(5, 10);
+        const mirrored = kernel.mirror(cyl, 0, 0, 0, 1, 0, 0);
+        const faces = kernel.getSubShapes(mirrored, "face");
+        let cylFace = -1;
+        for (let i = 0; i < faces.size(); i++) {
+            if (kernel.surfaceType(faces.get(i)) === "cylinder") {
+                cylFace = faces.get(i);
+                break;
+            }
+        }
+        expect(cylFace).toBeGreaterThan(0);
+
+        // The mirrored cylinder is genuinely indirect (gp_Cylinder::Direct() false).
+        const cylData = kernel.getFaceCylinderData(cylFace);
+        expect(cylData.get(1)).toBe(0);
+        cylData.delete();
+
+        const reversed = kernel.reverseSurfaceU(cylFace);
+        expect(kernel.getShapeType(reversed)).toBe("face");
+        expect(kernel.surfaceType(reversed)).toBe("cylinder");
+
+        const uv = kernel.uvBounds(cylFace);
+        const uFirst = uv.get(0);
+        const uLast = uv.get(1);
+        const vMin = uv.get(2);
+        const vMax = uv.get(3);
+        const v = 0.5 * (vMin + vMax);
+        const u = uFirst + 0.3 * (uLast - uFirst);
+
+        // For a full-period cylinder, UReversedParameter(u) === uFirst+uLast-u,
+        // so the reversed surface at u equals the original at uFirst+uLast-u.
+        const pRev = kernel.pointOnSurface(reversed, u, v);
+        const pOrig = kernel.pointOnSurface(cylFace, uFirst + uLast - u, v);
+        for (let i = 0; i < 3; i++) {
+            expect(pRev.get(i)).toBeCloseTo(pOrig.get(i), 6);
+        }
+
+        // The reversed face carries a valid UV domain with V preserved.
+        const uvRev = kernel.uvBounds(reversed);
+        expect(uvRev.get(0)).toBeLessThan(uvRev.get(1));
+        expect(uvRev.get(2)).toBeCloseTo(vMin, 6);
+        expect(uvRev.get(3)).toBeCloseTo(vMax, 6);
+
+        pRev.delete();
+        pOrig.delete();
+        uv.delete();
+        uvRev.delete();
+        faces.delete();
+    });
+
     it("outerWire returns the outer boundary wire of a face", () => {
         const face = makeSquareFace(10);
         const wire = kernel.outerWire(face);

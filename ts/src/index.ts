@@ -1330,6 +1330,17 @@ export class OcctKernel {
         return wrap("outerWire", () => handle(this.#raw.outerWire(face)));
     }
 
+    /**
+     * Reverse a surface's U parametric direction (OCCT `Geom_Surface::UReverse`),
+     * returning a new face proxy whose surface is the U-reversed original.
+     * `pointOnSurface(result, u, v)` then evaluates the original surface at
+     * `origSurface.UReversedParameter(u)` — for a full-period cylinder that is
+     * `uFirst + uLast - u`.
+     */
+    reverseSurfaceU(face: ShapeHandle): ShapeHandle {
+        return wrap("reverseSurfaceU", () => handle(this.#raw.reverseSurfaceU(face)));
+    }
+
     uvBounds(face: ShapeHandle): UVBounds {
         return wrap("uvBounds", () =>
             this.#uvBoundsFromEmbind(this.#raw.uvBounds(face)),

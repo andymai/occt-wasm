@@ -2529,6 +2529,45 @@ return {cyl.Radius(), cyl.Direct() ? 1.0 : 0.0};",
         return_type: ReturnType::VectorDouble,
     },
     MethodSpec {
+        name: "reverseSurfaceU",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceId")],
+        occt_class: "",
+        ctor_args: "",
+        // Return a new face carrying the U-reversed geometric surface (OCCT
+        // Geom_Surface::UReverse). Surfaces are face proxies here, so a caller
+        // that later evaluates pointOnSurface(result, u, v) gets
+        // origSurface.Value(origSurface.UReversedParameter(u), v) — for a
+        // full-period cylinder that is Value(uFirst+uLast-u, v), the
+        // reparametrization brepjs needs to sketch onto an indirect
+        // (left-handed) cylindrical face. Value() ignores face trimming, so the
+        // face bounds only need to be constructible; we map them through the
+        // reversal to keep uvBounds() honest.
+        setup_code: "\
+TopoDS_Face face = TopoDS::Face(get(faceId));
+Handle(Geom_Surface) surf = BRep_Tool::Surface(face);
+if (surf.IsNull()) {
+    throw std::runtime_error(\"reverseSurfaceU: face has no geometric surface\");
+}
+Standard_Real u1, u2, v1, v2;
+BRepTools::UVBounds(face, u1, u2, v1, v2);
+Standard_Real ru1 = surf->UReversedParameter(u2);
+Standard_Real ru2 = surf->UReversedParameter(u1);
+Handle(Geom_Surface) reversed = Handle(Geom_Surface)::DownCast(surf->Copy());
+reversed->UReverse();
+BRepBuilderAPI_MakeFace mkFace(reversed, ru1, ru2, v1, v2, Precision::Confusion());
+if (!mkFace.IsDone()) {
+    throw std::runtime_error(\"reverseSurfaceU: face construction failed\");
+}
+return store(mkFace.Face());",
+        includes: &[
+            "BRep_Tool.hxx", "BRepBuilderAPI_MakeFace.hxx", "BRepTools.hxx", "Geom_Surface.hxx",
+            "Precision.hxx", "TopoDS.hxx", "TopoDS_Face.hxx",
+        ],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "uvFromPoint",
         kind: MethodKind::CustomBody,
         params: &[

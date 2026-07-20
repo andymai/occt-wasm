@@ -142,6 +142,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("filletVariable", &OcctKernel::filletVariable)
         .function("filletBatch", &OcctKernel::filletBatch)
         .function("offsetWire2D", &OcctKernel::offsetWire2D)
+        .function("reverseSurfaceU", &OcctKernel::reverseSurfaceU)
         .function("draftPrism", &OcctKernel::draftPrism)
 
         // transforms
