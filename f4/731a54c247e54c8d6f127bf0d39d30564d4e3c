@@ -1,0 +1,19 @@
+test/api-coverage.test.ts
+  s_66bc315cd14c9f::t_d9a52c9c5485d3 956-959,961-962,972-976,984-986,996-1002,1006
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f4731a54c247e54c8d6f127bf0d39d30564d4e3c",
+  "prompts": {},
+  "sessions": {
+    "s_66bc315cd14c9f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5cf920e-f24c-4579-9ada-8acb88694731",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
