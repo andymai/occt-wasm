@@ -953,6 +953,41 @@ describe("vertex and surface query", () => {
         faces.delete();
     });
 
+    it("reverseSurfaceU returns a face whose surface is the U-reversed original", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        const faces = kernel.getSubShapes(cyl, "face");
+        let cylFace = -1;
+        for (let i = 0; i < faces.size(); i++) {
+            if (kernel.surfaceType(faces.get(i)) === "cylinder") {
+                cylFace = faces.get(i);
+                break;
+            }
+        }
+        expect(cylFace).toBeGreaterThan(0);
+
+        const reversed = kernel.reverseSurfaceU(cylFace);
+        expect(kernel.getShapeType(reversed)).toBe("face");
+        expect(kernel.surfaceType(reversed)).toBe("cylinder");
+
+        const uv = kernel.uvBounds(cylFace);
+        const uFirst = uv.get(0);
+        const uLast = uv.get(1);
+        const v = 0.5 * (uv.get(2) + uv.get(3));
+        const u = uFirst + 0.3 * (uLast - uFirst);
+
+        // For a full-period cylinder, UReversedParameter(u) === uFirst+uLast-u,
+        // so the reversed surface at u equals the original at uFirst+uLast-u.
+        const pRev = kernel.pointOnSurface(reversed, u, v);
+        const pOrig = kernel.pointOnSurface(cylFace, uFirst + uLast - u, v);
+        for (let i = 0; i < 3; i++) {
+            expect(pRev.get(i)).toBeCloseTo(pOrig.get(i), 6);
+        }
+        pRev.delete();
+        pOrig.delete();
+        uv.delete();
+        faces.delete();
+    });
+
     it("outerWire returns the outer boundary wire of a face", () => {
         const face = makeSquareFace(10);
         const wire = kernel.outerWire(face);

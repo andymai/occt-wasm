@@ -284,6 +284,7 @@ export interface OcctRawKernel {
     surfaceNormal(faceId: number, u: number, v: number): EmbindVectorF64;
     pointOnSurface(faceId: number, u: number, v: number): EmbindVectorF64;
     outerWire(faceId: number): number;
+    reverseSurfaceU(faceId: number): number;
     uvBounds(faceId: number): EmbindVectorF64;
     uvFromPoint(faceId: number, x: number, y: number, z: number): EmbindVectorF64;
     getFaceCylinderData(faceId: number): EmbindVectorF64;

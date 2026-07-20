@@ -828,6 +828,29 @@ uint32_t OcctKernel::offsetWire2D(uint32_t wireId, double offset, int joinType) 
     }
 }
 
+uint32_t OcctKernel::reverseSurfaceU(uint32_t faceId) {
+    try {
+        TopoDS_Face face = TopoDS::Face(get(faceId));
+        Handle(Geom_Surface) surf = BRep_Tool::Surface(face);
+        if (surf.IsNull()) {
+            throw std::runtime_error("reverseSurfaceU: face has no geometric surface");
+        }
+        Standard_Real u1, u2, v1, v2;
+        BRepTools::UVBounds(face, u1, u2, v1, v2);
+        Standard_Real ru1 = surf->UReversedParameter(u2);
+        Standard_Real ru2 = surf->UReversedParameter(u1);
+        Handle(Geom_Surface) reversed = Handle(Geom_Surface)::DownCast(surf->Copy());
+        reversed->UReverse();
+        BRepBuilderAPI_MakeFace mkFace(reversed, ru1, ru2, v1, v2, Precision::Confusion());
+        if (!mkFace.IsDone()) {
+            throw std::runtime_error("reverseSurfaceU: face construction failed");
+        }
+        return store(mkFace.Face());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("reverseSurfaceU: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::draftPrism(uint32_t shapeId, double dx, double dy, double dz, double angleDeg) {
     try {
         // Step 1: Straight extrude

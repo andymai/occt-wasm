@@ -301,6 +301,7 @@ class OcctKernel {
     std::vector<double> surfaceNormal(uint32_t faceId, double u, double v);
     std::vector<double> pointOnSurface(uint32_t faceId, double u, double v);
     uint32_t outerWire(uint32_t faceId);
+    uint32_t reverseSurfaceU(uint32_t faceId);
     std::vector<double> uvBounds(uint32_t faceId);
     std::vector<double> uvFromPoint(uint32_t faceId, double x, double y, double z);
     std::vector<double> getFaceCylinderData(uint32_t faceId);
