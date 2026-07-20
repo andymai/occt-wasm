@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.0](https://github.com/andymai/occt-wasm/compare/v3.7.1...v3.8.0) (2026-07-20)
+
+
+### Features
+
+* **facade:** add reverseSurfaceU for indirect surface sketching ([#217](https://github.com/andymai/occt-wasm/issues/217)) ([6042241](https://github.com/andymai/occt-wasm/commit/6042241a40557ea07a1929a49d760e46a923ba34))
+
 ## [3.7.1](https://github.com/andymai/occt-wasm/compare/v3.7.0...v3.7.1) (2026-07-16)
 
 
