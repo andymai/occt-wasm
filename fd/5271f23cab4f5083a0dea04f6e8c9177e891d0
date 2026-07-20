@@ -1,0 +1,38 @@
+xtask/src/codegen/config.rs
+  s_66bc315cd14c9f::t_20f33834b5ac38 2532-2536,2543-2569
+  s_66bc315cd14c9f::t_5083c85667b72d 2537-2542
+  s_66bc315cd14c9f::t_b56ebb972f4a2b 2531
+crate/src/kernel_generated.rs
+  s_66bc315cd14c9f::t_07e796b9cbc63b 2447-2450
+  s_66bc315cd14c9f::t_9a473be9722c42 136,352,2446,2451-2457
+ts/src/raw-types.ts
+  s_66bc315cd14c9f::t_30c96bcc43ed8f 287
+facade/include/occt_kernel.h
+  s_66bc315cd14c9f::t_edecbbcfb66eb9 304
+ts/src/index.ts
+  s_66bc315cd14c9f::t_28c96cbe54b161 1333,1339-1343
+  s_66bc315cd14c9f::t_b88c91c37fcec0 1334-1338
+test/api-coverage.test.ts
+  s_66bc315cd14c9f::t_3d8095a2896bbc 956-977,980-990
+  s_66bc315cd14c9f::t_b2dd278f2f723a 978-979
+facade/generated/bindings.cpp
+  s_66bc315cd14c9f::t_e7a886a0982f21 145
+facade/generated/kernel.cpp
+  s_66bc315cd14c9f::t_6b925966081949 831-853
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "fd5271f23cab4f5083a0dea04f6e8c9177e891d0",
+  "prompts": {},
+  "sessions": {
+    "s_66bc315cd14c9f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5cf920e-f24c-4579-9ada-8acb88694731",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
