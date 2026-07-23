@@ -50,7 +50,7 @@
     "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "eslint": "^10",
     "typedoc": "^0.28.18",
-    "typescript": "^6.0",
+    "typescript": "^7.0",
     "vitest": "^4"
   },
   "dependencies": {
