@@ -169,16 +169,24 @@ describe("OcctErrorCode classification", () => {
 
 describe("wrap decodes WebAssembly.Exception", () => {
     let wrap: any;
-    let setExceptionDecoder: any;
+    let addExceptionDecoder: any;
+    let release: Array<() => void> = [];
+
+    const register = (decoder: any) => {
+        const off = addExceptionDecoder(decoder);
+        release.push(off);
+        return off;
+    };
 
     beforeAll(async () => {
         const types = await import(resolve(__dirname, "../ts/src/types.ts"));
         wrap = types.wrap;
-        setExceptionDecoder = types.setExceptionDecoder;
+        addExceptionDecoder = types.addExceptionDecoder;
     });
 
     afterEach(() => {
-        setExceptionDecoder(undefined);
+        release.forEach((off) => off());
+        release = [];
     });
 
     const filletCompound = () => {
@@ -201,7 +209,7 @@ describe("wrap decodes WebAssembly.Exception", () => {
     };
 
     it("recovers the OCCT message when a decoder is registered", () => {
-        setExceptionDecoder((e: unknown) => Module.getExceptionMessage(e));
+        register((e: unknown) => Module.getExceptionMessage(e));
         const err = catchWrapped("fillet", filletCompound());
         expect(err).toBeInstanceOf(OcctError);
         expect(err.message).not.toContain("[object WebAssembly.Exception]");
@@ -210,7 +218,7 @@ describe("wrap decodes WebAssembly.Exception", () => {
     });
 
     it("does not repeat the operation name already prefixed by the facade", () => {
-        setExceptionDecoder((e: unknown) => Module.getExceptionMessage(e));
+        register((e: unknown) => Module.getExceptionMessage(e));
         const err = catchWrapped("fillet", filletCompound());
         expect(err.message.startsWith("fillet: fillet:")).toBe(false);
         expect(err.message).toBe("fillet: TopoDS::Solid");
@@ -223,7 +231,7 @@ describe("wrap decodes WebAssembly.Exception", () => {
     });
 
     it("survives a decoder that throws", () => {
-        setExceptionDecoder(() => {
+        register(() => {
             throw new Error("decoder blew up");
         });
         const err = catchWrapped("fillet", filletCompound());
@@ -232,12 +240,50 @@ describe("wrap decodes WebAssembly.Exception", () => {
     });
 
     it("leaves plain Error messages untouched", () => {
-        setExceptionDecoder(() => ["std::runtime_error", "should not be used"]);
+        register(() => ["std::runtime_error", "should not be used"]);
         const err = catchWrapped("makeBox", () => {
             throw new Error("makeBox: construction failed");
         });
         expect(err.message).toBe("makeBox: construction failed");
     });
+
+    it("stops decoding once its registration is released", () => {
+        const off = register((e: unknown) => Module.getExceptionMessage(e));
+        expect(catchWrapped("fillet", filletCompound()).message).toBe("fillet: TopoDS::Solid");
+        off();
+        expect(catchWrapped("fillet", filletCompound()).message).toContain(
+            "[object WebAssembly.Exception]",
+        );
+    });
+
+    // A second kernel must not blind the first: each registers its own
+    // module-bound decoder, and a foreign module's getArg rejects the tag.
+    it("still decodes when another module's decoder is registered first", async () => {
+        const createModule = (await import(jsPath)).default;
+        const other = await createModule({
+            locateFile: (path: string) => (path.endsWith(".wasm") ? wasmPath : path),
+        });
+        expect(other).not.toBe(Module);
+
+        register((e: unknown) => other.getExceptionMessage(e));
+        register((e: unknown) => Module.getExceptionMessage(e));
+
+        const err = catchWrapped("fillet", filletCompound());
+        expect(err.message).toBe("fillet: TopoDS::Solid");
+    }, 60_000);
+
+    it("decodes regardless of decoder registration order", async () => {
+        const createModule = (await import(jsPath)).default;
+        const other = await createModule({
+            locateFile: (path: string) => (path.endsWith(".wasm") ? wasmPath : path),
+        });
+
+        register((e: unknown) => Module.getExceptionMessage(e));
+        register((e: unknown) => other.getExceptionMessage(e));
+
+        const err = catchWrapped("fillet", filletCompound());
+        expect(err.message).toBe("fillet: TopoDS::Solid");
+    }, 60_000);
 });
 
 // ============================================================================

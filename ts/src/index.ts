@@ -90,7 +90,7 @@ import type {
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, SweepMode, TransitionMode, setExceptionDecoder, wrap } from "./types.js";
+import { JoinType, SweepMode, TransitionMode, addExceptionDecoder, wrap } from "./types.js";
 import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 import type {
     OcctWasmModule,
@@ -139,7 +139,11 @@ function asEnum<T extends string>(value: string, allowed: ReadonlySet<string>, l
  * garbage-collected without being disposed. Prefer `using` or explicit
  * `kernel[Symbol.dispose]()` — the FinalizationRegistry is a last resort.
  */
-const kernelRegistry = new FinalizationRegistry<OcctRawKernel>((raw) => {
+const kernelRegistry = new FinalizationRegistry<{
+    raw: OcctRawKernel;
+    releaseDecoder: () => void;
+}>(({ raw, releaseDecoder }) => {
+    releaseDecoder();
     try {
         raw.releaseAll();
         raw.delete();
@@ -163,13 +167,20 @@ const kernelRegistry = new FinalizationRegistry<OcctRawKernel>((raw) => {
 export class OcctKernel {
     readonly #raw: OcctRawKernel;
     readonly #module: OcctWasmModule;
+    readonly #releaseDecoder: () => void;
 
     private constructor(module: OcctWasmModule) {
         this.#module = module;
         this.#raw = new module.OcctKernel();
         const decode = module.getExceptionMessage;
-        setExceptionDecoder(decode ? (e) => decode.call(module, e) : undefined);
-        kernelRegistry.register(this, this.#raw, this);
+        this.#releaseDecoder = decode
+            ? addExceptionDecoder((e) => decode.call(module, e))
+            : () => {};
+        kernelRegistry.register(
+            this,
+            { raw: this.#raw, releaseDecoder: this.#releaseDecoder },
+            this,
+        );
     }
 
     /**
@@ -1920,6 +1931,7 @@ export class OcctKernel {
 
     [Symbol.dispose](): void {
         kernelRegistry.unregister(this);
+        this.#releaseDecoder();
         try {
             this.#raw.releaseAll();
             this.#raw.delete();

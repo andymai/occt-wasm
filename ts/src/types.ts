@@ -427,14 +427,26 @@ function classifyError(operation: string, message: string): OcctErrorCode {
  */
 type ExceptionDecoder = (e: unknown) => [type: string, message: string] | null | undefined;
 
-let exceptionDecoder: ExceptionDecoder | undefined;
+/**
+ * Every live kernel's decoder. Kernels can coexist, each over its own
+ * Emscripten module, so a single slot would let the newest kernel make the
+ * older ones' exceptions unreadable again. Decoding against the wrong module
+ * fails loudly — `WebAssembly.Exception.getArg` rejects a foreign tag — so
+ * trying each in turn resolves to the owning module rather than to a wrong
+ * message.
+ */
+const exceptionDecoders = new Set<ExceptionDecoder>();
 
 /**
- * Register the module-backed decoder used to recover C++ `what()` strings from
- * thrown `WebAssembly.Exception` objects.
+ * Register a module-backed decoder used to recover C++ `what()` strings from
+ * thrown `WebAssembly.Exception` objects. Returns a function that unregisters
+ * it, which the kernel calls on disposal so the module isn't retained.
  */
-export function setExceptionDecoder(decoder: ExceptionDecoder | undefined): void {
-    exceptionDecoder = decoder;
+export function addExceptionDecoder(decoder: ExceptionDecoder): () => void {
+    exceptionDecoders.add(decoder);
+    return () => {
+        exceptionDecoders.delete(decoder);
+    };
 }
 
 /**
@@ -445,12 +457,13 @@ export function setExceptionDecoder(decoder: ExceptionDecoder | undefined): void
  */
 function messageOf(e: unknown): string {
     if (e instanceof Error) return e.message;
-    if (exceptionDecoder) {
+    for (const decoder of exceptionDecoders) {
         try {
-            const decoded = exceptionDecoder(e);
+            const decoded = decoder(e);
             if (decoded?.[1]) return decoded[1];
         } catch {
-            // Decoding is diagnostics-only; fall through to stringification.
+            // Wrong module, or no helper — try the next one. Decoding is
+            // diagnostics-only, so exhausting them just means stringification.
         }
     }
     return String(e);
