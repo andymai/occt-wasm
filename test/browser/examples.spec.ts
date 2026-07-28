@@ -9,6 +9,13 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 
+// Both demos construct a THREE.WebGLRenderer before touching OCCT, and headless
+// Firefox ships no software WebGL backend — `getContext("webgl")` returns null
+// even with webgl.force-enabled, so the module script dies before the kernel is
+// ever exercised. Chromium's SwiftShader covers the geometry, which is the point
+// here; smoke.spec.ts still runs the WASM itself under both browsers.
+test.skip(({ browserName }) => browserName === "firefox", "headless Firefox has no WebGL");
+
 // Cold WASM compile dominates; the smoke test uses the same headroom.
 const LOAD_TIMEOUT = 50_000;
 
