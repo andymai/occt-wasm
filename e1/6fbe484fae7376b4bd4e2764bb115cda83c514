@@ -1,0 +1,43 @@
+ts/src/raw-types.ts
+  s_97c852b3644224::t_53920ac96c90a9 38-42
+README.md
+  s_97c852b3644224::t_97c26a893d14f3 83-89
+  s_97c852b3644224::t_7163234b631ed3 59-61,63-64,67,71,75-77
+ts/src/svg.ts
+  s_97c852b3644224::t_bd622b23058c91 20
+ts/src/worker.ts
+  s_97c852b3644224::t_21d046f77a3433 245
+  s_97c852b3644224::t_23aac2cf8bc0a2 124
+examples/three-js/index.html
+  s_97c852b3644224::t_041b339325bd4e 83-84,87,92,94-96
+examples/step-viewer/index.html
+  s_97c852b3644224::t_7e53c24f5f6d46 244-248,253,256
+ts/src/index.ts
+  s_97c852b3644224::t_818d7fd1402af1 170-171
+  s_97c852b3644224::t_04d54740a68a02 1229-1233,1235
+  s_97c852b3644224::t_6667e727716ff9 93
+ts/src/types.ts
+  s_97c852b3644224::t_5be61a599857c1 477-479
+  s_97c852b3644224::t_1a6edd3048b6c4 475-476
+  s_97c852b3644224::t_7d3893eb1e1060 434
+  s_97c852b3644224::t_4bdd08e73b3d67 423-425,427-433,435-458
+  s_97c852b3644224::t_454d6c5888f57a 426
+test/new-features.test.ts
+  s_97c852b3644224::t_648f79a242d15b 161-242
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e16fbe484fae7376b4bd4e2764bb115cda83c514",
+  "prompts": {},
+  "sessions": {
+    "s_97c852b3644224": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc4023f0-906e-42b5-abb2-f03da4bb5e1b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
