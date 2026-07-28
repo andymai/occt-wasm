@@ -1,0 +1,26 @@
+test/browser/examples.spec.ts
+  s_97c852b3644224::t_3aeb1c14cf25ee 1-58,65-67
+  s_97c852b3644224::t_78957b3ad41cae 59,63
+  s_97c852b3644224::t_69750988fb5c87 60-62,64
+.github/workflows/build-wasm.yml
+  s_97c852b3644224::t_58241e4c13d438 57-68
+.gitignore
+  s_97c852b3644224::t_4fdbfb8a05bb4f 39-41
+  s_97c852b3644224::t_e3309aa6608775 42-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2ba44b540498b0b3ffb358c86daedbdf3f8763cc",
+  "prompts": {},
+  "sessions": {
+    "s_97c852b3644224": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc4023f0-906e-42b5-abb2-f03da4bb5e1b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
