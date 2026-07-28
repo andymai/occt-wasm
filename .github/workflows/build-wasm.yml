@@ -54,6 +54,18 @@ jobs:
       - name: Run tests
         run: npx vitest run
 
+      # The demos are the documentation people actually copy from, and they
+      # used to fail silently — a try/catch rendered an unfilleted shape and
+      # nothing complained. Non-zero exit is the gate.
+      - name: Run node examples
+        shell: bash
+        run: |
+          for example in examples/node-cli/*.mjs; do
+            echo "::group::$example"
+            node "$example"
+            echo "::endgroup::"
+          done
+
       - name: Run benchmarks & check for regressions
         if: ${{ !inputs.release }}
         shell: bash
