@@ -1,0 +1,27 @@
+test/browser/examples.spec.ts
+  s_97c852b3644224::t_f853ee6d83b027 11,26-71,81-91
+  s_97c852b3644224::t_f57e1415a0b3d6 95-96,113,118-119,141
+  s_97c852b3644224::t_bb5d89eca47083 12
+  s_97c852b3644224::t_d58502f3f5da9a 24-25
+  s_97c852b3644224::t_8380d60f95ad13 92
+package.json
+  s_97c852b3644224::t_c32384826710e8 29
+package-lock.json
+  s_97c852b3644224::t_27222f9f05f50e 16,2882-2888
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2bf3209ce224844097a446eefca617014fcea1af",
+  "prompts": {},
+  "sessions": {
+    "s_97c852b3644224": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc4023f0-906e-42b5-abb2-f03da4bb5e1b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
