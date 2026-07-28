@@ -56,29 +56,44 @@ import { OcctKernel } from "occt-wasm";
   const box = kernel.makeBox(20, 20, 20);
   const cyl = kernel.makeCylinder(8, 30);
 
-  // Booleans
-  const fused = kernel.fuse(box, cyl);
+  // Modeling -- fillet takes a solid, so round the box before combining
+  const edges = kernel.getSubShapes(box, "edge");
+  const filleted = kernel.fillet(box, edges.slice(0, 4), 2.0);
 
-  // Modeling
-  const edges = kernel.getSubShapes(fused, "edge");
-  const filleted = kernel.fillet(fused, edges.slice(0, 4), 2.0);
+  // Booleans
+  const fused = kernel.fuse(filleted, cyl);
 
   // Tessellation -> Three.js / Babylon.js
-  const mesh = kernel.tessellate(filleted);
+  const mesh = kernel.tessellate(fused);
   // mesh.positions (Float32Array), mesh.normals, mesh.indices
 
   // STEP I/O
-  const step = kernel.exportStep(filleted);
+  const step = kernel.exportStep(fused);
   const reimported = kernel.importStep(step);
 
   // Query
-  const vol = kernel.getVolume(filleted);
-  const bbox = kernel.getBoundingBox(filleted);
-  const com = kernel.getCenterOfMass(filleted);
+  const vol = kernel.getVolume(fused);
+  const bbox = kernel.getBoundingBox(fused);
+  const com = kernel.getCenterOfMass(fused);
 
   // kernel is disposed at end of block
 }
 ```
+
+> **Boolean results are compounds.** OCCT's `BRepAlgoAPI` operations wrap their
+> output in a `TopoDS_Compound` — a boolean can produce several disjoint solids.
+> The operations that downcast to a solid (`fillet`, `chamfer`, `filletVariable`,
+> `filletBatch`, `healSolid`) reject one, so unwrap first:
+>
+> ```typescript
+> const [solid] = kernel.getSubShapes(fused, "solid");
+> if (!solid) throw new Error("boolean produced no solid");
+> ```
+>
+> **Not every edge is filletable.** Seam and degenerate edges are not, so on a
+> shape you didn't build yourself, select edges by geometry rather than by index.
+> The `slice(0, 4)` above is safe only because all 12 edges of a plain box round
+> cleanly — on the box-plus-cylinder fusion, only 13 of 20 edges do.
 
 ## Rust Crate
 
@@ -162,6 +177,12 @@ Available error codes:
 | `DocumentClosed`     | Operation on a closed XCAF document             |
 | `KernelError`        | OCCT `Standard_Failure` (unclassified)          |
 | `Unknown`            | Error from outside the kernel                   |
+
+> **`OcctWorker` is the exception.** Comlink serializes a thrown error down to
+> `{ message, name, stack }`, so an error crossing the worker boundary arrives
+> as a plain `Error`: the message survives intact, but `code`, `operation`, and
+> `instanceof OcctError` do not. Match on `e.message` there, or do the
+> `switch (e.code)` inside the worker.
 
 ## Named Enums
 

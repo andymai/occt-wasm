@@ -159,6 +159,214 @@ describe("OcctErrorCode classification", () => {
 });
 
 // ============================================================================
+// WebAssembly.Exception decoding
+//
+// Under -fwasm-exceptions a C++ throw reaches JS as a WebAssembly.Exception,
+// which is not an Error — stringifying it yields "[object WebAssembly.Exception]"
+// and the OCCT diagnostic is lost. Each kernel registers its module's
+// Emscripten getExceptionMessage helper so wrap() can recover what().
+// ============================================================================
+
+describe("wrap decodes WebAssembly.Exception", () => {
+    let wrap: any;
+    let addExceptionDecoder: any;
+    let otherModule: any;
+    let release: Array<() => void> = [];
+
+    const register = (decoder: any) => {
+        const off = addExceptionDecoder(decoder);
+        release.push(off);
+        return off;
+    };
+
+    beforeAll(async () => {
+        const types = await import(resolve(__dirname, "../ts/src/types.ts"));
+        wrap = types.wrap;
+        addExceptionDecoder = types.addExceptionDecoder;
+
+        const createModule = (await import(jsPath)).default;
+        otherModule = await createModule({
+            locateFile: (path: string) => (path.endsWith(".wasm") ? wasmPath : path),
+        });
+    }, 60_000);
+
+    afterEach(() => {
+        release.forEach((off) => off());
+        release = [];
+    });
+
+    const catchWrapped = (op: string, fn: () => unknown) => {
+        try {
+            wrap(op, fn);
+        } catch (e) {
+            return e as InstanceType<typeof OcctError>;
+        }
+        return undefined;
+    };
+
+    // releaseAll() frees arena shapes but not Embind vectors, so delete those here.
+    const catchFilletCompound = () => {
+        // A boolean result is a TopoDS_Compound; fillet's TopoDS::Solid cast
+        // rejects it with Standard_TypeMismatch.
+        const fused = kernel.fuse(kernel.makeBox(20, 20, 20), kernel.makeCylinder(8, 30));
+        const edges = kernel.getSubShapes(fused, "edge");
+        const edgeVec = new Module.VectorUint32();
+        edgeVec.push_back(edges.get(0));
+        try {
+            return catchWrapped("fillet", () => kernel.fillet(fused, edgeVec, 1.0));
+        } finally {
+            edgeVec.delete();
+            edges.delete();
+        }
+    };
+
+    it("recovers the OCCT message when a decoder is registered", () => {
+        register((e: unknown) => Module.getExceptionMessage(e));
+        const err = catchFilletCompound();
+        expect(err).toBeInstanceOf(OcctError);
+        expect(err.message).not.toContain("[object WebAssembly.Exception]");
+        expect(err.message).toContain("TopoDS::Solid");
+        expect(err.operation).toBe("fillet");
+    });
+
+    it("does not repeat the operation name already prefixed by the facade", () => {
+        register((e: unknown) => Module.getExceptionMessage(e));
+        const err = catchFilletCompound();
+        expect(err.message.startsWith("fillet: fillet:")).toBe(false);
+        expect(err.message).toBe("fillet: TopoDS::Solid");
+    });
+
+    it("still produces an OcctError when no decoder is registered", () => {
+        const err = catchFilletCompound();
+        expect(err).toBeInstanceOf(OcctError);
+        expect(err.code).toBe(OcctErrorCode.KernelError);
+    });
+
+    it("survives a decoder that throws", () => {
+        register(() => {
+            throw new Error("decoder blew up");
+        });
+        const err = catchFilletCompound();
+        expect(err).toBeInstanceOf(OcctError);
+        expect(err.message).not.toContain("decoder blew up");
+    });
+
+    it("leaves plain Error messages untouched", () => {
+        register(() => ["std::runtime_error", "should not be used"]);
+        const err = catchWrapped("makeBox", () => {
+            throw new Error("makeBox: construction failed");
+        });
+        expect(err.message).toBe("makeBox: construction failed");
+    });
+
+    // The headline effect: classifyError matches on the message, so without
+    // decoding every message-pattern branch was unreachable through wrap() and
+    // real kernel errors only ever got the operation-category fallback.
+    it("restores message-based error codes", () => {
+        const undecoded = catchWrapped("getVolume", () => kernel.getVolume(99999));
+        expect(undecoded.code).toBe(OcctErrorCode.KernelError);
+
+        register((e: unknown) => Module.getExceptionMessage(e));
+        const decoded = catchWrapped("getVolume", () => kernel.getVolume(99999));
+        expect(decoded.message).toContain("Invalid shape ID");
+        expect(decoded.code).toBe(OcctErrorCode.InvalidShapeId);
+    });
+
+    it("stops decoding once its registration is released", () => {
+        const off = register((e: unknown) => Module.getExceptionMessage(e));
+        expect(catchFilletCompound().message).toBe("fillet: TopoDS::Solid");
+        off();
+        expect(catchFilletCompound().message).toContain(
+            "[object WebAssembly.Exception]",
+        );
+    });
+
+    // A second kernel must not blind the first: each registers its own
+    // module-bound decoder, and a foreign module's getArg rejects the tag.
+    it("still decodes when another module's decoder is registered first", () => {
+        expect(otherModule).not.toBe(Module);
+
+        register((e: unknown) => otherModule.getExceptionMessage(e));
+        register((e: unknown) => Module.getExceptionMessage(e));
+
+        const err = catchFilletCompound();
+        expect(err.message).toBe("fillet: TopoDS::Solid");
+    });
+
+    it("still decodes when another module's decoder is registered last", () => {
+        register((e: unknown) => Module.getExceptionMessage(e));
+        register((e: unknown) => otherModule.getExceptionMessage(e));
+
+        const err = catchFilletCompound();
+        expect(err.message).toBe("fillet: TopoDS::Solid");
+    });
+});
+
+// ============================================================================
+// OcctKernel lifecycle wiring
+//
+// The block above drives wrap()/addExceptionDecoder directly. These build the
+// real wrapper, so they cover what the constructor and Symbol.dispose actually
+// wire up — and the one-argument getBoundingBox call from issue #223.
+// ============================================================================
+
+describe("OcctKernel wires decoding into its lifecycle", () => {
+    let WrapperKernel: any;
+    let ownModule: any;
+    let kernel2: any;
+
+    beforeAll(async () => {
+        WrapperKernel = (await import(resolve(__dirname, "../ts/src/index.ts"))).OcctKernel;
+        const createModule = (await import(jsPath)).default;
+        ownModule = await createModule({
+            locateFile: (path: string) => (path.endsWith(".wasm") ? wasmPath : path),
+        });
+        // The constructor is TS-private only; erased at runtime.
+        kernel2 = new WrapperKernel(ownModule);
+    }, 60_000);
+
+    it("decodes without any manual decoder registration", () => {
+        let thrown: any;
+        try {
+            kernel2.getVolume(99999);
+        } catch (e) {
+            thrown = e;
+        }
+        expect(thrown).toBeInstanceOf(OcctError);
+        expect(thrown.message).toContain("Invalid shape ID");
+        expect(thrown.code).toBe(OcctErrorCode.InvalidShapeId);
+    });
+
+    it("accepts a single-argument getBoundingBox — issue #223", () => {
+        const box = kernel2.makeBox(10, 20, 30);
+        const bbox = kernel2.getBoundingBox(box);
+        expect(bbox.xmax).toBeCloseTo(10);
+        expect(bbox.ymax).toBeCloseTo(20);
+        expect(bbox.zmax).toBeCloseTo(30);
+        expect(bbox).toEqual(kernel2.getBoundingBox(box, false));
+    });
+
+    it("releases its decoder on dispose", async () => {
+        const { wrap } = await import(resolve(__dirname, "../ts/src/types.ts"));
+        const raw = new ownModule.OcctKernel();
+        let thrown: any;
+        try {
+            raw.getVolume(99999);
+        } catch (e) {
+            thrown = e;
+        }
+        const rethrow = () => wrap("getVolume", () => {
+            throw thrown;
+        });
+
+        expect(() => rethrow()).toThrow(/Invalid shape ID/);
+        kernel2[Symbol.dispose]();
+        expect(() => rethrow()).toThrow(/\[object WebAssembly.Exception\]/);
+        raw.delete();
+    });
+});
+
+// ============================================================================
 // Type predicate methods
 // ============================================================================
 

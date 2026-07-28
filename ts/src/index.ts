@@ -90,7 +90,7 @@ import type {
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, SweepMode, TransitionMode, wrap } from "./types.js";
+import { JoinType, SweepMode, TransitionMode, addExceptionDecoder, wrap } from "./types.js";
 import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 import type {
     OcctWasmModule,
@@ -139,7 +139,11 @@ function asEnum<T extends string>(value: string, allowed: ReadonlySet<string>, l
  * garbage-collected without being disposed. Prefer `using` or explicit
  * `kernel[Symbol.dispose]()` — the FinalizationRegistry is a last resort.
  */
-const kernelRegistry = new FinalizationRegistry<OcctRawKernel>((raw) => {
+const kernelRegistry = new FinalizationRegistry<{
+    raw: OcctRawKernel;
+    releaseDecoder: () => void;
+}>(({ raw, releaseDecoder }) => {
+    releaseDecoder();
     try {
         raw.releaseAll();
         raw.delete();
@@ -163,11 +167,13 @@ const kernelRegistry = new FinalizationRegistry<OcctRawKernel>((raw) => {
 export class OcctKernel {
     readonly #raw: OcctRawKernel;
     readonly #module: OcctWasmModule;
+    readonly #releaseDecoder: () => void;
 
     private constructor(module: OcctWasmModule) {
         this.#module = module;
         this.#raw = new module.OcctKernel();
-        kernelRegistry.register(this, this.#raw, this);
+        this.#releaseDecoder = addExceptionDecoder((e) => module.getExceptionMessage?.(e));
+        kernelRegistry.register(this, { raw: this.#raw, releaseDecoder: this.#releaseDecoder }, this);
     }
 
     /**
@@ -1223,13 +1229,17 @@ export class OcctKernel {
      * geometry by ~0.27·r for arcs of radius r — that was the source of the
      * uniform 1.2 mm bounds shift versus brepjs in occt-wasm 2.0.
      *
-     * @param useTriangulation - If `true`, use existing triangulation as the
-     *     starting bound and refine via surface analysis (faster). If `false`,
-     *     do the surface analysis from scratch (slower, but doesn't depend on
-     *     prior tessellation). Both modes produce tight bounds; brepjs's
+     * @param useTriangulation - `false` (the default) does the surface analysis
+     *     from scratch, giving the same bounds whether or not the shape has been
+     *     tessellated. `true` bounds an existing triangulation instead, which is
+     *     far faster but only as tight as that mesh — on a 2.0-deflection mesh
+     *     it overshot a 26 mm extent by 1.8 mm, and on a 0.1-deflection mesh by
+     *     0.16 mm. With no triangulation present the two agree exactly and cost
+     *     the same, so `true` is worth it only when you have a fine mesh and
+     *     want the ~30x faster query. brepjs's
      *     `BRepBndLib.Add(shape, box, true)` corresponds to `true` here.
      */
-    getBoundingBox(shape: ShapeHandle, useTriangulation: boolean): BoundingBox {
+    getBoundingBox(shape: ShapeHandle, useTriangulation = false): BoundingBox {
         return wrap("getBoundingBox", () => this.#raw.getBoundingBox(shape, useTriangulation));
     }
 
@@ -1917,6 +1927,7 @@ export class OcctKernel {
 
     [Symbol.dispose](): void {
         kernelRegistry.unregister(this);
+        this.#releaseDecoder();
         try {
             this.#raw.releaseAll();
             this.#raw.delete();

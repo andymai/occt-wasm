@@ -17,7 +17,7 @@ import type { BoundingBox, ProjectionData, ShapeHandle, Vec3 } from "./types.js"
 
 /** The subset of the kernel API the SVG renderer depends on. */
 export interface SvgKernel {
-    getBoundingBox(shape: ShapeHandle, useTriangulation: boolean): BoundingBox;
+    getBoundingBox(shape: ShapeHandle, useTriangulation?: boolean): BoundingBox;
     projectEdges(
         shape: ShapeHandle,
         viewOrigin: Vec3,

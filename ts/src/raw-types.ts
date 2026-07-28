@@ -35,6 +35,11 @@ export interface OcctWasmModule {
     HEAPU32: Uint32Array;
     HEAP32: Int32Array;
     FS: EmscriptenFS;
+    /**
+     * Emscripten helper exported by `-sEXPORT_EXCEPTION_HANDLING_HELPERS=1`.
+     * Decodes a thrown `WebAssembly.Exception` into `[type, what()]`.
+     */
+    getExceptionMessage?(e: unknown): [type: string, message: string];
 }
 
 export interface RawMeshData {

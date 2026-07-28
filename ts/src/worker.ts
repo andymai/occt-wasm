@@ -121,7 +121,7 @@ export interface OcctWorkerProxy {
     loadCached(brep: string): Promise<ShapeHandle>;
 
     // Query
-    getBoundingBox(shape: ShapeHandle, useTriangulation: boolean): Promise<BoundingBox>;
+    getBoundingBox(shape: ShapeHandle, useTriangulation?: boolean): Promise<BoundingBox>;
     getVolume(shape: ShapeHandle): Promise<number>;
     getSurfaceArea(shape: ShapeHandle): Promise<number>;
     getLength(shape: ShapeHandle): Promise<number>;
@@ -242,7 +242,7 @@ export class OcctWorker {
     exportStep(shape: ShapeHandle) { return this.#proxy.exportStep(shape); }
     cacheStep(data: string | ArrayBuffer) { return this.#proxy.cacheStep(data); }
     loadCached(brep: string) { return this.#proxy.loadCached(brep); }
-    getBoundingBox(shape: ShapeHandle, useTriangulation: boolean) { return this.#proxy.getBoundingBox(shape, useTriangulation); }
+    getBoundingBox(shape: ShapeHandle, useTriangulation?: boolean) { return this.#proxy.getBoundingBox(shape, useTriangulation); }
     getVolume(shape: ShapeHandle) { return this.#proxy.getVolume(shape); }
     getSurfaceArea(shape: ShapeHandle) { return this.#proxy.getSurfaceArea(shape); }
     getShapeType(shape: ShapeHandle) { return this.#proxy.getShapeType(shape); }
