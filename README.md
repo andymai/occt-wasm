@@ -45,7 +45,7 @@ npm install occt-wasm
 
 ## Quick Start
 
-```typescript
+```typescript check
 import { OcctKernel } from "occt-wasm";
 
 // Recommended: deterministic cleanup via Symbol.dispose
