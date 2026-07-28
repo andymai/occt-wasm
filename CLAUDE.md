@@ -51,11 +51,12 @@ Any facade/codegen change invalidates the committed `wasm.br`. CI's "WASI build 
 Shapes live in a u32-keyed arena (`store`/`get`/`release`/`releaseAll`); IDs are never auto-freed, so the TS wrapper backs them with `Symbol.dispose` + a FinalizationRegistry safety net. Array arguments cross the boundary through `#withU32`/`#withF64`/`#withI32` scope guards (a bulk heap copy above a size threshold). The facade catches OCCT `Standard_Failure` and re-throws `std::runtime_error`; the TS `wrap()` in `types.ts` converts any throw to an `OcctError` whose `code` is inferred by `classifyError` from the operation name + message.
 
 ## CI shape
-- **lint** (no WASM): `cargo fmt --check`, `clippy -D warnings`, `tsgo --noEmit` (TS 7 native compiler; `typescript@6` stays for eslint/typedoc's JS API), `eslint`, plus the codegen drift check.
+- **lint** (no WASM): `cargo fmt --check`, `clippy -D warnings`, `tsgo --noEmit` (TS 7 native compiler; `typescript@6` stays for eslint/typedoc's JS API), `eslint`, plus the codegen drift check. Also `npm run typecheck:tests` (`tsconfig.test.json` covers `test/`, which the `ts/` config excludes) and `npm run typecheck:docs`.
 - **build-test**: builds the Embind WASM in the builder container, runs the full vitest suite + the bench gate.
 - **build-wasi**: the `wasm.br` stale-check above. Releases ship via release-please → npm (OIDC) and a `crate-v*` tag → crates.io.
 
 ## Conventions
 - Rust edition 2024, brepkit-level lints (deny `unsafe`/`unwrap`/`panic`). C++ clang-format (LLVM, 4-space, 100 col). TS strict, ESM-only, branded `ShapeHandle`.
+- A README fence tagged ` ```typescript check ` is compiled against `ts/src` by `scripts/check-doc-snippets.mjs`. A fragment names the context it assumes — ` ```typescript check kernel,a,b ` — and those are declared for it; unknown names fail with a pointer to the `CONTEXT` map. Mark every sample whose API calls should stay correct. Only samples needing third-party types (e.g. the `vite.config.ts` one) stay unmarked.
 - Conventional Commits; scopes seen in history: `facade`, `xtask`, `ts`, `crate`, `docker`, `ci`, `docs`, `bench`, `test`.
 - RapidJSON headers are isolated in `3rdparty/` (gitignored; fetched by `scripts/fetch-rapidjson.sh`) to avoid Emscripten/glibc conflicts.

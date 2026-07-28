@@ -10,6 +10,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { resolve, dirname } from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import type { OcctKernel as OcctKernelType, ShapeHandle } from "../ts/src/index.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -311,24 +312,26 @@ describe("wrap decodes WebAssembly.Exception", () => {
 // ============================================================================
 
 describe("OcctKernel wires decoding into its lifecycle", () => {
-    let WrapperKernel: any;
     let ownModule: any;
-    let kernel2: any;
+    // Typed, unlike the `any` kernels elsewhere in this file, so the
+    // single-argument getBoundingBox call below is checked at compile time too
+    // — that arity is the literal defect in #223.
+    let kernel2: OcctKernelType;
 
     beforeAll(async () => {
-        WrapperKernel = (await import(resolve(__dirname, "../ts/src/index.ts"))).OcctKernel;
+        const { OcctKernel } = await import("../ts/src/index.ts");
         const createModule = (await import(jsPath)).default;
         ownModule = await createModule({
             locateFile: (path: string) => (path.endsWith(".wasm") ? wasmPath : path),
         });
         // The constructor is TS-private only; erased at runtime.
-        kernel2 = new WrapperKernel(ownModule);
+        kernel2 = new (OcctKernel as unknown as new (m: unknown) => OcctKernelType)(ownModule);
     }, 60_000);
 
     it("decodes without any manual decoder registration", () => {
         let thrown: any;
         try {
-            kernel2.getVolume(99999);
+            kernel2.getVolume(99999 as unknown as ShapeHandle);
         } catch (e) {
             thrown = e;
         }
