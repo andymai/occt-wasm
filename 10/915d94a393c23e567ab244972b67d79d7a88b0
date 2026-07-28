@@ -1,0 +1,26 @@
+ts/src/index.ts
+  s_97c852b3644224::t_8aad1234786205 1232-1240
+ts/src/xcaf-document.ts
+  s_97c852b3644224::t_da77cd2b72935f 17-21
+  s_97c852b3644224::t_660bf4ea43572f 246-250
+README.md
+  s_97c852b3644224::t_cc23ffcd5d40c6 87-91
+test/new-features.test.ts
+  s_97c852b3644224::t_9c47a767692d93 305-368
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "10915d94a393c23e567ab244972b67d79d7a88b0",
+  "prompts": {},
+  "sessions": {
+    "s_97c852b3644224": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc4023f0-906e-42b5-abb2-f03da4bb5e1b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
