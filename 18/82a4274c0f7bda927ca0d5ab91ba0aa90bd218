@@ -1,0 +1,25 @@
+playwright.config.ts
+  s_97c852b3644224::t_49d836907dcdd8 11-28
+test/browser/examples.spec.ts
+  s_97c852b3644224::t_9e6b64b49db477 17-39
+  s_97c852b3644224::t_a7cb0879d445d7 110-111,134-135
+  s_97c852b3644224::t_1d650a6e5c4c83 40
+.github/workflows/ci.yml
+  s_97c852b3644224::t_997b0e78fdf1c5 109-117,119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "1882a4274c0f7bda927ca0d5ab91ba0aa90bd218",
+  "prompts": {},
+  "sessions": {
+    "s_97c852b3644224": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc4023f0-906e-42b5-abb2-f03da4bb5e1b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
