@@ -57,6 +57,6 @@ Shapes live in a u32-keyed arena (`store`/`get`/`release`/`releaseAll`); IDs are
 
 ## Conventions
 - Rust edition 2024, brepkit-level lints (deny `unsafe`/`unwrap`/`panic`). C++ clang-format (LLVM, 4-space, 100 col). TS strict, ESM-only, branded `ShapeHandle`.
-- A README fence tagged ` ```typescript check ` is compiled against `ts/src` by `scripts/check-doc-snippets.mjs`. Mark any sample meant to be copy-pasteable; leave illustrative fragments unmarked (most reference undeclared identifiers on purpose).
+- A README fence tagged ` ```typescript check ` is compiled against `ts/src` by `scripts/check-doc-snippets.mjs`. A fragment names the context it assumes — ` ```typescript check kernel,a,b ` — and those are declared for it; unknown names fail with a pointer to the `CONTEXT` map. Mark every sample whose API calls should stay correct. Only samples needing third-party types (e.g. the `vite.config.ts` one) stay unmarked.
 - Conventional Commits; scopes seen in history: `facade`, `xtask`, `ts`, `crate`, `docker`, `ci`, `docs`, `bench`, `test`.
 - RapidJSON headers are isolated in `3rdparty/` (gitignored; fetched by `scripts/fetch-rapidjson.sh`) to avoid Emscripten/glibc conflicts.

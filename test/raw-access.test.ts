@@ -13,8 +13,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-let OcctKernel: typeof import("../ts/dist/index.js").OcctKernel;
-let kernel: import("../ts/dist/index.js").OcctKernel;
+// Types come from source so this file typechecks without a prior build; the
+// runtime import below still loads dist, which is what these tests exercise.
+let OcctKernel: typeof import("../ts/src/index.ts").OcctKernel;
+let kernel: import("../ts/src/index.ts").OcctKernel;
 
 beforeAll(async () => {
     const wasmPath = resolve(__dirname, "../ts/dist/occt-wasm.wasm");
