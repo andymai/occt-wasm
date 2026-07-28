@@ -1,0 +1,38 @@
+README.md
+  s_97c852b3644224::t_3f70a86fc3070d 48
+tsconfig.test.json
+  s_97c852b3644224::t_b7542c2359b84c 1-14
+package.json
+  s_97c852b3644224::t_f54a02edbbf2ee 12-13
+  s_97c852b3644224::t_ba42c7803f02f4 25
+.github/workflows/ci.yml
+  s_97c852b3644224::t_db929861f21f39 48-51,55-59
+  s_97c852b3644224::t_87fe85dddca79e 60
+test/new-features.test.ts
+  s_97c852b3644224::t_56a365f77d6cad 13
+  s_97c852b3644224::t_0fd3d897ba8c74 334
+  s_97c852b3644224::t_09fe13604be34d 316-319,322,328
+CLAUDE.md
+  s_97c852b3644224::t_c138847635d6bc 54
+  s_97c852b3644224::t_d82634e9177ec8 60
+scripts/check-doc-snippets.mjs
+  s_97c852b3644224::t_69c2bfe3f9dba2 1-106
+package-lock.json
+  s_97c852b3644224::t_7f51d4d7366d59 12,2966
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ef846bd0db987f4594143ddc5db2ba9a3b6d2cab",
+  "prompts": {},
+  "sessions": {
+    "s_97c852b3644224": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc4023f0-906e-42b5-abb2-f03da4bb5e1b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
