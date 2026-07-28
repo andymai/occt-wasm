@@ -82,10 +82,14 @@ import { OcctKernel } from "occt-wasm";
 
 > **Boolean results are compounds.** OCCT's `BRepAlgoAPI` operations wrap their
 > output in a `TopoDS_Compound` — a boolean can produce several disjoint solids.
-> Operations that require a solid (`fillet`, `chamfer`, `shell`, ...) reject one,
-> so unwrap first: `const solid = kernel.getSubShapes(fused, "solid")[0]`.
-> Note too that not every edge of a shape is filletable — seam and degenerate
-> edges are not, so pick edges deliberately rather than by index.
+> The operations that downcast to a solid (`fillet`, `chamfer`, `filletVariable`,
+> `filletBatch`, `healSolid`) reject one, so unwrap first:
+> `const solid = kernel.getSubShapes(fused, "solid")[0]`.
+>
+> **Not every edge is filletable.** Seam and degenerate edges are not, so on a
+> shape you didn't build yourself, select edges by geometry rather than by index.
+> The `slice(0, 4)` above is safe only because all 12 edges of a plain box round
+> cleanly — on the box-plus-cylinder fusion, only 13 of 20 edges do.
 
 ## Rust Crate
 

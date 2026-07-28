@@ -420,20 +420,14 @@ function classifyError(operation: string, message: string): OcctErrorCode {
     return OcctErrorCode.Unknown;
 }
 
-/**
- * Decoder for the `WebAssembly.Exception` objects that `-fwasm-exceptions`
- * throws. Reading their payload needs the Emscripten module's memory and
- * exception tag, so a kernel registers its own module here on construction.
- */
 type ExceptionDecoder = (e: unknown) => [type: string, message: string] | null | undefined;
 
 /**
- * Every live kernel's decoder. Kernels can coexist, each over its own
- * Emscripten module, so a single slot would let the newest kernel make the
- * older ones' exceptions unreadable again. Decoding against the wrong module
- * fails loudly — `WebAssembly.Exception.getArg` rejects a foreign tag — so
- * trying each in turn resolves to the owning module rather than to a wrong
- * message.
+ * Every live kernel's decoder. Decoding a `WebAssembly.Exception` needs the
+ * throwing Emscripten module's memory and exception tag, and kernels over
+ * separate modules can coexist — so decoders accumulate rather than replace,
+ * and each is tried in turn. A foreign module can't return a wrong message:
+ * `WebAssembly.Exception.getArg` rejects a tag it doesn't own.
  */
 const exceptionDecoders = new Set<ExceptionDecoder>();
 
@@ -450,10 +444,9 @@ export function addExceptionDecoder(decoder: ExceptionDecoder): () => void {
 }
 
 /**
- * Best-effort message extraction for a thrown value. A C++ exception crossing
- * the Embind boundary under wasm exception handling is a `WebAssembly.Exception`,
- * not an `Error` — stringifying it yields the useless `[object
- * WebAssembly.Exception]`, so decode it when a decoder is available.
+ * Best-effort message extraction for a thrown value. Under `-fwasm-exceptions`
+ * a C++ throw crosses the Embind boundary as a `WebAssembly.Exception` rather
+ * than an `Error`, and stringifies to a useless `[object WebAssembly.Exception]`.
  */
 function messageOf(e: unknown): string {
     if (e instanceof Error) return e.message;
@@ -462,8 +455,8 @@ function messageOf(e: unknown): string {
             const decoded = decoder(e);
             if (decoded?.[1]) return decoded[1];
         } catch {
-            // Wrong module, or no helper — try the next one. Decoding is
-            // diagnostics-only, so exhausting them just means stringification.
+            // Wrong module, or no helper — decoding is diagnostics-only, so
+            // exhausting every decoder just falls back to stringification.
         }
     }
     return String(e);
@@ -487,8 +480,11 @@ export function wrap<T>(operation: string, fn: () => T): T {
         }
         // The C++ facade already prefixes its throws with the method name, and
         // OcctError prepends it again — drop the duplicate.
-        const raw = messageOf(e);
+        const message = messageOf(e);
         const prefix = `${operation}: `;
-        throw new OcctError(operation, raw.startsWith(prefix) ? raw.slice(prefix.length) : raw);
+        throw new OcctError(
+            operation,
+            message.startsWith(prefix) ? message.slice(prefix.length) : message,
+        );
     }
 }

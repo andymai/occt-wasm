@@ -172,15 +172,8 @@ export class OcctKernel {
     private constructor(module: OcctWasmModule) {
         this.#module = module;
         this.#raw = new module.OcctKernel();
-        const decode = module.getExceptionMessage;
-        this.#releaseDecoder = decode
-            ? addExceptionDecoder((e) => decode.call(module, e))
-            : () => {};
-        kernelRegistry.register(
-            this,
-            { raw: this.#raw, releaseDecoder: this.#releaseDecoder },
-            this,
-        );
+        this.#releaseDecoder = addExceptionDecoder((e) => module.getExceptionMessage?.(e));
+        kernelRegistry.register(this, { raw: this.#raw, releaseDecoder: this.#releaseDecoder }, this);
     }
 
     /**
