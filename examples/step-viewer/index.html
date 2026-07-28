@@ -241,19 +241,19 @@
             const moved = kernel.translate(sphere, 15, 10, 15);
             const fused = kernel.fuse(cut, moved);
 
-            const edges = kernel.getSubShapes(fused, 'edge');
+            // A boolean result is a compound; fillet needs the solid inside it.
+            const solids = kernel.getSubShapes(fused, 'solid');
+            const solid = solids.get(0);
+
+            const edges = kernel.getSubShapes(solid, 'edge');
             const edgeVec = new Module.VectorUint32();
             for (let i = 0; i < Math.min(4, edges.size()); i++) {
                 edgeVec.push_back(edges.get(i));
             }
-            let result;
-            try {
-                result = kernel.fillet(fused, edgeVec, 1.5);
-            } catch {
-                result = fused;
-            }
+            const result = kernel.fillet(solid, edgeVec, 1.5);
             edgeVec.delete();
             edges.delete();
+            solids.delete();
 
             displayShape(result, 'Demo (box - cylinder + sphere, filleted)');
         };

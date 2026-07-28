@@ -159,6 +159,88 @@ describe("OcctErrorCode classification", () => {
 });
 
 // ============================================================================
+// WebAssembly.Exception decoding
+//
+// Under -fwasm-exceptions a C++ throw reaches JS as a WebAssembly.Exception,
+// which is not an Error — stringifying it yields "[object WebAssembly.Exception]"
+// and the OCCT diagnostic is lost. OcctKernel.init() registers the Emscripten
+// getExceptionMessage helper so wrap() can recover what().
+// ============================================================================
+
+describe("wrap decodes WebAssembly.Exception", () => {
+    let wrap: any;
+    let setExceptionDecoder: any;
+
+    beforeAll(async () => {
+        const types = await import(resolve(__dirname, "../ts/src/types.ts"));
+        wrap = types.wrap;
+        setExceptionDecoder = types.setExceptionDecoder;
+    });
+
+    afterEach(() => {
+        setExceptionDecoder(undefined);
+    });
+
+    const filletCompound = () => {
+        // A boolean result is a TopoDS_Compound; fillet's TopoDS::Solid cast
+        // rejects it with Standard_TypeMismatch.
+        const fused = kernel.fuse(kernel.makeBox(20, 20, 20), kernel.makeCylinder(8, 30));
+        const edges = kernel.getSubShapes(fused, "edge");
+        const edgeVec = new Module.VectorUint32();
+        edgeVec.push_back(edges.get(0));
+        return () => kernel.fillet(fused, edgeVec, 1.0);
+    };
+
+    const catchWrapped = (op: string, fn: () => unknown) => {
+        try {
+            wrap(op, fn);
+        } catch (e) {
+            return e as InstanceType<typeof OcctError>;
+        }
+        return undefined;
+    };
+
+    it("recovers the OCCT message when a decoder is registered", () => {
+        setExceptionDecoder((e: unknown) => Module.getExceptionMessage(e));
+        const err = catchWrapped("fillet", filletCompound());
+        expect(err).toBeInstanceOf(OcctError);
+        expect(err.message).not.toContain("[object WebAssembly.Exception]");
+        expect(err.message).toContain("TopoDS::Solid");
+        expect(err.operation).toBe("fillet");
+    });
+
+    it("does not repeat the operation name already prefixed by the facade", () => {
+        setExceptionDecoder((e: unknown) => Module.getExceptionMessage(e));
+        const err = catchWrapped("fillet", filletCompound());
+        expect(err.message.startsWith("fillet: fillet:")).toBe(false);
+        expect(err.message).toBe("fillet: TopoDS::Solid");
+    });
+
+    it("still produces an OcctError when no decoder is registered", () => {
+        const err = catchWrapped("fillet", filletCompound());
+        expect(err).toBeInstanceOf(OcctError);
+        expect(err.code).toBe(OcctErrorCode.KernelError);
+    });
+
+    it("survives a decoder that throws", () => {
+        setExceptionDecoder(() => {
+            throw new Error("decoder blew up");
+        });
+        const err = catchWrapped("fillet", filletCompound());
+        expect(err).toBeInstanceOf(OcctError);
+        expect(err.message).not.toContain("decoder blew up");
+    });
+
+    it("leaves plain Error messages untouched", () => {
+        setExceptionDecoder(() => ["std::runtime_error", "should not be used"]);
+        const err = catchWrapped("makeBox", () => {
+            throw new Error("makeBox: construction failed");
+        });
+        expect(err.message).toBe("makeBox: construction failed");
+    });
+});
+
+// ============================================================================
 // Type predicate methods
 // ============================================================================
 

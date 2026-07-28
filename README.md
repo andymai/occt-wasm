@@ -56,29 +56,36 @@ import { OcctKernel } from "occt-wasm";
   const box = kernel.makeBox(20, 20, 20);
   const cyl = kernel.makeCylinder(8, 30);
 
-  // Booleans
-  const fused = kernel.fuse(box, cyl);
+  // Modeling -- fillet takes a solid, so round the box before combining
+  const edges = kernel.getSubShapes(box, "edge");
+  const filleted = kernel.fillet(box, edges.slice(0, 4), 2.0);
 
-  // Modeling
-  const edges = kernel.getSubShapes(fused, "edge");
-  const filleted = kernel.fillet(fused, edges.slice(0, 4), 2.0);
+  // Booleans
+  const fused = kernel.fuse(filleted, cyl);
 
   // Tessellation -> Three.js / Babylon.js
-  const mesh = kernel.tessellate(filleted);
+  const mesh = kernel.tessellate(fused);
   // mesh.positions (Float32Array), mesh.normals, mesh.indices
 
   // STEP I/O
-  const step = kernel.exportStep(filleted);
+  const step = kernel.exportStep(fused);
   const reimported = kernel.importStep(step);
 
   // Query
-  const vol = kernel.getVolume(filleted);
-  const bbox = kernel.getBoundingBox(filleted);
-  const com = kernel.getCenterOfMass(filleted);
+  const vol = kernel.getVolume(fused);
+  const bbox = kernel.getBoundingBox(fused);
+  const com = kernel.getCenterOfMass(fused);
 
   // kernel is disposed at end of block
 }
 ```
+
+> **Boolean results are compounds.** OCCT's `BRepAlgoAPI` operations wrap their
+> output in a `TopoDS_Compound` — a boolean can produce several disjoint solids.
+> Operations that require a solid (`fillet`, `chamfer`, `shell`, ...) reject one,
+> so unwrap first: `const solid = kernel.getSubShapes(fused, "solid")[0]`.
+> Note too that not every edge of a shape is filletable — seam and degenerate
+> edges are not, so pick edges deliberately rather than by index.
 
 ## Rust Crate
 

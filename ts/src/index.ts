@@ -90,7 +90,7 @@ import type {
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, SweepMode, TransitionMode, wrap } from "./types.js";
+import { JoinType, SweepMode, TransitionMode, setExceptionDecoder, wrap } from "./types.js";
 import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 import type {
     OcctWasmModule,
@@ -167,6 +167,8 @@ export class OcctKernel {
     private constructor(module: OcctWasmModule) {
         this.#module = module;
         this.#raw = new module.OcctKernel();
+        const decode = module.getExceptionMessage;
+        setExceptionDecoder(decode ? (e) => decode.call(module, e) : undefined);
         kernelRegistry.register(this, this.#raw, this);
     }
 
@@ -1224,12 +1226,13 @@ export class OcctKernel {
      * uniform 1.2 mm bounds shift versus brepjs in occt-wasm 2.0.
      *
      * @param useTriangulation - If `true`, use existing triangulation as the
-     *     starting bound and refine via surface analysis (faster). If `false`,
-     *     do the surface analysis from scratch (slower, but doesn't depend on
-     *     prior tessellation). Both modes produce tight bounds; brepjs's
-     *     `BRepBndLib.Add(shape, box, true)` corresponds to `true` here.
+     *     starting bound and refine via surface analysis (faster). If `false`
+     *     (the default), do the surface analysis from scratch (slower, but
+     *     doesn't depend on prior tessellation). Both modes produce tight
+     *     bounds; brepjs's `BRepBndLib.Add(shape, box, true)` corresponds to
+     *     `true` here.
      */
-    getBoundingBox(shape: ShapeHandle, useTriangulation: boolean): BoundingBox {
+    getBoundingBox(shape: ShapeHandle, useTriangulation = false): BoundingBox {
         return wrap("getBoundingBox", () => this.#raw.getBoundingBox(shape, useTriangulation));
     }
 

@@ -421,6 +421,42 @@ function classifyError(operation: string, message: string): OcctErrorCode {
 }
 
 /**
+ * Decoder for the `WebAssembly.Exception` objects that `-fwasm-exceptions`
+ * throws. Reading their payload needs the Emscripten module's memory and
+ * exception tag, so a kernel registers its own module here on construction.
+ */
+type ExceptionDecoder = (e: unknown) => [type: string, message: string] | null | undefined;
+
+let exceptionDecoder: ExceptionDecoder | undefined;
+
+/**
+ * Register the module-backed decoder used to recover C++ `what()` strings from
+ * thrown `WebAssembly.Exception` objects.
+ */
+export function setExceptionDecoder(decoder: ExceptionDecoder | undefined): void {
+    exceptionDecoder = decoder;
+}
+
+/**
+ * Best-effort message extraction for a thrown value. A C++ exception crossing
+ * the Embind boundary under wasm exception handling is a `WebAssembly.Exception`,
+ * not an `Error` — stringifying it yields the useless `[object
+ * WebAssembly.Exception]`, so decode it when a decoder is available.
+ */
+function messageOf(e: unknown): string {
+    if (e instanceof Error) return e.message;
+    if (exceptionDecoder) {
+        try {
+            const decoded = exceptionDecoder(e);
+            if (decoded?.[1]) return decoded[1];
+        } catch {
+            // Decoding is diagnostics-only; fall through to stringification.
+        }
+    }
+    return String(e);
+}
+
+/**
  * Run `fn`, re-throwing any failure as an {@link OcctError} tagged with the
  * given operation name. Shared by the kernel and the XCAF document so error
  * classification stays in one place.
@@ -436,9 +472,10 @@ export function wrap<T>(operation: string, fn: () => T): T {
             // ImportExportFailed down to KernelError.
             throw new OcctError(operation, e.message, e.code);
         }
-        if (e instanceof Error) {
-            throw new OcctError(operation, e.message);
-        }
-        throw new OcctError(operation, String(e));
+        // The C++ facade already prefixes its throws with the method name, and
+        // OcctError prepends it again — drop the duplicate.
+        const raw = messageOf(e);
+        const prefix = `${operation}: `;
+        throw new OcctError(operation, raw.startsWith(prefix) ? raw.slice(prefix.length) : raw);
     }
 }

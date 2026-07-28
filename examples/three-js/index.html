@@ -80,25 +80,20 @@
         const t1 = performance.now();
         const kernel = new Module.OcctKernel();
 
-        // Box + cylinder fuse + fillet
+        // Box fillet + cylinder fuse. fillet needs a solid, and a boolean
+        // result is a compound, so round the box before fusing.
         const box = kernel.makeBox(20, 20, 20);
-        const cyl = kernel.makeCylinder(8, 30);
-        const cylCentered = kernel.translate(cyl, 10, 10, -5);
-        const fused = kernel.fuse(box, cylCentered);
 
-        // Get edges and fillet
-        const edges = kernel.getSubShapes(fused, 'edge');
+        const edges = kernel.getSubShapes(box, 'edge');
         const edgeVec = new Module.VectorUint32();
         for (let i = 0; i < edges.size(); i++) {
             edgeVec.push_back(edges.get(i));
         }
+        const rounded = kernel.fillet(box, edgeVec, 1.5);
 
-        let result;
-        try {
-            result = kernel.fillet(fused, edgeVec, 1.5);
-        } catch {
-            result = fused; // Fallback if fillet fails on complex edges
-        }
+        const cyl = kernel.makeCylinder(8, 30);
+        const cylCentered = kernel.translate(cyl, 10, 10, -5);
+        const result = kernel.fuse(rounded, cylCentered);
 
         const shapeMs = (performance.now() - t1).toFixed(0);
 
