@@ -178,6 +178,12 @@ Available error codes:
 | `KernelError`        | OCCT `Standard_Failure` (unclassified)          |
 | `Unknown`            | Error from outside the kernel                   |
 
+> **`OcctWorker` is the exception.** Comlink serializes a thrown error down to
+> `{ message, name, stack }`, so an error crossing the worker boundary arrives
+> as a plain `Error`: the message survives intact, but `code`, `operation`, and
+> `instanceof OcctError` do not. Match on `e.message` there, or do the
+> `switch (e.code)` inside the worker.
+
 ## Named Enums
 
 Sweep, offset, and boolean operations use self-documenting enums instead of opaque numbers:
