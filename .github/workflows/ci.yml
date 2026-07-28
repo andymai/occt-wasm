@@ -106,5 +106,14 @@ jobs:
       - name: Install Playwright
         run: npx playwright install chromium firefox --with-deps
 
+      # Firefox exposes WebGL only against a real display, so the demo specs
+      # need one; Mesa's llvmpipe supplies the driver behind it. Chromium is
+      # unaffected — it falls back to SwiftShader either way.
+      - name: Install virtual display + software GL
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils
+
+      # xvfb-run sets DISPLAY, which flips the Firefox project to headed
+      # (playwright.config.ts). Without it the demo specs fail rather than skip,
+      # so a broken display setup cannot quietly cost us the coverage.
       - name: Run browser smoke test
-        run: npx playwright test
+        run: xvfb-run -a --server-args="-screen 0 1280x1024x24" npx playwright test

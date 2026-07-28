@@ -8,7 +8,24 @@ export default defineConfig({
     projects: [
         { name: "chromium", use: { ...devices["Desktop Chrome"] } },
         // Firefox 121+ ships WASM tail calls, the build's binding requirement.
-        { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+        {
+            name: "firefox",
+            use: {
+                ...devices["Desktop Firefox"],
+                // Chromium falls back to SwiftShader, but Firefox exposes WebGL
+                // only against a real display — headless it hands back a null
+                // context, and the demos die constructing their renderer. CI
+                // runs under xvfb-run, which provides one; DISPLAY is how we
+                // tell. Without it, stay headless and let the demo specs skip.
+                headless: !process.env["DISPLAY"],
+                launchOptions: {
+                    firefoxUserPrefs: {
+                        "webgl.force-enabled": true,
+                        "webgl.forbid-software": false,
+                    },
+                },
+            },
+        },
     ],
     webServer: {
         command: "npx serve . -l 3000 --no-clipboard",
