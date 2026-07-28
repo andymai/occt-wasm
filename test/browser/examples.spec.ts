@@ -11,15 +11,32 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { join, normalize } from "node:path";
 
-// Both demos construct a THREE.WebGLRenderer before touching OCCT, and headless
-// Firefox ships no software WebGL backend — `getContext("webgl")` returns null
-// even with webgl.force-enabled, so the module script dies before the kernel is
-// ever exercised. Chromium's SwiftShader covers the geometry, which is the point
-// here; smoke.spec.ts still runs the WASM itself under both browsers.
-test.skip(({ browserName }) => browserName === "firefox", "headless Firefox has no WebGL");
-
 // Cold WASM compile dominates; the smoke test uses the same headroom.
 const LOAD_TIMEOUT = 50_000;
+
+/**
+ * Both demos construct a THREE.WebGLRenderer before touching OCCT, so without a
+ * WebGL context the module script dies before the kernel is ever exercised.
+ *
+ * Skipping locally keeps the suite runnable without a display, but skipping in
+ * CI would mean losing this coverage the moment the xvfb setup broke, and going
+ * green while doing it. So CI treats a missing context as the failure it is.
+ */
+async function requireWebGL(page: Page, browserName: string): Promise<void> {
+    await page.goto("about:blank");
+    const available = await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        return Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
+    });
+    if (available) return;
+
+    const hint =
+        `${browserName} exposes no WebGL context. Firefox needs a real display: ` +
+        `run under xvfb-run, which sets DISPLAY and flips the project to headed ` +
+        `(see playwright.config.ts).`;
+    if (process.env["CI"]) throw new Error(hint);
+    test.skip(true, hint);
+}
 
 // `three` does not export ./package.json, so resolve the root by layout.
 const THREE_ROOT = normalize(join(import.meta.dirname, "../../node_modules/three"));
@@ -90,7 +107,8 @@ test("the vendored three matches the version the demos import", async () => {
     }
 });
 
-test("three-js example builds, tessellates, and loads glTF", async ({ page }) => {
+test("three-js example builds, tessellates, and loads glTF", async ({ page, browserName }) => {
+    await requireWebGL(page, browserName);
     const errors = collectErrors(page);
     const offences: string[] = [];
     await serveThreeLocally(page, offences);
@@ -113,7 +131,8 @@ test("three-js example builds, tessellates, and loads glTF", async ({ page }) =>
     expect(offences, "demo reached the network").toEqual([]);
 });
 
-test("step-viewer example loads its demo shape", async ({ page }) => {
+test("step-viewer example loads its demo shape", async ({ page, browserName }) => {
+    await requireWebGL(page, browserName);
     const errors = collectErrors(page);
     const offences: string[] = [];
     await serveThreeLocally(page, offences);
