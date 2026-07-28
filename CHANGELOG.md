@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.1](https://github.com/andymai/occt-wasm/compare/v3.8.0...v3.8.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* **ts:** decode wasm exceptions and repair the quick start example ([#224](https://github.com/andymai/occt-wasm/issues/224)) ([4fd0cdf](https://github.com/andymai/occt-wasm/commit/4fd0cdff4b919d3db328435fe63eb2f1c9770888))
+
 ## [3.8.0](https://github.com/andymai/occt-wasm/compare/v3.7.1...v3.8.0) (2026-07-20)
 
 
