@@ -26,6 +26,7 @@
     "husky": "^9",
     "opencascade.js": "^1.1.1",
     "serve": "^14.2.6",
+    "three": "0.172.0",
     "vitest": "^4.1.10"
   }
 }
