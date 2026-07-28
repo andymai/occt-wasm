@@ -303,6 +303,70 @@ describe("wrap decodes WebAssembly.Exception", () => {
 });
 
 // ============================================================================
+// OcctKernel lifecycle wiring
+//
+// The block above drives wrap()/addExceptionDecoder directly. These build the
+// real wrapper, so they cover what the constructor and Symbol.dispose actually
+// wire up — and the one-argument getBoundingBox call from issue #223.
+// ============================================================================
+
+describe("OcctKernel wires decoding into its lifecycle", () => {
+    let WrapperKernel: any;
+    let ownModule: any;
+    let kernel2: any;
+
+    beforeAll(async () => {
+        WrapperKernel = (await import(resolve(__dirname, "../ts/src/index.ts"))).OcctKernel;
+        const createModule = (await import(jsPath)).default;
+        ownModule = await createModule({
+            locateFile: (path: string) => (path.endsWith(".wasm") ? wasmPath : path),
+        });
+        // The constructor is TS-private only; erased at runtime.
+        kernel2 = new WrapperKernel(ownModule);
+    }, 60_000);
+
+    it("decodes without any manual decoder registration", () => {
+        let thrown: any;
+        try {
+            kernel2.getVolume(99999);
+        } catch (e) {
+            thrown = e;
+        }
+        expect(thrown).toBeInstanceOf(OcctError);
+        expect(thrown.message).toContain("Invalid shape ID");
+        expect(thrown.code).toBe(OcctErrorCode.InvalidShapeId);
+    });
+
+    it("accepts a single-argument getBoundingBox — issue #223", () => {
+        const box = kernel2.makeBox(10, 20, 30);
+        const bbox = kernel2.getBoundingBox(box);
+        expect(bbox.xmax).toBeCloseTo(10);
+        expect(bbox.ymax).toBeCloseTo(20);
+        expect(bbox.zmax).toBeCloseTo(30);
+        expect(bbox).toEqual(kernel2.getBoundingBox(box, false));
+    });
+
+    it("releases its decoder on dispose", async () => {
+        const { wrap } = await import(resolve(__dirname, "../ts/src/types.ts"));
+        const raw = new ownModule.OcctKernel();
+        let thrown: any;
+        try {
+            raw.getVolume(99999);
+        } catch (e) {
+            thrown = e;
+        }
+        const rethrow = () => wrap("getVolume", () => {
+            throw thrown;
+        });
+
+        expect(() => rethrow()).toThrow(/Invalid shape ID/);
+        kernel2[Symbol.dispose]();
+        expect(() => rethrow()).toThrow(/\[object WebAssembly.Exception\]/);
+        raw.delete();
+    });
+});
+
+// ============================================================================
 // Type predicate methods
 // ============================================================================
 

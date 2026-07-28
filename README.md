@@ -84,7 +84,11 @@ import { OcctKernel } from "occt-wasm";
 > output in a `TopoDS_Compound` — a boolean can produce several disjoint solids.
 > The operations that downcast to a solid (`fillet`, `chamfer`, `filletVariable`,
 > `filletBatch`, `healSolid`) reject one, so unwrap first:
-> `const solid = kernel.getSubShapes(fused, "solid")[0]`.
+>
+> ```typescript
+> const [solid] = kernel.getSubShapes(fused, "solid");
+> if (!solid) throw new Error("boolean produced no solid");
+> ```
 >
 > **Not every edge is filletable.** Seam and degenerate edges are not, so on a
 > shape you didn't build yourself, select edges by geometry rather than by index.

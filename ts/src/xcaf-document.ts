@@ -14,6 +14,11 @@
  * const glb = doc.exportGLTF(Module);
  * doc.close();
  * ```
+ *
+ * Prefer `kernel.createXCAFDocument()` over the static factories. Constructing
+ * from a bare raw kernel works, but only a live {@link OcctKernel} registers the
+ * module's exception decoder — without one, a failure here reports the
+ * undecoded `[object WebAssembly.Exception]` and downgrades to `KERNEL_ERROR`.
  */
 
 import type {
@@ -238,10 +243,11 @@ export class XCAFDocument {
 
     /** Close the document and free OCCT resources. */
     close(): void {
-        if (!this.#closed) {
-            this.#raw.xcafClose(this.#docId);
-            this.#closed = true;
-        }
+        if (this.#closed) return;
+        // Mark closed before the call so a failing close isn't retried by
+        // Symbol.dispose, which would throw again during stack unwinding.
+        this.#closed = true;
+        wrap("xcafClose", () => this.#raw.xcafClose(this.#docId));
     }
 
     [Symbol.dispose](): void {

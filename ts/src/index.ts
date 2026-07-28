@@ -1229,12 +1229,15 @@ export class OcctKernel {
      * geometry by ~0.27·r for arcs of radius r — that was the source of the
      * uniform 1.2 mm bounds shift versus brepjs in occt-wasm 2.0.
      *
-     * @param useTriangulation - If `true`, use existing triangulation as the
-     *     starting bound and refine via surface analysis (faster). If `false`
-     *     (the default), do the surface analysis from scratch (slower, but
-     *     doesn't depend on prior tessellation). Both modes produce tight
-     *     bounds; brepjs's `BRepBndLib.Add(shape, box, true)` corresponds to
-     *     `true` here.
+     * @param useTriangulation - `false` (the default) does the surface analysis
+     *     from scratch, giving the same bounds whether or not the shape has been
+     *     tessellated. `true` bounds an existing triangulation instead, which is
+     *     far faster but only as tight as that mesh — on a 2.0-deflection mesh
+     *     it overshot a 26 mm extent by 1.8 mm, and on a 0.1-deflection mesh by
+     *     0.16 mm. With no triangulation present the two agree exactly and cost
+     *     the same, so `true` is worth it only when you have a fine mesh and
+     *     want the ~30x faster query. brepjs's
+     *     `BRepBndLib.Add(shape, box, true)` corresponds to `true` here.
      */
     getBoundingBox(shape: ShapeHandle, useTriangulation = false): BoundingBox {
         return wrap("getBoundingBox", () => this.#raw.getBoundingBox(shape, useTriangulation));
