@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.2](https://github.com/andymai/occt-wasm/compare/v3.8.1...v3.8.2) (2026-07-31)
+
+
+### Bug Fixes
+
+* **deps:** bump fast-uri and brace-expansion past their advisories ([#237](https://github.com/andymai/occt-wasm/issues/237)) ([75ccd35](https://github.com/andymai/occt-wasm/commit/75ccd351a4b892c647f2104b9c63e3ffd40c24a1))
+
 ## [3.8.1](https://github.com/andymai/occt-wasm/compare/v3.8.0...v3.8.1) (2026-07-28)
 
 
