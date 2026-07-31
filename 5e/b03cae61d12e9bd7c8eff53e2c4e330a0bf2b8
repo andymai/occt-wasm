@@ -1,0 +1,27 @@
+scripts/static-server.mjs
+  s_87ec6dbd8af88a::t_86266a32b712c2 1-69
+playwright.config.ts
+  s_87ec6dbd8af88a::t_5e5f80087e5fe5 31
+README.md
+  s_87ec6dbd8af88a::t_6d68424ed7a143 384
+package-lock.json
+  s_87ec6dbd8af88a::t_7f1e47aed34354 1691,1694-1700,1702-1706,1708-1712,1715-1718,1720,1722-1725,1728-1729
+ts/package-lock.json
+  s_87ec6dbd8af88a::t_267278ef257d85 1214-1216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "5eb03cae61d12e9bd7c8eff53e2c4e330a0bf2b8",
+  "prompts": {},
+  "sessions": {
+    "s_87ec6dbd8af88a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b64028df-1ac1-4044-b219-6af3b6d0eaf4",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
