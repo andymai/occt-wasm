@@ -381,7 +381,7 @@ cargo xtask build       # Build OCCT + facade -> WASM
 cargo xtask test        # Run tests
 
 # View the Three.js example
-npx serve .
+node scripts/static-server.mjs
 # Open http://localhost:3000/examples/three-js/
 ```
 
