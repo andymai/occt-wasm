@@ -35,8 +35,13 @@ const MIME = {
     ".wasm": "application/wasm",
 };
 
-async function resolveFile(urlPath) {
-    const candidate = resolve(join(ROOT, decodeURIComponent(urlPath)));
+function send(res, status, body) {
+    res.writeHead(status, { "content-type": "text/plain" });
+    res.end(body);
+}
+
+async function resolveFile(decodedPath) {
+    const candidate = resolve(join(ROOT, decodedPath));
     // Keep a crafted path from reaching outside the repo.
     if (candidate !== ROOT && !candidate.startsWith(ROOT + "/")) return null;
 
@@ -51,11 +56,16 @@ async function resolveFile(urlPath) {
 const server = createServer((req, res) => {
     void (async () => {
         const { pathname } = new URL(req.url ?? "/", "http://localhost");
-        const file = await resolveFile(pathname);
-        if (!file) {
-            res.writeHead(404, { "content-type": "text/plain" });
-            return res.end("Not found\n");
+
+        let decoded;
+        try {
+            decoded = decodeURIComponent(pathname);
+        } catch {
+            return send(res, 400, "Bad request\n");
         }
+
+        const file = await resolveFile(decoded);
+        if (!file) return send(res, 404, "Not found\n");
 
         res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream" });
         if (req.method === "HEAD") return res.end();
@@ -63,7 +73,16 @@ const server = createServer((req, res) => {
         createReadStream(file)
             .on("error", () => res.destroy())
             .pipe(res);
-    })();
+        // An unhandled rejection here would take the process down, not just the
+        // request — a single malformed URL was enough to kill the server.
+    })().catch(() => {
+        if (!res.headersSent) return send(res, 500, "Internal error\n");
+        res.destroy();
+    });
 });
 
-server.listen(PORT, () => console.log(`Serving ${ROOT} on http://localhost:${PORT}/`));
+// Report the bound port rather than the requested one, so port 0 (pick a free
+// one) is usable — the tests rely on it to avoid colliding with a real server.
+server.listen(PORT, () =>
+    console.log(`Serving ${ROOT} on http://localhost:${server.address().port}/`),
+);
