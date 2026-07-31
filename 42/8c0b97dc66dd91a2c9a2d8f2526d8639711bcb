@@ -1,0 +1,24 @@
+test/static-server.test.ts
+  s_87ec6dbd8af88a::t_db812c75349ecf 1-65
+scripts/static-server.mjs
+  s_87ec6dbd8af88a::t_26b4aac6c2ea0b 84-88
+  s_87ec6dbd8af88a::t_62b6bfbdd0138f 38-44
+  s_87ec6dbd8af88a::t_5b7063daa034c2 59,68-69,76-77
+  s_87ec6dbd8af88a::t_170b08f3823867 60-64,67,78-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "428c0b97dc66dd91a2c9a2d8f2526d8639711bcb",
+  "prompts": {},
+  "sessions": {
+    "s_87ec6dbd8af88a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b64028df-1ac1-4044-b219-6af3b6d0eaf4",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
