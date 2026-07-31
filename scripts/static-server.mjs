@@ -18,7 +18,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
-import { dirname, extname, join, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -42,8 +42,11 @@ function send(res, status, body) {
 
 async function resolveFile(decodedPath) {
     const candidate = resolve(join(ROOT, decodedPath));
-    // Keep a crafted path from reaching outside the repo.
-    if (candidate !== ROOT && !candidate.startsWith(ROOT + "/")) return null;
+    // Keep a crafted path from reaching outside the repo. Compare via relative()
+    // rather than a "/"-joined prefix, which on Windows would test a separator
+    // resolve() never emits and reject every path.
+    const rel = relative(ROOT, candidate);
+    if (rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) return null;
 
     const info = await stat(candidate).catch(() => null);
     if (!info) return null;

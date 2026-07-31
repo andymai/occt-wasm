@@ -50,12 +50,15 @@ describe("static-server", () => {
         expect((await fetch(`${base}/nope.html`)).status).toBe(404);
     });
 
-    it.each(["/../../etc/passwd", "/%2e%2e/%2e%2e/etc/passwd"])(
-        "refuses to escape the repo root via %s",
-        async (path) => {
-            expect((await fetch(`${base}${path}`)).status).toBe(404);
-        },
-    );
+    it.each([
+        "/../../etc/passwd",
+        "/%2e%2e/%2e%2e/etc/passwd",
+        // A sibling whose name merely extends the root's would pass a plain
+        // string-prefix containment check.
+        "/../occt-wasm-evil/secret",
+    ])("refuses to escape the repo root via %s", async (path) => {
+        expect((await fetch(`${base}${path}`)).status).toBe(404);
+    });
 
     it("survives a malformed percent-escape", async () => {
         expect((await fetch(`${base}/%ZZ`)).status).toBe(400);
