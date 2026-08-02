@@ -671,14 +671,18 @@ NCollection_List<TopoDS_Shape> facesToRemove;
 for (uint32_t fid : faceIds) {
     facesToRemove.Append(get(fid));
 }
-BRepOffsetAPI_MakeThickSolid maker;
-maker.MakeThickSolidByJoin(get(shapeId), facesToRemove, 0.0, tolerance);
+BRepAlgoAPI_Defeaturing maker;
+maker.SetShape(get(shapeId));
+maker.AddFacesToRemove(facesToRemove);
+if (tolerance > 0.0) {
+    maker.SetFuzzyValue(tolerance);
+}
 maker.Build();
-if (!maker.IsDone()) {
+if (!maker.IsDone() || maker.HasErrors()) {
     throw std::runtime_error(\"defeature: operation failed\");
 }
 return store(maker.Shape());",
-        includes: &["BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx"],
+        includes: &["BRepAlgoAPI_Defeaturing.hxx", "NCollection_List.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
@@ -5288,6 +5292,22 @@ mod tests {
             "bundled specs failed validation: {:?}",
             validate(target_methods()).err()
         );
+    }
+
+    #[test]
+    fn defeature_uses_occt_defeaturing_algorithm() {
+        let spec = target_methods()
+            .iter()
+            .find(|method| method.name == "defeature")
+            .expect("defeature method spec");
+
+        assert!(spec.includes.contains(&"BRepAlgoAPI_Defeaturing.hxx"));
+        assert!(spec.setup_code.contains("BRepAlgoAPI_Defeaturing maker"));
+        assert!(
+            spec.setup_code
+                .contains("maker.AddFacesToRemove(facesToRemove)")
+        );
+        assert!(!spec.setup_code.contains("MakeThickSolidByJoin"));
     }
 
     #[test]
