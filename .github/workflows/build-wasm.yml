@@ -73,6 +73,17 @@ jobs:
           npx vitest run test/bench.test.ts
           node scripts/bench-check.js
 
+      # Refreshing benchmarks/baseline.json requires numbers measured on runner
+      # hardware, so the results have to leave the runner. Uploaded even when the
+      # gate fails, since that is exactly when the numbers are worth reading.
+      - name: Upload benchmark results
+        if: ${{ !cancelled() && !inputs.release }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-results
+          path: benchmarks/last-run.json
+          retention-days: 7
+
       - name: Upload build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
