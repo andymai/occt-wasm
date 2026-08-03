@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.8.3](https://github.com/andymai/occt-wasm/compare/v3.8.2...v3.8.3) (2026-08-03)
+
+
+### Bug Fixes
+
+* **deps:** bump wasmtime to 46.0.2 past RUSTSEC-2026-0222/0223 ([#240](https://github.com/andymai/occt-wasm/issues/240)) ([c219451](https://github.com/andymai/occt-wasm/commit/c219451feb6d86aa3cec823d044ef112305e6761))
+* **facade:** use OCCT defeaturing API ([#242](https://github.com/andymai/occt-wasm/issues/242)) ([f4c96e7](https://github.com/andymai/occt-wasm/commit/f4c96e7dc847002c74ff6d8a5819b12ef6b69b32))
+* **occt:** bump submodule to V8.0.1 ([#246](https://github.com/andymai/occt-wasm/issues/246)) ([e774ad0](https://github.com/andymai/occt-wasm/commit/e774ad004532688077fea75d10214ef83c2ca1f5)), closes [#243](https://github.com/andymai/occt-wasm/issues/243)
+
 ## [3.8.2](https://github.com/andymai/occt-wasm/compare/v3.8.1...v3.8.2) (2026-07-31)
 
 
