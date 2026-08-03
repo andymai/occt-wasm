@@ -1640,11 +1640,12 @@ export class OcctKernel {
     }
 
     /**
-     * Remove faces from a solid by closing them off (zero-thickness shell).
+     * Remove complete features such as holes, bosses, chamfers, or fillets and
+     * heal the surrounding faces. Arbitrary isolated faces are not guaranteed
+     * to be removable.
      *
-     * @param tolerance - OCCT precision for the reconstruction. Use `1e-6`
-     *     for precise feature removal (matches brepjs default); `1e-3` is a
-     *     coarser legacy value.
+     * @param tolerance - Additional fuzzy tolerance used while reconstructing
+     *     the surrounding geometry. Pass `0` to use OCCT's defaults.
      */
     defeature(shape: ShapeHandle, faces: ShapeHandle[], tolerance: number): ShapeHandle {
         return wrap("defeature", () => {

@@ -9,6 +9,7 @@
 #include <BRepAlgoAPI_BuilderAlgo.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
+#include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepAlgoAPI_Section.hxx>
 #include <BRepAlgoAPI_Splitter.hxx>
@@ -738,10 +739,14 @@ uint32_t OcctKernel::defeature(uint32_t shapeId, std::vector<uint32_t> faceIds, 
         for (uint32_t fid : faceIds) {
             facesToRemove.Append(get(fid));
         }
-        BRepOffsetAPI_MakeThickSolid maker;
-        maker.MakeThickSolidByJoin(get(shapeId), facesToRemove, 0.0, tolerance);
+        BRepAlgoAPI_Defeaturing maker;
+        maker.SetShape(get(shapeId));
+        maker.AddFacesToRemove(facesToRemove);
+        if (tolerance > 0.0) {
+            maker.SetFuzzyValue(tolerance);
+        }
         maker.Build();
-        if (!maker.IsDone()) {
+        if (!maker.IsDone() || maker.HasErrors()) {
             throw std::runtime_error("defeature: operation failed");
         }
         return store(maker.Shape());
