@@ -1,0 +1,19 @@
+occt
+  s_5191fbf98a4121::t_232c40f89d92fd 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "c3923aad38dc05d4e35c4173f5ddb30432e928fb",
+  "prompts": {},
+  "sessions": {
+    "s_5191fbf98a4121": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01b3f64c-9b98-4ab1-b03d-536c79bbfd1c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
