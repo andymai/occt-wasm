@@ -1,0 +1,20 @@
+test/bench.test.ts
+  s_adfc0cd72c0d3c::t_f50d15ec68c1ba 101,104,106
+  s_adfc0cd72c0d3c::t_9474e7590f6af5 66-96,100,102-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "712a644a08f06012013b66fd9a47987f6a3f0c31",
+  "prompts": {},
+  "sessions": {
+    "s_adfc0cd72c0d3c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d47ced76-b65c-40f7-a1bf-6c8cb89bf00c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
