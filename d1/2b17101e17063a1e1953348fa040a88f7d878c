@@ -1,0 +1,30 @@
+scripts/bench-check.js
+  s_adfc0cd72c0d3c::t_e4e9e891b50963 142
+  s_adfc0cd72c0d3c::t_873e65e56efb55 9-21
+  s_adfc0cd72c0d3c::t_180f8602f696ec 30-36
+  s_adfc0cd72c0d3c::t_dd93a426a11109 44-47,50-52
+  s_adfc0cd72c0d3c::t_db99e787a2deb2 106-114,117,119-128,131-132,138-141,144,147,149,151
+  s_adfc0cd72c0d3c::t_45b636a082b3c4 105,115-116,118
+benchmarks/baseline.json
+  s_adfc0cd72c0d3c::t_66a1379a2ac74e 2-13
+CLAUDE.md
+  s_adfc0cd72c0d3c::t_194928bcf863bf 28
+test/bench-check.test.ts
+  s_adfc0cd72c0d3c::t_286bf3db2d6599 1-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "d12b17101e17063a1e1953348fa040a88f7d878c",
+  "prompts": {},
+  "sessions": {
+    "s_adfc0cd72c0d3c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d47ced76-b65c-40f7-a1bf-6c8cb89bf00c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
