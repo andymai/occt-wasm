@@ -63,12 +63,47 @@ interface BenchResult {
     iterations: number;
 }
 
+/**
+ * Warm until the workload stops getting faster, rather than for a fixed count.
+ *
+ * V8 tiers up the Embind glue on a background thread, so how many iterations a
+ * benchmark needs before it reaches steady state depends on how contended the
+ * machine is. A fixed count therefore measures a different point on the ramp per
+ * runner: booleanPipeline ×3 landed in either a ~10.8ms or a ~15ms mode across CI
+ * runs of identical code, with no correlation to overall runner speed. Locally the
+ * un-warmed/warmed ratio reproduces at 10.8/7.9 = 1.37×, against 15.0/10.8 = 1.39×
+ * on CI, so the two modes are the same benchmark measured before and after tier-up.
+ *
+ * Blocks are timed as a whole because a single iteration is too noisy to detect a
+ * 5% trend on the sub-millisecond benchmarks. Both caps are needed: the budget
+ * bounds the slow benchmarks, the block count bounds the fast ones, whose noise
+ * can otherwise clear the 5% bar indefinitely.
+ */
+function warmUntilStable(fn: () => void, blockSize: number, budgetMs: number): void {
+    const MAX_BLOCKS = 20;
+    const started = performance.now();
+    let previous = Number.NaN;
+    for (let block = 0; block < MAX_BLOCKS; block++) {
+        const blockStart = performance.now();
+        for (let i = 0; i < blockSize; i++) fn();
+        const elapsed = performance.now() - blockStart;
+        const improvement = (previous - elapsed) / previous;
+        if (Number.isFinite(improvement) && improvement < 0.05) return;
+        if (performance.now() - started > budgetMs) return;
+        previous = elapsed;
+    }
+}
+
 function bench(
     name: string,
     fn: () => void,
-    { warmup = 3, iterations = 10 }: { warmup?: number; iterations?: number } = {}
+    {
+        warmupBlock = 5,
+        iterations = 10,
+        warmupBudgetMs = 1500,
+    }: { warmupBlock?: number; iterations?: number; warmupBudgetMs?: number } = {}
 ): BenchResult {
-    for (let i = 0; i < warmup; i++) fn();
+    warmUntilStable(fn, warmupBlock, warmupBudgetMs);
     const times: number[] = [];
     for (let i = 0; i < iterations; i++) {
         const start = performance.now();
