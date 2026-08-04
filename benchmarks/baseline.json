@@ -1,12 +1,14 @@
 {
-  "makeBox ×100": 5.0,
-  "fuse ×10": 85.0,
-  "translate ×1000": 75.0,
-  "mesh sphere (tol=0.01)": 0.6,
-  "exportSTEP ×10": 35.0,
-  "translateBatch ×1000": 75.0,
-  "booleanPipeline ×3": 16.0,
-  "meshBatch ×10 spheres": 1.3,
-  "interpolatePoints ×50 push_back": 9.0,
-  "interpolatePoints ×50 bulk": 5.5
+  "makeBox ×100": 3.49,
+  "fuse ×10": 62.11,
+  "translate ×1000": 55.57,
+  "mesh sphere (tol=0.01)": 0.47,
+  "exportSTEP ×10": 27.12,
+  "translateBatch ×1000": 55.04,
+  "booleanPipeline ×3": 13.42,
+  "gridfinity plate cutAll 3×3": 116.9,
+  "gridfinity bin fuseAll 5": 58.26,
+  "meshBatch ×10 spheres": 0.86,
+  "interpolatePoints ×50 push_back": 6.43,
+  "interpolatePoints ×50 bulk": 3.7
 }
