@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.4](https://github.com/andymai/occt-wasm/compare/v3.8.3...v3.8.4) (2026-08-07)
+
+
+### Bug Fixes
+
+* **deps:** bump fast-uri past GHSA-7p8r-x3mc-p8w7 ([#252](https://github.com/andymai/occt-wasm/issues/252)) ([1eeeb13](https://github.com/andymai/occt-wasm/commit/1eeeb13b71d9d5f7e052389359bda09d93d16168))
+
 ## [3.8.3](https://github.com/andymai/occt-wasm/compare/v3.8.2...v3.8.3) (2026-08-03)
 
 
