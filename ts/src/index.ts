@@ -503,8 +503,9 @@ export class OcctKernel {
      * binormal direction); `auxSpine` is required for {@link SweepMode.Auxiliary}
      * (the guide wire). Both are ignored for the other modes.
      *
-     * `options` tunes the {@link SweepMode.Auxiliary} path only. Its tolerance
-     * fields are absolute, not relative to model size — see
+     * In `options`, `curvilinearEquivalence` and `contact` apply to
+     * {@link SweepMode.Auxiliary} only; the tolerances apply to every mode and
+     * are absolute, not relative to model size. See
      * {@link SweepOrientedOptions}.
      */
     sweepOriented(

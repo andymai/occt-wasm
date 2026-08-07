@@ -202,11 +202,14 @@ export enum SweepContact {
     ContactOnBorder = 2,
 }
 
-/** Extra {@link SweepMode.Auxiliary} controls for {@link OcctKernel.sweepOriented}. */
+/**
+ * Extra controls for {@link OcctKernel.sweepOriented}. The guide-wire fields
+ * apply to {@link SweepMode.Auxiliary} only; the tolerances apply to every mode.
+ */
 export interface SweepOrientedOptions {
     /**
-     * Match spine and guide by curvilinear abscissa rather than by parameter.
-     * Defaults to `false`.
+     * {@link SweepMode.Auxiliary} only. Match spine and guide by curvilinear
+     * abscissa rather than by parameter. Defaults to `false`.
      *
      * Enabling it routes the sweep through an arc-length-reparametrized law,
      * which forces every side surface to be approximated as a B-spline even
@@ -216,7 +219,7 @@ export interface SweepOrientedOptions {
      * differently enough that arc-length matching is what you actually want.
      */
     curvilinearEquivalence?: boolean;
-    /** Defaults to {@link SweepContact.None}. */
+    /** {@link SweepMode.Auxiliary} only. Defaults to {@link SweepContact.None}. */
     contact?: SweepContact;
     /**
      * 3D approximation tolerance. OCCT's default is an absolute `1e-4`, so
