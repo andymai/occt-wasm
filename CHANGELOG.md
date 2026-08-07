@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.0.0](https://github.com/andymai/occt-wasm/compare/v3.8.4...v4.0.0) (2026-08-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **facade:** SweepMode.Auxiliary now matches spine and guide by parameter rather than by curvilinear abscissa. Pass `{ curvilinearEquivalence: true }` to restore the old behaviour.
+
+### Bug Fixes
+
+* **deps:** bump js-yaml past GHSA-5p4m-2wfm-xmqj ([#260](https://github.com/andymai/occt-wasm/issues/260)) ([8827948](https://github.com/andymai/occt-wasm/commit/88279482d7cfc8176fb342d7ea67f296ae743839))
+* **facade:** stop forcing curvilinear equivalence on auxiliary sweeps ([#259](https://github.com/andymai/occt-wasm/issues/259)) ([8b34316](https://github.com/andymai/occt-wasm/commit/8b34316f9a91a33a39594fef0ceb16ddacdcc71f))
+
 ## [3.8.4](https://github.com/andymai/occt-wasm/compare/v3.8.3...v3.8.4) (2026-08-07)
 
 
