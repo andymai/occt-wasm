@@ -21,7 +21,7 @@
   "devDependencies": {
     "@commitlint/cli": "^21",
     "@commitlint/config-conventional": "^21",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@types/node": "^26",
     "husky": "^9",
     "opencascade.js": "^1.1.1",
