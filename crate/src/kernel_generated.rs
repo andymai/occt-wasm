@@ -164,7 +164,7 @@ pub(crate) struct GeneratedFuncs {
     fn_loft_with_vertices: TypedFunc<(i32, i32, i32, i32, u32, u32), u32>,
     fn_sweep: TypedFunc<(u32, u32, i32), u32>,
     fn_sweep_pipe_shell: TypedFunc<(u32, u32, i32, i32), u32>,
-    fn_sweep_oriented: TypedFunc<(u32, u32, i32, f64, f64, f64, u32), u32>,
+    fn_sweep_oriented: TypedFunc<(u32, u32, i32, f64, f64, f64, u32, i32, i32, f64, f64, f64), u32>,
     fn_draft_prism: TypedFunc<(u32, f64, f64, f64, f64), u32>,
     fn_fix_shape: TypedFunc<(u32,), u32>,
     fn_unify_same_domain: TypedFunc<(u32,), u32>,
@@ -2980,6 +2980,11 @@ impl crate::kernel::OcctKernel {
         up_y: f64,
         up_z: f64,
         aux_spine_id: ShapeHandle,
+        curvilinear_equivalence: bool,
+        contact_mode: i32,
+        tol3d: f64,
+        bound_tol: f64,
+        tol_angular: f64,
     ) -> OcctResult<ShapeHandle> {
         let result = self.generated.fn_sweep_oriented.call(
             &mut self.store,
@@ -2991,6 +2996,11 @@ impl crate::kernel::OcctKernel {
                 up_y,
                 up_z,
                 aux_spine_id.0,
+                i32::from(curvilinear_equivalence),
+                contact_mode,
+                tol3d,
+                bound_tol,
+                tol_angular,
             ),
         )?;
         self.check_error("sweep_oriented")?;

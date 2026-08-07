@@ -192,6 +192,55 @@ export enum SweepMode {
     Auxiliary = 3,
 }
 
+/** How the swept section relates to the guide spine (BRepFill_TypeOfContact). */
+export enum SweepContact {
+    /** The guide only orients the section; it does not touch the result. */
+    None = 0,
+    /** The section is widened to stay in contact with the guide; section width stays constant. */
+    Contact = 1,
+    /** The guide becomes a boundary of the swept surface; section width varies. */
+    ContactOnBorder = 2,
+}
+
+/**
+ * Extra controls for {@link OcctKernel.sweepOriented}. The guide-wire fields
+ * apply to {@link SweepMode.Auxiliary} only; the tolerances apply to every mode.
+ */
+export interface SweepOrientedOptions {
+    /**
+     * {@link SweepMode.Auxiliary} only. Match spine and guide by curvilinear
+     * abscissa rather than by parameter. Defaults to `false`.
+     *
+     * The two settings are different constructions, not two qualities of the
+     * same one. `false` orients each section by the plane through the spine
+     * point and the guide (`GeomFill_GuideTrihedronPlan`); `true` matches
+     * spine and guide by curvilinear abscissa and reparametrizes the spine
+     * (`GeomFill_GuideTrihedronAC` over `BRepFill_ACRLaw`), which forces every
+     * side surface to be approximated as a B-spline even when the exact
+     * answer is planar.
+     *
+     * `false` is exact wherever the guide spans the spine, and it raises
+     * rather than guessing when a section plane misses the guide. `true`
+     * always produces something, but that something can be far off — a guide
+     * covering only the middle of the spine yields a solid ~46% under true
+     * volume instead of an error.
+     */
+    curvilinearEquivalence?: boolean;
+    /** {@link SweepMode.Auxiliary} only. Defaults to {@link SweepContact.None}. */
+    contact?: SweepContact;
+    /**
+     * 3D approximation tolerance. OCCT's default is an absolute `1e-4`, so
+     * models much larger than unit scale should raise this in proportion —
+     * otherwise the surface approximation runs out of spans and the sweep
+     * degrades or fails outright.
+     */
+    tol3d?: number;
+    /** Boundary tolerance. OCCT's default is an absolute `1e-4`. */
+    boundTol?: number;
+    /** Angular tolerance in radians. OCCT's default is `1e-2`. */
+    tolAngular?: number;
+}
+
 /** Join type for offset/fillet operations (BRepOffsetAPI_MakeOffset). */
 export enum JoinType {
     /** Arc interpolation at joints (default). */
@@ -404,6 +453,10 @@ function classifyError(operation: string, message: string): OcctErrorCode {
     if (msg.includes("document is closed")) return OcctErrorCode.DocumentClosed;
     if (msg.includes("boolean operation failed")) return OcctErrorCode.BooleanFailed;
     if (msg.includes("construction failed")) return OcctErrorCode.ConstructionFailed;
+    // sweepOriented reports MakePipeShell's status instead of the generic
+    // "operation failed", but it is still a construction failure.
+    if (msg.includes("does not intersect the guide wire")) return OcctErrorCode.ConstructionFailed;
+    if (msg.includes("in contact with the guide wire")) return OcctErrorCode.ConstructionFailed;
 
     // Operation-category fallback
     if (BOOLEAN_OPS.has(operation)) return OcctErrorCode.BooleanFailed;

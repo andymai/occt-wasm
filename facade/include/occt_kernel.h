@@ -178,7 +178,8 @@ class OcctKernel {
     uint32_t sweep(uint32_t wireId, uint32_t spineId, int transitionMode);
     uint32_t sweepPipeShell(uint32_t profileId, uint32_t spineId, bool freenet, bool smooth);
     uint32_t sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY,
-                           double upZ, uint32_t auxSpineId);
+                           double upZ, uint32_t auxSpineId, bool curvilinearEquivalence,
+                           int contactMode, double tol3d, double boundTol, double tolAngular);
     uint32_t draftPrism(uint32_t shapeId, double dx, double dy, double dz, double angleDeg);
     uint32_t revolveVec(uint32_t shapeId, double cx, double cy, double cz, double dx, double dy,
                         double dz, double angle);

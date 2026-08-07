@@ -240,3 +240,42 @@ fn extrude_rectangle() {
         "expected 10*20*5=1000, got {vol}"
     );
 }
+
+#[test]
+fn sweep_oriented_auxiliary_keeps_planes_exact() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let corners = [
+        (-2.0, -2.0),
+        (2.0, -2.0),
+        (2.0, 2.0),
+        (-2.0, 2.0),
+        (-2.0, -2.0),
+    ];
+    let profile_edges: Vec<_> = corners
+        .windows(2)
+        .map(|w| {
+            kernel
+                .make_line_edge(w[0].0, w[0].1, 0.0, w[1].0, w[1].1, 0.0)
+                .unwrap()
+        })
+        .collect();
+    let profile = kernel.make_wire(&profile_edges).unwrap();
+    let spine_edge = kernel
+        .make_line_edge(0.0, 0.0, 0.0, 0.0, 0.0, 20.0)
+        .unwrap();
+    let spine = kernel.make_wire(&[spine_edge]).unwrap();
+    let guide_edge = kernel
+        .make_line_edge(5.0, 0.0, 0.0, 5.0, 0.0, 20.0)
+        .unwrap();
+    let guide = kernel.make_wire(&[guide_edge]).unwrap();
+
+    let solid = kernel
+        .sweep_oriented(
+            profile, spine, 3, 0.0, 0.0, 1.0, guide, false, 0, 0.0, 0.0, 0.0,
+        )
+        .unwrap();
+    let vol = kernel.get_volume(solid).unwrap().abs();
+    assert!((vol - 320.0).abs() < 1e-6, "expected 4*4*20=320, got {vol}");
+}

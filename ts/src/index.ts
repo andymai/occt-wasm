@@ -18,6 +18,7 @@ export {
     JoinType,
     OcctError,
     OcctErrorCode,
+    SweepContact,
     SweepMode,
     TransitionMode,
     type AddChildOptions,
@@ -44,6 +45,7 @@ export {
     type ShapeOrientation,
     type ShapeType,
     type SurfaceKind,
+    type SweepOrientedOptions,
     type TessellateOptions,
     type UVBounds,
     type Vec3,
@@ -85,12 +87,13 @@ import type {
     ShapeOrientation,
     ShapeType,
     SurfaceKind,
+    SweepOrientedOptions,
     TessellateOptions,
     BooleanOp,
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, SweepMode, TransitionMode, addExceptionDecoder, wrap } from "./types.js";
+import { JoinType, SweepContact, SweepMode, TransitionMode, addExceptionDecoder, wrap } from "./types.js";
 import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 import type {
     OcctWasmModule,
@@ -499,6 +502,11 @@ export class OcctKernel {
      * control. `up` is required for {@link SweepMode.FixedUp} (the constant
      * binormal direction); `auxSpine` is required for {@link SweepMode.Auxiliary}
      * (the guide wire). Both are ignored for the other modes.
+     *
+     * In `options`, `curvilinearEquivalence` and `contact` apply to
+     * {@link SweepMode.Auxiliary} only; the tolerances apply to every mode and
+     * are absolute, not relative to model size. See
+     * {@link SweepOrientedOptions}.
      */
     sweepOriented(
         profile: ShapeHandle,
@@ -506,9 +514,25 @@ export class OcctKernel {
         mode: SweepMode = SweepMode.Fixed,
         up: Vec3 = { x: 0, y: 0, z: 1 },
         auxSpine?: ShapeHandle,
+        options: SweepOrientedOptions = {},
     ): ShapeHandle {
         return wrap("sweepOriented", () =>
-            handle(this.#raw.sweepOriented(profile, spine, mode, up.x, up.y, up.z, auxSpine ?? 0)),
+            handle(
+                this.#raw.sweepOriented(
+                    profile,
+                    spine,
+                    mode,
+                    up.x,
+                    up.y,
+                    up.z,
+                    auxSpine ?? 0,
+                    options.curvilinearEquivalence ?? false,
+                    options.contact ?? SweepContact.None,
+                    options.tol3d ?? 0,
+                    options.boundTol ?? 0,
+                    options.tolAngular ?? 0,
+                ),
+            ),
         );
     }
 

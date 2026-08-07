@@ -182,7 +182,7 @@ export interface OcctRawKernel {
     loftWithVertices(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean, startVertexId: number, endVertexId: number): number;
     sweep(wireId: number, spineId: number, transitionMode: number): number;
     sweepPipeShell(profileId: number, spineId: number, freenet: boolean, smooth: boolean): number;
-    sweepOriented(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number, auxSpineId: number): number;
+    sweepOriented(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number, auxSpineId: number, curvilinearEquivalence: boolean, contactMode: number, tol3d: number, boundTol: number, tolAngular: number): number;
     draftPrism(shapeId: number, dx: number, dy: number, dz: number, angleDeg: number): number;
     revolveVec(shapeId: number, cx: number, cy: number, cz: number, dx: number, dy: number, dz: number, angle: number): number;
 
