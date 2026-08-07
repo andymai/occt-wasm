@@ -453,6 +453,10 @@ function classifyError(operation: string, message: string): OcctErrorCode {
     if (msg.includes("document is closed")) return OcctErrorCode.DocumentClosed;
     if (msg.includes("boolean operation failed")) return OcctErrorCode.BooleanFailed;
     if (msg.includes("construction failed")) return OcctErrorCode.ConstructionFailed;
+    // sweepOriented reports MakePipeShell's status instead of the generic
+    // "operation failed", but it is still a construction failure.
+    if (msg.includes("does not intersect the guide wire")) return OcctErrorCode.ConstructionFailed;
+    if (msg.includes("in contact with the guide wire")) return OcctErrorCode.ConstructionFailed;
 
     // Operation-category fallback
     if (BOOLEAN_OPS.has(operation)) return OcctErrorCode.BooleanFailed;

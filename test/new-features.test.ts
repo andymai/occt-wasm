@@ -62,6 +62,19 @@ describe("OcctErrorCode classification", () => {
         expect(err.code).toBe(OcctErrorCode.ConstructionFailed);
     });
 
+    it("auto-classifies MakePipeShell guide statuses as ConstructionFailed", () => {
+        const notIntersect = new OcctError(
+            "sweepOriented",
+            "sweepOriented: a section plane does not intersect the guide wire. The guide must span the whole spine and stay close enough to meet every section.",
+        );
+        expect(notIntersect.code).toBe(OcctErrorCode.ConstructionFailed);
+        const noContact = new OcctError(
+            "sweepOriented",
+            "sweepOriented: cannot keep the section in contact with the guide wire. The guide must be close enough to the spine to intersect every section.",
+        );
+        expect(noContact.code).toBe(OcctErrorCode.ConstructionFailed);
+    });
+
     it("auto-classifies 'boolean operation failed' as BooleanFailed", () => {
         const err = new OcctError("fuse", "fuse: boolean operation failed");
         expect(err.code).toBe(OcctErrorCode.BooleanFailed);
