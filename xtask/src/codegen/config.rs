@@ -3463,12 +3463,21 @@ return store(maker.Shape());",
             FacadeParam::Double("upY"),
             FacadeParam::Double("upZ"),
             FacadeParam::ShapeId("auxSpineId"),
+            FacadeParam::Bool("curvilinearEquivalence"),
+            FacadeParam::Int("contactMode"),
+            FacadeParam::Double("tol3d"),
+            FacadeParam::Double("boundTol"),
+            FacadeParam::Double("tolAngular"),
         ],
         occt_class: "",
         ctor_args: "",
         // mode 0 = Fixed (corrected Frenet, minimal torsion), 1 = Frenet
         // (follows the principal normal), 2 = FixedUp (constant binormal),
         // 3 = Auxiliary (orientation driven by the auxSpineId guide wire).
+        // contactMode maps to BRepFill_TypeOfContact and only applies to
+        // Auxiliary. A non-positive tolerance leaves the OCCT default in
+        // place; those defaults are absolute (1e-4 / 1e-4 / 1e-2 rad), so
+        // large models need them scaled up explicitly.
         setup_code: "\
 BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
 switch (mode) {
@@ -3483,11 +3492,31 @@ switch (mode) {
         maker.SetMode(up);
         break;
     }
-    case 3:
-        maker.SetMode(TopoDS::Wire(get(auxSpineId)), Standard_True);
+    case 3: {
+        BRepFill_TypeOfContact contact;
+        switch (contactMode) {
+            case 0:
+                contact = BRepFill_NoContact;
+                break;
+            case 1:
+                contact = BRepFill_Contact;
+                break;
+            case 2:
+                contact = BRepFill_ContactOnBorder;
+                break;
+            default:
+                throw std::runtime_error(\"sweepOriented: invalid contact mode\");
+        }
+        maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
         break;
+    }
     default:
         throw std::runtime_error(\"sweepOriented: invalid mode\");
+}
+if (tol3d > 0.0 || boundTol > 0.0 || tolAngular > 0.0) {
+    maker.SetTolerance(tol3d > 0.0 ? tol3d : 1.0e-4,
+                       boundTol > 0.0 ? boundTol : 1.0e-4,
+                       tolAngular > 0.0 ? tolAngular : 1.0e-2);
 }
 maker.Add(get(profileId));
 maker.Build();
@@ -3498,6 +3527,7 @@ maker.MakeSolid();
 return store(maker.Shape());",
         includes: &[
             "BRepOffsetAPI_MakePipeShell.hxx",
+            "BRepFill_TypeOfContact.hxx",
             "TopoDS.hxx",
             "gp_Dir.hxx",
         ],

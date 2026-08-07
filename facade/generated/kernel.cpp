@@ -28,6 +28,7 @@
 #include <BRepClass3d_SolidClassifier.hxx>
 #include <BRepClass_FaceClassifier.hxx>
 #include <BRepExtrema_DistShapeShape.hxx>
+#include <BRepFill_TypeOfContact.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRepGProp.hxx>
@@ -2830,7 +2831,7 @@ uint32_t OcctKernel::sweepPipeShell(uint32_t profileId, uint32_t spineId, bool f
     }
 }
 
-uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY, double upZ, uint32_t auxSpineId) {
+uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY, double upZ, uint32_t auxSpineId, bool curvilinearEquivalence, int contactMode, double tol3d, double boundTol, double tolAngular) {
     try {
         BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
         switch (mode) {
@@ -2845,11 +2846,31 @@ uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mod
                 maker.SetMode(up);
                 break;
             }
-            case 3:
-                maker.SetMode(TopoDS::Wire(get(auxSpineId)), Standard_True);
+            case 3: {
+                BRepFill_TypeOfContact contact;
+                switch (contactMode) {
+                    case 0:
+                        contact = BRepFill_NoContact;
+                        break;
+                    case 1:
+                        contact = BRepFill_Contact;
+                        break;
+                    case 2:
+                        contact = BRepFill_ContactOnBorder;
+                        break;
+                    default:
+                        throw std::runtime_error("sweepOriented: invalid contact mode");
+                }
+                maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
                 break;
+            }
             default:
                 throw std::runtime_error("sweepOriented: invalid mode");
+        }
+        if (tol3d > 0.0 || boundTol > 0.0 || tolAngular > 0.0) {
+            maker.SetTolerance(tol3d > 0.0 ? tol3d : 1.0e-4,
+                               boundTol > 0.0 ? boundTol : 1.0e-4,
+                               tolAngular > 0.0 ? tolAngular : 1.0e-2);
         }
         maker.Add(get(profileId));
         maker.Build();

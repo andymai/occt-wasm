@@ -124,6 +124,87 @@ describe("sweepOriented auxiliary spine", () => {
         expect(kernel.isValid(solid)).toBe(true);
         expect(kernel.getVolume(solid)).toBeGreaterThan(0);
     });
+
+    // A square swept along a straight spine with a guide parallel to it asks
+    // for no rotation at all, so the answer is a prism with six planar faces
+    // and an exact volume. Curvilinear equivalence used to be forced on, which
+    // approximated two of those faces as B-splines; the error scaled with the
+    // model until the sweep failed outright.
+    const squarePrism = (f: number) => {
+        const h = 2 * f;
+        const l = 20 * f;
+        const r = 5 * f;
+        const corners = [
+            { x: -h, y: -h, z: 0 },
+            { x: h, y: -h, z: 0 },
+            { x: h, y: h, z: 0 },
+            { x: -h, y: h, z: 0 },
+        ];
+        return {
+            profile: kernel.makeWire(
+                corners.map((c: { x: number; y: number; z: number }, i: number) =>
+                    kernel.makeLineEdge(c, corners[(i + 1) % corners.length]),
+                ),
+            ),
+            spine: kernel.makeWire([
+                kernel.makeLineEdge({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: l }),
+            ]),
+            guide: kernel.makeWire([
+                kernel.makeLineEdge({ x: r, y: 0, z: 0 }, { x: r, y: 0, z: l }),
+            ]),
+            volume: 2 * h * (2 * h) * l,
+        };
+    };
+
+    it("keeps planar faces exact for a non-rotating guide", () => {
+        const { profile, spine, guide, volume } = squarePrism(1);
+        const solid = kernel.sweepOriented(profile, spine, SweepMode.Auxiliary, undefined, guide);
+        const surfaces = kernel
+            .getSubShapes(solid, "face")
+            .map((f: number) => kernel.surfaceType(f));
+        expect(surfaces).toEqual(["plane", "plane", "plane", "plane", "plane", "plane"]);
+        expect(Math.abs(kernel.getVolume(solid))).toBeCloseTo(volume, 9);
+    });
+
+    it("stays exact as the model scales up", () => {
+        for (const f of [2, 10, 100]) {
+            const { profile, spine, guide, volume } = squarePrism(f);
+            const solid = kernel.sweepOriented(
+                profile,
+                spine,
+                SweepMode.Auxiliary,
+                undefined,
+                guide,
+            );
+            expect(Math.abs(kernel.getVolume(solid)) / volume).toBeCloseTo(1, 9);
+        }
+    });
+
+    it("still offers curvilinear equivalence when asked for it", () => {
+        const { profile, spine, guide } = squarePrism(1);
+        const solid = kernel.sweepOriented(
+            profile,
+            spine,
+            SweepMode.Auxiliary,
+            undefined,
+            guide,
+            { curvilinearEquivalence: true },
+        );
+        expect(kernel.isValid(solid)).toBe(true);
+        const surfaces = kernel
+            .getSubShapes(solid, "face")
+            .map((f: number) => kernel.surfaceType(f));
+        expect(surfaces.filter((s: string) => s === "bspline").length).toBe(2);
+    });
+
+    it("rejects an out-of-range contact mode", () => {
+        const { profile, spine, guide } = squarePrism(1);
+        expect(() =>
+            kernel.sweepOriented(profile, spine, SweepMode.Auxiliary, undefined, guide, {
+                contact: 7,
+            }),
+        ).toThrow(/contact mode/);
+    });
 });
 
 describe("intersectionCells", () => {

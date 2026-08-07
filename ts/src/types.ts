@@ -192,6 +192,45 @@ export enum SweepMode {
     Auxiliary = 3,
 }
 
+/** How the swept section relates to the guide spine (BRepFill_TypeOfContact). */
+export enum SweepContact {
+    /** The guide only orients the section; it does not touch the result. */
+    None = 0,
+    /** The section is widened to stay in contact with the guide; section width stays constant. */
+    Contact = 1,
+    /** The guide becomes a boundary of the swept surface; section width varies. */
+    ContactOnBorder = 2,
+}
+
+/** Extra {@link SweepMode.Auxiliary} controls for {@link OcctKernel.sweepOriented}. */
+export interface SweepOrientedOptions {
+    /**
+     * Match spine and guide by curvilinear abscissa rather than by parameter.
+     * Defaults to `false`.
+     *
+     * Enabling it routes the sweep through an arc-length-reparametrized law,
+     * which forces every side surface to be approximated as a B-spline even
+     * when the exact answer is planar. The approximation error grows with
+     * model size and the sweep fails outright once it exhausts its span
+     * budget, so only turn this on when spine and guide are parametrized
+     * differently enough that arc-length matching is what you actually want.
+     */
+    curvilinearEquivalence?: boolean;
+    /** Defaults to {@link SweepContact.None}. */
+    contact?: SweepContact;
+    /**
+     * 3D approximation tolerance. OCCT's default is an absolute `1e-4`, so
+     * models much larger than unit scale should raise this in proportion —
+     * otherwise the surface approximation runs out of spans and the sweep
+     * degrades or fails outright.
+     */
+    tol3d?: number;
+    /** Boundary tolerance. OCCT's default is an absolute `1e-4`. */
+    boundTol?: number;
+    /** Angular tolerance in radians. OCCT's default is `1e-2`. */
+    tolAngular?: number;
+}
+
 /** Join type for offset/fillet operations (BRepOffsetAPI_MakeOffset). */
 export enum JoinType {
     /** Arc interpolation at joints (default). */
