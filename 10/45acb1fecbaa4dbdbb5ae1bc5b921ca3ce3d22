@@ -1,0 +1,20 @@
+test/facade-features-2.test.ts
+  s_e2229fe45b3156::t_f5323ea76cf5b4 280
+  s_e2229fe45b3156::t_d223ac3b1a3d89 23-32,39-49,53-58,62-70,74-90,94-103,107-111,113-115,119-138,140-167,169,171-192,194-206,208-223,225-243,245-258,260-279,281-343,347-353
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1045acb1fecbaa4dbdbb5ae1bc5b921ca3ce3d22",
+  "prompts": {},
+  "sessions": {
+    "s_e2229fe45b3156": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b0bb639-b055-472f-8e27-e54bfabf674a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
