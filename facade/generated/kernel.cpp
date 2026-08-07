@@ -21,6 +21,7 @@
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_PipeError.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepBuilderAPI_TransitionMode.hxx>
@@ -2875,7 +2876,18 @@ uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mod
         maker.Add(get(profileId));
         maker.Build();
         if (!maker.IsDone()) {
-            throw std::runtime_error("sweepOriented: operation failed");
+            switch (maker.GetStatus()) {
+                case BRepBuilderAPI_PlaneNotIntersectGuide:
+                    throw std::runtime_error(
+                        "sweepOriented: a section plane does not intersect the guide wire. The guide "
+                        "must span the whole spine and stay close enough to meet every section.");
+                case BRepBuilderAPI_ImpossibleContact:
+                    throw std::runtime_error(
+                        "sweepOriented: cannot keep the section in contact with the guide wire. The "
+                        "guide must be close enough to the spine to intersect every section.");
+                default:
+                    throw std::runtime_error("sweepOriented: operation failed");
+            }
         }
         maker.MakeSolid();
         return store(maker.Shape());

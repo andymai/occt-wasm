@@ -211,12 +211,19 @@ export interface SweepOrientedOptions {
      * {@link SweepMode.Auxiliary} only. Match spine and guide by curvilinear
      * abscissa rather than by parameter. Defaults to `false`.
      *
-     * Enabling it routes the sweep through an arc-length-reparametrized law,
-     * which forces every side surface to be approximated as a B-spline even
-     * when the exact answer is planar. The approximation error grows with
-     * model size and the sweep fails outright once it exhausts its span
-     * budget, so only turn this on when spine and guide are parametrized
-     * differently enough that arc-length matching is what you actually want.
+     * The two settings are different constructions, not two qualities of the
+     * same one. `false` orients each section by the plane through the spine
+     * point and the guide (`GeomFill_GuideTrihedronPlan`); `true` matches
+     * spine and guide by curvilinear abscissa and reparametrizes the spine
+     * (`GeomFill_GuideTrihedronAC` over `BRepFill_ACRLaw`), which forces every
+     * side surface to be approximated as a B-spline even when the exact
+     * answer is planar.
+     *
+     * `false` is exact wherever the guide spans the spine, and it raises
+     * rather than guessing when a section plane misses the guide. `true`
+     * always produces something, but that something can be far off — a guide
+     * covering only the middle of the spine yields a solid ~46% under true
+     * volume instead of an error.
      */
     curvilinearEquivalence?: boolean;
     /** {@link SweepMode.Auxiliary} only. Defaults to {@link SweepContact.None}. */

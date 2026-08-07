@@ -197,6 +197,35 @@ describe("sweepOriented auxiliary spine", () => {
         expect(surfaces.filter((s: string) => s === "bspline").length).toBe(2);
     });
 
+    // A guide that only covers part of the spine leaves some section planes
+    // with nothing to intersect. Curvilinear equivalence papers over that and
+    // returns a solid roughly half the true volume; the guide-plane path says
+    // so instead.
+    it("reports a guide that does not span the spine", () => {
+        const { profile, spine } = squarePrism(1);
+        const shortGuide = kernel.makeWire([
+            kernel.makeLineEdge({ x: 5, y: 0, z: 6 }, { x: 5, y: 0, z: 14 }),
+        ]);
+        expect(() =>
+            kernel.sweepOriented(profile, spine, SweepMode.Auxiliary, undefined, shortGuide),
+        ).toThrow(/does not intersect the guide wire/);
+    });
+
+    it("tolerates a guide that overhangs both ends of the spine", () => {
+        const { profile, spine, volume } = squarePrism(1);
+        const longGuide = kernel.makeWire([
+            kernel.makeLineEdge({ x: 5, y: 0, z: -10 }, { x: 5, y: 0, z: 30 }),
+        ]);
+        const solid = kernel.sweepOriented(
+            profile,
+            spine,
+            SweepMode.Auxiliary,
+            undefined,
+            longGuide,
+        );
+        expect(Math.abs(kernel.getVolume(solid))).toBeCloseTo(volume, 9);
+    });
+
     it("rejects an out-of-range contact mode", () => {
         const { profile, spine, guide } = squarePrism(1);
         expect(() =>

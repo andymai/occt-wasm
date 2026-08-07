@@ -3521,12 +3521,24 @@ if (tol3d > 0.0 || boundTol > 0.0 || tolAngular > 0.0) {
 maker.Add(get(profileId));
 maker.Build();
 if (!maker.IsDone()) {
-    throw std::runtime_error(\"sweepOriented: operation failed\");
+    switch (maker.GetStatus()) {
+        case BRepBuilderAPI_PlaneNotIntersectGuide:
+            throw std::runtime_error(
+                \"sweepOriented: a section plane does not intersect the guide wire. The guide \"
+                \"must span the whole spine and stay close enough to meet every section.\");
+        case BRepBuilderAPI_ImpossibleContact:
+            throw std::runtime_error(
+                \"sweepOriented: cannot keep the section in contact with the guide wire. The \"
+                \"guide must be close enough to the spine to intersect every section.\");
+        default:
+            throw std::runtime_error(\"sweepOriented: operation failed\");
+    }
 }
 maker.MakeSolid();
 return store(maker.Shape());",
         includes: &[
             "BRepOffsetAPI_MakePipeShell.hxx",
+            "BRepBuilderAPI_PipeError.hxx",
             "BRepFill_TypeOfContact.hxx",
             "TopoDS.hxx",
             "gp_Dir.hxx",
