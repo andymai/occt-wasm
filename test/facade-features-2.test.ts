@@ -343,6 +343,102 @@ describe("sweepOriented auxiliary spine", () => {
   });
 });
 
+describe("sweepAdvanced profile placement", () => {
+  // A circle of radius 2 centred 10 units off a straight Z spine.
+  const straight = (options: Record<string, unknown>) => {
+    const profile = kernel.makeWire([
+      kernel.makeCircleEdge({ x: 10, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }, 2),
+    ]);
+    const spine = kernel.makeWire([
+      kernel.makeLineEdge({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 20 }),
+    ]);
+    return kernel.sweepAdvanced(profile, spine, options);
+  };
+
+  // Translating a profile along a straight spine does not change the volume,
+  // so volume cannot tell contact from no-contact — assert where the tube
+  // actually sits instead.
+  it("leaves the profile where the caller placed it by default", () => {
+    const bb = kernel.getBoundingBox(straight({}), false);
+    expect(bb.xmin).toBeCloseTo(8, 6);
+    expect(bb.xmax).toBeCloseTo(12, 6);
+  });
+
+  it("withContact translates the profile until it touches the spine", () => {
+    const bb = kernel.getBoundingBox(straight({ withContact: true }), false);
+    // The circle moves in until its near edge meets the spine, so the centre
+    // lands one radius out rather than on the axis.
+    expect(bb.xmin).toBeCloseTo(0, 6);
+    expect(bb.xmax).toBeCloseTo(4, 6);
+  });
+
+  const tilted = (options: Record<string, unknown>) => {
+    const profile = kernel.makeWire([
+      kernel.makeCircleEdge({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }, 2),
+    ]);
+    const spine = kernel.makeWire([
+      kernel.makeLineEdge({ x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 20 }),
+    ]);
+    return kernel.sweepAdvanced(profile, spine, options);
+  };
+
+  // Correction rotates the section orthogonal to the spine tangent, turning
+  // the swept cross-section back into a true circle. The volume then follows
+  // the spine length instead of its Z extent.
+  it("withCorrection reorients the section on a tilted spine", () => {
+    expect(kernel.getVolume(tilted({}))).toBeCloseTo(Math.PI * 4 * 20, 3);
+    expect(kernel.getVolume(tilted({ withCorrection: true }))).toBeCloseTo(
+      Math.PI * 4 * Math.hypot(10, 20),
+      3,
+    );
+  });
+
+  it("accepts explicit tolerances", () => {
+    const solid = straight({ tol3d: 1e-2, boundTol: 1e-2, tolAngular: 1e-1 });
+    expect(kernel.isValid(solid)).toBe(true);
+    expect(kernel.getVolume(solid)).toBeCloseTo(Math.PI * 4 * 20, 3);
+  });
+});
+
+describe("sweepAdvanced parity with the narrower entry points", () => {
+  const profile = () =>
+    kernel.makeWire([kernel.makeCircleEdge({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }, 2)]);
+  const spine = () =>
+    kernel.makeWire([kernel.makeLineEdge({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 20 })]);
+
+  // Defaults must reproduce sweepPipeShell(freenet=false, smooth=false), so
+  // callers can migrate without the geometry shifting under them.
+  it("matches sweepPipeShell at its defaults", () => {
+    const viaOld = kernel.sweepPipeShell(profile(), spine(), false, false);
+    const viaNew = kernel.sweepAdvanced(profile(), spine());
+    expect(kernel.getVolume(viaNew)).toBeCloseTo(kernel.getVolume(viaOld), 9);
+  });
+
+  it("drives an auxiliary guide like sweepOriented", () => {
+    const aux = () =>
+      kernel.makeWire([kernel.makeLineEdge({ x: 5, y: 0, z: 0 }, { x: 5, y: 0, z: 20 })]);
+    const viaOld = kernel.sweepOriented(
+      profile(),
+      spine(),
+      SweepMode.Auxiliary,
+      { x: 0, y: 1, z: 0 },
+      aux(),
+    );
+    const viaNew = kernel.sweepAdvanced(profile(), spine(), {
+      mode: SweepMode.Auxiliary,
+      up: { x: 0, y: 1, z: 0 },
+      auxSpine: aux(),
+    });
+    expect(kernel.getVolume(viaNew)).toBeCloseTo(kernel.getVolume(viaOld), 9);
+  });
+
+  it("rejects an out-of-range transition mode", () => {
+    expect(() => kernel.sweepAdvanced(profile(), spine(), { transitionMode: 7 })).toThrow(
+      /transition mode/,
+    );
+  });
+});
+
 describe("intersectionCells", () => {
   it("extracts the overlap region of two boxes", () => {
     const a = kernel.makeBox(10, 10, 10); // [0,10]^3

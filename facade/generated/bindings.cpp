@@ -260,6 +260,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("sweep", &OcctKernel::sweep)
         .function("sweepPipeShell", &OcctKernel::sweepPipeShell)
         .function("sweepOriented", &OcctKernel::sweepOriented)
+        .function("sweepAdvanced", &OcctKernel::sweepAdvanced)
 
         // healing
         .function("fixShape", &OcctKernel::fixShape)

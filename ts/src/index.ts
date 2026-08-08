@@ -45,7 +45,9 @@ export {
     type ShapeOrientation,
     type ShapeType,
     type SurfaceKind,
+    type SweepAdvancedOptions,
     type SweepOrientedOptions,
+    type SweepToleranceOptions,
     type TessellateOptions,
     type UVBounds,
     type Vec3,
@@ -87,6 +89,7 @@ import type {
     ShapeOrientation,
     ShapeType,
     SurfaceKind,
+    SweepAdvancedOptions,
     SweepOrientedOptions,
     TessellateOptions,
     BooleanOp,
@@ -528,6 +531,44 @@ export class OcctKernel {
                     auxSpine ?? 0,
                     options.curvilinearEquivalence ?? false,
                     options.contact ?? SweepContact.None,
+                    options.tol3d ?? 0,
+                    options.boundTol ?? 0,
+                    options.tolAngular ?? 0,
+                ),
+            ),
+        );
+    }
+
+    /**
+     * Sweep a profile along a spine with the full control surface: the
+     * orientation modes of {@link OcctKernel.sweepOriented}, the corner
+     * transitions of {@link OcctKernel.sweepPipeShell}, and the profile
+     * placement neither of them exposes.
+     *
+     * Prefer this for new code. The other two remain for callers bound to
+     * their existing raw arity.
+     */
+    sweepAdvanced(
+        profile: ShapeHandle,
+        spine: ShapeHandle,
+        options: SweepAdvancedOptions = {},
+    ): ShapeHandle {
+        const up = options.up ?? { x: 0, y: 0, z: 1 };
+        return wrap("sweepAdvanced", () =>
+            handle(
+                this.#raw.sweepAdvanced(
+                    profile,
+                    spine,
+                    options.mode ?? SweepMode.Fixed,
+                    up.x,
+                    up.y,
+                    up.z,
+                    options.auxSpine ?? 0,
+                    options.curvilinearEquivalence ?? false,
+                    options.guideContact ?? SweepContact.None,
+                    options.transitionMode ?? TransitionMode.Transformed,
+                    options.withContact ?? false,
+                    options.withCorrection ?? false,
                     options.tol3d ?? 0,
                     options.boundTol ?? 0,
                     options.tolAngular ?? 0,

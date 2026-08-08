@@ -203,10 +203,71 @@ export enum SweepContact {
 }
 
 /**
+ * Approximation tolerances for the pipe-shell sweeps. All are absolute, not
+ * relative to model size.
+ */
+export interface SweepToleranceOptions {
+    /**
+     * 3D approximation tolerance. OCCT's default is an absolute `1e-4`, so
+     * models much larger than unit scale should raise this in proportion —
+     * otherwise the surface approximation runs out of spans and the sweep
+     * degrades or fails outright.
+     */
+    tol3d?: number;
+    /** Boundary tolerance. OCCT's default is an absolute `1e-4`. */
+    boundTol?: number;
+    /** Angular tolerance in radians. OCCT's default is `1e-2`. */
+    tolAngular?: number;
+}
+
+/**
+ * Controls for {@link OcctKernel.sweepAdvanced} — the union of the orientation
+ * controls of {@link OcctKernel.sweepOriented}, the corner transitions of
+ * {@link OcctKernel.sweepPipeShell}, and the profile placement that neither
+ * one exposes.
+ */
+export interface SweepAdvancedOptions extends SweepToleranceOptions {
+    /** Profile-orientation mode. Defaults to {@link SweepMode.Fixed}. */
+    mode?: SweepMode;
+    /** Constant binormal for {@link SweepMode.FixedUp}. Defaults to +Z. */
+    up?: Vec3;
+    /** Guide wire. Required for {@link SweepMode.Auxiliary}, ignored otherwise. */
+    auxSpine?: ShapeHandle;
+    /**
+     * {@link SweepMode.Auxiliary} only. Match spine and guide by curvilinear
+     * abscissa rather than by parameter. Defaults to `false`. See
+     * {@link SweepOrientedOptions.curvilinearEquivalence} for what the two
+     * settings actually construct.
+     */
+    curvilinearEquivalence?: boolean;
+    /**
+     * {@link SweepMode.Auxiliary} only. How the section tracks the *guide
+     * wire*. Defaults to {@link SweepContact.None}.
+     *
+     * Unrelated to {@link SweepAdvancedOptions.withContact}, which governs how
+     * the profile sits on the *spine*.
+     */
+    guideContact?: SweepContact;
+    /** Corner transition at spine vertices. Defaults to {@link TransitionMode.Transformed}. */
+    transitionMode?: TransitionMode;
+    /**
+     * Translate the profile so it touches the spine before sweeping
+     * (`BRepOffsetAPI_MakePipeShell::Add`'s `WithContact`). Defaults to
+     * `false`, which sweeps the profile where the caller placed it.
+     */
+    withContact?: boolean;
+    /**
+     * Rotate the profile to stay orthogonal to the spine tangent (`Add`'s
+     * `WithCorrection`). Defaults to `false`. A no-op on a straight spine.
+     */
+    withCorrection?: boolean;
+}
+
+/**
  * Extra controls for {@link OcctKernel.sweepOriented}. The guide-wire fields
  * apply to {@link SweepMode.Auxiliary} only; the tolerances apply to every mode.
  */
-export interface SweepOrientedOptions {
+export interface SweepOrientedOptions extends SweepToleranceOptions {
     /**
      * {@link SweepMode.Auxiliary} only. Match spine and guide by curvilinear
      * abscissa rather than by parameter. Defaults to `false`.
@@ -228,17 +289,6 @@ export interface SweepOrientedOptions {
     curvilinearEquivalence?: boolean;
     /** {@link SweepMode.Auxiliary} only. Defaults to {@link SweepContact.None}. */
     contact?: SweepContact;
-    /**
-     * 3D approximation tolerance. OCCT's default is an absolute `1e-4`, so
-     * models much larger than unit scale should raise this in proportion —
-     * otherwise the surface approximation runs out of spans and the sweep
-     * degrades or fails outright.
-     */
-    tol3d?: number;
-    /** Boundary tolerance. OCCT's default is an absolute `1e-4`. */
-    boundTol?: number;
-    /** Angular tolerance in radians. OCCT's default is `1e-2`. */
-    tolAngular?: number;
 }
 
 /** Join type for offset/fillet operations (BRepOffsetAPI_MakeOffset). */
