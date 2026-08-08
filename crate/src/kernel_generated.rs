@@ -165,6 +165,26 @@ pub(crate) struct GeneratedFuncs {
     fn_sweep: TypedFunc<(u32, u32, i32), u32>,
     fn_sweep_pipe_shell: TypedFunc<(u32, u32, i32, i32), u32>,
     fn_sweep_oriented: TypedFunc<(u32, u32, i32, f64, f64, f64, u32, i32, i32, f64, f64, f64), u32>,
+    fn_sweep_advanced: TypedFunc<
+        (
+            u32,
+            u32,
+            i32,
+            f64,
+            f64,
+            f64,
+            u32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            f64,
+            f64,
+            f64,
+        ),
+        u32,
+    >,
     fn_draft_prism: TypedFunc<(u32, f64, f64, f64, f64), u32>,
     fn_fix_shape: TypedFunc<(u32,), u32>,
     fn_unify_same_domain: TypedFunc<(u32,), u32>,
@@ -391,6 +411,7 @@ impl GeneratedFuncs {
             fn_sweep: instance.get_typed_func(&mut store, "occt_sweep")?,
             fn_sweep_pipe_shell: instance.get_typed_func(&mut store, "occt_sweep_pipe_shell")?,
             fn_sweep_oriented: instance.get_typed_func(&mut store, "occt_sweep_oriented")?,
+            fn_sweep_advanced: instance.get_typed_func(&mut store, "occt_sweep_advanced")?,
             fn_draft_prism: instance.get_typed_func(&mut store, "occt_draft_prism")?,
             fn_fix_shape: instance.get_typed_func(&mut store, "occt_fix_shape")?,
             fn_unify_same_domain: instance.get_typed_func(&mut store, "occt_unify_same_domain")?,
@@ -3006,6 +3027,51 @@ impl crate::kernel::OcctKernel {
         self.check_error("sweep_oriented")?;
         if result == 0 {
             return Err(self.read_last_error("sweep_oriented"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn sweep_advanced(
+        &mut self,
+        profile_id: ShapeHandle,
+        spine_id: ShapeHandle,
+        mode: i32,
+        up_x: f64,
+        up_y: f64,
+        up_z: f64,
+        aux_spine_id: ShapeHandle,
+        curvilinear_equivalence: bool,
+        guide_contact: i32,
+        transition_mode: i32,
+        with_contact: bool,
+        with_correction: bool,
+        tol3d: f64,
+        bound_tol: f64,
+        tol_angular: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self.generated.fn_sweep_advanced.call(
+            &mut self.store,
+            (
+                profile_id.0,
+                spine_id.0,
+                mode,
+                up_x,
+                up_y,
+                up_z,
+                aux_spine_id.0,
+                i32::from(curvilinear_equivalence),
+                guide_contact,
+                transition_mode,
+                i32::from(with_contact),
+                i32::from(with_correction),
+                tol3d,
+                bound_tol,
+                tol_angular,
+            ),
+        )?;
+        self.check_error("sweep_advanced")?;
+        if result == 0 {
+            return Err(self.read_last_error("sweep_advanced"));
         }
         Ok(ShapeHandle(result))
     }
