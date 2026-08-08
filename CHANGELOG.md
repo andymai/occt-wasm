@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0](https://github.com/andymai/occt-wasm/compare/v4.0.0...v4.1.0) (2026-08-08)
+
+
+### Features
+
+* **facade:** add sweepAdvanced with profile contact, correction, and tolerances ([#263](https://github.com/andymai/occt-wasm/issues/263)) ([70495ee](https://github.com/andymai/occt-wasm/commit/70495ee8fdd2aa739090b7b250b80ad820511108))
+
 ## [4.0.0](https://github.com/andymai/occt-wasm/compare/v3.8.4...v4.0.0) (2026-08-07)
 
 
