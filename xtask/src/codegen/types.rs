@@ -76,6 +76,22 @@ pub enum FacadeParam {
 }
 
 impl FacadeParam {
+    /// How many scalars this parameter becomes in the WASI C ABI.
+    ///
+    /// String and vector kinds cross the boundary as a pointer/length pair, so
+    /// they cost two of wasmtime's tuple slots rather than one.
+    pub const fn wasm_arity(self) -> usize {
+        match self {
+            Self::String(_)
+            | Self::VectorShapeIds(_)
+            | Self::VectorDouble(_)
+            | Self::VectorInt(_) => 2,
+            Self::ShapeId(_) | Self::Double(_) | Self::Bool(_) | Self::Int(_) | Self::Uint32(_) => {
+                1
+            }
+        }
+    }
+
     /// Returns the parameter name.
     pub const fn name(self) -> &'static str {
         match self {
@@ -176,7 +192,17 @@ impl MethodSpec {
     /// [`WASMTIME_MAX_PARAMS`] has no `WasmParams` impl to bind against. Such
     /// methods still ship in the Embind (npm) build; they are simply absent
     /// from the Rust crate.
-    pub const fn has_wasi_binding(&self) -> bool {
-        !matches!(self.kind, MethodKind::Skip) && self.params.len() <= WASMTIME_MAX_PARAMS
+    ///
+    /// The ceiling applies to the FLATTENED signature: a vector or string
+    /// parameter crosses as a pointer/length pair, so counting facade
+    /// parameters would let a method through that the host cannot bind.
+    pub fn has_wasi_binding(&self) -> bool {
+        !matches!(self.kind, MethodKind::Skip)
+            && self.flattened_param_count() <= WASMTIME_MAX_PARAMS
+    }
+
+    /// Width of this method's WASI signature in wasm scalars.
+    pub fn flattened_param_count(&self) -> usize {
+        self.params.iter().map(|p| p.wasm_arity()).sum()
     }
 }
