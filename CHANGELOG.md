@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.2.0](https://github.com/andymai/occt-wasm/compare/v4.1.0...v4.2.0) (2026-08-08)
+
+
+### Features
+
+* **facade:** add sweepFull with law, support and approximation budget ([#266](https://github.com/andymai/occt-wasm/issues/266)) ([abae1d0](https://github.com/andymai/occt-wasm/commit/abae1d0a8da5d9022cd72c7d92db858422af8275))
+
+
+### Bug Fixes
+
+* **deps:** bump nanoid past GHSA-2v37-7h3g-55p8 ([#265](https://github.com/andymai/occt-wasm/issues/265)) ([0a0f569](https://github.com/andymai/occt-wasm/commit/0a0f569ff02a03b3bad69077377d218349e9c812))
+
 ## [4.1.0](https://github.com/andymai/occt-wasm/compare/v4.0.0...v4.1.0) (2026-08-08)
 
 
