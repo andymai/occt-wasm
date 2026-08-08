@@ -18,6 +18,8 @@ let Module: any;
 let kernel: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let SweepMode: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let SweepLaw: any;
 
 beforeAll(async () => {
   const jsPath = resolve(__dirname, "../dist/occt-wasm.js");
@@ -28,6 +30,7 @@ beforeAll(async () => {
   });
   const mod = await import(resolve(__dirname, "../ts/src/index.ts"));
   SweepMode = mod.SweepMode;
+  SweepLaw = mod.SweepLaw;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   kernel = new (mod.OcctKernel as any)(Module);
 }, 30_000);
@@ -436,6 +439,104 @@ describe("sweepAdvanced parity with the narrower entry points", () => {
     expect(() => kernel.sweepAdvanced(profile(), spine(), { transitionMode: 7 })).toThrow(
       /transition mode/,
     );
+  });
+});
+
+describe("sweepFull", () => {
+  const profile = () =>
+    kernel.makeWire([kernel.makeCircleEdge({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }, 5)]);
+  const spine = () =>
+    kernel.makeWire([kernel.makeLineEdge({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 10 })]);
+
+  // Defaults must reproduce sweepAdvanced's, so callers can migrate without
+  // the geometry shifting under them.
+  it("matches sweepAdvanced at its defaults", () => {
+    const viaOld = kernel.sweepAdvanced(profile(), spine());
+    const viaNew = kernel.sweepFull(profile(), spine());
+    expect(kernel.getVolume(viaNew)).toBeCloseTo(kernel.getVolume(viaOld), 9);
+  });
+
+  // A scaling law is the whole reason this entry point exists: without it the
+  // sweep is a plain prism whatever endFactor says. r=5 over length 10 gives
+  // pi*25*10 unscaled; a linear law to 2 sweeps a cone frustum instead, whose
+  // volume is pi*h*(r^2 + r*R + R^2)/3 with R = 2r.
+  it("scales the section along a linear law", () => {
+    const plain = kernel.getVolume(kernel.sweepFull(profile(), spine()));
+    expect(plain).toBeCloseTo(Math.PI * 25 * 10, 3);
+
+    const scaled = kernel.getVolume(
+      kernel.sweepFull(profile(), spine(), {
+        law: SweepLaw.Linear,
+        lawLength: 10,
+        lawEndFactor: 2,
+      }),
+    );
+    expect(scaled).toBeCloseTo((Math.PI * 10 * (25 + 50 + 100)) / 3, 2);
+  });
+
+  it("shrinks the section when the law ends below 1", () => {
+    const shrunk = kernel.getVolume(
+      kernel.sweepFull(profile(), spine(), {
+        law: SweepLaw.Linear,
+        lawLength: 10,
+        lawEndFactor: 0.5,
+      }),
+    );
+    // Same frustum formula with R = r/2.
+    expect(shrunk).toBeCloseTo((Math.PI * 10 * (25 + 12.5 + 6.25)) / 3, 2);
+  });
+
+  it("applies an s-curve law", () => {
+    const s = kernel.getVolume(
+      kernel.sweepFull(profile(), spine(), {
+        law: SweepLaw.SCurve,
+        lawLength: 10,
+        lawEndFactor: 2,
+      }),
+    );
+    // Zero end derivatives make the S law linger near both end radii rather
+    // than sweeping evenly between them. Volume integrates r^2, which is
+    // convex, so weighting the extremes sweeps MORE than the linear ramp to
+    // the same end factor: (1+4)/2 > 1.5^2.
+    const linear = (Math.PI * 10 * (25 + 50 + 100)) / 3;
+    expect(s).toBeGreaterThan(linear);
+    expect(s).toBeLessThan(Math.PI * 10 * 25 * 2.5);
+  });
+
+  it("honours the approximation budget", () => {
+    const solid = kernel.sweepFull(profile(), spine(), { maxDegree: 3, maxSegments: 5 });
+    expect(kernel.isValid(solid)).toBe(true);
+    expect(kernel.getVolume(solid)).toBeCloseTo(Math.PI * 25 * 10, 3);
+  });
+
+  it("requires lawLength when a law is set", () => {
+    expect(() => kernel.sweepFull(profile(), spine(), { law: SweepLaw.Linear })).toThrow(
+      /lawLength/,
+    );
+  });
+
+  // A planar support over a straight spine yields the same frame the default
+  // mode already picks, so the swept volume is unchanged by design — this
+  // asserts the support is accepted and drives a valid sweep, not that it
+  // moves the geometry. A support only redirects the frame when the surface
+  // curves away from it.
+  it("accepts a spine support surface", () => {
+    const corners = [
+      { x: -5, y: 0, z: 0 },
+      { x: 5, y: 0, z: 0 },
+      { x: 5, y: 0, z: 10 },
+      { x: -5, y: 0, z: 10 },
+    ];
+    const supportFace = kernel.makeFace(
+      kernel.makeWire(
+        corners.map((c: { x: number; y: number; z: number }, i: number) =>
+          kernel.makeLineEdge(c, corners[(i + 1) % corners.length]),
+        ),
+      ),
+    );
+    const solid = kernel.sweepFull(profile(), spine(), { support: supportFace });
+    expect(kernel.isValid(solid)).toBe(true);
+    expect(kernel.getVolume(solid)).toBeCloseTo(Math.PI * 25 * 10, 3);
   });
 });
 

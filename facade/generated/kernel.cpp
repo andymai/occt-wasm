@@ -91,6 +91,8 @@
 #include <HLRBRep_Algo.hxx>
 #include <HLRBRep_HLRToShape.hxx>
 #include <IFSelect_ReturnStatus.hxx>
+#include <Law_Linear.hxx>
+#include <Law_S.hxx>
 #include <Message_ProgressRange.hxx>
 #include <NCollection_Array1.hxx>
 #include <NCollection_Array2.hxx>
@@ -2961,6 +2963,100 @@ uint32_t OcctKernel::sweepAdvanced(uint32_t profileId, uint32_t spineId, int mod
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("sweepAdvanced: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::sweepFull(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY, double upZ, uint32_t auxSpineId, bool curvilinearEquivalence, int guideContact, int transitionMode, bool withContact, bool withCorrection, double tol3d, double boundTol, double tolAngular, uint32_t supportId, int maxDegree, int maxSegments, int lawKind, double lawLength, double lawEndFactor) {
+    try {
+        BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
+        if (supportId != 0) {
+            if (!maker.SetMode(get(supportId))) {
+                throw std::runtime_error(
+                    "sweepFull: the support shape is not a valid spine support. It must contain the "
+                    "spine and supply the surface the sweep follows.");
+            }
+        } else {
+            switch (mode) {
+                case 0:
+                    maker.SetMode(Standard_False);
+                    break;
+                case 1:
+                    maker.SetMode(Standard_True);
+                    break;
+                case 2: {
+                    gp_Dir up(upX, upY, upZ);
+                    maker.SetMode(up);
+                    break;
+                }
+                case 3: {
+                    BRepFill_TypeOfContact contact;
+                    switch (guideContact) {
+                        case 0:
+                            contact = BRepFill_NoContact;
+                            break;
+                        case 1:
+                            contact = BRepFill_Contact;
+                            break;
+                        case 2:
+                            contact = BRepFill_ContactOnBorder;
+                            break;
+                        default:
+                            throw std::runtime_error("sweepFull: invalid contact mode");
+                    }
+                    maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
+                    break;
+                }
+                default:
+                    throw std::runtime_error("sweepFull: invalid mode");
+            }
+        }
+        if (transitionMode < 0 || transitionMode > 2) {
+            throw std::runtime_error("sweepFull: invalid transition mode");
+        }
+        maker.SetTransitionMode(static_cast<BRepBuilderAPI_TransitionMode>(transitionMode));
+        if (tol3d > 0.0 || boundTol > 0.0 || tolAngular > 0.0) {
+            maker.SetTolerance(tol3d > 0.0 ? tol3d : 1.0e-4,
+                               boundTol > 0.0 ? boundTol : 1.0e-4,
+                               tolAngular > 0.0 ? tolAngular : 1.0e-2);
+        }
+        if (maxDegree > 0) {
+            maker.SetMaxDegree(maxDegree);
+        }
+        if (maxSegments > 0) {
+            maker.SetMaxSegments(maxSegments);
+        }
+        if (lawKind == 0) {
+            maker.Add(get(profileId), withContact, withCorrection);
+        } else if (lawKind == 1) {
+            Handle(Law_Linear) law = new Law_Linear();
+            law->Set(0.0, 1.0, lawLength, lawEndFactor);
+            maker.SetLaw(get(profileId), law, withContact, withCorrection);
+        } else if (lawKind == 2) {
+            Handle(Law_S) law = new Law_S();
+            law->Set(0.0, 1.0, lawLength, lawEndFactor);
+            maker.SetLaw(get(profileId), law, withContact, withCorrection);
+        } else {
+            throw std::runtime_error("sweepFull: invalid law kind");
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            switch (maker.GetStatus()) {
+                case BRepBuilderAPI_PlaneNotIntersectGuide:
+                    throw std::runtime_error(
+                        "sweepFull: a section plane does not intersect the guide wire. The guide must "
+                        "span the whole spine and stay close enough to meet every section.");
+                case BRepBuilderAPI_ImpossibleContact:
+                    throw std::runtime_error(
+                        "sweepFull: cannot keep the section in contact with the guide wire. The guide "
+                        "must be close enough to the spine to intersect every section.");
+                default:
+                    throw std::runtime_error("sweepFull: operation failed");
+            }
+        }
+        maker.MakeSolid();
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("sweepFull: ") + e.what());
     }
 }
 

@@ -263,6 +263,44 @@ export interface SweepAdvancedOptions extends SweepToleranceOptions {
     withCorrection?: boolean;
 }
 
+/** Homothetic scaling law applied along the spine by {@link OcctKernel.sweepFull}. */
+export enum SweepLaw {
+    /** No scaling; the section keeps its authored size. */
+    None = 0,
+    /** Linear interpolation from 1 to `endFactor` (OCCT `Law_Linear`). */
+    Linear = 1,
+    /** S-curve with zero end derivatives, 1 to `endFactor` (OCCT `Law_S`). */
+    SCurve = 2,
+}
+
+/**
+ * Controls for {@link OcctKernel.sweepFull}: everything
+ * {@link SweepAdvancedOptions} carries, plus the four `MakePipeShell` knobs
+ * that entry point cannot reach.
+ */
+export interface SweepFullOptions extends SweepAdvancedOptions {
+    /**
+     * Surface the sweep follows, as a shape containing the spine
+     * (`MakePipeShell::SetMode(SpineSupport)`). Replaces {@link
+     * SweepAdvancedOptions.mode} when supplied, and raises if the shape is not
+     * a valid support for the spine.
+     */
+    support?: ShapeHandle;
+    /** Maximum degree of the approximating surfaces. OCCT default when omitted. */
+    maxDegree?: number;
+    /** Maximum number of spans. OCCT default when omitted. */
+    maxSegments?: number;
+    /** Scaling law along the spine. Defaults to {@link SweepLaw.None}. */
+    law?: SweepLaw;
+    /**
+     * Parametric length the law spans — the spine length, matching OCCT's
+     * `Law_Linear::Set(0, 1, length, endFactor)`. Required with a law.
+     */
+    lawLength?: number;
+    /** Section scale at the end of the law. 1 leaves the section unscaled. */
+    lawEndFactor?: number;
+}
+
 /**
  * Extra controls for {@link OcctKernel.sweepOriented}. The guide-wire fields
  * apply to {@link SweepMode.Auxiliary} only; the tolerances apply to every mode.
