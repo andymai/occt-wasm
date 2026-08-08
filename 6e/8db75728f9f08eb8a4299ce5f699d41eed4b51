@@ -1,0 +1,37 @@
+facade/include/occt_kernel.h
+  s_89ebab1cd8d9f3::t_134ef0c8fb1370 179-181,184-185
+ts/src/raw-types.ts
+  s_89ebab1cd8d9f3::t_134ef0c8fb1370 184-185
+test/facade-features-2.test.ts
+  s_89ebab1cd8d9f3::t_f5f8655ad4441d 346-427
+xtask/src/codegen/rust_emitter.rs
+  s_89ebab1cd8d9f3::t_134ef0c8fb1370 595-598
+crate/tests/integration.rs
+  s_89ebab1cd8d9f3::t_134ef0c8fb1370 276
+crate/src/kernel_generated.rs
+  s_89ebab1cd8d9f3::t_134ef0c8fb1370 166-185,493-497,2979-2983,2992-2996,3020-3021,3038-3039
+xtask/src/codegen/config.rs
+  s_89ebab1cd8d9f3::t_134ef0c8fb1370 3429-3433,3437-3443,3452-3457,3488-3489,3497-3501,3542
+ts/src/index.ts
+  s_89ebab1cd8d9f3::t_134ef0c8fb1370 49-50,93,499-525,562-563
+ts/src/types.ts
+  s_89ebab1cd8d9f3::t_134ef0c8fb1370 205-243,246,248
+facade/generated/kernel.cpp
+  s_89ebab1cd8d9f3::t_c8215ee5c573ad 2814,2823-2828,2840,2881
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "6e8db75728f9f08eb8a4299ce5f699d41eed4b51",
+  "prompts": {},
+  "sessions": {
+    "s_89ebab1cd8d9f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d66a1fbe-8127-4890-8649-771e75111e0d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
