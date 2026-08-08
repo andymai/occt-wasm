@@ -3656,6 +3656,151 @@ return store(maker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "sweepFull",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("profileId"),
+            FacadeParam::ShapeId("spineId"),
+            FacadeParam::Int("mode"),
+            FacadeParam::Double("upX"),
+            FacadeParam::Double("upY"),
+            FacadeParam::Double("upZ"),
+            FacadeParam::ShapeId("auxSpineId"),
+            FacadeParam::Bool("curvilinearEquivalence"),
+            FacadeParam::Int("guideContact"),
+            FacadeParam::Int("transitionMode"),
+            FacadeParam::Bool("withContact"),
+            FacadeParam::Bool("withCorrection"),
+            FacadeParam::Double("tol3d"),
+            FacadeParam::Double("boundTol"),
+            FacadeParam::Double("tolAngular"),
+            FacadeParam::ShapeId("supportId"),
+            FacadeParam::Int("maxDegree"),
+            FacadeParam::Int("maxSegments"),
+            FacadeParam::Int("lawKind"),
+            FacadeParam::Double("lawLength"),
+            FacadeParam::Double("lawEndFactor"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        // Everything sweepAdvanced carries, plus the four MakePipeShell knobs
+        // it cannot reach: a spine support surface, the approximation budget,
+        // and a homothetic scaling law.
+        //
+        // sweepAdvanced stays as it is. Its Embind arity is load-bearing —
+        // brepjs binds the raw kernel and calls it positionally — so growing
+        // it would break every consumer pinned to 4.1.x. New work should call
+        // this; the narrower sweep entry points are superseded and are
+        // candidates for removal in the next major.
+        //
+        // supportId, maxDegree, maxSegments and lawKind are all opt-in: 0
+        // means "leave OCCT's default in place". lawKind 1 is Law_Linear and 2
+        // is Law_S, each set over [0,1] from lawStartFactor to lawEndFactor.
+        // SetLaw replaces Add rather than supplementing it — OCCT warns the
+        // two should not be combined — so it carries the same contact and
+        // correction flags Add would have.
+        setup_code: "\
+BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
+if (supportId != 0) {
+    if (!maker.SetMode(get(supportId))) {
+        throw std::runtime_error(
+            \"sweepFull: the support shape is not a valid spine support. It must contain the \"
+            \"spine and supply the surface the sweep follows.\");
+    }
+} else {
+    switch (mode) {
+        case 0:
+            maker.SetMode(Standard_False);
+            break;
+        case 1:
+            maker.SetMode(Standard_True);
+            break;
+        case 2: {
+            gp_Dir up(upX, upY, upZ);
+            maker.SetMode(up);
+            break;
+        }
+        case 3: {
+            BRepFill_TypeOfContact contact;
+            switch (guideContact) {
+                case 0:
+                    contact = BRepFill_NoContact;
+                    break;
+                case 1:
+                    contact = BRepFill_Contact;
+                    break;
+                case 2:
+                    contact = BRepFill_ContactOnBorder;
+                    break;
+                default:
+                    throw std::runtime_error(\"sweepFull: invalid contact mode\");
+            }
+            maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
+            break;
+        }
+        default:
+            throw std::runtime_error(\"sweepFull: invalid mode\");
+    }
+}
+if (transitionMode < 0 || transitionMode > 2) {
+    throw std::runtime_error(\"sweepFull: invalid transition mode\");
+}
+maker.SetTransitionMode(static_cast<BRepBuilderAPI_TransitionMode>(transitionMode));
+if (tol3d > 0.0 || boundTol > 0.0 || tolAngular > 0.0) {
+    maker.SetTolerance(tol3d > 0.0 ? tol3d : 1.0e-4,
+                       boundTol > 0.0 ? boundTol : 1.0e-4,
+                       tolAngular > 0.0 ? tolAngular : 1.0e-2);
+}
+if (maxDegree > 0) {
+    maker.SetMaxDegree(maxDegree);
+}
+if (maxSegments > 0) {
+    maker.SetMaxSegments(maxSegments);
+}
+if (lawKind == 0) {
+    maker.Add(get(profileId), withContact, withCorrection);
+} else if (lawKind == 1) {
+    Handle(Law_Linear) law = new Law_Linear();
+    law->Set(0.0, 1.0, lawLength, lawEndFactor);
+    maker.SetLaw(get(profileId), law, withContact, withCorrection);
+} else if (lawKind == 2) {
+    Handle(Law_S) law = new Law_S();
+    law->Set(0.0, 1.0, lawLength, lawEndFactor);
+    maker.SetLaw(get(profileId), law, withContact, withCorrection);
+} else {
+    throw std::runtime_error(\"sweepFull: invalid law kind\");
+}
+maker.Build();
+if (!maker.IsDone()) {
+    switch (maker.GetStatus()) {
+        case BRepBuilderAPI_PlaneNotIntersectGuide:
+            throw std::runtime_error(
+                \"sweepFull: a section plane does not intersect the guide wire. The guide must \"
+                \"span the whole spine and stay close enough to meet every section.\");
+        case BRepBuilderAPI_ImpossibleContact:
+            throw std::runtime_error(
+                \"sweepFull: cannot keep the section in contact with the guide wire. The guide \"
+                \"must be close enough to the spine to intersect every section.\");
+        default:
+            throw std::runtime_error(\"sweepFull: operation failed\");
+    }
+}
+maker.MakeSolid();
+return store(maker.Shape());",
+        includes: &[
+            "BRepOffsetAPI_MakePipeShell.hxx",
+            "BRepBuilderAPI_PipeError.hxx",
+            "BRepBuilderAPI_TransitionMode.hxx",
+            "BRepFill_TypeOfContact.hxx",
+            "Law_Linear.hxx",
+            "Law_S.hxx",
+            "TopoDS.hxx",
+            "gp_Dir.hxx",
+        ],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "draftPrism",
         kind: MethodKind::CustomBody,
         params: &[

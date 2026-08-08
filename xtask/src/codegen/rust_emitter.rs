@@ -6,7 +6,7 @@
 
 use std::fmt::Write as _;
 
-use super::types::{FacadeParam, MethodKind, MethodSpec, ReturnType};
+use super::types::{FacadeParam, MethodSpec, ReturnType};
 use super::wasi_emitter::camel_to_snake;
 
 /// Convert a `FacadeParam` to a Rust function parameter declaration.
@@ -494,7 +494,7 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
 /// Generate the typed function field declarations for the struct.
 fn emit_func_fields(buf: &mut String, methods: &[&MethodSpec]) {
     for spec in methods {
-        if matches!(spec.kind, MethodKind::Skip) {
+        if !spec.has_wasi_binding() {
             continue;
         }
         let snake_name = camel_to_snake(spec.name);
@@ -506,7 +506,7 @@ fn emit_func_fields(buf: &mut String, methods: &[&MethodSpec]) {
 /// Generate the function lookup code for initialization.
 fn emit_func_lookups(buf: &mut String, methods: &[&MethodSpec]) {
     for spec in methods {
-        if matches!(spec.kind, MethodKind::Skip) {
+        if !spec.has_wasi_binding() {
             continue;
         }
         let snake_name = camel_to_snake(spec.name);
@@ -595,10 +595,7 @@ pub fn emit_rust_host(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf, "#[allow(missing_docs, clippy::too_many_arguments)]");
     let _ = writeln!(buf, "impl crate::kernel::OcctKernel {{");
 
-    let generable: Vec<&&MethodSpec> = methods
-        .iter()
-        .filter(|m| !matches!(m.kind, MethodKind::Skip))
-        .collect();
+    let generable: Vec<&&MethodSpec> = methods.iter().filter(|m| m.has_wasi_binding()).collect();
 
     for (i, spec) in generable.iter().enumerate() {
         emit_rust_method(&mut buf, spec);

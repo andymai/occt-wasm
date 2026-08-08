@@ -184,6 +184,7 @@ export interface OcctRawKernel {
     sweepPipeShell(profileId: number, spineId: number, freenet: boolean, smooth: boolean): number;
     sweepOriented(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number, auxSpineId: number, curvilinearEquivalence: boolean, contactMode: number, tol3d: number, boundTol: number, tolAngular: number): number;
     sweepAdvanced(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number, auxSpineId: number, curvilinearEquivalence: boolean, guideContact: number, transitionMode: number, withContact: boolean, withCorrection: boolean, tol3d: number, boundTol: number, tolAngular: number): number;
+    sweepFull(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number, auxSpineId: number, curvilinearEquivalence: boolean, guideContact: number, transitionMode: number, withContact: boolean, withCorrection: boolean, tol3d: number, boundTol: number, tolAngular: number, supportId: number, maxDegree: number, maxSegments: number, lawKind: number, lawLength: number, lawEndFactor: number): number;
     draftPrism(shapeId: number, dx: number, dy: number, dz: number, angleDeg: number): number;
     revolveVec(shapeId: number, cx: number, cy: number, cz: number, dx: number, dy: number, dz: number, angle: number): number;
 

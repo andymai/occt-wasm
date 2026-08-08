@@ -184,6 +184,12 @@ class OcctKernel {
                            double upZ, uint32_t auxSpineId, bool curvilinearEquivalence,
                            int guideContact, int transitionMode, bool withContact,
                            bool withCorrection, double tol3d, double boundTol, double tolAngular);
+    uint32_t sweepFull(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY,
+                       double upZ, uint32_t auxSpineId, bool curvilinearEquivalence,
+                       int guideContact, int transitionMode, bool withContact, bool withCorrection,
+                       double tol3d, double boundTol, double tolAngular, uint32_t supportId,
+                       int maxDegree, int maxSegments, int lawKind, double lawLength,
+                       double lawEndFactor);
     uint32_t draftPrism(uint32_t shapeId, double dx, double dy, double dz, double angleDeg);
     uint32_t revolveVec(uint32_t shapeId, double cx, double cy, double cz, double dx, double dy,
                         double dz, double angle);

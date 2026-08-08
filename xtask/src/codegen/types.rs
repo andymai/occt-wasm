@@ -40,6 +40,10 @@ pub enum MethodKind {
     Skip,
 }
 
+/// wasmtime implements `WasmParams` for tuples up to this many elements, so a
+/// wider facade method cannot be reached through `Instance::get_typed_func`.
+pub const WASMTIME_MAX_PARAMS: usize = 16;
+
 /// A single facade method parameter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FacadeParam {
@@ -163,4 +167,16 @@ pub struct MethodSpec {
 
     /// Return type of the method.
     pub return_type: ReturnType,
+}
+
+impl MethodSpec {
+    /// Whether this method can be reached from the wasmtime host binding.
+    ///
+    /// `Skip` methods are hand-written, and anything wider than
+    /// [`WASMTIME_MAX_PARAMS`] has no `WasmParams` impl to bind against. Such
+    /// methods still ship in the Embind (npm) build; they are simply absent
+    /// from the Rust crate.
+    pub const fn has_wasi_binding(&self) -> bool {
+        !matches!(self.kind, MethodKind::Skip) && self.params.len() <= WASMTIME_MAX_PARAMS
+    }
 }

@@ -45,6 +45,21 @@ pub fn run() -> Result<()> {
         all_methods.len()
     );
 
+    // Name the methods the Rust crate cannot reach, so an npm-only surface is
+    // a stated outcome rather than something discovered later by its absence.
+    let npm_only: Vec<&str> = generable
+        .iter()
+        .filter(|m| !m.has_wasi_binding())
+        .map(|m| m.name)
+        .collect();
+    if !npm_only.is_empty() {
+        eprintln!(
+            "Codegen: npm-only (over wasmtime's {}-param ceiling, absent from the Rust crate): {}",
+            crate::codegen::types::WASMTIME_MAX_PARAMS,
+            npm_only.join(", ")
+        );
+    }
+
     // Emit C++ files (Embind target)
     let kernel_cpp = emitter::emit_kernel(&generable);
     let bindings_cpp = emitter::emit_bindings(&generable);

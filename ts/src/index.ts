@@ -19,6 +19,7 @@ export {
     OcctError,
     OcctErrorCode,
     SweepContact,
+    SweepLaw,
     SweepMode,
     TransitionMode,
     type AddChildOptions,
@@ -46,6 +47,7 @@ export {
     type ShapeType,
     type SurfaceKind,
     type SweepAdvancedOptions,
+    type SweepFullOptions,
     type SweepOrientedOptions,
     type SweepToleranceOptions,
     type TessellateOptions,
@@ -90,13 +92,14 @@ import type {
     ShapeType,
     SurfaceKind,
     SweepAdvancedOptions,
+    SweepFullOptions,
     SweepOrientedOptions,
     TessellateOptions,
     BooleanOp,
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, SweepContact, SweepMode, TransitionMode, addExceptionDecoder, wrap } from "./types.js";
+import { JoinType, SweepContact, SweepLaw, SweepMode, TransitionMode, addExceptionDecoder, wrap } from "./types.js";
 import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 import type {
     OcctWasmModule,
@@ -572,6 +575,49 @@ export class OcctKernel {
                     options.tol3d ?? 0,
                     options.boundTol ?? 0,
                     options.tolAngular ?? 0,
+                ),
+            ),
+        );
+    }
+
+    /**
+     * Sweep with the complete control surface: everything
+     * {@link OcctKernel.sweepAdvanced} accepts, plus a spine support surface,
+     * the approximation budget, and a homothetic scaling law.
+     *
+     * Prefer this for new code. The narrower sweep entry points remain for
+     * callers bound to their existing raw arity.
+     */
+    sweepFull(profile: ShapeHandle, spine: ShapeHandle, options: SweepFullOptions = {}): ShapeHandle {
+        const up = options.up ?? { x: 0, y: 0, z: 1 };
+        const law = options.law ?? SweepLaw.None;
+        if (law !== SweepLaw.None && options.lawLength === undefined) {
+            throw new Error("sweepFull: lawLength is required when a law is set");
+        }
+        return wrap("sweepFull", () =>
+            handle(
+                this.#raw.sweepFull(
+                    profile,
+                    spine,
+                    options.mode ?? SweepMode.Fixed,
+                    up.x,
+                    up.y,
+                    up.z,
+                    options.auxSpine ?? 0,
+                    options.curvilinearEquivalence ?? false,
+                    options.guideContact ?? SweepContact.None,
+                    options.transitionMode ?? TransitionMode.Transformed,
+                    options.withContact ?? false,
+                    options.withCorrection ?? false,
+                    options.tol3d ?? 0,
+                    options.boundTol ?? 0,
+                    options.tolAngular ?? 0,
+                    options.support ?? 0,
+                    options.maxDegree ?? 0,
+                    options.maxSegments ?? 0,
+                    law,
+                    options.lawLength ?? 0,
+                    options.lawEndFactor ?? 1,
                 ),
             ),
         );
