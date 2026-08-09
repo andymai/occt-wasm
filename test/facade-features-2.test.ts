@@ -549,3 +549,89 @@ describe("intersectionCells", () => {
     expect(kernel.getVolume(overlap)).toBeCloseTo(125, 2);
   });
 });
+
+describe("makeHelixWireHanded", () => {
+  const ORIGIN = { x: 0, y: 0, z: 0 };
+  const AXIS = { x: 0, y: 0, z: 1 };
+  const PITCH = 5;
+  const HEIGHT = 5; // exactly one turn
+  const RADIUS = 3;
+
+  // Fractional sampling of the wire: the pcurve is linear in the cylinder's
+  // angle, so frac maps straight onto the turn (0.25 -> a quarter turn).
+  function sample(wire: number, frac: number) {
+    const { first, last } = kernel.curveParameters(wire);
+    return kernel.curvePointAtParam(wire, first + (last - first) * frac);
+  }
+
+  function helix(leftHanded: boolean) {
+    return kernel.makeHelixWireHanded(ORIGIN, AXIS, PITCH, HEIGHT, RADIUS, leftHanded);
+  }
+
+  it("winds the opposite way for left-handed", () => {
+    // A quarter turn up a right-handed helix lands on +Y, a left-handed one
+    // on -Y. Both have climbed a quarter of the pitch.
+    const right = sample(helix(false), 0.25);
+    const left = sample(helix(true), 0.25);
+    expect(right.x).toBeCloseTo(0, 6);
+    expect(right.y).toBeCloseTo(RADIUS, 6);
+    expect(left.x).toBeCloseTo(0, 6);
+    expect(left.y).toBeCloseTo(-RADIUS, 6);
+    expect(left.z).toBeCloseTo(right.z, 6);
+    expect(right.z).toBeCloseTo(PITCH / 4, 6);
+  });
+
+  it("mirrors across the axis plane without changing pitch, height or radius", () => {
+    const right = helix(false);
+    const left = helix(true);
+    for (const frac of [0, 0.1, 0.375, 0.6, 0.9, 1]) {
+      const r = sample(right, frac);
+      const l = sample(left, frac);
+      expect(l.x).toBeCloseTo(r.x, 6);
+      expect(l.y).toBeCloseTo(-r.y, 6);
+      expect(l.z).toBeCloseTo(r.z, 6);
+    }
+    expect(kernel.curveLength(left)).toBeCloseTo(kernel.curveLength(right), 6);
+    // One turn of radius 3 over a pitch of 5.
+    expect(kernel.curveLength(right)).toBeCloseTo(
+      Math.hypot(2 * Math.PI * RADIUS, PITCH),
+      3,
+    );
+  });
+
+  it("matches makeHelixWire when right-handed", () => {
+    const handed = helix(false);
+    const plain = kernel.makeHelixWire(ORIGIN, AXIS, PITCH, HEIGHT, RADIUS);
+    for (const frac of [0, 0.25, 0.5, 0.75, 1]) {
+      const h = sample(handed, frac);
+      const p = sample(plain, frac);
+      expect(h.x).toBeCloseTo(p.x, 9);
+      expect(h.y).toBeCloseTo(p.y, 9);
+      expect(h.z).toBeCloseTo(p.z, 9);
+    }
+  });
+
+  it("sweeps a profile into a valid solid either way", () => {
+    for (const leftHanded of [false, true]) {
+      const spine = helix(leftHanded);
+      const profile = kernel.makeWire([
+        kernel.makeCircleEdge({ x: RADIUS, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, 0.5),
+      ]);
+      const solid = kernel.sweepPipeShell(profile, spine, true, true);
+      expect(kernel.isValid(solid)).toBe(true);
+      expect(kernel.getVolume(solid)).toBeGreaterThan(0);
+    }
+  });
+
+  // Both helices carry a 3D curve, not just the pcurve on the cylinder. A
+  // spine without one drives every sweep into a bare failure.
+  it("sweeps along the plain makeHelixWire too", () => {
+    const spine = kernel.makeHelixWire(ORIGIN, AXIS, PITCH, HEIGHT, RADIUS);
+    const profile = kernel.makeWire([
+      kernel.makeCircleEdge({ x: RADIUS, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, 0.5),
+    ]);
+    const solid = kernel.sweepPipeShell(profile, spine, true, true);
+    expect(kernel.isValid(solid)).toBe(true);
+    expect(kernel.getVolume(solid)).toBeGreaterThan(0);
+  });
+});

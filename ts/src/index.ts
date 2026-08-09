@@ -745,6 +745,31 @@ export class OcctKernel {
         );
     }
 
+    /**
+     * A helix with an explicit handedness: right-handed (the default) winds
+     * counter-clockwise about `axis` as it climbs, left-handed clockwise. The
+     * two are mirror images over the same pitch, height and radius.
+     *
+     * Prefer this for new code. {@link OcctKernel.makeHelixWire} remains for
+     * callers bound to its existing raw arity, and is always right-handed.
+     */
+    makeHelixWireHanded(
+        origin: Vec3,
+        axis: Vec3,
+        pitch: number,
+        height: number,
+        radius: number,
+        leftHanded = false,
+    ): ShapeHandle {
+        return wrap("makeHelixWireHanded", () =>
+            handle(this.#raw.makeHelixWireHanded(
+                origin.x, origin.y, origin.z,
+                axis.x, axis.y, axis.z,
+                pitch, height, radius, leftHanded,
+            )),
+        );
+    }
+
     makeWire(edges: ShapeHandle[]): ShapeHandle {
         return wrap("makeWire", () => {
             return this.#withU32(edges, (vec) => handle(this.#raw.makeWire(vec)));
