@@ -1,0 +1,20 @@
+crate/tests/integration.rs
+  s_eb5ae52b34ff73::t_08024f11420807 282-293,295-310
+  s_eb5ae52b34ff73::t_2273a293e01605 294
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "2f093615bfb7a625dd764f4493d3f3fa577496e5",
+  "prompts": {},
+  "sessions": {
+    "s_eb5ae52b34ff73": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1c639e0-fc61-46fd-99b0-aa03b52a9c87",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
