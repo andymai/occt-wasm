@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.0](https://github.com/andymai/occt-wasm/compare/v4.2.0...v4.3.0) (2026-08-09)
+
+
+### Features
+
+* **facade:** add makeHelixWireHanded and build the helix 3D curve ([#269](https://github.com/andymai/occt-wasm/issues/269)) ([a893a5c](https://github.com/andymai/occt-wasm/commit/a893a5c8fa773d871bbeb7e1b1b1f40ac6e5a6e7))
+
 ## [4.2.0](https://github.com/andymai/occt-wasm/compare/v4.1.0...v4.2.0) (2026-08-08)
 
 
