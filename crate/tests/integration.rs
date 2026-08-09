@@ -279,3 +279,32 @@ fn sweep_oriented_auxiliary_keeps_planes_exact() {
     let vol = kernel.get_volume(solid).unwrap().abs();
     assert!((vol - 320.0).abs() < 1e-6, "expected 4*4*20=320, got {vol}");
 }
+
+#[test]
+fn helix_handedness_mirrors_across_the_axis_plane() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    // One turn: pitch 5, height 5, radius 3 about +Z through the origin.
+    let mut quarter_turn = |left_handed: bool| {
+        let wire = kernel
+            .make_helix_wire_handed(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 5.0, 5.0, 3.0, left_handed)
+            .unwrap();
+        let range = kernel.curve_parameters(wire).unwrap();
+        let param = range[0] + (range[1] - range[0]) / 4.0;
+        kernel.curve_point_at_param(wire, param).unwrap()
+    };
+    let right = quarter_turn(false);
+    let left = quarter_turn(true);
+
+    assert!(
+        (right[1] - 3.0).abs() < 1e-6,
+        "right-handed quarter turn should reach +Y, got {right:?}"
+    );
+    assert!(
+        (left[1] + 3.0).abs() < 1e-6,
+        "left-handed quarter turn should reach -Y, got {left:?}"
+    );
+    assert!((left[0] - right[0]).abs() < 1e-6);
+    assert!((left[2] - right[2]).abs() < 1e-6);
+}
