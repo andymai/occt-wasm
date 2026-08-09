@@ -1496,9 +1496,52 @@ uint32_t OcctKernel::makeHelixWire(double px, double py, double pz, double dx, d
         if (!wireMaker.IsDone()) {
             throw std::runtime_error("makeHelixWire: wire construction failed");
         }
-        return store(wireMaker.Shape());
+        // The edge carries only the pcurve on the cylinder. Algorithms that read the
+        // 3D curve — sweeps above all — fail outright without this, and MaxSegment
+        // has to clear 30 for the approximation of a multi-turn helix to converge.
+        TopoDS_Shape wire = wireMaker.Shape();
+        if (!BRepLib::BuildCurves3d(wire, 1.0e-6, GeomAbs_C1, 14, 2000)) {
+            throw std::runtime_error("makeHelixWire: 3D curve approximation failed");
+        }
+        return store(wire);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeHelixWire: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeHelixWireHanded(double px, double py, double pz, double dx, double dy, double dz, double pitch, double height, double radius, bool leftHanded) {
+    try {
+        gp_Ax3 ax3(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz));
+        Handle(Geom_CylindricalSurface) cylinder = new Geom_CylindricalSurface(ax3, radius);
+        
+        // A helix on a cylindrical surface is a 2D line: u = t, v = pitch/(2*pi) * t
+        double slope = pitch / (2.0 * M_PI);
+        double nTurns = height / pitch;
+        // gp_Dir2d normalizes (+/-1, slope) to unit length, so advancing the edge
+        // parameter by t moves only t / sqrt(1 + slope^2) along u (the angle). Scale
+        // the parameter range by that length so the edge actually sweeps nTurns full
+        // turns and the full height instead of falling short.
+        double dirLen = std::sqrt(1.0 + slope * slope);
+        double uMax = nTurns * 2.0 * M_PI * dirLen;
+        
+        Handle(Geom2d_Line) line2d =
+            new Geom2d_Line(gp_Pnt2d(0, 0), gp_Dir2d(leftHanded ? -1.0 : 1.0, slope));
+        
+        BRepBuilderAPI_MakeEdge edgeMaker(line2d, cylinder, 0.0, uMax);
+        if (!edgeMaker.IsDone()) {
+            throw std::runtime_error("makeHelixWireHanded: edge construction failed");
+        }
+        BRepBuilderAPI_MakeWire wireMaker(edgeMaker.Edge());
+        if (!wireMaker.IsDone()) {
+            throw std::runtime_error("makeHelixWireHanded: wire construction failed");
+        }
+        TopoDS_Shape wire = wireMaker.Shape();
+        if (!BRepLib::BuildCurves3d(wire, 1.0e-6, GeomAbs_C1, 14, 2000)) {
+            throw std::runtime_error("makeHelixWireHanded: 3D curve approximation failed");
+        }
+        return store(wire);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeHelixWireHanded: ") + e.what());
     }
 }
 

@@ -92,6 +92,7 @@ pub(crate) struct GeneratedFuncs {
     fn_make_b_spline_edge: TypedFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), u32>,
     fn_make_ellipse_arc: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_helix_wire: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
+    fn_make_helix_wire_handed: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64, i32), u32>,
     fn_make_non_planar_face: TypedFunc<(u32,), u32>,
     fn_add_holes_in_face: TypedFunc<(u32, i32, i32), u32>,
     fn_remove_holes_from_face: TypedFunc<(u32, i32, i32), u32>,
@@ -321,6 +322,8 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_make_b_spline_edge")?,
             fn_make_ellipse_arc: instance.get_typed_func(&mut store, "occt_make_ellipse_arc")?,
             fn_make_helix_wire: instance.get_typed_func(&mut store, "occt_make_helix_wire")?,
+            fn_make_helix_wire_handed: instance
+                .get_typed_func(&mut store, "occt_make_helix_wire_handed")?,
             fn_make_non_planar_face: instance
                 .get_typed_func(&mut store, "occt_make_non_planar_face")?,
             fn_add_holes_in_face: instance.get_typed_func(&mut store, "occt_add_holes_in_face")?,
@@ -1878,6 +1881,41 @@ impl crate::kernel::OcctKernel {
         self.check_error("make_helix_wire")?;
         if result == 0 {
             return Err(self.read_last_error("make_helix_wire"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn make_helix_wire_handed(
+        &mut self,
+        px: f64,
+        py: f64,
+        pz: f64,
+        dx: f64,
+        dy: f64,
+        dz: f64,
+        pitch: f64,
+        height: f64,
+        radius: f64,
+        left_handed: bool,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self.generated.fn_make_helix_wire_handed.call(
+            &mut self.store,
+            (
+                px,
+                py,
+                pz,
+                dx,
+                dy,
+                dz,
+                pitch,
+                height,
+                radius,
+                i32::from(left_handed),
+            ),
+        )?;
+        self.check_error("make_helix_wire_handed")?;
+        if result == 0 {
+            return Err(self.read_last_error("make_helix_wire_handed"));
         }
         Ok(ShapeHandle(result))
     }

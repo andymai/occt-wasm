@@ -368,6 +368,14 @@ describe("shape construction (extended)", () => {
         expect(kernel.getShapeType(wire)).toBe("wire");
     });
 
+    it("makeHelixWireHanded creates a helical wire of either handedness", () => {
+        for (const leftHanded of [false, true]) {
+            const wire = kernel.makeHelixWireHanded(0, 0, 0, 0, 0, 1, 5, 20, 3, leftHanded);
+            expect(wire).toBeGreaterThan(0);
+            expect(kernel.getShapeType(wire)).toBe("wire");
+        }
+    });
+
     it("makeNonPlanarFace attempts to fill a non-planar wire", () => {
         // Use a planar wire — makeNonPlanarFace still works on planar wires
         const wire = makeSquareWire(10);
