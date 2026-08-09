@@ -1,0 +1,49 @@
+facade/include/occt_kernel.h
+  s_eb5ae52b34ff73::t_e19f0d8b9a5a34 220-221
+test/api-coverage.test.ts
+  s_eb5ae52b34ff73::t_55a2937468d9ce 371-378
+ts/src/raw-types.ts
+  s_eb5ae52b34ff73::t_771e67529d1069 204
+ts/src/index.ts
+  s_eb5ae52b34ff73::t_80f1c93a2863a1 748-772
+test/facade-features-2.test.ts
+  s_eb5ae52b34ff73::t_5493663ffa3335 617-619
+  s_eb5ae52b34ff73::t_546ea0f529841c 625-636
+  s_eb5ae52b34ff73::t_dad828264a7ed3 552-616,620-624,637
+xtask/src/codegen/config.rs
+  s_eb5ae52b34ff73::t_871a4730ee1b37 1611,1616-1658,1664-1668
+  s_eb5ae52b34ff73::t_f0ffe3e0686b4c 1597-1604,1610
+  s_eb5ae52b34ff73::t_2c48ec344772ad 1659-1663,1669
+  s_55f022b7d30325::t_d4afb1114db9fb 1612-1615
+crate/src/kernel_generated.rs
+  s_eb5ae52b34ff73::t_2733ca1d391cb8 95,325-326,1888-1918
+  s_eb5ae52b34ff73::t_589946ce1914b0 1919-1922
+facade/generated/bindings.cpp
+  s_eb5ae52b34ff73::t_3097d464b74e4f 184
+facade/generated/kernel.cpp
+  s_eb5ae52b34ff73::t_3df4b193ea9fc3 1499-1506,1512-1547
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d6422d02108ef099ed08a22cdb042b36af67cc0f",
+  "prompts": {},
+  "sessions": {
+    "s_55f022b7d30325": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "57d14345-a683-4f94-8bff-fcd1b3b48f27",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    },
+    "s_eb5ae52b34ff73": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1c639e0-fc61-46fd-99b0-aa03b52a9c87",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
