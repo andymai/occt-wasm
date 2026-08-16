@@ -1,0 +1,27 @@
+README.md
+  s_8dfe9152c13ab3::t_835845810b3da3 312-330
+xtask/src/build.rs
+  s_8dfe9152c13ab3::t_6219794ff0ebf4 397
+  s_8dfe9152c13ab3::t_d1ef650e47eb9a 277-284,288-309
+  s_8dfe9152c13ab3::t_321a485f154853 285-287
+ts/scripts/copy-wasm.sh
+  s_8dfe9152c13ab3::t_5ba100e17c871a 24-31
+ts/src/index.ts
+  s_8dfe9152c13ab3::t_3c613c2b722762 206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3b89b020648f606b59f301084bb05a42c8050b17",
+  "prompts": {},
+  "sessions": {
+    "s_8dfe9152c13ab3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "488dafe3-17ad-4137-809a-1584d4586217",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
