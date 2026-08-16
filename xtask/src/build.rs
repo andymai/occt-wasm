@@ -274,6 +274,39 @@ fn link_wasm(
     Ok(())
 }
 
+/// Emscripten's ES6 glue reaches for `node:module` to build a `require` for the
+/// Node path. Webpack resolves that specifier even though the branch guarding it
+/// is dead in a browser build, and hard-fails with `UnhandledSchemeError`. The
+/// `webpackIgnore` marker leaves the import as a runtime import, which never
+/// evaluates outside Node — that is what lets the TS wrapper import the glue
+/// with a plain, bundler-visible `import("./occt-wasm.js")` so webpack (and
+/// Next.js) can emit the glue chunk and rewrite the `.wasm` asset URL.
+fn patch_glue_for_bundlers(root: &Path) -> Result<()> {
+    const TARGET: &str = "import(\"node:module\")";
+    const MARKER: &str = "import(/* webpackIgnore: true */ \"node:module\")";
+
+    let glue = root.join("dist/occt-wasm.js");
+    let source = std::fs::read_to_string(&glue)
+        .with_context(|| format!("failed to read {}", glue.display()))?;
+
+    if source.contains(MARKER) {
+        return Ok(());
+    }
+
+    if !source.contains(TARGET) {
+        bail!(
+            "{} contains no `{TARGET}` to mark for bundlers. Emscripten likely \
+             changed how the ES6 glue loads Node builtins — check the new shape \
+             against a webpack build and update `patch_glue_for_bundlers`.",
+            glue.display()
+        );
+    }
+
+    std::fs::write(&glue, source.replace(TARGET, MARKER))
+        .with_context(|| format!("failed to write {}", glue.display()))?;
+    Ok(())
+}
+
 /// Step 4: Run wasm-opt on the output.
 fn optimize_wasm(sh: &Shell, root: &Path) -> Result<()> {
     let wasm = root.join("dist/occt-wasm.wasm");
@@ -361,6 +394,7 @@ pub fn build(release: bool, size: bool) -> Result<()> {
 
     // Step 3: Link
     link_wasm(&sh, &root, &objects, release, size)?;
+    patch_glue_for_bundlers(&root)?;
 
     // Step 4: wasm-opt (release only)
     if release {

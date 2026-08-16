@@ -21,6 +21,14 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     exit 1
 fi
 
+# Without the marker, webpack fails to resolve the glue's Node-only
+# `node:module` import and every bundled app breaks. xtask's link step adds it.
+if ! grep -q 'webpackIgnore: true \*/ "node:module"' "$SRC/occt-wasm.js"; then
+    echo "error: $SRC/occt-wasm.js is missing the bundler patch." >&2
+    echo "       Rebuild it with 'cargo xtask build'." >&2
+    exit 1
+fi
+
 for f in occt-wasm.js occt-wasm.wasm; do
     cp "$SRC/$f" "$DST/$f"
 done

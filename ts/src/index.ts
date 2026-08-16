@@ -203,7 +203,7 @@ export class OcctKernel {
      */
     static async init(options?: InitOptions): Promise<OcctKernel> {
         // @ts-expect-error -- occt-wasm.js is generated at build time, no .d.ts
-        const imported = await import(/* webpackIgnore: true */ "./occt-wasm.js");
+        const imported = await import("./occt-wasm.js");
         const createModule = imported.default as (
             opts: Record<string, unknown>,
         ) => Promise<OcctWasmModule>;

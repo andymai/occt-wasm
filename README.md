@@ -309,6 +309,25 @@ module.exports = {
 };
 ```
 
+Webpack bundles the Emscripten glue and emits `occt-wasm.wasm` as a hashed
+asset, rewriting the URL it is loaded from. No manual copy step is needed, and
+`OcctKernel.init()` finds the binary without a `wasm` option.
+
+### Next.js
+
+```javascript
+// next.config.js
+module.exports = {
+  webpack: (config) => {
+    config.experiments = { ...config.experiments, asyncWebAssembly: true };
+    return config;
+  },
+};
+```
+
+Initialize from a client component (`"use client"`), or `await import("occt-wasm")`
+inside an effect, so the kernel loads in the browser rather than during SSR.
+
 ### Node.js
 
 ```typescript check
