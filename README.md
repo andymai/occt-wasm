@@ -315,18 +315,25 @@ asset, rewriting the URL it is loaded from. No manual copy step is needed, and
 
 ### Next.js
 
-```javascript
-// next.config.js
-module.exports = {
-  webpack: (config) => {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
-    return config;
-  },
-};
-```
+No configuration needed, under either Turbopack or webpack. Both emit the
+`.wasm` into `_next/static` and rewrite the URL. Initialize from a client
+component (`"use client"`) so the kernel loads in the browser rather than
+during SSR:
 
-Initialize from a client component (`"use client"`), or `await import("occt-wasm")`
-inside an effect, so the kernel loads in the browser rather than during SSR.
+```javascript
+"use client";
+import { useEffect } from "react";
+
+export default function Viewer() {
+  useEffect(() => {
+    (async () => {
+      const { OcctKernel } = await import("occt-wasm");
+      const kernel = await OcctKernel.init();
+      // ...
+    })();
+  }, []);
+}
+```
 
 ### Node.js
 

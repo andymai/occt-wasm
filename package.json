@@ -7,6 +7,7 @@
     "build": "cargo xtask build",
     "build:occt": "cargo xtask build-occt",
     "test": "cd ts && npx vitest run",
+    "test:bundler": "node scripts/bundler-smoke.mjs",
     "lint": "cd ts && npx eslint src/",
     "typecheck": "cd ts && npx tsgo --noEmit",
     "typecheck:tests": "cd ts && npx tsgo --noEmit -p ../tsconfig.test.json",
@@ -26,6 +27,7 @@
     "husky": "^9",
     "opencascade.js": "^1.1.1",
     "three": "0.185.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "webpack": "^5.109.2"
   }
 }
