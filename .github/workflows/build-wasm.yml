@@ -54,6 +54,11 @@ jobs:
       - name: Run tests
         run: npx vitest run
 
+      # The suite loads dist/occt-wasm.js directly, so OcctKernel.init()'s
+      # dynamic import is only covered here. #271 shipped without it.
+      - name: Bundler smoke test
+        run: npm run test:bundler
+
       # The demos are the documentation people actually copy from, and they
       # used to fail silently — a try/catch rendered an unfilleted shape and
       # nothing complained. Non-zero exit is the gate.
