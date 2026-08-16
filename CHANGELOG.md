@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.1](https://github.com/andymai/occt-wasm/compare/v4.3.0...v4.3.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **ts:** let bundlers resolve the Emscripten glue import ([#275](https://github.com/andymai/occt-wasm/issues/275)) ([5737231](https://github.com/andymai/occt-wasm/commit/57372314d0001f81e7ed911014f3ece925a2e2c7))
+
 ## [4.3.0](https://github.com/andymai/occt-wasm/compare/v4.2.0...v4.3.0) (2026-08-09)
 
 
