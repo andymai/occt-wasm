@@ -204,14 +204,24 @@ export enum SweepContact {
 
 /**
  * Approximation tolerances for the pipe-shell sweeps. All are absolute, not
- * relative to model size.
+ * relative to model size, so scaling the model by 10 and tightening the
+ * tolerance by 10 are the same operation.
  */
 export interface SweepToleranceOptions {
     /**
-     * 3D approximation tolerance. OCCT's default is an absolute `1e-4`, so
-     * models much larger than unit scale should raise this in proportion —
+     * 3D approximation tolerance. OCCT's default is an absolute `1e-4`, which
+     * binds in both directions.
+     *
+     * Models much larger than unit scale should raise it in proportion,
      * otherwise the surface approximation runs out of spans and the sweep
-     * degrades or fails outright.
+     * degrades or fails outright. Near unit scale that same default is the
+     * accuracy floor, and lowering it is how you buy digits. On a 4x4 square
+     * swept 20 along a guide encoding a 90 degree twist, whose exact volume is
+     * 320, the relative error is 1.3e-5 at the default, 3.3e-9 at `1e-6` and
+     * 6.2e-13 at `1e-9`, for roughly 2x and 4x the build time.
+     *
+     * The gain is monotonic by decade but not step to step, so measure on the
+     * geometry you actually build rather than assuming tighter is better.
      */
     tol3d?: number;
     /** Boundary tolerance. OCCT's default is an absolute `1e-4`. */
