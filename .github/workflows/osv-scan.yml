@@ -15,8 +15,11 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # Don't cancel in-progress main/schedule scans — a rapid second push would
-  # otherwise leave the older commit's lockfile unscanned.
+  # main/schedule scans run to completion once started; a newer push waits
+  # rather than killing them. GitHub holds only one run pending per group, so
+  # a main scan still queued is dropped when the next push lands. That is fine
+  # here: the scan reads lockfiles at the checked-out commit, so the surviving
+  # run covers the cumulative dependency state.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
