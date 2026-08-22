@@ -1,0 +1,23 @@
+test/api-coverage.test.ts
+  s_f370c23b15b6eb::t_fbc2f321ecc600 792-807
+xtask/src/codegen/config.rs
+  s_f370c23b15b6eb::t_a390f266e74325 4870-4872
+facade/generated/kernel.cpp
+  s_f370c23b15b6eb::t_3cc5a2ff4e9831 3815-3817
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "f02571946c156b804780c1cb9a4f3c4f9d701f99",
+  "prompts": {},
+  "sessions": {
+    "s_f370c23b15b6eb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "07d1242b-d663-4930-8889-d5a3290c5029",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
