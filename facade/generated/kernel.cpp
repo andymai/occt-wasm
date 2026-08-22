@@ -3812,7 +3812,9 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
         TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
         for (int ei = 1; ei <= edgeMap.Extent(); ei++) {
             BRepAdaptor_Curve curve(TopoDS::Edge(edgeMap.FindKey(ei)));
-            GCPnts_TangentialDeflection sampler(curve, deflection, 0.5);
+            // GCPnts_TangentialDeflection takes (curve, angular, curvature): the
+            // caller's deflection is the chord error, capped at 0.5 rad per step.
+            GCPnts_TangentialDeflection sampler(curve, 0.5, deflection);
             EdgeSample es;
             for (int i = 1; i <= sampler.NbPoints(); i++) {
                 es.pts.push_back(sampler.Value(i));
