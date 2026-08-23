@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.2](https://github.com/andymai/occt-wasm/compare/v4.3.1...v4.3.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **facade:** route wireframe deflection into the curvature slot ([#283](https://github.com/andymai/occt-wasm/issues/283)) ([9144995](https://github.com/andymai/occt-wasm/commit/9144995899eadea59f678f53e59dc1fb2bdedf4f))
+
 ## [4.3.1](https://github.com/andymai/occt-wasm/compare/v4.3.0...v4.3.1) (2026-08-16)
 
 
