@@ -51,6 +51,24 @@ afterAll(() => {
   kernel.delete();
 });
 
+/**
+ * Decode the `WebAssembly.Exception` a raw facade call throws.
+ *
+ * Under -fwasm-exceptions a C++ throw reaches JS as a `WebAssembly.Exception`,
+ * which is not an `Error` — it stringifies to "[object WebAssembly.Exception]"
+ * and the OCCT diagnostic is lost. Emscripten's helper recovers [type, what()].
+ * Anything that is not a C++ throw falls back to its own string form, so an
+ * unrelated failure cannot masquerade as the one we are pinning.
+ */
+function whatOf(e: unknown): string {
+  try {
+    const [, message] = Module.getExceptionMessage(e);
+    return message ?? "";
+  } catch {
+    return String(e);
+  }
+}
+
 /** Fillet or chamfer `solidId` on the first `count` edges. */
 function edgeOp(op: "fillet" | "chamfer", solidId: number, count: number, value: number): number {
   const edges = kernel.getSubShapes(solidId, "edge");
@@ -96,6 +114,18 @@ describe("fillet/chamfer results stay solids", () => {
     // Unwrapping the result must not have loosened the input contract.
     const fused = kernel.fuse(kernel.makeBox(20, 20, 20), kernel.makeCylinder(8, 30));
     expect(kernel.getShapeType(fused)).toBe("compound");
-    expect(() => edgeOp("fillet", fused, 1, 1)).toThrow();
+
+    let thrown: unknown;
+    try {
+      edgeOp("fillet", fused, 1, 1);
+    } catch (e) {
+      thrown = e;
+    }
+
+    // Pin the *reason*, not just the throw: a bare toThrow() would also be
+    // satisfied by a getSubShapes failure or an unfilletable edge, and would
+    // stop guarding the input contract it is here to protect.
+    expect(thrown, "fillet accepted a compound").toBeDefined();
+    expect(whatOf(thrown)).toContain("TopoDS::Solid");
   });
 });
