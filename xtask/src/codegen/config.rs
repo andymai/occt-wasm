@@ -539,7 +539,7 @@ maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"chamferDistAngle: operation failed\");
 }
-return store(maker.Shape());",
+return store(unwrapSingletonSolid(maker.Shape()));",
         includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopExp_Explorer.hxx", "TopoDS.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
@@ -724,7 +724,7 @@ maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"filletVariable: operation failed\");
 }
-return store(maker.Shape());",
+return store(unwrapSingletonSolid(maker.Shape()));",
         includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
@@ -759,7 +759,7 @@ for (size_t i = 0; i < solidIds.size(); i++) {
     }
     maker.Build();
     if (!maker.IsDone()) throw std::runtime_error(\"filletBatch: fillet failed on solid \" + std::to_string(i));
-    results.push_back(store(maker.Shape()));
+    results.push_back(store(unwrapSingletonSolid(maker.Shape())));
     edgeOffset += static_cast<size_t>(edgeCounts[i]);
 }
 return results;",
@@ -4407,7 +4407,7 @@ maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"filletWithHistory: operation failed\");
 }
-uint32_t resultId = store(maker.Shape());
+uint32_t resultId = store(unwrapSingletonSolid(maker.Shape()));
 return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);",
         includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
@@ -4528,7 +4528,7 @@ maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"chamferWithHistory: operation failed\");
 }
-uint32_t resultId = store(maker.Shape());
+uint32_t resultId = store(unwrapSingletonSolid(maker.Shape()));
 return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);",
         includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",

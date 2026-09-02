@@ -145,7 +145,10 @@ fn emit_fillet_like(buf: &mut String, spec: &MethodSpec) {
         "            throw std::runtime_error(\"{name}: operation failed\");"
     );
     let _ = writeln!(buf, "        }}");
-    let _ = writeln!(buf, "        return store(maker.Shape());");
+    let _ = writeln!(
+        buf,
+        "        return store(unwrapSingletonSolid(maker.Shape()));"
+    );
     let _ = writeln!(buf, "    }} catch (const Standard_Failure& e) {{");
     let _ = writeln!(
         buf,
@@ -269,6 +272,11 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
     // Always-needed headers.
     includes.insert("Standard_Failure.hxx".to_owned());
 
+    if needs_unwrap_singleton_solid(methods) {
+        includes.insert("TopExp_Explorer.hxx".to_owned());
+        includes.insert("TopoDS_Shape.hxx".to_owned());
+    }
+
     for spec in methods {
         if matches!(spec.kind, MethodKind::Skip) {
             continue;
@@ -304,18 +312,58 @@ fn group_by_category<'a>(methods: &[&'a MethodSpec]) -> Vec<(&'a str, Vec<&'a Me
     groups
 }
 
+/// Do any methods need the `unwrapSingletonSolid` helper?
+///
+/// Every `FilletLike` method calls it, plus any `CustomBody` spec that names it.
+fn needs_unwrap_singleton_solid(methods: &[&MethodSpec]) -> bool {
+    methods.iter().any(|m| {
+        matches!(m.kind, MethodKind::FilletLike) || m.setup_code.contains("unwrapSingletonSolid")
+    })
+}
+
 /// Emit static helper functions that generated methods depend on.
 ///
-/// Currently emits `buildEvolution` if any method returns `EvolutionData`.
+/// Emits `unwrapSingletonSolid` for the fillet/chamfer family and
+/// `buildEvolution` if any method returns `EvolutionData`.
 #[allow(clippy::too_many_lines)]
 fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
     let needs_evolution = methods
         .iter()
         .any(|m| matches!(m.return_type, ReturnType::EvolutionData));
+    let needs_unwrap = needs_unwrap_singleton_solid(methods);
 
-    if needs_evolution {
+    if needs_evolution || needs_unwrap {
         let _ = writeln!(buf, "// === helper functions ===");
         let _ = writeln!(buf);
+    }
+
+    if needs_unwrap {
+        for line in [
+            "/// Unwrap a singleton compound: if `shape` is a Compound holding exactly one",
+            "/// Solid, return that Solid.",
+            "///",
+            "/// `BRepFilletAPI_MakeFillet`/`MakeChamfer` wrap their result in a Compound even",
+            "/// for single-solid input. A later call that expects a Solid then fails in the",
+            "/// `TopoDS::Solid(...)` cast with Standard_TypeMismatch, which surfaces as a WASM",
+            "/// trap -- so chaining two fillets cannot work. Restoring the Solid type here",
+            "/// makes chaining behave as it does through OCP's direct pybind11 binding.",
+            "static TopoDS_Shape unwrapSingletonSolid(const TopoDS_Shape& shape) {",
+            "    if (shape.IsNull() || shape.ShapeType() != TopAbs_COMPOUND) return shape;",
+            "    TopoDS_Shape onlySolid;",
+            "    int count = 0;",
+            "    for (TopExp_Explorer exp(shape, TopAbs_SOLID); exp.More(); exp.Next()) {",
+            "        onlySolid = exp.Current();",
+            "        if (++count > 1) return shape;  // multiple solids: keep the compound",
+            "    }",
+            "    return count == 1 ? onlySolid : shape;",
+            "}",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
+        let _ = writeln!(buf);
+    }
+
+    if needs_evolution {
         let _ = writeln!(
             buf,
             "/// Build evolution data by tracking Modified/Generated/Deleted faces."
