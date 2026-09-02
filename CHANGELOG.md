@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.3](https://github.com/andymai/occt-wasm/compare/v4.3.2...v4.3.3) (2026-09-02)
+
+
+### Bug Fixes
+
+* **facade:** make fuseAll a true n-way union ([#290](https://github.com/andymai/occt-wasm/issues/290)) ([a1ae172](https://github.com/andymai/occt-wasm/commit/a1ae172cedf28fc30f6fbc8efd88f9c2b84ef479))
+
 ## [4.3.2](https://github.com/andymai/occt-wasm/compare/v4.3.1...v4.3.2) (2026-08-22)
 
 
