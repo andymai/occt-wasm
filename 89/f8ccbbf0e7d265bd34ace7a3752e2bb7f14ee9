@@ -1,0 +1,23 @@
+facade/generated/kernel.cpp
+  s_23d015945aa0c8::t_dd05c66565078a 448-451,453-459,462
+test/api-coverage.test.ts
+  s_23d015945aa0c8::t_a77100d7e2a89a 150,158-188
+xtask/src/codegen/config.rs
+  s_23d015945aa0c8::t_e0c30981eaae71 260-263,277-280,282-288,291-292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "89f8ccbbf0e7d265bd34ace7a3752e2bb7f14ee9",
+  "prompts": {},
+  "sessions": {
+    "s_23d015945aa0c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e8f2ea-cfb7-49a4-b131-eae06e8842ea",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
