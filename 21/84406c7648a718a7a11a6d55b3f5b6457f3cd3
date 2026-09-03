@@ -1,0 +1,25 @@
+xtask/src/main.rs
+  s_4bdafdf6b994ef::t_f61a486d5a2c20 20
+  s_4bdafdf6b994ef::t_679d87c55a4a86 31
+xtask/src/build.rs
+  s_4bdafdf6b994ef::t_f6b52009cc95b4 88-90
+  s_4bdafdf6b994ef::t_c1efc0c4140b5f 249-254
+xtask/src/build_wasi.rs
+  s_4bdafdf6b994ef::t_5892171f7fe9b4 140-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2184406c7648a718a7a11a6d55b3f5b6457f3cd3",
+  "prompts": {},
+  "sessions": {
+    "s_4bdafdf6b994ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec1e117c-7b95-4b7d-a6b4-74a24ffb457a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
