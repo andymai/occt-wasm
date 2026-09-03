@@ -85,10 +85,9 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
         .collect();
 
     // Also compile generated facade files (kernel.cpp + bindings.cpp).
-    // Exclude wasi_exports.cpp — that's the C-ABI export layer for the standalone
-    // WASI build (cargo xtask build-wasi), not the Embind/npm path. Linking it here
-    // adds ~60 KB of dead code and, with -O3 -flto on top of newer OCCT objects, can
-    // produce invalid wasm at the linker output.
+    // Exclude wasi_exports.cpp: it's the C-ABI export layer for the standalone
+    // WASI build (cargo xtask build-wasi), not the Embind/npm path, so linking it
+    // here only adds ~60 KB of dead code.
     let gen_dir = root.join("facade/generated");
     if gen_dir.is_dir() {
         let gen_sources: Vec<PathBuf> = std::fs::read_dir(&gen_dir)?
@@ -247,9 +246,12 @@ fn link_wasm(
         format!("--post-js={post_js_str}"),
     ];
 
-    if release {
-        args.push("-flto".into());
-    }
+    // No -flto. The facade objects and the prebuilt OCCT static libs are both
+    // compiled without -flto, so nothing in the link is LTO bitcode and the flag
+    // buys no optimization. Worse, passing it drives an Emscripten/Binaryen
+    // LTO-path miscompile that corrupts the heap (#293): a wild pointer planted
+    // during a boolean/fillet-heavy sequence that only surfaces later as an
+    // out-of-bounds trap in an unrelated clone. Dropping it is a pure win.
 
     // Add object files
     args.extend(obj_strs);

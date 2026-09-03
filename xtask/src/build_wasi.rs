@@ -137,9 +137,9 @@ fn link(root: &Path, objects: &[PathBuf], release: bool) -> Result<PathBuf> {
     {
         cmd.arg(format!("-Wl,--export={name}"));
     }
-    if release {
-        cmd.arg("-flto");
-    }
+    // No -flto here either, for the same reason as the npm link (see build.rs):
+    // no input is LTO bitcode, so it optimizes nothing, and it triggers the
+    // Emscripten/Binaryen LTO-path heap-corruption miscompile (#293).
     cmd.args(objects).args(&occt_libs).arg("-o").arg(&output);
 
     eprintln!("Step 2: Linking WASI WASM ({opt_level})...");
