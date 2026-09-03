@@ -49,6 +49,7 @@ pub(crate) struct GeneratedFuncs {
     fn_fillet: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_chamfer: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_chamfer_dist_angle: TypedFunc<(u32, i32, i32, f64, f64), u32>,
+    fn_chamfer_asymmetric: TypedFunc<(u32, u32, f64, f64, u32), u32>,
     fn_shell: TypedFunc<(u32, i32, i32, f64, f64), u32>,
     fn_offset: TypedFunc<(u32, f64, f64), u32>,
     fn_draft: TypedFunc<(u32, u32, f64, f64, f64, f64), u32>,
@@ -277,6 +278,8 @@ impl GeneratedFuncs {
             fn_chamfer: instance.get_typed_func(&mut store, "occt_chamfer")?,
             fn_chamfer_dist_angle: instance
                 .get_typed_func(&mut store, "occt_chamfer_dist_angle")?,
+            fn_chamfer_asymmetric: instance
+                .get_typed_func(&mut store, "occt_chamfer_asymmetric")?,
             fn_shell: instance.get_typed_func(&mut store, "occt_shell")?,
             fn_offset: instance.get_typed_func(&mut store, "occt_offset")?,
             fn_draft: instance.get_typed_func(&mut store, "occt_draft")?,
@@ -901,6 +904,31 @@ impl crate::kernel::OcctKernel {
         self.check_error("chamfer_dist_angle")?;
         if result == 0 {
             return Err(self.read_last_error("chamfer_dist_angle"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn chamfer_asymmetric(
+        &mut self,
+        solid_id: ShapeHandle,
+        edge_id: ShapeHandle,
+        distance1: f64,
+        distance2: f64,
+        reference_face_id: u32,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self.generated.fn_chamfer_asymmetric.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                edge_id.0,
+                distance1,
+                distance2,
+                reference_face_id,
+            ),
+        )?;
+        self.check_error("chamfer_asymmetric")?;
+        if result == 0 {
+            return Err(self.read_last_error("chamfer_asymmetric"));
         }
         Ok(ShapeHandle(result))
     }

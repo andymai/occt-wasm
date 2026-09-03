@@ -122,6 +122,35 @@ describe("modeling operations", () => {
         edges.delete();
     });
 
+    it("applies an asymmetric (two-distance) chamfer to one edge", () => {
+        const box = kernel.makeBox(20, 20, 20);
+        const edges = kernel.getSubShapes(box, "edge");
+        const edge = edges.get(0);
+
+        // referenceFaceId 0 selects the first face adjacent to the edge; distance1
+        // is set back on it, distance2 on the edge's other adjacent face.
+        const cham = kernel.chamferAsymmetric(box, edge, 3.0, 1.0, 0);
+        expect(cham).toBeGreaterThan(0);
+        expect(kernel.getShapeType(cham)).toBe("solid");
+        expect(kernel.isValid(cham)).toBe(true);
+        expect(kernel.getVolume(cham)).toBeLessThan(kernel.getVolume(box));
+        edges.delete();
+    });
+
+    it("rejects a reference face not adjacent to the edge", () => {
+        const box = kernel.makeBox(20, 20, 20);
+        const edges = kernel.getSubShapes(box, "edge");
+        const edge = edges.get(0);
+        // A face from a different solid is a valid face but cannot be adjacent.
+        const other = kernel.makeBox(5, 5, 5);
+        const foreignFaces = kernel.getSubShapes(other, "face");
+        const foreignFace = foreignFaces.get(0);
+
+        expect(() => kernel.chamferAsymmetric(box, edge, 2.0, 1.0, foreignFace)).toThrow();
+        edges.delete();
+        foreignFaces.delete();
+    });
+
     it("offsets a solid", () => {
         const box = kernel.makeBox(10, 10, 10);
         const offset = kernel.offset(box, 1.0, 1e-6);

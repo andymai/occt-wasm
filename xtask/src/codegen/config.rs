@@ -551,6 +551,55 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamfer
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
+    // Asymmetric (two-distance) chamfer: distance1 measured on the reference
+    // face, distance2 on the edge's other adjacent face. referenceFaceId == 0
+    // selects the first adjacent face (the same default chamferDistAngle uses).
+    MethodSpec {
+        name: "chamferAsymmetric",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::ShapeId("edgeId"),
+            FacadeParam::Double("distance1"), FacadeParam::Double("distance2"),
+            FacadeParam::Uint32("referenceFaceId"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+const TopoDS_Edge& edge = TopoDS::Edge(get(edgeId));
+BRepFilletAPI_MakeChamfer maker(TopoDS::Solid(solid));
+TopoDS_Face refFace;
+if (referenceFaceId != 0) {
+    refFace = TopoDS::Face(get(referenceFaceId));
+    bool adjacent = false;
+    for (TopExp_Explorer ex(refFace, TopAbs_EDGE); ex.More(); ex.Next()) {
+        if (ex.Current().IsSame(edge)) { adjacent = true; break; }
+    }
+    if (!adjacent) {
+        throw std::runtime_error(\"chamferAsymmetric: referenceFace is not adjacent to the edge\");
+    }
+} else {
+    for (TopExp_Explorer ex(solid, TopAbs_FACE); ex.More(); ex.Next()) {
+        const TopoDS_Face& f = TopoDS::Face(ex.Current());
+        for (TopExp_Explorer ex2(f, TopAbs_EDGE); ex2.More(); ex2.Next()) {
+            if (ex2.Current().IsSame(edge)) { refFace = f; break; }
+        }
+        if (!refFace.IsNull()) break;
+    }
+    if (refFace.IsNull()) {
+        throw std::runtime_error(\"chamferAsymmetric: no adjacent face found for edge\");
+    }
+}
+maker.Add(distance1, distance2, edge, refFace);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"chamferAsymmetric: operation failed\");
+}
+return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferAsymmetric\", true));",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopExp_Explorer.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
     MethodSpec {
         name: "shell",
         kind: MethodKind::CustomBody,
