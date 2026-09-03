@@ -431,6 +431,25 @@ export class OcctKernel {
         });
     }
 
+    /** Apply an asymmetric (two-distance) chamfer to a single edge
+     * (BRepFilletAPI_MakeChamfer): `distance1` is set back on the reference face,
+     * `distance2` on the edge's other adjacent face. Omit `referenceFace` to use
+     * the first face adjacent to the edge; pass one (or swap the two distances)
+     * to control which side gets `distance1`. A given `referenceFace` must be
+     * adjacent to `edge`.
+     * @throws OcctError */
+    chamferAsymmetric(
+        solid: ShapeHandle,
+        edge: ShapeHandle,
+        distance1: number,
+        distance2: number,
+        referenceFace?: ShapeHandle,
+    ): ShapeHandle {
+        return wrap("chamferAsymmetric", () =>
+            handle(this.#raw.chamferAsymmetric(solid, edge, distance1, distance2, referenceFace ?? 0)),
+        );
+    }
+
     /**
      * Hollow a solid by removing the listed faces and offsetting remaining
      * faces inward by `thickness`.

@@ -163,6 +163,8 @@ class OcctKernel {
     uint32_t chamfer(uint32_t solidId, std::vector<uint32_t> edgeIds, double distance);
     uint32_t chamferDistAngle(uint32_t solidId, std::vector<uint32_t> edgeIds, double distance,
                               double angleDeg);
+    uint32_t chamferAsymmetric(uint32_t solidId, uint32_t edgeId, double distance1,
+                               double distance2, uint32_t referenceFaceId);
     uint32_t shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness,
                    double tolerance);
     uint32_t offset(uint32_t solidId, double distance, double tolerance);
