@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.5](https://github.com/andymai/occt-wasm/compare/v4.3.4...v4.3.5) (2026-09-03)
+
+
+### Bug Fixes
+
+* **facade:** validate fillet/chamfer results, repair or reject invalid solids ([#300](https://github.com/andymai/occt-wasm/issues/300)) ([#301](https://github.com/andymai/occt-wasm/issues/301)) ([66a200a](https://github.com/andymai/occt-wasm/commit/66a200a75e116d0aaf8cc67f9ab0f7cb1d06ed0c))
+
 ## [4.3.4](https://github.com/andymai/occt-wasm/compare/v4.3.3...v4.3.4) (2026-09-03)
 
 
