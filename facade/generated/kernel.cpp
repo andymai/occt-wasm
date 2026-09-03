@@ -197,6 +197,31 @@ static TopoDS_Shape unwrapSingletonSolid(const TopoDS_Shape& shape) {
     return count == 1 ? onlySolid : shape;
 }
 
+/// Validate a fillet/chamfer result, repairing when allowed.
+///
+/// `BRepFilletAPI_MakeFillet`/`MakeChamfer` can report `IsDone()` while producing
+/// a geometrically invalid solid (open shells where a blend runs off an edge).
+/// Returning that silently hands callers a non-watertight shape (#300). When
+/// `repair`, fix with `ShapeFix_Shape` and re-check, throwing only if it is still
+/// invalid. History-returning variants pass `repair == false`: a repair would
+/// alter topology and desync the Modified/Generated face maps buildEvolution
+/// reads from the maker, so they reject outright instead.
+///
+/// The check is topology-only (`BRepCheck_Analyzer`'s GeomControls = false):
+/// the failure mode is an open (non-watertight) shell, which is a topological
+/// defect, and skipping the geometric controls keeps the per-fillet cost small.
+static TopoDS_Shape validateFilletResult(const TopoDS_Shape& shape, const char* op,
+                                         bool repair) {
+    if (shape.IsNull() || BRepCheck_Analyzer(shape, false).IsValid()) return shape;
+    if (repair) {
+        ShapeFix_Shape fixer(shape);
+        fixer.Perform();
+        TopoDS_Shape fixed = fixer.Shape();
+        if (!fixed.IsNull() && BRepCheck_Analyzer(fixed, false).IsValid()) return fixed;
+    }
+    throw std::runtime_error(std::string(op) + ": produced an invalid solid");
+}
+
 /// Build evolution data by tracking Modified/Generated/Deleted faces.
 static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,
                                     const TopoDS_Shape& inputShape,
@@ -634,7 +659,7 @@ uint32_t OcctKernel::fillet(uint32_t solidId, std::vector<uint32_t> edgeIds, dou
         if (!maker.IsDone()) {
             throw std::runtime_error("fillet: operation failed");
         }
-        return store(unwrapSingletonSolid(maker.Shape()));
+        return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "fillet", true));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("fillet: ") + e.what());
     }
@@ -650,7 +675,7 @@ uint32_t OcctKernel::chamfer(uint32_t solidId, std::vector<uint32_t> edgeIds, do
         if (!maker.IsDone()) {
             throw std::runtime_error("chamfer: operation failed");
         }
-        return store(unwrapSingletonSolid(maker.Shape()));
+        return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamfer", true));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamfer: ") + e.what());
     }
@@ -680,7 +705,7 @@ uint32_t OcctKernel::chamferDistAngle(uint32_t solidId, std::vector<uint32_t> ed
         if (!maker.IsDone()) {
             throw std::runtime_error("chamferDistAngle: operation failed");
         }
-        return store(unwrapSingletonSolid(maker.Shape()));
+        return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferDistAngle", true));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferDistAngle: ") + e.what());
     }
@@ -804,7 +829,7 @@ uint32_t OcctKernel::filletVariable(uint32_t solidId, uint32_t edgeId, double st
         if (!maker.IsDone()) {
             throw std::runtime_error("filletVariable: operation failed");
         }
-        return store(unwrapSingletonSolid(maker.Shape()));
+        return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletVariable", true));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("filletVariable: ") + e.what());
     }
@@ -830,7 +855,7 @@ std::vector<uint32_t> OcctKernel::filletBatch(std::vector<uint32_t> solidIds, st
             }
             maker.Build();
             if (!maker.IsDone()) throw std::runtime_error("filletBatch: fillet failed on solid " + std::to_string(i));
-            results.push_back(store(unwrapSingletonSolid(maker.Shape())));
+            results.push_back(store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletBatch", true)));
             edgeOffset += static_cast<size_t>(edgeCounts[i]);
         }
         return results;
@@ -3489,7 +3514,7 @@ EvolutionData OcctKernel::filletWithHistory(uint32_t solidId, std::vector<uint32
         if (!maker.IsDone()) {
             throw std::runtime_error("filletWithHistory: operation failed");
         }
-        uint32_t resultId = store(unwrapSingletonSolid(maker.Shape()));
+        uint32_t resultId = store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletWithHistory", false));
         return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("filletWithHistory: ") + e.what());
@@ -3567,7 +3592,7 @@ EvolutionData OcctKernel::chamferWithHistory(uint32_t solidId, std::vector<uint3
         if (!maker.IsDone()) {
             throw std::runtime_error("chamferWithHistory: operation failed");
         }
-        uint32_t resultId = store(unwrapSingletonSolid(maker.Shape()));
+        uint32_t resultId = store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferWithHistory", false));
         return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferWithHistory: ") + e.what());

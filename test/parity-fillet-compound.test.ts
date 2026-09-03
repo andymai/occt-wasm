@@ -109,6 +109,20 @@ describe("fillet/chamfer results stay solids", () => {
     expect(kernel.getVolume(filleted)).toBeLessThan(kernel.getVolume(chamfered));
   });
 
+  it("passes valid fillet/chamfer results through the validity guard", () => {
+    // The result guard (validateFilletResult) runs BRepCheck_Analyzer on every
+    // fillet/chamfer output to catch open-shell solids (#300). It must let a
+    // normal, valid result through untouched rather than repair or reject it.
+    const box = kernel.makeBox(20, 20, 20);
+    const filleted = edgeOp("fillet", box, 1, 1);
+    const chamfered = edgeOp("chamfer", box, 1, 1);
+
+    expect(kernel.getShapeType(filleted)).toBe("solid");
+    expect(kernel.getShapeType(chamfered)).toBe("solid");
+    expect(kernel.isValid(filleted)).toBe(true);
+    expect(kernel.isValid(chamfered)).toBe(true);
+  });
+
   it("still rejects a compound passed in", () => {
     // A boolean result is a compound; the TopoDS::Solid downcast rejects it.
     // Unwrapping the result must not have loosened the input contract.

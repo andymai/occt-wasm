@@ -147,7 +147,7 @@ fn emit_fillet_like(buf: &mut String, spec: &MethodSpec) {
     let _ = writeln!(buf, "        }}");
     let _ = writeln!(
         buf,
-        "        return store(unwrapSingletonSolid(maker.Shape()));"
+        "        return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"{name}\", true));"
     );
     let _ = writeln!(buf, "    }} catch (const Standard_Failure& e) {{");
     let _ = writeln!(
@@ -275,6 +275,9 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
     if needs_unwrap_singleton_solid(methods) {
         includes.insert("TopExp_Explorer.hxx".to_owned());
         includes.insert("TopoDS_Shape.hxx".to_owned());
+        // validateFilletResult, emitted alongside unwrapSingletonSolid.
+        includes.insert("BRepCheck_Analyzer.hxx".to_owned());
+        includes.insert("ShapeFix_Shape.hxx".to_owned());
     }
 
     for spec in methods {
@@ -323,8 +326,8 @@ fn needs_unwrap_singleton_solid(methods: &[&MethodSpec]) -> bool {
 
 /// Emit static helper functions that generated methods depend on.
 ///
-/// Emits `unwrapSingletonSolid` for the fillet/chamfer family and
-/// `buildEvolution` if any method returns `EvolutionData`.
+/// Emits `unwrapSingletonSolid` + `validateFilletResult` for the fillet/chamfer
+/// family and `buildEvolution` if any method returns `EvolutionData`.
 #[allow(clippy::too_many_lines)]
 fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
     let needs_evolution = methods
@@ -356,6 +359,36 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
             "        if (++count > 1) return shape;  // multiple solids: keep the compound",
             "    }",
             "    return count == 1 ? onlySolid : shape;",
+            "}",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
+        let _ = writeln!(buf);
+
+        for line in [
+            "/// Validate a fillet/chamfer result, repairing when allowed.",
+            "///",
+            "/// `BRepFilletAPI_MakeFillet`/`MakeChamfer` can report `IsDone()` while producing",
+            "/// a geometrically invalid solid (open shells where a blend runs off an edge).",
+            "/// Returning that silently hands callers a non-watertight shape (#300). When",
+            "/// `repair`, fix with `ShapeFix_Shape` and re-check, throwing only if it is still",
+            "/// invalid. History-returning variants pass `repair == false`: a repair would",
+            "/// alter topology and desync the Modified/Generated face maps buildEvolution",
+            "/// reads from the maker, so they reject outright instead.",
+            "///",
+            "/// The check is topology-only (`BRepCheck_Analyzer`'s GeomControls = false):",
+            "/// the failure mode is an open (non-watertight) shell, which is a topological",
+            "/// defect, and skipping the geometric controls keeps the per-fillet cost small.",
+            "static TopoDS_Shape validateFilletResult(const TopoDS_Shape& shape, const char* op,",
+            "                                         bool repair) {",
+            "    if (shape.IsNull() || BRepCheck_Analyzer(shape, false).IsValid()) return shape;",
+            "    if (repair) {",
+            "        ShapeFix_Shape fixer(shape);",
+            "        fixer.Perform();",
+            "        TopoDS_Shape fixed = fixer.Shape();",
+            "        if (!fixed.IsNull() && BRepCheck_Analyzer(fixed, false).IsValid()) return fixed;",
+            "    }",
+            "    throw std::runtime_error(std::string(op) + \": produced an invalid solid\");",
             "}",
         ] {
             let _ = writeln!(buf, "{line}");
