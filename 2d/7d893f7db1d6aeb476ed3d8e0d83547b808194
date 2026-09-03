@@ -1,0 +1,31 @@
+.release-please-manifest.json
+  s_4bdafdf6b994ef::t_5dbc1479eb79a7 2
+xtask/src/codegen/config.rs
+  s_4bdafdf6b994ef::t_5dbc1479eb79a7 260-263,277-280,282-288,291-292
+CHANGELOG.md
+  s_4bdafdf6b994ef::t_5dbc1479eb79a7 3-9
+ts/package.json
+  s_4bdafdf6b994ef::t_5dbc1479eb79a7 3
+test/api-coverage.test.ts
+  s_4bdafdf6b994ef::t_5dbc1479eb79a7 150,158-188
+facade/generated/kernel.cpp
+  s_4bdafdf6b994ef::t_858f7163dcd7e7 467-470,472-478,481
+package-lock.json
+  s_4bdafdf6b994ef::t_4a9084be8d4b5e 1947-1949
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2d7d893f7db1d6aeb476ed3d8e0d83547b808194",
+  "prompts": {},
+  "sessions": {
+    "s_4bdafdf6b994ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec1e117c-7b95-4b7d-a6b4-74a24ffb457a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
