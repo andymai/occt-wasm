@@ -257,6 +257,10 @@ return store(faceMaker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        // BRepAlgoAPI_BuilderAlgo is the General Fuse: it splits the inputs at
+        // every intersection and keeps every cell, so overlapping solids come
+        // back as a multi-shell compound whose volume is the plain sum. Only
+        // BRepAlgoAPI_Fuse with the rest of the inputs as tools is a union.
         name: "fuseAll",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::VectorShapeIds("shapeIds")],
@@ -270,19 +274,22 @@ if (shapeIds.size() == 1) {
     return store(get(shapeIds[0]));
 }
 NCollection_List<TopoDS_Shape> args;
-for (uint32_t sid : shapeIds) {
-    args.Append(get(sid));
+args.Append(get(shapeIds[0]));
+NCollection_List<TopoDS_Shape> tools;
+for (size_t i = 1; i < shapeIds.size(); ++i) {
+    tools.Append(get(shapeIds[i]));
 }
-BRepAlgoAPI_BuilderAlgo builder;
-builder.SetArguments(args);
-builder.SetRunParallel(true);
-builder.SetUseOBB(true);
-builder.Build();
-if (!builder.IsDone() || builder.HasErrors()) {
+BRepAlgoAPI_Fuse fuser;
+fuser.SetArguments(args);
+fuser.SetTools(tools);
+fuser.SetRunParallel(true);
+fuser.SetUseOBB(true);
+fuser.Build();
+if (!fuser.IsDone() || fuser.HasErrors()) {
     throw std::runtime_error(\"fuseAll: operation failed\");
 }
-return store(builder.Shape());",
-        includes: &["BRepAlgoAPI_BuilderAlgo.hxx", "NCollection_List.hxx", "TopoDS_Shape.hxx"],
+return store(fuser.Shape());",
+        includes: &["BRepAlgoAPI_Fuse.hxx", "NCollection_List.hxx", "TopoDS_Shape.hxx"],
         category: "booleans",
         return_type: ReturnType::ShapeId,
     },

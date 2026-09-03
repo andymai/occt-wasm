@@ -6,7 +6,6 @@
 #include <BRepAdaptor_CompCurve.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
-#include <BRepAlgoAPI_BuilderAlgo.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Defeaturing.hxx>
@@ -465,18 +464,21 @@ uint32_t OcctKernel::fuseAll(std::vector<uint32_t> shapeIds) {
             return store(get(shapeIds[0]));
         }
         NCollection_List<TopoDS_Shape> args;
-        for (uint32_t sid : shapeIds) {
-            args.Append(get(sid));
+        args.Append(get(shapeIds[0]));
+        NCollection_List<TopoDS_Shape> tools;
+        for (size_t i = 1; i < shapeIds.size(); ++i) {
+            tools.Append(get(shapeIds[i]));
         }
-        BRepAlgoAPI_BuilderAlgo builder;
-        builder.SetArguments(args);
-        builder.SetRunParallel(true);
-        builder.SetUseOBB(true);
-        builder.Build();
-        if (!builder.IsDone() || builder.HasErrors()) {
+        BRepAlgoAPI_Fuse fuser;
+        fuser.SetArguments(args);
+        fuser.SetTools(tools);
+        fuser.SetRunParallel(true);
+        fuser.SetUseOBB(true);
+        fuser.Build();
+        if (!fuser.IsDone() || fuser.HasErrors()) {
             throw std::runtime_error("fuseAll: operation failed");
         }
-        return store(builder.Shape());
+        return store(fuser.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("fuseAll: ") + e.what());
     }

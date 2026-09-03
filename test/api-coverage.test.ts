@@ -147,7 +147,7 @@ describe("booleans (extended)", () => {
         expect(kernel.getShapeType(result)).not.toBe("solid");
     });
 
-    it("fuseAll fuses multiple shapes into one", () => {
+    it("fuseAll unions overlapping shapes into one solid", () => {
         const a = kernel.makeBox(10, 10, 10);
         const b = kernel.translate(kernel.makeBox(10, 10, 10), 5, 0, 0);
         const shapeVec = new Module.VectorUint32();
@@ -155,8 +155,37 @@ describe("booleans (extended)", () => {
         shapeVec.push_back(b);
         const result = kernel.fuseAll(shapeVec);
         expect(result).toBeGreaterThan(0);
-        // BRepAlgoAPI_BuilderAlgo may return compound; just verify it's a valid shape
-        expect(kernel.getVolume(result)).toBeGreaterThan(0);
+        // Two 10-cubes overlapping by 5: a union is 1500, a general fuse that
+        // keeps every split cell sums to 2000.
+        expect(kernel.getVolume(result)).toBeCloseTo(1500, 0);
+        const solids = kernel.getSubShapes(result, "solid");
+        expect(solids.size()).toBe(1);
+        solids.delete();
+        shapeVec.delete();
+    });
+
+    it("fuseAll unions a chain of three overlapping shapes", () => {
+        const shapeVec = new Module.VectorUint32();
+        for (let i = 0; i < 3; i++) {
+            shapeVec.push_back(kernel.translate(kernel.makeBox(10, 10, 10), i * 5, 0, 0));
+        }
+        const result = kernel.fuseAll(shapeVec);
+        expect(kernel.getVolume(result)).toBeCloseTo(2000, 0);
+        const solids = kernel.getSubShapes(result, "solid");
+        expect(solids.size()).toBe(1);
+        solids.delete();
+        shapeVec.delete();
+    });
+
+    it("fuseAll keeps disjoint shapes as separate solids", () => {
+        const shapeVec = new Module.VectorUint32();
+        shapeVec.push_back(kernel.makeBox(10, 10, 10));
+        shapeVec.push_back(kernel.translate(kernel.makeBox(10, 10, 10), 20, 0, 0));
+        const result = kernel.fuseAll(shapeVec);
+        expect(kernel.getVolume(result)).toBeCloseTo(2000, 0);
+        const solids = kernel.getSubShapes(result, "solid");
+        expect(solids.size()).toBe(2);
+        solids.delete();
         shapeVec.delete();
     });
 
