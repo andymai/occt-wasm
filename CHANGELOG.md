@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.0](https://github.com/andymai/occt-wasm/compare/v4.3.5...v4.4.0) (2026-09-03)
+
+
+### Features
+
+* **facade:** add chamferAsymmetric (two-distance chamfer) ([#299](https://github.com/andymai/occt-wasm/issues/299)) ([#303](https://github.com/andymai/occt-wasm/issues/303)) ([dd0b296](https://github.com/andymai/occt-wasm/commit/dd0b2963f0b4576addd9152bc4e42beb241886fa))
+
 ## [4.3.5](https://github.com/andymai/occt-wasm/compare/v4.3.4...v4.3.5) (2026-09-03)
 
 
