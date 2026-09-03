@@ -17,7 +17,7 @@ mod util;
 enum Cli {
     /// Build OCCT static libs + facade → .wasm + .js + .d.ts
     Build {
-        /// Enable release optimizations (LTO, wasm-opt -O4)
+        /// Enable release optimizations (-O3 + wasm-opt -O4)
         #[arg(long)]
         release: bool,
         /// Optimize for size (-Oz) instead of speed (-O3); requires --release
@@ -28,7 +28,7 @@ enum Cli {
     BuildOcct,
     /// Build WASI target for Rust crate (requires wasi-sdk)
     BuildWasi {
-        /// Enable release optimizations (LTO, wasm-opt)
+        /// Enable release optimizations (-O3 + wasm-opt)
         #[arg(long)]
         release: bool,
     },
