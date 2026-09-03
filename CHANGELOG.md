@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.3.4](https://github.com/andymai/occt-wasm/compare/v4.3.3...v4.3.4) (2026-09-03)
+
+
+### Bug Fixes
+
+* **build:** drop -flto to stop the release-only heap corruption ([#293](https://github.com/andymai/occt-wasm/issues/293)) ([#298](https://github.com/andymai/occt-wasm/issues/298)) ([3022223](https://github.com/andymai/occt-wasm/commit/3022223ed2fb8236172fda404693443a5a5d58c5))
+* **docker:** copy README, examples, and benchmarks before the test step ([#289](https://github.com/andymai/occt-wasm/issues/289)) ([260e1a1](https://github.com/andymai/occt-wasm/commit/260e1a15a19959dcd7c15873bb605b5e92bb5cac))
+* **facade:** unwrap the singleton compound fillet/chamfer returns ([#288](https://github.com/andymai/occt-wasm/issues/288)) ([00d94f4](https://github.com/andymai/occt-wasm/commit/00d94f4a3a2ba43164fdece1f102a0a8e5e79dd9))
+
 ## [4.3.3](https://github.com/andymai/occt-wasm/compare/v4.3.2...v4.3.3) (2026-09-02)
 
 
