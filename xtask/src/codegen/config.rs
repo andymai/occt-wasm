@@ -759,15 +759,23 @@ if (flatEdgeIds.size() != totalEdges) {
 }
 std::vector<uint32_t> results;
 results.reserve(solidIds.size());
-for (size_t i = 0; i < solidIds.size(); i++) {
-    BRepFilletAPI_MakeFillet maker(TopoDS::Solid(get(solidIds[i])));
-    for (int j = 0; j < edgeCounts[i]; j++) {
-        maker.Add(radii[i], TopoDS::Edge(get(flatEdgeIds[edgeOffset + j])));
+try {
+    for (size_t i = 0; i < solidIds.size(); i++) {
+        BRepFilletAPI_MakeFillet maker(TopoDS::Solid(get(solidIds[i])));
+        for (int j = 0; j < edgeCounts[i]; j++) {
+            maker.Add(radii[i], TopoDS::Edge(get(flatEdgeIds[edgeOffset + j])));
+        }
+        maker.Build();
+        if (!maker.IsDone()) throw std::runtime_error(\"filletBatch: fillet failed on solid \" + std::to_string(i));
+        results.push_back(store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletBatch\", true)));
+        edgeOffset += static_cast<size_t>(edgeCounts[i]);
     }
-    maker.Build();
-    if (!maker.IsDone()) throw std::runtime_error(\"filletBatch: fillet failed on solid \" + std::to_string(i));
-    results.push_back(store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletBatch\", true)));
-    edgeOffset += static_cast<size_t>(edgeCounts[i]);
+} catch (...) {
+    // A mid-batch failure (unfilletable solid or an invalid result) must not
+    // leak the shapes already stored for earlier solids: those have no handle
+    // for JS to release, so they would sit in the arena until releaseAll.
+    for (uint32_t storedId : results) release(storedId);
+    throw;
 }
 return results;",
         includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx"],
