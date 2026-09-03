@@ -178,6 +178,25 @@
 
 // === helper functions ===
 
+/// Unwrap a singleton compound: if `shape` is a Compound holding exactly one
+/// Solid, return that Solid.
+///
+/// `BRepFilletAPI_MakeFillet`/`MakeChamfer` wrap their result in a Compound even
+/// for single-solid input. A later call that expects a Solid then fails in the
+/// `TopoDS::Solid(...)` cast with Standard_TypeMismatch, which surfaces as a WASM
+/// trap -- so chaining two fillets cannot work. Restoring the Solid type here
+/// makes chaining behave as it does through OCP's direct pybind11 binding.
+static TopoDS_Shape unwrapSingletonSolid(const TopoDS_Shape& shape) {
+    if (shape.IsNull() || shape.ShapeType() != TopAbs_COMPOUND) return shape;
+    TopoDS_Shape onlySolid;
+    int count = 0;
+    for (TopExp_Explorer exp(shape, TopAbs_SOLID); exp.More(); exp.Next()) {
+        onlySolid = exp.Current();
+        if (++count > 1) return shape;  // multiple solids: keep the compound
+    }
+    return count == 1 ? onlySolid : shape;
+}
+
 /// Build evolution data by tracking Modified/Generated/Deleted faces.
 static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,
                                     const TopoDS_Shape& inputShape,
@@ -615,7 +634,7 @@ uint32_t OcctKernel::fillet(uint32_t solidId, std::vector<uint32_t> edgeIds, dou
         if (!maker.IsDone()) {
             throw std::runtime_error("fillet: operation failed");
         }
-        return store(maker.Shape());
+        return store(unwrapSingletonSolid(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("fillet: ") + e.what());
     }
@@ -631,7 +650,7 @@ uint32_t OcctKernel::chamfer(uint32_t solidId, std::vector<uint32_t> edgeIds, do
         if (!maker.IsDone()) {
             throw std::runtime_error("chamfer: operation failed");
         }
-        return store(maker.Shape());
+        return store(unwrapSingletonSolid(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamfer: ") + e.what());
     }
@@ -661,7 +680,7 @@ uint32_t OcctKernel::chamferDistAngle(uint32_t solidId, std::vector<uint32_t> ed
         if (!maker.IsDone()) {
             throw std::runtime_error("chamferDistAngle: operation failed");
         }
-        return store(maker.Shape());
+        return store(unwrapSingletonSolid(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferDistAngle: ") + e.what());
     }
@@ -785,7 +804,7 @@ uint32_t OcctKernel::filletVariable(uint32_t solidId, uint32_t edgeId, double st
         if (!maker.IsDone()) {
             throw std::runtime_error("filletVariable: operation failed");
         }
-        return store(maker.Shape());
+        return store(unwrapSingletonSolid(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("filletVariable: ") + e.what());
     }
@@ -811,7 +830,7 @@ std::vector<uint32_t> OcctKernel::filletBatch(std::vector<uint32_t> solidIds, st
             }
             maker.Build();
             if (!maker.IsDone()) throw std::runtime_error("filletBatch: fillet failed on solid " + std::to_string(i));
-            results.push_back(store(maker.Shape()));
+            results.push_back(store(unwrapSingletonSolid(maker.Shape())));
             edgeOffset += static_cast<size_t>(edgeCounts[i]);
         }
         return results;
@@ -3470,7 +3489,7 @@ EvolutionData OcctKernel::filletWithHistory(uint32_t solidId, std::vector<uint32
         if (!maker.IsDone()) {
             throw std::runtime_error("filletWithHistory: operation failed");
         }
-        uint32_t resultId = store(maker.Shape());
+        uint32_t resultId = store(unwrapSingletonSolid(maker.Shape()));
         return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("filletWithHistory: ") + e.what());
@@ -3548,7 +3567,7 @@ EvolutionData OcctKernel::chamferWithHistory(uint32_t solidId, std::vector<uint3
         if (!maker.IsDone()) {
             throw std::runtime_error("chamferWithHistory: operation failed");
         }
-        uint32_t resultId = store(maker.Shape());
+        uint32_t resultId = store(unwrapSingletonSolid(maker.Shape()));
         return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferWithHistory: ") + e.what());
