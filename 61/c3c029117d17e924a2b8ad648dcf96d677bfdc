@@ -1,0 +1,21 @@
+xtask/src/codegen/config.rs
+  s_4bdafdf6b994ef::t_018b64d3c4241f 762-771,773-778
+facade/generated/kernel.cpp
+  s_4bdafdf6b994ef::t_1012afb3664885 851-860,862-867
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "61c3c029117d17e924a2b8ad648dcf96d677bfdc",
+  "prompts": {},
+  "sessions": {
+    "s_4bdafdf6b994ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec1e117c-7b95-4b7d-a6b4-74a24ffb457a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
