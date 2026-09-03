@@ -100,6 +100,14 @@ COPY ts/scripts/ ts/scripts/
 # which OcctKernel.init() resolves relative to its own location).
 RUN cd ts && npm run build
 
+# The static-server suite serves the repo root, and ts/'s prepack copies
+# ../README.md into the package -- neither file is needed by the build itself,
+# so they are copied here, after the expensive layers, where a change to them
+# costs nothing.
+COPY README.md ./
+COPY examples/ examples/
+COPY benchmarks/ benchmarks/
+
 # Test
 RUN cd ts && npx vitest run
 
