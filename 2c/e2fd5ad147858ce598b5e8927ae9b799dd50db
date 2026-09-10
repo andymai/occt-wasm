@@ -1,0 +1,28 @@
+xtask/src/build.rs
+  s_762ec4fb7af3d0::t_659639e807e6ee 9-16,246,258-262
+  s_762ec4fb7af3d0::t_b91863ffdaf8ad 263
+xtask/src/build_wasi.rs
+  s_762ec4fb7af3d0::t_659639e807e6ee 134
+  s_762ec4fb7af3d0::t_45cda22e365ece 29
+test/new-features.test.ts
+  s_762ec4fb7af3d0::t_c08f6f2f8fd8f2 648,651-652,657,661-678
+test/api-coverage.test.ts
+  s_762ec4fb7af3d0::t_c08f6f2f8fd8f2 319-326
+  s_762ec4fb7af3d0::t_1e65491264516a 327-329
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2ce2fd5ad147858ce598b5e8927ae9b799dd50db",
+  "prompts": {},
+  "sessions": {
+    "s_762ec4fb7af3d0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c91785ad-cf0d-40b7-80f0-d3f049180ab9",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
