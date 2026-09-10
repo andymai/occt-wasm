@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.0.0](https://github.com/andymai/occt-wasm/compare/v4.4.0...v5.0.0) (2026-09-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ts:** exportStl returns Uint8Array for binary output (the default) and string only for `ascii: true`; the overloads type both. importStl accepts a Uint8Array and passes bytes through untouched.
+
+### Bug Fixes
+
+* **ts:** carry binary STL as bytes instead of UTF-8 strings ([#305](https://github.com/andymai/occt-wasm/issues/305)) ([#308](https://github.com/andymai/occt-wasm/issues/308)) ([3fe8749](https://github.com/andymai/occt-wasm/commit/3fe87498b5de2c4dc10e52990723c06c66ac49f0))
+* **xtask:** raise the WASM stack to 8 MB ([#306](https://github.com/andymai/occt-wasm/issues/306)) ([#307](https://github.com/andymai/occt-wasm/issues/307)) ([a9510ed](https://github.com/andymai/occt-wasm/commit/a9510ed71a145edecebf26d1101a8cdc2bcd692e))
+
 ## [4.4.0](https://github.com/andymai/occt-wasm/compare/v4.3.5...v4.4.0) (2026-09-03)
 
 
