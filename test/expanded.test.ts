@@ -312,9 +312,13 @@ describe("I/O extended", () => {
         const triangles = dv.getUint32(80, true);
         expect(triangles).toBe(12);
         expect(bytes.length).toBe(84 + triangles * 50);
-        // A box's facet normals are exactly +-1 / 0; a UTF-8 round trip would
-        // have flattened every byte >= 0x80 to 0xFD (the low byte of U+FFFD).
-        expect(Math.abs(dv.getFloat32(84, true))).toBe(1);
+        // Every facet normal of a box is a unit axis vector, so its bytes
+        // include values >= 0x80; a UTF-8 round trip would have flattened
+        // those to 0xFD (the low byte of U+FFFD).
+        for (let i = 0; i < triangles; i++) {
+            const n = [0, 4, 8].map((o) => Math.abs(dv.getFloat32(84 + i * 50 + o, true)));
+            expect(n.sort()).toEqual([0, 0, 1]);
+        }
         expect(bytes.includes(0xfd)).toBe(false);
 
         const imported = kernel.importStlBinary(bytes);

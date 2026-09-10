@@ -1331,8 +1331,8 @@ export class OcctKernel {
      * `ascii: true` for the text format as a string.
      */
     exportStl(shape: ShapeHandle, linearDeflection?: number, ascii?: false): Uint8Array;
-    exportStl(shape: ShapeHandle, linearDeflection: number, ascii: true): string;
-    exportStl(shape: ShapeHandle, linearDeflection: number, ascii: boolean): string | Uint8Array;
+    exportStl(shape: ShapeHandle, linearDeflection: number | undefined, ascii: true): string;
+    exportStl(shape: ShapeHandle, linearDeflection: number | undefined, ascii: boolean): string | Uint8Array;
     exportStl(shape: ShapeHandle, linearDeflection = 0.1, ascii = false): string | Uint8Array {
         return wrap("exportStl", () =>
             ascii

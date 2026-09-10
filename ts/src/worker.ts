@@ -115,8 +115,8 @@ export interface OcctWorkerProxy {
     exportStep(shape: ShapeHandle): Promise<string>;
     importStl(data: string | ArrayBuffer | Uint8Array): Promise<ShapeHandle>;
     exportStl(shape: ShapeHandle, linearDeflection?: number, ascii?: false): Promise<Uint8Array>;
-    exportStl(shape: ShapeHandle, linearDeflection: number, ascii: true): Promise<string>;
-    exportStl(shape: ShapeHandle, linearDeflection: number, ascii: boolean): Promise<string | Uint8Array>;
+    exportStl(shape: ShapeHandle, linearDeflection: number | undefined, ascii: true): Promise<string>;
+    exportStl(shape: ShapeHandle, linearDeflection: number | undefined, ascii: boolean): Promise<string | Uint8Array>;
     toBREP(shape: ShapeHandle): Promise<string>;
     fromBREP(data: string): Promise<ShapeHandle>;
     cacheStep(data: string | ArrayBuffer): Promise<string>;

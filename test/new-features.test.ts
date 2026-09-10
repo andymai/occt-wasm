@@ -351,8 +351,12 @@ describe("binary STL through the wrapper", () => {
         const box = kernel3.makeBox(10, 20, 30);
         const bytes: Uint8Array = kernel3.exportStl(box, 0.1);
         const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        expect(bytes.length).toBe(84 + dv.getUint32(80, true) * 50);
-        expect(Math.abs(dv.getFloat32(84, true))).toBe(1);
+        const triangles = dv.getUint32(80, true);
+        expect(bytes.length).toBe(84 + triangles * 50);
+        for (let i = 0; i < triangles; i++) {
+            const n = [0, 4, 8].map((o) => Math.abs(dv.getFloat32(84 + i * 50 + o, true)));
+            expect(n.sort()).toEqual([0, 0, 1]);
+        }
         expect(bytes.includes(0xfd)).toBe(false);
     });
 

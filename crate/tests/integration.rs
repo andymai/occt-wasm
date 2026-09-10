@@ -153,11 +153,14 @@ fn stl_binary_roundtrip() {
     let triangles = u32::from_le_bytes(bytes[80..84].try_into().unwrap()) as usize;
     assert_eq!(triangles, 12);
     assert_eq!(bytes.len(), 84 + triangles * 50);
-    let first_normal_x = f32::from_le_bytes(bytes[84..88].try_into().unwrap());
-    assert!(
-        (first_normal_x.abs() - 1.0).abs() < f32::EPSILON,
-        "facet normal bytes must survive: {first_normal_x}"
-    );
+    for facet in bytes[84..].chunks_exact(50) {
+        let mut normal: Vec<f32> = facet[..12]
+            .chunks_exact(4)
+            .map(|c| f32::from_le_bytes(c.try_into().unwrap()).abs())
+            .collect();
+        normal.sort_by(f32::total_cmp);
+        assert_eq!(normal, [0.0, 0.0, 1.0], "facet normal bytes must survive");
+    }
 
     let imported = kernel.import_stl_binary(&bytes).unwrap();
     let bbox = kernel.get_bounding_box(imported, false).unwrap();
