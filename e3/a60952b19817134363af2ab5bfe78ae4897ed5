@@ -1,0 +1,27 @@
+ts/src/index.ts
+  s_762ec4fb7af3d0::t_0437c9b7166177 1334-1335
+ts/src/worker.ts
+  s_762ec4fb7af3d0::t_0437c9b7166177 118-119
+crate/tests/integration.rs
+  s_762ec4fb7af3d0::t_0437c9b7166177 156-163
+test/new-features.test.ts
+  s_762ec4fb7af3d0::t_0437c9b7166177 354-359
+test/expanded.test.ts
+  s_762ec4fb7af3d0::t_0437c9b7166177 315-321
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e3a60952b19817134363af2ab5bfe78ae4897ed5",
+  "prompts": {},
+  "sessions": {
+    "s_762ec4fb7af3d0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c91785ad-cf0d-40b7-80f0-d3f049180ab9",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
