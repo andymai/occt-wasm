@@ -6,6 +6,14 @@ use xshell::{Shell, cmd};
 
 use crate::util::{bytes_to_mb, find_occt_lib_dir, find_wasm_opt, project_root};
 
+/// Emscripten's default stack is 64 KB and it sits directly above the static
+/// data segment, so an overflow silently overwrites globals instead of
+/// trapping: a variable-radius fillet on a box needs ~75 KB and left every
+/// later BREP/STEP write in the session faulting (#306). OCCT is developed
+/// against native 8 MB stacks, so give it the same headroom; untouched pages
+/// cost nothing.
+pub const WASM_STACK_SIZE: u32 = 8 * 1024 * 1024;
+
 /// Step 1: Build OCCT static libraries via emcmake cmake.
 pub fn build_occt() -> Result<()> {
     let root = project_root()?;
@@ -235,6 +243,7 @@ fn link_wasm(
         "-sINITIAL_MEMORY=134217728".into(),
         "-sMAXIMUM_MEMORY=4294967296".into(),
         "-sALLOW_MEMORY_GROWTH=1".into(),
+        format!("-sSTACK_SIZE={WASM_STACK_SIZE}"),
         "-sEXPORT_ES6=1".into(),
         "-sEVAL_CTORS=2".into(),
         "-sWASM_BIGINT".into(),
@@ -245,6 +254,12 @@ fn link_wasm(
         "--no-entry".into(),
         format!("--post-js={post_js_str}"),
     ];
+
+    // Debug builds trap in the prologue of any function that would overrun the
+    // stack, turning a silent static-data overwrite into a loud failure.
+    if !release {
+        args.push("-sSTACK_OVERFLOW_CHECK=2".into());
+    }
 
     // No -flto. The facade objects and the prebuilt OCCT static libs are both
     // compiled without -flto, so nothing in the link is LTO bitcode and the flag

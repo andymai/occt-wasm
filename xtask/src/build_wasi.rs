@@ -26,6 +26,7 @@ use anyhow::{Context, Result, bail};
 use std::path::{Path, PathBuf};
 use xshell::{Shell, cmd};
 
+use crate::build::WASM_STACK_SIZE;
 use crate::util::{bytes_to_mb, find_occt_lib_dir, find_wasm_opt, project_root};
 
 /// OCCT static libs not exercised by the WASI build's call graph. Excluding
@@ -130,6 +131,7 @@ fn link(root: &Path, objects: &[PathBuf], release: bool) -> Result<PathBuf> {
         "-sMAXIMUM_MEMORY=4294967296",
         "--no-entry",
     ]);
+    cmd.arg(format!("-sSTACK_SIZE={WASM_STACK_SIZE}"));
     for name in export_names
         .iter()
         .map(String::as_str)
