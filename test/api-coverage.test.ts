@@ -306,10 +306,6 @@ describe("sweeps", () => {
     });
 
     it("loft through three monotonic sections produces a non-degenerate solid", () => {
-        // Sections must taper monotonically (10 -> 8 -> 6); a non-monotonic
-        // profile builds a self-intersecting loft that corrupts WASM memory on
-        // OCCT V8.0.1 — same failure mode as the filletVariable gap tracked in
-        // new-features.test.ts ("OCCT V8.0.1 known gaps").
         const wireVec = new Module.VectorUint32();
         wireVec.push_back(makeSquareWireAt(10, 0));
         wireVec.push_back(makeSquareWireAt(8, 10));
@@ -317,6 +313,17 @@ describe("sweeps", () => {
         const result = kernel.loft(wireVec, true, false);
         expect(result).toBeGreaterThan(0);
         expect(kernel.getVolume(result)).toBeGreaterThan(0);
+        wireVec.delete();
+    });
+
+    it("loft through non-monotonic sections stays serializable", () => {
+        const wireVec = new Module.VectorUint32();
+        wireVec.push_back(makeSquareWireAt(10, 0));
+        wireVec.push_back(makeSquareWireAt(6, 10));
+        wireVec.push_back(makeSquareWireAt(8, 20));
+        const result = kernel.loft(wireVec, true, false);
+        expect(kernel.getVolume(result)).toBeGreaterThan(0);
+        expect(kernel.toBREP(result).length).toBeGreaterThan(0);
         wireVec.delete();
     });
 

@@ -645,21 +645,35 @@ describe("OcctErrorCode enum values", () => {
 });
 
 // ============================================================================
-// Known OCCT V8.0.1 gaps (tracked, not yet usable)
+// filletVariable
 // ============================================================================
 
-describe("OCCT V8.0.1 known gaps", () => {
-    // filletVariable corrupts WASM memory: the op returns a plausible shape,
-    // but a later indirect call (e.g. toBREP) dies with "null function or
-    // function signature mismatch". Localized heap/function-pointer
-    // corruption — makeBox/getVolume survive, BREP serialization does not.
-    // Re-test on the next OCCT bump.
-    it.skip("filletVariable rounds an edge with start/end radii (corrupts WASM on V8.0.1)", () => {
+describe("filletVariable", () => {
+    it("rounds an edge with start/end radii", () => {
         const box = kernel.makeBox(20, 20, 20);
         const edges = kernel.getSubShapes(box, "edge");
         const result = kernel.filletVariable(box, edges.get(0), 1.0, 3.0);
         expect(result).toBeGreaterThan(0);
+        expect(kernel.isValid(result)).toBe(true);
         expect(kernel.getVolume(result)).toBeLessThan(kernel.getVolume(box));
         edges.delete();
+    });
+
+    // A variable-radius fillet needs ~75 KB of stack; on Emscripten's 64 KB
+    // default it overran into static data and every later BREP/STEP write in
+    // the session faulted, on shapes created before the call included (#306).
+    it("leaves BREP and STEP serialization working afterwards", () => {
+        const box = kernel.makeBox(20, 20, 30);
+        const edges = kernel.getSubShapes(box, "edge");
+        expect(kernel.toBREP(box).length).toBeGreaterThan(0);
+
+        const result = kernel.filletVariable(box, edges.get(0), 1.0, 3.0);
+        edges.delete();
+
+        const roundTrip = (id: number) => kernel.getVolume(kernel.fromBREP(kernel.toBREP(id)));
+        expect(roundTrip(box)).toBeCloseTo(20 * 20 * 30, 6);
+        expect(roundTrip(result)).toBeCloseTo(kernel.getVolume(result), 6);
+        expect(roundTrip(kernel.makeBox(5, 5, 5))).toBeCloseTo(125, 6);
+        expect(kernel.exportStep(box)).toContain("ISO-10303-21");
     });
 });
