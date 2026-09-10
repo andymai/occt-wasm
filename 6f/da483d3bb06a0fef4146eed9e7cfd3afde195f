@@ -1,0 +1,63 @@
+xtask/src/codegen/types.rs
+  s_762ec4fb7af3d0::t_eb193186b66f26 71-74,90,110,134-136
+ts/src/raw-types.ts
+  s_762ec4fb7af3d0::t_eb193186b66f26 272,274
+ts/src/worker.ts
+  s_762ec4fb7af3d0::t_eb193186b66f26 116-119
+test/expanded.test.ts
+  s_762ec4fb7af3d0::t_11bde33352ec1f 307,309-324
+ts/src/index.ts
+  s_762ec4fb7af3d0::t_eb193186b66f26 1317-1321,1323-1325,1329-1341
+facade/include/occt_kernel.h
+  s_762ec4fb7af3d0::t_eb193186b66f26 296-297
+crate/tests/integration.rs
+  s_762ec4fb7af3d0::t_126169e22e7942 157-160
+  s_762ec4fb7af3d0::t_11bde33352ec1f 147-156,161-168
+  s_762ec4fb7af3d0::t_8044ae6a827b33 146
+xtask/src/codegen/emitter.rs
+  s_762ec4fb7af3d0::t_eb193186b66f26 19-21,206,580-610,824-828
+  s_762ec4fb7af3d0::t_83501d34e76bad 936-964
+  s_762ec4fb7af3d0::t_9be2d83016f5c2 935
+xtask/src/codegen/config.rs
+  s_762ec4fb7af3d0::t_eb193186b66f26 4303-4327
+xtask/src/codegen/rust_emitter.rs
+  s_762ec4fb7af3d0::t_eb193186b66f26 21,55,76,116-125,210,227,245,267,283,431,446-451
+  s_762ec4fb7af3d0::t_93a910c94506e4 720-722,727-763
+  s_762ec4fb7af3d0::t_83501d34e76bad 723-726
+crate/src/kernel.rs
+  s_762ec4fb7af3d0::t_eb193186b66f26 390-395,398
+test/new-features.test.ts
+  s_762ec4fb7af3d0::t_11bde33352ec1f 327-369,371-402
+  s_762ec4fb7af3d0::t_0f418cd647a6d2 370
+xtask/src/codegen/wasi_emitter.rs
+  s_762ec4fb7af3d0::t_eb193186b66f26 50-52,83-85,121,149,197
+  s_762ec4fb7af3d0::t_93a910c94506e4 815-817,832,844-845,849-853
+  s_762ec4fb7af3d0::t_83501d34e76bad 818-831,833-843,846-848
+  s_762ec4fb7af3d0::t_b90d8dd0c4e6b6 814
+README.md
+  s_762ec4fb7af3d0::t_11bde33352ec1f 360
+crate/src/kernel_generated.rs
+  s_762ec4fb7af3d0::t_3eca2f42ee977d 3344-3352,3362-3365
+  s_762ec4fb7af3d0::t_eb193186b66f26 205-206,440-441,3353-3361,3366-3371,3373
+  s_762ec4fb7af3d0::t_44cbf8de31001f 3372,3374
+facade/generated/bindings.cpp
+  s_762ec4fb7af3d0::t_09346876c3d9b3 285-290
+facade/generated/kernel.cpp
+  s_762ec4fb7af3d0::t_74732bb453b466 3440-3447
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6fda483d3bb06a0fef4146eed9e7cfd3afde195f",
+  "prompts": {},
+  "sessions": {
+    "s_762ec4fb7af3d0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c91785ad-cf0d-40b7-80f0-d3f049180ab9",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
