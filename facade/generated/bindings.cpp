@@ -282,6 +282,12 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("exportStep", &OcctKernel::exportStep)
         .function("exportStl", &OcctKernel::exportStl)
         .function("importStl", &OcctKernel::importStl)
+        .function("exportStlBinary", +[](OcctKernel& kernel, uint32_t id, double linearDeflection) {
+            const std::string bytes = kernel.exportStlBinary(id, linearDeflection);
+            return val::global("Uint8Array").new_(typed_memory_view(
+                bytes.size(), reinterpret_cast<const uint8_t*>(bytes.data())));
+        })
+        .function("importStlBinary", &OcctKernel::importStlBinary)
         .function("toBREP", &OcctKernel::toBREP)
         .function("fromBREP", &OcctKernel::fromBREP)
         .function("exportBrepBinary", &OcctKernel::exportBrepBinary)

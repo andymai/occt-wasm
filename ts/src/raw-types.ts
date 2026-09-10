@@ -269,7 +269,9 @@ export interface OcctRawKernel {
     importStep(data: string): number;
     exportStep(id: number): string;
     importStl(data: string): number;
+    importStlBinary(data: Uint8Array): number;
     exportStl(id: number, linearDeflection: number, ascii: boolean): string;
+    exportStlBinary(id: number, linearDeflection: number): Uint8Array;
     toBREP(id: number): string;
     fromBREP(data: string): number;
     exportBrepBinary(id: number): string;

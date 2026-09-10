@@ -202,6 +202,8 @@ pub(crate) struct GeneratedFuncs {
     fn_export_step: TypedFunc<(u32,), i32>,
     fn_export_stl: TypedFunc<(u32, f64, i32), i32>,
     fn_import_stl: TypedFunc<(i32, i32), u32>,
+    fn_export_stl_binary: TypedFunc<(u32, f64), i32>,
+    fn_import_stl_binary: TypedFunc<(i32, i32), u32>,
     fn_to_brep: TypedFunc<(u32,), i32>,
     fn_from_brep: TypedFunc<(i32, i32), u32>,
     fn_export_brep_binary: TypedFunc<(u32,), i32>,
@@ -435,6 +437,8 @@ impl GeneratedFuncs {
             fn_export_step: instance.get_typed_func(&mut store, "occt_export_step")?,
             fn_export_stl: instance.get_typed_func(&mut store, "occt_export_stl")?,
             fn_import_stl: instance.get_typed_func(&mut store, "occt_import_stl")?,
+            fn_export_stl_binary: instance.get_typed_func(&mut store, "occt_export_stl_binary")?,
+            fn_import_stl_binary: instance.get_typed_func(&mut store, "occt_import_stl_binary")?,
             fn_to_brep: instance.get_typed_func(&mut store, "occt_to_brep")?,
             fn_from_brep: instance.get_typed_func(&mut store, "occt_from_brep")?,
             fn_export_brep_binary: instance
@@ -3333,6 +3337,37 @@ impl crate::kernel::OcctKernel {
         self.check_error("import_stl")?;
         if result == 0 {
             return Err(self.read_last_error("import_stl"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn export_stl_binary(
+        &mut self,
+        id: ShapeHandle,
+        linear_deflection: f64,
+    ) -> OcctResult<Vec<u8>> {
+        let len = self
+            .generated
+            .fn_export_stl_binary
+            .call(&mut self.store, (id.0, linear_deflection))?;
+        if len < 0 {
+            return Err(self.read_last_error("export_stl_binary"));
+        }
+        self.read_bytes_result()
+    }
+
+    pub fn import_stl_binary(&mut self, data: &[u8]) -> OcctResult<ShapeHandle> {
+        let data_ptr = self.write_bytes(data)?;
+        let data_len = data.len() as u32;
+        let result = self
+            .generated
+            .fn_import_stl_binary
+            .call(&mut self.store, (data_ptr as i32, data_len as i32));
+        self.free_bytes(data_ptr)?;
+        let result = result?;
+        self.check_error("import_stl_binary")?;
+        if result == 0 {
+            return Err(self.read_last_error("import_stl_binary"));
         }
         Ok(ShapeHandle(result))
     }

@@ -68,6 +68,10 @@ pub enum FacadeParam {
     /// `std::string` value.
     String(&'static str),
 
+    /// `std::string` of raw bytes: a `&[u8]` in the crate, a `Uint8Array`
+    /// (or any byte source Embind accepts for `std::string`) in JS.
+    Bytes(&'static str),
+
     /// `std::vector<double>` of double values.
     VectorDouble(&'static str),
 
@@ -83,6 +87,7 @@ impl FacadeParam {
     pub const fn wasm_arity(self) -> usize {
         match self {
             Self::String(_)
+            | Self::Bytes(_)
             | Self::VectorShapeIds(_)
             | Self::VectorDouble(_)
             | Self::VectorInt(_) => 2,
@@ -102,6 +107,7 @@ impl FacadeParam {
             | Self::Int(n)
             | Self::Uint32(n)
             | Self::String(n)
+            | Self::Bytes(n)
             | Self::VectorDouble(n)
             | Self::VectorInt(n) => n,
         }
@@ -125,6 +131,9 @@ pub enum ReturnType {
     Double,
     /// `std::string` return.
     String,
+    /// `std::string` of raw bytes: Embind would re-encode a `String` return as
+    /// UTF-8, so this crosses as a `Uint8Array` copy (and `Vec<u8>` in the crate).
+    Bytes,
     /// `int` return.
     Int,
     /// `std::vector<int>` return.

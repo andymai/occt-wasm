@@ -3437,6 +3437,14 @@ uint32_t OcctKernel::importStl(const std::string& data) {
     }
 }
 
+std::string OcctKernel::exportStlBinary(uint32_t id, double linearDeflection) {
+    return exportStl(id, linearDeflection, false);
+}
+
+uint32_t OcctKernel::importStlBinary(const std::string& data) {
+    return importStl(data);
+}
+
 std::string OcctKernel::toBREP(uint32_t id) {
     try {
         std::ostringstream oss(std::ios::binary);
