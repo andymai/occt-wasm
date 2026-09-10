@@ -357,7 +357,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | **Transforms**   | Translate, rotate, scale, mirror, align to bounding box, 3x4 matrix, linear/circular patterns                  |
 | **Topology**     | Shape type queries, type predicates, sub-shape extraction, adjacency, hash codes                               |
 | **Tessellation** | Triangle meshes (absolute or relative deflection), wireframe polylines, per-face groups, batched meshing       |
-| **I/O**          | STEP, STL, BREP (text + binary) import/export                                                                  |
+| **I/O**          | STEP, STL (ASCII + binary), BREP (text + binary) import/export                                                 |
 | **Query**        | Bounding box, volume, surface area, length, center of mass, inertia tensor, point-in-solid, curvature          |
 | **Surfaces**     | Type, normal, UV bounds, point classification, B-spline construction                                           |
 | **Curves**       | Type, point/tangent eval, parameters, NURBS data, interpolation (incl. clamped tangents), project point        |

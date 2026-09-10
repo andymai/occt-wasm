@@ -1314,15 +1314,31 @@ export class OcctKernel {
         return wrap("exportStep", () => this.#raw.exportStep(shape));
     }
 
-    importStl(data: string | ArrayBuffer): ShapeHandle {
+    /**
+     * Import an STL mesh. A string is ASCII STL; bytes may be binary or ASCII
+     * STL and are passed through untouched (no text decoding).
+     */
+    importStl(data: string | ArrayBuffer | Uint8Array): ShapeHandle {
         return wrap("importStl", () => {
-            const str = typeof data === "string" ? data : new TextDecoder().decode(data);
-            return handle(this.#raw.importStl(str));
+            if (typeof data === "string") return handle(this.#raw.importStl(data));
+            const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+            return handle(this.#raw.importStlBinary(bytes));
         });
     }
 
-    exportStl(shape: ShapeHandle, linearDeflection = 0.1, ascii = false): string {
-        return wrap("exportStl", () => this.#raw.exportStl(shape, linearDeflection, ascii));
+    /**
+     * Export STL. Binary STL (the default) comes back as bytes; pass
+     * `ascii: true` for the text format as a string.
+     */
+    exportStl(shape: ShapeHandle, linearDeflection?: number, ascii?: false): Uint8Array;
+    exportStl(shape: ShapeHandle, linearDeflection: number, ascii: true): string;
+    exportStl(shape: ShapeHandle, linearDeflection: number, ascii: boolean): string | Uint8Array;
+    exportStl(shape: ShapeHandle, linearDeflection = 0.1, ascii = false): string | Uint8Array {
+        return wrap("exportStl", () =>
+            ascii
+                ? this.#raw.exportStl(shape, linearDeflection, true)
+                : this.#raw.exportStlBinary(shape, linearDeflection),
+        );
     }
 
     toBREP(shape: ShapeHandle): string {

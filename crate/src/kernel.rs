@@ -387,10 +387,15 @@ impl OcctKernel {
 
     /// Read a string result from the WASM string buffer.
     pub(crate) fn read_string_result(&mut self) -> OcctResult<String> {
+        let bytes = self.read_bytes_result()?;
+        String::from_utf8(bytes).map_err(|e| OcctError::Memory(e.to_string()))
+    }
+
+    /// Read a raw-bytes result (binary payloads such as STL).
+    pub(crate) fn read_bytes_result(&mut self) -> OcctResult<Vec<u8>> {
         let ptr = self.fn_get_string_result.call(&mut self.store, ())?;
         let len = self.fn_get_string_result_len.call(&mut self.store, ())?;
-        let bytes = self.read_bytes(ptr as u32, len)?;
-        String::from_utf8(bytes).map_err(|e| OcctError::Memory(e.to_string()))
+        self.read_bytes(ptr as u32, len)
     }
 
     /// Read a `Vec<u32>` result.

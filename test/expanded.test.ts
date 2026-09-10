@@ -304,10 +304,24 @@ describe("construction", () => {
 });
 
 describe("I/O extended", () => {
-    it("exports STL (binary)", () => {
+    it("exports binary STL as exact bytes and reads them back", () => {
         const box = kernel.makeBox(10, 20, 30);
-        const stl = kernel.exportStl(box, 0.5);
-        expect(stl.length).toBeGreaterThan(80); // STL header is 80 bytes
+        const bytes: Uint8Array = kernel.exportStlBinary(box, 0.5);
+        expect(bytes).toBeInstanceOf(Uint8Array);
+        const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const triangles = dv.getUint32(80, true);
+        expect(triangles).toBe(12);
+        expect(bytes.length).toBe(84 + triangles * 50);
+        // A box's facet normals are exactly +-1 / 0; a UTF-8 round trip would
+        // have flattened every byte >= 0x80 to 0xFD (the low byte of U+FFFD).
+        expect(Math.abs(dv.getFloat32(84, true))).toBe(1);
+        expect(bytes.includes(0xfd)).toBe(false);
+
+        const imported = kernel.importStlBinary(bytes);
+        const bbox = kernel.getBoundingBox(imported, false);
+        expect(bbox.xmax).toBeCloseTo(10, 3);
+        expect(bbox.ymax).toBeCloseTo(20, 3);
+        expect(bbox.zmax).toBeCloseTo(30, 3);
     });
 
     it("round-trips STL (export ascii -> import)", () => {

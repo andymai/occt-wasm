@@ -47,7 +47,9 @@ fn param_to_c_abi(param: &FacadeParam) -> String {
         FacadeParam::ShapeId(name) | FacadeParam::Uint32(name) => format!("uint32_t {name}"),
         FacadeParam::Double(name) => format!("double {name}"),
         FacadeParam::Bool(name) | FacadeParam::Int(name) => format!("int32_t {name}"),
-        FacadeParam::String(name) => format!("const char* {name}_ptr, uint32_t {name}_len"),
+        FacadeParam::String(name) | FacadeParam::Bytes(name) => {
+            format!("const char* {name}_ptr, uint32_t {name}_len")
+        }
         FacadeParam::VectorShapeIds(name) => {
             format!("const uint32_t* {name}_ptr, uint32_t {name}_len")
         }
@@ -78,7 +80,9 @@ fn param_to_call_arg(param: &FacadeParam) -> String {
         | FacadeParam::Int(name)
         | FacadeParam::Uint32(name) => (*name).to_owned(),
         FacadeParam::Bool(name) => format!("({name} != 0)"),
-        FacadeParam::String(name) => format!("std::string({name}_ptr, {name}_len)"),
+        FacadeParam::String(name) | FacadeParam::Bytes(name) => {
+            format!("std::string({name}_ptr, {name}_len)")
+        }
         FacadeParam::VectorShapeIds(name) => {
             format!("std::vector<uint32_t>({name}_ptr, {name}_ptr + {name}_len)")
         }
@@ -114,6 +118,7 @@ const fn c_return_type(rt: ReturnType) -> &'static str {
         | ReturnType::Void
         | ReturnType::Int
         | ReturnType::String
+        | ReturnType::Bytes
         | ReturnType::VectorUint32
         | ReturnType::VectorDouble
         | ReturnType::VectorInt
@@ -141,6 +146,7 @@ const fn error_sentinel(rt: ReturnType) -> &'static str {
         | ReturnType::Void
         | ReturnType::Int
         | ReturnType::String
+        | ReturnType::Bytes
         | ReturnType::VectorUint32
         | ReturnType::VectorDouble
         | ReturnType::VectorInt
@@ -188,7 +194,7 @@ fn emit_wasi_method(buf: &mut String, spec: &MethodSpec) {
             let _ = writeln!(buf, "        g_kernel->{name}({args});", name = spec.name);
             let _ = writeln!(buf, "        return 0;");
         }
-        ReturnType::String => {
+        ReturnType::String | ReturnType::Bytes => {
             let _ = writeln!(
                 buf,
                 "        g_string_buf = g_kernel->{name}({args});",
@@ -803,6 +809,46 @@ mod tests {
         let output = emit_wasi_exports(&[&IMPORT_STEP]);
         assert!(output.contains("occt_import_step(const char* data_ptr, uint32_t data_len)"));
         assert!(output.contains("std::string(data_ptr, data_len)"));
+    }
+
+    #[test]
+    fn bytes_cross_the_c_abi_like_strings() {
+        use super::super::types::{FacadeParam, MethodSpec, ReturnType};
+
+        static EXPORT_BYTES: MethodSpec = MethodSpec {
+            name: "exportStlBinary",
+            kind: MethodKind::CustomBodyRaw,
+            params: &[
+                FacadeParam::ShapeId("id"),
+                FacadeParam::Double("linearDeflection"),
+            ],
+            return_type: ReturnType::Bytes,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "return exportStl(id, linearDeflection, false);",
+            includes: &[],
+            category: "io",
+        };
+
+        static IMPORT_BYTES: MethodSpec = MethodSpec {
+            name: "importStlBinary",
+            kind: MethodKind::CustomBodyRaw,
+            params: &[FacadeParam::Bytes("data")],
+            return_type: ReturnType::ShapeId,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "return importStl(data);",
+            includes: &[],
+            category: "io",
+        };
+
+        let output = emit_wasi_exports(&[&EXPORT_BYTES, &IMPORT_BYTES]);
+        assert!(
+            output.contains("int32_t occt_export_stl_binary(uint32_t id, double linearDeflection)")
+        );
+        assert!(output.contains("g_string_buf = g_kernel->exportStlBinary(id, linearDeflection);"));
+        assert!(output.contains("occt_import_stl_binary(const char* data_ptr, uint32_t data_len)"));
+        assert!(output.contains("importStlBinary(std::string(data_ptr, data_len))"));
     }
 
     #[test]

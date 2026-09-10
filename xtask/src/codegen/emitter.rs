@@ -16,7 +16,9 @@ fn param_to_cpp(param: &FacadeParam) -> String {
         FacadeParam::VectorShapeIds(name) => format!("std::vector<uint32_t> {name}"),
         FacadeParam::Bool(name) => format!("bool {name}"),
         FacadeParam::Int(name) => format!("int {name}"),
-        FacadeParam::String(name) => format!("const std::string& {name}"),
+        FacadeParam::String(name) | FacadeParam::Bytes(name) => {
+            format!("const std::string& {name}")
+        }
         FacadeParam::VectorDouble(name) => format!("std::vector<double> {name}"),
         FacadeParam::VectorInt(name) => format!("std::vector<int> {name}"),
     }
@@ -201,7 +203,7 @@ const fn cpp_return_type(ret: ReturnType) -> &'static str {
         ReturnType::VectorUint32 => "std::vector<uint32_t>",
         ReturnType::VectorDouble => "std::vector<double>",
         ReturnType::Double => "double",
-        ReturnType::String => "std::string",
+        ReturnType::String | ReturnType::Bytes => "std::string",
         ReturnType::Int => "int",
         ReturnType::VectorInt => "std::vector<int>",
         ReturnType::BBoxData => "BBoxData",
@@ -575,6 +577,37 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
 /// belong in the hand-written `facade/src/bindings.cpp` inside the
 /// `class_<OcctKernel>("OcctKernel")` block.
 /// Close an Embind chain: replace the trailing `)\n` with `);\n`.
+/// Bind a `ReturnType::Bytes` method through a lambda that copies the bytes
+/// into a fresh `Uint8Array`. Binding the member directly would hand Embind a
+/// `std::string`, which it decodes as UTF-8 and so mangles every byte >= 0x80.
+fn emit_bytes_binding(buf: &mut String, spec: &MethodSpec) {
+    let name = spec.name;
+    let params = param_list(spec.params);
+    let args = spec
+        .params
+        .iter()
+        .map(|p| p.name())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let _ = writeln!(
+        buf,
+        "        .function(\"{name}\", +[](OcctKernel& kernel, {params}) {{"
+    );
+    let _ = writeln!(
+        buf,
+        "            const std::string bytes = kernel.{name}({args});"
+    );
+    let _ = writeln!(
+        buf,
+        "            return val::global(\"Uint8Array\").new_(typed_memory_view("
+    );
+    let _ = writeln!(
+        buf,
+        "                bytes.size(), reinterpret_cast<const uint8_t*>(bytes.data())));"
+    );
+    let _ = writeln!(buf, "        }})");
+}
+
 fn close_embind_chain(buf: &mut String) {
     if buf.ends_with(")\n") {
         buf.truncate(buf.len() - 2);
@@ -788,7 +821,11 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
         let _ = writeln!(buf, "        // {category}");
         for spec in specs {
             let name = spec.name;
-            let _ = writeln!(buf, "        .function(\"{name}\", &OcctKernel::{name})");
+            if spec.return_type == ReturnType::Bytes {
+                emit_bytes_binding(&mut buf, spec);
+            } else {
+                let _ = writeln!(buf, "        .function(\"{name}\", &OcctKernel::{name})");
+            }
         }
     }
 
@@ -893,6 +930,36 @@ mod tests {
         assert!(output.contains(".function(\"fuse\", &OcctKernel::fuse)"));
         assert!(output.contains(".function(\"fillet\", &OcctKernel::fillet)"));
         assert!(output.contains("class_<OcctKernel>(\"OcctKernel\")"));
+    }
+
+    #[test]
+    fn bytes_return_binds_through_a_uint8array_copy() {
+        static EXPORT_BYTES: MethodSpec = MethodSpec {
+            name: "exportStlBinary",
+            kind: MethodKind::CustomBodyRaw,
+            params: &[
+                FacadeParam::ShapeId("id"),
+                FacadeParam::Double("linearDeflection"),
+            ],
+            return_type: ReturnType::Bytes,
+            occt_class: "",
+            ctor_args: "",
+            setup_code: "return exportStl(id, linearDeflection, false);",
+            includes: &[],
+            category: "io",
+        };
+        let bindings = emit_bindings(&[&EXPORT_BYTES]);
+        assert!(!bindings.contains("&OcctKernel::exportStlBinary"));
+        assert!(bindings.contains(
+            ".function(\"exportStlBinary\", +[](OcctKernel& kernel, uint32_t id, double linearDeflection) {"
+        ));
+        assert!(bindings.contains("kernel.exportStlBinary(id, linearDeflection)"));
+        assert!(bindings.contains("val::global(\"Uint8Array\").new_(typed_memory_view("));
+
+        let kernel = emit_kernel(&[&EXPORT_BYTES]);
+        assert!(kernel.contains(
+            "std::string OcctKernel::exportStlBinary(uint32_t id, double linearDeflection)"
+        ));
     }
 
     #[test]

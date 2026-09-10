@@ -324,6 +324,82 @@ describe("wrap decodes WebAssembly.Exception", () => {
 // wire up — and the one-argument getBoundingBox call from issue #223.
 // ============================================================================
 
+// ============================================================================
+// Binary STL (#305): bytes must not take the UTF-8 string path
+// ============================================================================
+
+describe("binary STL through the wrapper", () => {
+    let kernel3: OcctKernelType;
+
+    beforeAll(async () => {
+        const { OcctKernel } = await import("../ts/src/index.ts");
+        const createModule = (await import(jsPath)).default;
+        const m = await createModule({
+            locateFile: (path: string) => (path.endsWith(".wasm") ? wasmPath : path),
+        });
+        kernel3 = new (OcctKernel as unknown as new (m: unknown) => OcctKernelType)(m);
+    }, 60_000);
+
+    const expectBoxBounds = (shape: ShapeHandle) => {
+        const bbox = kernel3.getBoundingBox(shape);
+        expect(bbox.xmax).toBeCloseTo(10, 3);
+        expect(bbox.ymax).toBeCloseTo(20, 3);
+        expect(bbox.zmax).toBeCloseTo(30, 3);
+    };
+
+    it("exportStl returns exact binary bytes by default", () => {
+        const box = kernel3.makeBox(10, 20, 30);
+        const bytes: Uint8Array = kernel3.exportStl(box, 0.1);
+        const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        expect(bytes.length).toBe(84 + dv.getUint32(80, true) * 50);
+        expect(Math.abs(dv.getFloat32(84, true))).toBe(1);
+        expect(bytes.includes(0xfd)).toBe(false);
+    });
+
+    it("exportStl with ascii: true still returns text", () => {
+        const box = kernel3.makeBox(10, 20, 30);
+        const text: string = kernel3.exportStl(box, 0.1, true);
+        expect(text.startsWith("solid")).toBe(true);
+        expectBoxBounds(kernel3.importStl(text));
+    });
+
+    it("importStl reads its own binary output from a Uint8Array or ArrayBuffer", () => {
+        const box = kernel3.makeBox(10, 20, 30);
+        const bytes = kernel3.exportStl(box, 0.1);
+        expectBoxBounds(kernel3.importStl(bytes));
+        const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+        expectBoxBounds(kernel3.importStl(buffer));
+    });
+
+    it("importStl reads binary STL written by another tool", () => {
+        // A 10x20x30 box as 12 hand-written facets: what a slicer or mesh
+        // tool would produce. Every float carries bytes >= 0x80.
+        const corners: [number, number, number][] = [
+            [0, 0, 0], [10, 0, 0], [10, 20, 0], [0, 20, 0],
+            [0, 0, 30], [10, 0, 30], [10, 20, 30], [0, 20, 30],
+        ];
+        const faces: [number, number, number, number, [number, number, number]][] = [
+            [0, 3, 2, 1, [0, 0, -1]], [4, 5, 6, 7, [0, 0, 1]],
+            [0, 1, 5, 4, [0, -1, 0]], [2, 3, 7, 6, [0, 1, 0]],
+            [1, 2, 6, 5, [1, 0, 0]], [3, 0, 4, 7, [-1, 0, 0]],
+        ];
+        const bytes = new Uint8Array(84 + 12 * 50);
+        const dv = new DataView(bytes.buffer);
+        dv.setUint32(80, 12, true);
+        let offset = 84;
+        for (const [a, b, c, d, n] of faces) {
+            for (const tri of [[a, b, c], [a, c, d]]) {
+                n.forEach((v, i) => dv.setFloat32(offset + i * 4, v, true));
+                tri.forEach((ci, vi) =>
+                    corners[ci].forEach((v, i) => dv.setFloat32(offset + 12 + vi * 12 + i * 4, v, true)),
+                );
+                offset += 50;
+            }
+        }
+        expectBoxBounds(kernel3.importStl(bytes));
+    });
+});
+
 describe("OcctKernel wires decoding into its lifecycle", () => {
     let ownModule: any;
     // Typed, unlike the `any` kernels elsewhere in this file, so the

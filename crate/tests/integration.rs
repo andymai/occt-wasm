@@ -144,6 +144,29 @@ fn step_roundtrip() {
 }
 
 #[test]
+fn stl_binary_roundtrip() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let shape = kernel.make_box(10.0, 20.0, 30.0).unwrap();
+    let bytes = kernel.export_stl_binary(shape, 0.5).unwrap();
+    let triangles = u32::from_le_bytes(bytes[80..84].try_into().unwrap()) as usize;
+    assert_eq!(triangles, 12);
+    assert_eq!(bytes.len(), 84 + triangles * 50);
+    let first_normal_x = f32::from_le_bytes(bytes[84..88].try_into().unwrap());
+    assert!(
+        (first_normal_x.abs() - 1.0).abs() < f32::EPSILON,
+        "facet normal bytes must survive: {first_normal_x}"
+    );
+
+    let imported = kernel.import_stl_binary(&bytes).unwrap();
+    let bbox = kernel.get_bounding_box(imported, false).unwrap();
+    assert!((bbox.max.x - 10.0).abs() < 1e-3, "bbox: {bbox:?}");
+    assert!((bbox.max.y - 20.0).abs() < 1e-3, "bbox: {bbox:?}");
+    assert!((bbox.max.z - 30.0).abs() < 1e-3, "bbox: {bbox:?}");
+}
+
+#[test]
 fn make_cylinder_and_query() {
     let Some(mut kernel) = try_kernel() else {
         return;

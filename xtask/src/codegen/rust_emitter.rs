@@ -18,6 +18,7 @@ fn param_to_rust(param: &FacadeParam) -> String {
         FacadeParam::Int(name) => format!("{}: i32", rust_param_name(name)),
         FacadeParam::Uint32(name) => format!("{}: u32", rust_param_name(name)),
         FacadeParam::String(name) => format!("{}: &str", rust_param_name(name)),
+        FacadeParam::Bytes(name) => format!("{}: &[u8]", rust_param_name(name)),
         FacadeParam::VectorShapeIds(name) => format!("{}: &[ShapeHandle]", rust_param_name(name)),
         FacadeParam::VectorDouble(name) => format!("{}: &[f64]", rust_param_name(name)),
         FacadeParam::VectorInt(name) => format!("{}: &[i32]", rust_param_name(name)),
@@ -51,6 +52,7 @@ const fn rust_return_type(rt: ReturnType) -> &'static str {
         ReturnType::Double => "OcctResult<f64>",
         ReturnType::Int => "OcctResult<i32>",
         ReturnType::String => "OcctResult<String>",
+        ReturnType::Bytes => "OcctResult<Vec<u8>>",
         ReturnType::VectorUint32 => "OcctResult<Vec<u32>>",
         ReturnType::VectorDouble => "OcctResult<Vec<f64>>",
         ReturnType::VectorInt => "OcctResult<Vec<i32>>",
@@ -71,6 +73,7 @@ fn heap_param_names(params: &[FacadeParam]) -> Vec<String> {
         .iter()
         .filter_map(|p| match p {
             FacadeParam::String(name)
+            | FacadeParam::Bytes(name)
             | FacadeParam::VectorShapeIds(name)
             | FacadeParam::VectorDouble(name)
             | FacadeParam::VectorInt(name) => Some(rust_param_name(name)),
@@ -106,6 +109,16 @@ fn emit_wasm_call_setup(buf: &mut String, params: &[FacadeParam]) {
                         &format!("{rname}.as_bytes()"),
                         &allocated_so_far,
                     );
+                }
+                let _ = writeln!(buf, "        let {rname}_len = {rname}.len() as u32;");
+                allocated_so_far.push(rname);
+            }
+            FacadeParam::Bytes(name) => {
+                let rname = rust_param_name(name);
+                if allocated_so_far.is_empty() {
+                    let _ = writeln!(buf, "        let {rname}_ptr = self.write_bytes({rname})?;");
+                } else {
+                    emit_guarded_write_bytes(buf, &rname, &rname, &allocated_so_far);
                 }
                 let _ = writeln!(buf, "        let {rname}_len = {rname}.len() as u32;");
                 allocated_so_far.push(rname);
@@ -194,6 +207,7 @@ fn emit_wasm_call_args(params: &[FacadeParam]) -> String {
             }
             FacadeParam::Bool(name) => vec![format!("i32::from({})", rust_param_name(name))],
             FacadeParam::String(name)
+            | FacadeParam::Bytes(name)
             | FacadeParam::VectorShapeIds(name)
             | FacadeParam::VectorDouble(name)
             | FacadeParam::VectorInt(name) => {
@@ -210,6 +224,7 @@ fn emit_wasm_call_cleanup(buf: &mut String, params: &[FacadeParam]) {
     for param in params {
         match param {
             FacadeParam::String(name)
+            | FacadeParam::Bytes(name)
             | FacadeParam::VectorShapeIds(name)
             | FacadeParam::VectorDouble(name)
             | FacadeParam::VectorInt(name) => {
@@ -227,6 +242,7 @@ fn wasm_param_count(params: &[FacadeParam]) -> usize {
         .iter()
         .map(|p| match p {
             FacadeParam::String(_)
+            | FacadeParam::Bytes(_)
             | FacadeParam::VectorShapeIds(_)
             | FacadeParam::VectorDouble(_)
             | FacadeParam::VectorInt(_) => 2,
@@ -248,6 +264,7 @@ fn wasm_typed_func_type(spec: &MethodSpec) -> String {
             FacadeParam::Double(_) => vec!["f64"],
             FacadeParam::Bool(_) | FacadeParam::Int(_) => vec!["i32"],
             FacadeParam::String(_)
+            | FacadeParam::Bytes(_)
             | FacadeParam::VectorShapeIds(_)
             | FacadeParam::VectorDouble(_)
             | FacadeParam::VectorInt(_) => vec!["i32", "i32"],
@@ -263,6 +280,7 @@ fn wasm_typed_func_type(spec: &MethodSpec) -> String {
         | ReturnType::Void
         | ReturnType::Int
         | ReturnType::String
+        | ReturnType::Bytes
         | ReturnType::VectorUint32
         | ReturnType::VectorDouble
         | ReturnType::VectorInt
@@ -410,7 +428,7 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
             let _ = writeln!(buf, "        }}");
             let _ = writeln!(buf, "        Ok(())");
         }
-        ReturnType::String => {
+        ReturnType::String | ReturnType::Bytes => {
             let _ = writeln!(
                 buf,
                 "        let len = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
@@ -425,7 +443,12 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
                 "            return Err(self.read_last_error(\"{snake_name}\"));"
             );
             let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_string_result()");
+            let reader = if spec.return_type == ReturnType::Bytes {
+                "read_bytes_result"
+            } else {
+                "read_string_result"
+            };
+            let _ = writeln!(buf, "        self.{reader}()");
         }
         ReturnType::VectorUint32 => {
             let _ = writeln!(
@@ -692,6 +715,50 @@ mod tests {
         assert!(output.contains("data: &str"));
         assert!(output.contains("self.write_bytes(data.as_bytes())"));
         assert!(output.contains("self.free_bytes(data_ptr)"));
+    }
+
+    static EXPORT_BYTES: MethodSpec = MethodSpec {
+        name: "exportStlBinary",
+        kind: MethodKind::CustomBodyRaw,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("linearDeflection"),
+        ],
+        return_type: ReturnType::Bytes,
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return exportStl(id, linearDeflection, false);",
+        includes: &[],
+        category: "io",
+    };
+
+    static IMPORT_BYTES: MethodSpec = MethodSpec {
+        name: "importStlBinary",
+        kind: MethodKind::CustomBodyRaw,
+        params: &[FacadeParam::Bytes("data")],
+        return_type: ReturnType::ShapeId,
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return importStl(data);",
+        includes: &[],
+        category: "io",
+    };
+
+    #[test]
+    fn bytes_param_writes_slice_directly() {
+        let output = emit_rust_host(&[&IMPORT_BYTES]);
+        assert!(output.contains("data: &[u8]"));
+        assert!(output.contains("self.write_bytes(data)?"));
+        assert!(output.contains("self.free_bytes(data_ptr)"));
+        assert!(output.contains("fn_import_stl_binary: TypedFunc<(i32, i32), u32>"));
+    }
+
+    #[test]
+    fn bytes_return_reads_raw_bytes() {
+        let output = emit_rust_host(&[&EXPORT_BYTES]);
+        assert!(output.contains("-> OcctResult<Vec<u8>>"));
+        assert!(output.contains("self.read_bytes_result()"));
+        assert!(!output.contains("self.read_string_result()"));
     }
 
     #[test]
