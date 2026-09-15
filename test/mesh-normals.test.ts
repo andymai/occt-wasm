@@ -38,6 +38,8 @@ interface MeshArrays {
 function expectNormalsConsistent(mesh: MeshArrays, center: [number, number, number]) {
     const { positions, normals, indices } = mesh;
     expect(indices.length % 3).toBe(0);
+    expect(indices.length).toBeGreaterThan(0);
+    let checked = 0;
     for (let t = 0; t < indices.length; t += 3) {
         const [a, b, c] = [indices[t]!, indices[t + 1]!, indices[t + 2]!];
         const p = (i: number) => [positions[i * 3]!, positions[i * 3 + 1]!, positions[i * 3 + 2]!];
@@ -51,6 +53,7 @@ function expectNormalsConsistent(mesh: MeshArrays, center: [number, number, numb
         ];
         const wnLen = Math.hypot(wn[0]!, wn[1]!, wn[2]!);
         if (wnLen < 1e-9) continue;
+        checked++;
         const centroid = [
             (pa[0]! + pb[0]! + pc[0]!) / 3 - center[0],
             (pa[1]! + pb[1]! + pc[1]!) / 3 - center[1],
@@ -64,6 +67,7 @@ function expectNormalsConsistent(mesh: MeshArrays, center: [number, number, numb
             expect(agree, `vertex ${v} normal disagrees with triangle ${t / 3} winding`).toBeGreaterThan(0);
         }
     }
+    expect(checked, "no non-degenerate triangles were checked").toBeGreaterThan(0);
 }
 
 function readMesh(mesh: {
@@ -106,6 +110,7 @@ describe("mesh vertex normals follow face orientation", () => {
         const arrays = readMesh(mesh);
         // Not convex, so skip the outward test; winding/normal agreement still must hold.
         const { positions, normals, indices } = arrays;
+        expect(indices.length).toBeGreaterThan(0);
         for (let t = 0; t < indices.length; t += 3) {
             const [a, b, c] = [indices[t]!, indices[t + 1]!, indices[t + 2]!];
             const p = (i: number) => [positions[i * 3]!, positions[i * 3 + 1]!, positions[i * 3 + 2]!];
