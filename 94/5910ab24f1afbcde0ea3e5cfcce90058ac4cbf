@@ -1,0 +1,48 @@
+test/mesh-normals.test.ts
+  s_aaa907c7afedec::t_eb6e27159e2466 54-55
+  s_aaa907c7afedec::t_798da48e288466 1-40,43-53,57-69,71-112,114-147
+facade/src/kernel.cpp
+  s_aaa907c7afedec::t_eb6e27159e2466 240-243,257-259
+xtask/src/codegen/config.rs
+  s_aaa907c7afedec::t_eb6e27159e2466 4900-4903,4917-4918
+  s_aaa907c7afedec::t_d38ffe2292a080 4919
+  s_aaa907c7afedec::t_2fb72af07569a3 2366-2383
+  s_aaa907c7afedec::t_9bcc7fbfa1f436 2360-2365
+facade/generated/kernel.cpp
+  s_aaa907c7afedec::t_18ef1bfa185a30 3861-3864,3878-3880
+  s_aaa907c7afedec::t_7ce0334cb6ea62 2119-2134
+test/parity-tolerance.test.ts
+  s_aaa907c7afedec::t_2fb72af07569a3 185-229
+facade/include/occt_kernel.h
+  s_aaa907c7afedec::t_2fb72af07569a3 305
+crate/tests/integration.rs
+  s_aaa907c7afedec::t_2fb72af07569a3 109-127
+  s_aaa907c7afedec::t_8c502f4577cc6f 108
+crate/src/kernel_generated.rs
+  s_aaa907c7afedec::t_2fb72af07569a3 122,361-362,2351-2362
+  s_aaa907c7afedec::t_1dafe7b5fe4688 2363-2365
+ts/src/worker.ts
+  s_aaa907c7afedec::t_2fb72af07569a3 127,249
+ts/src/index.ts
+  s_aaa907c7afedec::t_2fb72af07569a3 1417-1436
+ts/src/raw-types.ts
+  s_aaa907c7afedec::t_2fb72af07569a3 282
+facade/generated/bindings.cpp
+  s_aaa907c7afedec::t_f5496aa8b33b6a 215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "945910ab24f1afbcde0ea3e5cfcce90058ac4cbf",
+  "prompts": {},
+  "sessions": {
+    "s_aaa907c7afedec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "304eac1a-d2a7-4080-b658-7ad115c2183d",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
