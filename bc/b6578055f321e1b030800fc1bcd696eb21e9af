@@ -1,0 +1,27 @@
+test/mesh-normals.test.ts
+  s_aaa907c7afedec::t_eb6e27159e2466 52-53
+  s_aaa907c7afedec::t_798da48e288466 1-51,54-142
+facade/src/kernel.cpp
+  s_aaa907c7afedec::t_eb6e27159e2466 240-243,257-259
+xtask/src/codegen/config.rs
+  s_aaa907c7afedec::t_eb6e27159e2466 4876-4879,4893-4894
+  s_aaa907c7afedec::t_d38ffe2292a080 4895
+facade/generated/kernel.cpp
+  s_aaa907c7afedec::t_18ef1bfa185a30 3845-3848,3862-3864
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bcb6578055f321e1b030800fc1bcd696eb21e9af",
+  "prompts": {},
+  "sessions": {
+    "s_aaa907c7afedec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "304eac1a-d2a7-4080-b658-7ad115c2183d",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
