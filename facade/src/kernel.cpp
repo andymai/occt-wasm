@@ -237,6 +237,10 @@ MeshData OcctKernel::buildMeshData(const TopoDS_Shape& shape, double linearDefle
             }
         }
 
+        // Triangulation normals are surface normals: ComputeNormals ignores the
+        // face orientation, and the Poly_Triangulation is shared by every face
+        // using this surface, so the flip must happen here, not in the cache.
+        bool isReversed = (face.Orientation() == TopAbs_REVERSED);
         if (!tri->HasNormals()) {
             BRepLib_ToolTriangulatedShape::ComputeNormals(face, tri);
         }
@@ -250,6 +254,9 @@ MeshData OcctKernel::buildMeshData(const TopoDS_Shape& shape, double linearDefle
                     d = gp_Dir(nv.x(), nv.y(), nv.z());
                 }
             }
+            if (isReversed) {
+                d.Reverse();
+            }
             if (!identityLoc) {
                 d = d.Transformed(trsf);
             }
@@ -259,7 +266,6 @@ MeshData OcctKernel::buildMeshData(const TopoDS_Shape& shape, double linearDefle
             result.normals[base + 2] = static_cast<float>(d.Z());
         }
 
-        bool isReversed = (face.Orientation() != TopAbs_FORWARD);
         for (int t = 1; t <= nbTri; t++) {
             const auto& triangle = tri->Triangle(t);
             int n1 = triangle.Value(1);
