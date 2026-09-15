@@ -2363,6 +2363,30 @@ return result;",
         return_type: ReturnType::BBoxData,
     },
     MethodSpec {
+        name: "getBoundingBoxFast",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::Bool("useTriangulation")],
+        occt_class: "",
+        ctor_args: "",
+        // BRepBndLib::Add is the cheap, conservative variant: triangulation
+        // nodes when present, otherwise analytic extents or BSpline control
+        // hulls, enlarged by the shape tolerance. Never tighter than
+        // getBoundingBox.
+        setup_code: "\
+const auto& shape = get(id);
+Bnd_Box box;
+BRepBndLib::Add(shape, box, useTriangulation);
+if (box.IsVoid()) {
+    throw std::runtime_error(\"getBoundingBoxFast: shape has no geometry\");
+}
+BBoxData result{};
+box.Get(result.xmin, result.ymin, result.zmin, result.xmax, result.ymax, result.zmax);
+return result;",
+        includes: &["BRepBndLib.hxx", "Bnd_Box.hxx"],
+        category: "query",
+        return_type: ReturnType::BBoxData,
+    },
+    MethodSpec {
         name: "getVolume",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("id")],

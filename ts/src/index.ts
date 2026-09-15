@@ -1414,6 +1414,26 @@ export class OcctKernel {
         return wrap("getBoundingBox", () => this.#raw.getBoundingBox(shape, useTriangulation));
     }
 
+    /**
+     * Compute a conservative axis-aligned bounding box of a shape, cheaply.
+     *
+     * Uses `BRepBndLib::Add`, the classic OCCT bounding routine: it takes the
+     * triangulation nodes when a mesh is present, otherwise each surface's
+     * analytic extent or, for BSplines, its control-point hull (which can
+     * overshoot curved geometry), and enlarges the result by the shape tolerance.
+     * The box is never tighter than {@link getBoundingBox}, but it skips the
+     * per-surface extremum search, so it is the right choice for culling,
+     * scene fitting, or any hot path that only needs an enclosing box.
+     *
+     * @param useTriangulation - `true` (the default, matching OCCT) bounds the
+     *     existing triangulation when there is one, which is both the fastest
+     *     and the tightest path for a meshed shape. `false` ignores the mesh
+     *     and bounds the surfaces' control points instead.
+     */
+    getBoundingBoxFast(shape: ShapeHandle, useTriangulation = true): BoundingBox {
+        return wrap("getBoundingBoxFast", () => this.#raw.getBoundingBoxFast(shape, useTriangulation));
+    }
+
     getVolume(shape: ShapeHandle): number {
         return wrap("getVolume", () => this.#raw.getVolume(shape));
     }

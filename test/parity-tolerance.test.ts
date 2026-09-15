@@ -182,3 +182,48 @@ describe("getBoundingBox uses surface-precise bounds", () => {
         expect(bbox.xmax).toBeCloseTo(7, 3);
     });
 });
+
+describe("getBoundingBoxFast is a conservative superset of getBoundingBox", () => {
+    it("bounds a box exactly (up to tolerance) with or without a mesh", () => {
+        const box = kernel.makeBox(10, 20, 30);
+        for (const useTri of [true, false]) {
+            const bbox = kernel.getBoundingBoxFast(box, useTri);
+            expect(bbox.xmin).toBeCloseTo(0, 3);
+            expect(bbox.ymin).toBeCloseTo(0, 3);
+            expect(bbox.zmin).toBeCloseTo(0, 3);
+            expect(bbox.xmax).toBeCloseTo(10, 3);
+            expect(bbox.ymax).toBeCloseTo(20, 3);
+            expect(bbox.zmax).toBeCloseTo(30, 3);
+        }
+    });
+
+    it("never returns a box tighter than the precise one on curved geometry", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        const precise = kernel.getBoundingBox(cyl, false);
+        const fast = kernel.getBoundingBoxFast(cyl, false);
+        // Without a mesh, Add bounds BSpline surfaces by their control-point hull.
+        expect(fast.xmin).toBeLessThanOrEqual(precise.xmin);
+        expect(fast.ymin).toBeLessThanOrEqual(precise.ymin);
+        expect(fast.zmin).toBeLessThanOrEqual(precise.zmin);
+        expect(fast.xmax).toBeGreaterThanOrEqual(precise.xmax);
+        expect(fast.ymax).toBeGreaterThanOrEqual(precise.ymax);
+        expect(fast.zmax).toBeGreaterThanOrEqual(precise.zmax);
+        expect(fast.zmin).toBeCloseTo(0, 3);
+        expect(fast.zmax).toBeCloseTo(10, 3);
+    });
+
+    it("tightens to the triangulation once the shape is meshed", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        const mesh = kernel.tessellate(cyl, 0.01, 0.1);
+        mesh.delete();
+        const fast = kernel.getBoundingBoxFast(cyl, true);
+        expect(fast.xmin).toBeCloseTo(-5, 1);
+        expect(fast.xmax).toBeCloseTo(5, 1);
+        expect(fast.ymin).toBeCloseTo(-5, 1);
+        expect(fast.ymax).toBeCloseTo(5, 1);
+    });
+
+    it("throws on a shape with no geometry", () => {
+        expect(() => kernel.getBoundingBoxFast(99999, true)).toThrow();
+    });
+});

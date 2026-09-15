@@ -119,6 +119,7 @@ pub(crate) struct GeneratedFuncs {
     fn_adjacent_faces: TypedFunc<(u32, u32), i32>,
     fn_shared_edges: TypedFunc<(u32, u32), i32>,
     fn_get_bounding_box: TypedFunc<(u32, i32), i32>,
+    fn_get_bounding_box_fast: TypedFunc<(u32, i32), i32>,
     fn_get_volume: TypedFunc<(u32,), f64>,
     fn_get_surface_area: TypedFunc<(u32,), f64>,
     fn_get_length: TypedFunc<(u32,), f64>,
@@ -357,6 +358,8 @@ impl GeneratedFuncs {
             fn_adjacent_faces: instance.get_typed_func(&mut store, "occt_adjacent_faces")?,
             fn_shared_edges: instance.get_typed_func(&mut store, "occt_shared_edges")?,
             fn_get_bounding_box: instance.get_typed_func(&mut store, "occt_get_bounding_box")?,
+            fn_get_bounding_box_fast: instance
+                .get_typed_func(&mut store, "occt_get_bounding_box_fast")?,
             fn_get_volume: instance.get_typed_func(&mut store, "occt_get_volume")?,
             fn_get_surface_area: instance.get_typed_func(&mut store, "occt_get_surface_area")?,
             fn_get_length: instance.get_typed_func(&mut store, "occt_get_length")?,
@@ -2342,6 +2345,21 @@ impl crate::kernel::OcctKernel {
             .call(&mut self.store, (id.0, i32::from(use_triangulation)))?;
         if status < 0 {
             return Err(self.read_last_error("get_bounding_box"));
+        }
+        self.read_bbox_result()
+    }
+
+    pub fn get_bounding_box_fast(
+        &mut self,
+        id: ShapeHandle,
+        use_triangulation: bool,
+    ) -> OcctResult<BoundingBox> {
+        let status = self
+            .generated
+            .fn_get_bounding_box_fast
+            .call(&mut self.store, (id.0, i32::from(use_triangulation)))?;
+        if status < 0 {
+            return Err(self.read_last_error("get_bounding_box_fast"));
         }
         self.read_bbox_result()
     }
