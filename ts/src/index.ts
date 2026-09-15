@@ -1422,8 +1422,12 @@ export class OcctKernel {
      * analytic extent or, for BSplines, its control-point hull (which can
      * overshoot curved geometry), and enlarges the result by the shape tolerance.
      * The box is never tighter than {@link getBoundingBox}, but it skips the
-     * per-surface extremum search, so it is the right choice for culling,
-     * scene fitting, or any hot path that only needs an enclosing box.
+     * per-surface extremum search. That search is what makes the precise
+     * method slow on BSpline geometry with no mesh (fillets, lofts, STEP
+     * imports): a filleted box bounds in ~0.06 ms here versus ~5 ms precise.
+     * On analytic shapes, or once a mesh exists and `useTriangulation` is
+     * `true`, both methods cost the same few microseconds, so reach for this
+     * one on unmeshed freeform geometry in culling or scene-fitting paths.
      *
      * @param useTriangulation - `true` (the default, matching OCCT) bounds the
      *     existing triangulation when there is one, which is both the fastest
