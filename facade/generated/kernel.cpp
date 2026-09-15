@@ -3842,6 +3842,10 @@ MeshBatchData OcctKernel::meshBatch(std::vector<uint32_t> ids, double linearDefl
                 }
             }
         
+            // Triangulation normals are surface normals: ComputeNormals ignores the
+            // face orientation, and the Poly_Triangulation is shared by every face
+            // using this surface, so the flip must happen here, not in the cache.
+            bool isReversed = (fc.face.Orientation() == TopAbs_REVERSED);
             if (!tri->HasNormals()) {
                 BRepLib_ToolTriangulatedShape::ComputeNormals(fc.face, tri);
             }
@@ -3855,6 +3859,9 @@ MeshBatchData OcctKernel::meshBatch(std::vector<uint32_t> ids, double linearDefl
                         d = gp_Dir(nv.x(), nv.y(), nv.z());
                     }
                 }
+                if (isReversed) {
+                    d.Reverse();
+                }
                 if (!identityTrsf) {
                     d = d.Transformed(trsf);
                 }
@@ -3864,7 +3871,6 @@ MeshBatchData OcctKernel::meshBatch(std::vector<uint32_t> ids, double linearDefl
                 result.normals[base + 2] = static_cast<float>(d.Z());
             }
         
-            bool isReversed = (fc.face.Orientation() != TopAbs_FORWARD);
             for (int t = 1; t <= nbTri; t++) {
                 const auto& triangle = tri->Triangle(t);
                 int n1 = triangle.Value(1);
