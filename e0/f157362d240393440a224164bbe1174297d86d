@@ -1,0 +1,40 @@
+test/parity-tolerance.test.ts
+  s_aaa907c7afedec::t_2fb72af07569a3 185-229
+facade/include/occt_kernel.h
+  s_aaa907c7afedec::t_2fb72af07569a3 305
+crate/tests/integration.rs
+  s_aaa907c7afedec::t_2fb72af07569a3 109-127
+  s_aaa907c7afedec::t_8c502f4577cc6f 108
+crate/src/kernel_generated.rs
+  s_aaa907c7afedec::t_2fb72af07569a3 122,361-362,2351-2362
+  s_aaa907c7afedec::t_1dafe7b5fe4688 2363-2365
+ts/src/worker.ts
+  s_aaa907c7afedec::t_2fb72af07569a3 127,249
+ts/src/index.ts
+  s_aaa907c7afedec::t_2fb72af07569a3 1417-1436
+ts/src/raw-types.ts
+  s_aaa907c7afedec::t_2fb72af07569a3 282
+xtask/src/codegen/config.rs
+  s_aaa907c7afedec::t_2fb72af07569a3 2366-2383
+  s_aaa907c7afedec::t_9bcc7fbfa1f436 2360-2365
+facade/generated/bindings.cpp
+  s_aaa907c7afedec::t_f5496aa8b33b6a 215
+facade/generated/kernel.cpp
+  s_aaa907c7afedec::t_7ce0334cb6ea62 2119-2134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e0f157362d240393440a224164bbe1174297d86d",
+  "prompts": {},
+  "sessions": {
+    "s_aaa907c7afedec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "304eac1a-d2a7-4080-b658-7ad115c2183d",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
