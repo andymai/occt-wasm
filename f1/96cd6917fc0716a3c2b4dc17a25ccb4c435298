@@ -1,0 +1,19 @@
+test/mesh-normals.test.ts
+  s_aaa907c7afedec::t_0e1b4916944afa 41-42,56,70,113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f196cd6917fc0716a3c2b4dc17a25ccb4c435298",
+  "prompts": {},
+  "sessions": {
+    "s_aaa907c7afedec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "304eac1a-d2a7-4080-b658-7ad115c2183d",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
