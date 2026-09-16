@@ -4168,6 +4168,32 @@ int OcctKernel::xcafAddComponent(uint32_t docId, int parentLabelId, uint32_t sha
         
         TDF_Label parentLabel = lookupLabel(it->second.labelRegistry, parentLabelId);
         
+        // XDE has no part that also has components: an assembly's shape is the
+        // compound of its components, so a part given children would lose its own
+        // geometry on export. Turn it into an assembly whose first component is the
+        // geometry it had, at identity, carrying the part's name and color. The
+        // registered shape keeps its facade ID; the new part label is the prototype
+        // behind that component.
+        if (!shapeTool->IsAssembly(parentLabel) && shapeTool->IsSimpleShape(parentLabel)) {
+            TopoDS_Shape own = shapeTool->GetShape(parentLabel);
+            bool empty = own.IsNull() || (own.ShapeType() == TopAbs_COMPOUND && own.NbChildren() == 0);
+            if (!empty) {
+                TDF_Label partLabel = shapeTool->NewShape();
+                shapeTool->SetShape(partLabel, own);
+                Handle(XCAFDoc_ColorTool) colorTool =
+                    XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
+                Quantity_Color color;
+                if (colorTool->GetColor(parentLabel, XCAFDoc_ColorGen, color))
+                    colorTool->SetColor(partLabel, color, XCAFDoc_ColorGen);
+                TDF_Label ownComp = shapeTool->AddComponent(parentLabel, partLabel, TopLoc_Location());
+                Handle(TDataStd_Name) nameAttr;
+                if (parentLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+                    TDataStd_Name::Set(partLabel, nameAttr->Get());
+                    TDataStd_Name::Set(ownComp, nameAttr->Get());
+                }
+            }
+        }
+        
         // Build location transform (Euler angles in radians)
         gp_Trsf trsf;
         if (std::abs(rx) > 1e-12 || std::abs(ry) > 1e-12 || std::abs(rz) > 1e-12) {
@@ -4183,6 +4209,9 @@ int OcctKernel::xcafAddComponent(uint32_t docId, int parentLabelId, uint32_t sha
         // First add the shape as a standalone label, then add as component with location
         TDF_Label shapeLabel = shapeTool->AddShape(get(shapeId));
         TDF_Label compLabel = shapeTool->AddComponent(parentLabel, shapeLabel, loc);
+        if (compLabel.IsNull())
+            throw std::runtime_error("xcafAddComponent: parent must be a part or an assembly, not a component");
+        shapeTool->UpdateAssemblies();
         
         int facadeId = registerLabel(it->second, compLabel);
         return facadeId;
