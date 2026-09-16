@@ -35,7 +35,7 @@ To set expectations, this library deliberately does not:
 - **Manage memory automatically beyond arena handles** — shapes are freed when the kernel is disposed or you call `release()`; there is no per-shape garbage collection
 - **Support non-WASM-SIMD browsers** — the build requires WASM SIMD (baseline `-msimd128`), tail calls, and wasm exceptions, so it needs a recent engine (see [Browser Compatibility](#browser-compatibility)). Relaxed-SIMD is intentionally not used: some Safari/iOS WebKit builds fail to compile relaxed-SIMD modules, and it made geometry non-reproducible across CPUs
 - **Include OCCT visualization or display modules** — TKV3d, TKHLR (except the HLR facade), and the AIS interactive context are excluded; bring your own renderer (Three.js, Babylon.js, etc.)
-- **Support IGES import/export** -- TKDEIGES is excluded from the link; use STEP for interchange
+- **Support IGES import** -- IGES files can be imported into live OCCT B-Reps; IGES export is not provided
 
 ## Install
 
@@ -440,7 +440,7 @@ Node.js 22+ is recommended (tail calls via V8). Node.js 18+ works if your V8 ver
 
 These are upstream OCCT V8.0.1 issues, not occt-wasm bugs:
 
-- **IGES** -- TKDEIGES excluded from link; no IGES import/export
+- **IGES export** -- IGES writing is not exposed; import is available through `importIges`
 - **Zero-length extrusion** -- WASM exception escapes JS catch boundary (1 test skip)
 - **Single WASM thread** -- each kernel instance is single-threaded; use `OcctWorker` (see above) to move work off the main thread
 

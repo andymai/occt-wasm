@@ -4177,6 +4177,41 @@ return store(reader.OneShape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "importIges",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::String("data")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+IGESControl_Reader reader;
+
+// IGESControl_Reader reads from a path, so stage the bytes in Emscripten's
+// virtual filesystem just like the STEP importer.
+{
+    FILE* f = fopen(\"/tmp/import.iges\", \"wb\");
+    if (!f) {
+        throw std::runtime_error(\"importIges: cannot create temp file\");
+    }
+    fwrite(data.c_str(), 1, data.size(), f);
+    fclose(f);
+}
+
+IFSelect_ReturnStatus status = reader.ReadFile(\"/tmp/import.iges\");
+if (status != IFSelect_RetDone) {
+    throw std::runtime_error(\"importIges: failed to read IGES data\");
+}
+
+reader.TransferRoots();
+if (reader.NbShapes() == 0) {
+    throw std::runtime_error(\"importIges: no shapes found in IGES data\");
+}
+
+return store(reader.OneShape());",
+        includes: &["IFSelect_ReturnStatus.hxx", "IGESControl_Reader.hxx"],
+        category: "io",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "exportStep",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("id")],

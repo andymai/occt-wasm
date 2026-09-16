@@ -112,6 +112,7 @@ export interface OcctWorkerProxy {
 
     // I/O
     importStep(data: string | ArrayBuffer): Promise<ShapeHandle>;
+    importIges(data: string | ArrayBuffer): Promise<ShapeHandle>;
     exportStep(shape: ShapeHandle): Promise<string>;
     importStl(data: string | ArrayBuffer | Uint8Array): Promise<ShapeHandle>;
     exportStl(shape: ShapeHandle, linearDeflection?: number, ascii?: false): Promise<Uint8Array>;
@@ -241,6 +242,7 @@ export class OcctWorker {
     translate(shape: ShapeHandle, dx: number, dy: number, dz: number) { return this.#proxy.translate(shape, dx, dy, dz); }
     rotate(shape: ShapeHandle, axis: { point: Vec3; direction: Vec3 }, angleRad: number) { return this.#proxy.rotate(shape, axis, angleRad); }
     importStep(data: string | ArrayBuffer) { return this.#proxy.importStep(data); }
+    importIges(data: string | ArrayBuffer) { return this.#proxy.importIges(data); }
     exportStep(shape: ShapeHandle) { return this.#proxy.exportStep(shape); }
     cacheStep(data: string | ArrayBuffer) { return this.#proxy.cacheStep(data); }
     loadCached(brep: string) { return this.#proxy.loadCached(brep); }

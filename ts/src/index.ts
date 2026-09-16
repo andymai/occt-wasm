@@ -1310,6 +1310,14 @@ export class OcctKernel {
         });
     }
 
+    /** Import an IGES file as a live OCCT B-Rep shape. */
+    importIges(data: string | ArrayBuffer): ShapeHandle {
+        return wrap("importIges", () => {
+            const str = typeof data === "string" ? data : new TextDecoder().decode(data);
+            return handle(this.#raw.importIges(str));
+        });
+    }
+
     exportStep(shape: ShapeHandle): string {
         return wrap("exportStep", () => this.#raw.exportStep(shape));
     }

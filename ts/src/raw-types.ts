@@ -267,6 +267,7 @@ export interface OcctRawKernel {
 
     // I/O
     importStep(data: string): number;
+    importIges(data: string): number;
     exportStep(id: number): string;
     importStl(data: string): number;
     importStlBinary(data: Uint8Array): number;

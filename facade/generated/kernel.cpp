@@ -63,6 +63,7 @@
 #include <GCPnts_TangentialDeflection.hxx>
 #include <GC_MakeArcOfCircle.hxx>
 #include <GProp_GProps.hxx>
+#include <IGESControl_Reader.hxx>
 #include <Geom2dAPI_Interpolate.hxx>
 #include <Geom2d_BSplineCurve.hxx>
 #include <Geom2d_Line.hxx>
@@ -3328,6 +3329,33 @@ uint32_t OcctKernel::importStep(const std::string& data) {
         return store(reader.OneShape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("importStep: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::importIges(const std::string& data) {
+    try {
+        IGESControl_Reader reader;
+
+        FILE* f = fopen("/tmp/import.iges", "wb");
+        if (!f) {
+            throw std::runtime_error("importIges: cannot create temp file");
+        }
+        fwrite(data.c_str(), 1, data.size(), f);
+        fclose(f);
+
+        IFSelect_ReturnStatus status = reader.ReadFile("/tmp/import.iges");
+        if (status != IFSelect_RetDone) {
+            throw std::runtime_error("importIges: failed to read IGES data");
+        }
+
+        reader.TransferRoots();
+        if (reader.NbShapes() == 0) {
+            throw std::runtime_error("importIges: no shapes found in IGES data");
+        }
+
+        return store(reader.OneShape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("importIges: ") + e.what());
     }
 }
 
