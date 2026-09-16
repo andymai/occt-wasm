@@ -182,3 +182,45 @@ describe("getBoundingBox uses surface-precise bounds", () => {
         expect(bbox.xmax).toBeCloseTo(7, 3);
     });
 });
+
+describe("getBoundingBoxLoose (raw) always contains getBoundingBox", () => {
+    it("bounds a box exactly (up to tolerance) with or without a mesh", () => {
+        const box = kernel.makeBox(10, 20, 30);
+        for (const useTri of [true, false]) {
+            const bbox = kernel.getBoundingBoxLoose(box, useTri);
+            expect(bbox.xmin).toBeCloseTo(0, 3);
+            expect(bbox.ymin).toBeCloseTo(0, 3);
+            expect(bbox.zmin).toBeCloseTo(0, 3);
+            expect(bbox.xmax).toBeCloseTo(10, 3);
+            expect(bbox.ymax).toBeCloseTo(20, 3);
+            expect(bbox.zmax).toBeCloseTo(30, 3);
+        }
+    });
+
+    it("never returns a box tighter than the precise one on curved geometry", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        const precise = kernel.getBoundingBox(cyl, false);
+        const loose = kernel.getBoundingBoxLoose(cyl, false);
+        expect(loose.xmin).toBeLessThanOrEqual(precise.xmin);
+        expect(loose.ymin).toBeLessThanOrEqual(precise.ymin);
+        expect(loose.zmin).toBeLessThanOrEqual(precise.zmin);
+        expect(loose.xmax).toBeGreaterThanOrEqual(precise.xmax);
+        expect(loose.ymax).toBeGreaterThanOrEqual(precise.ymax);
+        expect(loose.zmax).toBeGreaterThanOrEqual(precise.zmax);
+        expect(loose.zmin).toBeCloseTo(0, 3);
+        expect(loose.zmax).toBeCloseTo(10, 3);
+    });
+
+    it("tightens to the triangulation once the shape is meshed", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        const mesh = kernel.tessellate(cyl, 0.01, 0.1);
+        mesh.delete();
+        const loose = kernel.getBoundingBoxLoose(cyl, true);
+        expect(loose.xmin).toBeCloseTo(-5, 1);
+        expect(loose.xmax).toBeCloseTo(5, 1);
+    });
+
+    it("throws on a shape with no geometry", () => {
+        expect(() => kernel.getBoundingBoxLoose(99999, true)).toThrow();
+    });
+});

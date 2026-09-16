@@ -33,6 +33,23 @@ export interface BoundingBox {
     zmax: number;
 }
 
+/** Options for `OcctKernel.getBoundingBox`. */
+export interface BoundingBoxOptions {
+    /**
+     * `true` (the default) finds each surface's exact extrema, so the box is
+     * the same whether or not the shape has been tessellated. `false` returns
+     * a loose box from analytic extents and BSpline control hulls plus the
+     * shape tolerance; it always contains the precise box and skips the
+     * extremum search that makes unmeshed BSpline geometry slow.
+     */
+    precise?: boolean | undefined;
+    /**
+     * Bound the existing triangulation instead of the surfaces when the shape
+     * has one. Faster, but only as tight as that mesh. Default: `false`.
+     */
+    useTriangulation?: boolean | undefined;
+}
+
 /** 3D point or direction vector. */
 export interface Vec3 {
     x: number;

@@ -302,6 +302,7 @@ class OcctKernel {
 
     // --- Query / Measure ---
     BBoxData getBoundingBox(uint32_t id, bool useTriangulation);
+    BBoxData getBoundingBoxLoose(uint32_t id, bool useTriangulation);
     double getVolume(uint32_t id);
     double getSurfaceArea(uint32_t id);
     double getLength(uint32_t id);

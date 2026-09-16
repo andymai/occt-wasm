@@ -13,11 +13,11 @@
  * @module
  */
 
-import type { BoundingBox, ProjectionData, ShapeHandle, Vec3 } from "./types.js";
+import type { BoundingBox, BoundingBoxOptions, ProjectionData, ShapeHandle, Vec3 } from "./types.js";
 
 /** The subset of the kernel API the SVG renderer depends on. */
 export interface SvgKernel {
-    getBoundingBox(shape: ShapeHandle, useTriangulation?: boolean): BoundingBox;
+    getBoundingBox(shape: ShapeHandle, options?: BoundingBoxOptions): BoundingBox;
     projectEdges(
         shape: ShapeHandle,
         viewOrigin: Vec3,
@@ -325,7 +325,7 @@ function resolved(options: SvgViewOptions) {
 
 function deflectionFor(kernel: SvgKernel, shape: ShapeHandle, options: SvgViewOptions): number {
     if (options.deflection !== undefined) return options.deflection;
-    const bb = kernel.getBoundingBox(shape, false);
+    const bb = kernel.getBoundingBox(shape);
     const diag = Math.hypot(bb.xmax - bb.xmin, bb.ymax - bb.ymin, bb.zmax - bb.zmin);
     return Math.max(diag * 0.002, 1e-4);
 }
@@ -426,7 +426,7 @@ export function renderMultiviewSVG(
 
     let footer = "";
     if (showDimensions) {
-        const bb = kernel.getBoundingBox(shape, false);
+        const bb = kernel.getBoundingBox(shape);
         const dims = `${round(bb.xmax - bb.xmin)} × ${round(bb.ymax - bb.ymin)} × ${round(bb.zmax - bb.zmin)} (X×Y×Z)`;
         footer =
             `<text x="${totalW / 2}" y="${rows * o.height + 15}" font-size="11" fill="#444" ` +
