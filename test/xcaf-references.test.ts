@@ -278,6 +278,34 @@ describe("a part that takes children becomes an assembly", () => {
         doc.close();
     });
 
+    it("moves registered sub-shapes onto the prototype, keeping their tags", () => {
+        const doc = kernel.createXCAFDocument();
+        const box = kernel.makeBox(10, 10, 10);
+        const part = doc.addShape(box, { name: "block" });
+        const top = doc.addSubShape(part, kernel.getSubShapes(box, "face")[5], { name: "top", color: [0, 1, 0] });
+
+        doc.addChild(part, kernel.makeSphere(1), { name: "ball-1" });
+        expect(doc.getSubShapes(part)).toEqual([]);
+        const proto = doc.getReferredLabel(doc.getChildren(part)[0])!;
+        const subs = doc.getSubShapes(proto);
+        expect(subs).toEqual([top]);
+        const info = doc.getLabelInfo(top);
+        expect(info.name).toBe("top");
+        expect(info.hasColor).toBe(true);
+        expect(info.color[1]).toBeCloseTo(1, 6);
+        expect(kernel.getShapeType(info.shapeHandle)).toBe("face");
+        doc.close();
+    });
+
+    it("leaves the document untouched when the child handle is invalid", () => {
+        const doc = kernel.createXCAFDocument();
+        const part = doc.addShape(kernel.makeBox(10, 10, 10), { name: "block" });
+        expect(() => doc.addChild(part, 999999 as never)).toThrow();
+        expect(doc.getLabelInfo(part).isAssembly).toBe(false);
+        expect(doc.getChildren(part)).toEqual([]);
+        doc.close();
+    });
+
     it("rejects a component as parent", () => {
         const doc = kernel.createXCAFDocument();
         const housing = doc.addShape(kernel.makeBox(20, 20, 20));

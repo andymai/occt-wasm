@@ -5304,6 +5304,9 @@ Handle(XCAFDoc_ShapeTool) shapeTool =
     XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
 
 TDF_Label parentLabel = lookupLabel(it->second.labelRegistry, parentLabelId);
+const TopoDS_Shape& child = get(shapeId);
+if (shapeTool->IsReference(parentLabel))
+    throw std::runtime_error(\"xcafAddComponent: parent must be a part or an assembly, not a component\");
 
 // XDE has no part that also has components: an assembly's shape is the
 // compound of its components, so a part given children would lose its own
@@ -5322,6 +5325,32 @@ if (!shapeTool->IsAssembly(parentLabel) && shapeTool->IsSimpleShape(parentLabel)
         Quantity_Color color;
         if (colorTool->GetColor(parentLabel, XCAFDoc_ColorGen, color))
             colorTool->SetColor(partLabel, color, XCAFDoc_ColorGen);
+        // Sub-shape labels live under the part; re-register them under the new
+        // prototype so their names, colors and facade tags follow the geometry.
+        NCollection_Sequence<TDF_Label> subs;
+        XCAFDoc_ShapeTool::GetSubShapes(parentLabel, subs);
+        for (int i = 1; i <= subs.Length(); ++i) {
+            TDF_Label oldSub = subs.Value(i);
+            TopoDS_Shape subShape;
+            TDF_Label newSub;
+            if (!XCAFDoc_ShapeTool::GetShape(oldSub, subShape) ||
+                !shapeTool->AddSubShape(partLabel, subShape, newSub) || newSub.IsNull())
+                continue;
+            Handle(TDataStd_Name) subName;
+            if (oldSub.FindAttribute(TDataStd_Name::GetID(), subName))
+                TDataStd_Name::Set(newSub, subName->Get());
+            Quantity_Color subColor;
+            if (colorTool->GetColor(oldSub, XCAFDoc_ColorGen, subColor))
+                colorTool->SetColor(newSub, subColor, XCAFDoc_ColorGen);
+            auto known = it->second.labelIds.find(oldSub);
+            if (known != it->second.labelIds.end()) {
+                int tagId = known->second;
+                it->second.labelIds.erase(known);
+                it->second.labelIds.emplace(newSub, tagId);
+                it->second.labelRegistry[tagId] = newSub;
+            }
+            oldSub.ForgetAllAttributes();
+        }
         TDF_Label ownComp = shapeTool->AddComponent(parentLabel, partLabel, TopLoc_Location());
         Handle(TDataStd_Name) nameAttr;
         if (parentLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
@@ -5344,7 +5373,7 @@ trsf.SetTranslationPart(gp_Vec(tx, ty, tz));
 TopLoc_Location loc(trsf);
 
 // First add the shape as a standalone label, then add as component with location
-TDF_Label shapeLabel = shapeTool->AddShape(get(shapeId));
+TDF_Label shapeLabel = shapeTool->AddShape(child);
 TDF_Label compLabel = shapeTool->AddComponent(parentLabel, shapeLabel, loc);
 if (compLabel.IsNull())
     throw std::runtime_error(\"xcafAddComponent: parent must be a part or an assembly, not a component\");
@@ -5355,7 +5384,7 @@ return facadeId;",
         includes: &[
             "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx", "XCAFDoc_ColorTool.hxx",
             "TDF_Label.hxx", "TopLoc_Location.hxx", "TopAbs_ShapeEnum.hxx",
-            "TDataStd_Name.hxx", "Quantity_Color.hxx",
+            "TDataStd_Name.hxx", "Quantity_Color.hxx", "NCollection_Sequence.hxx",
             "gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx", "gp_Trsf.hxx", "gp_Vec.hxx",
         ],
         category: "xcaf",
