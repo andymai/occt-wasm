@@ -44,7 +44,9 @@ pub fn camel_to_snake(s: &str) -> String {
 /// String and vector types expand to pointer+length pairs.
 fn param_to_c_abi(param: &FacadeParam) -> String {
     match param {
-        FacadeParam::ShapeId(name) | FacadeParam::Uint32(name) => format!("uint32_t {name}"),
+        FacadeParam::ShapeId(name) | FacadeParam::DocId(name) | FacadeParam::Uint32(name) => {
+            format!("uint32_t {name}")
+        }
         FacadeParam::Double(name) => format!("double {name}"),
         FacadeParam::Bool(name) | FacadeParam::Int(name) => format!("int32_t {name}"),
         FacadeParam::String(name) | FacadeParam::Bytes(name) => {
@@ -76,6 +78,7 @@ fn c_abi_param_list(params: &[FacadeParam]) -> String {
 fn param_to_call_arg(param: &FacadeParam) -> String {
     match param {
         FacadeParam::ShapeId(name)
+        | FacadeParam::DocId(name)
         | FacadeParam::Double(name)
         | FacadeParam::Int(name)
         | FacadeParam::Uint32(name) => (*name).to_owned(),
@@ -112,7 +115,7 @@ fn call_args(params: &[FacadeParam]) -> String {
 /// silently falling through to `int32_t`.
 const fn c_return_type(rt: ReturnType) -> &'static str {
     match rt {
-        ReturnType::ShapeId | ReturnType::Uint32 => "uint32_t",
+        ReturnType::ShapeId | ReturnType::DocId | ReturnType::Uint32 => "uint32_t",
         ReturnType::Double => "double",
         ReturnType::Bool
         | ReturnType::Void
@@ -140,7 +143,7 @@ const fn c_return_type(rt: ReturnType) -> &'static str {
 /// forces a deliberate choice.
 const fn error_sentinel(rt: ReturnType) -> &'static str {
     match rt {
-        ReturnType::ShapeId | ReturnType::Uint32 => "0",
+        ReturnType::ShapeId | ReturnType::DocId | ReturnType::Uint32 => "0",
         ReturnType::Double => "std::numeric_limits<double>::quiet_NaN()",
         ReturnType::Bool
         | ReturnType::Void
@@ -176,7 +179,11 @@ fn emit_wasi_method(buf: &mut String, spec: &MethodSpec) {
 
     // Generate the call + return based on return type
     match spec.return_type {
-        ReturnType::ShapeId | ReturnType::Uint32 | ReturnType::Double | ReturnType::Int => {
+        ReturnType::ShapeId
+        | ReturnType::DocId
+        | ReturnType::Uint32
+        | ReturnType::Double
+        | ReturnType::Int => {
             let _ = writeln!(
                 buf,
                 "        return g_kernel->{name}({args});",
