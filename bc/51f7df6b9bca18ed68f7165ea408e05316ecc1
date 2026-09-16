@@ -1,0 +1,50 @@
+facade/include/occt_kernel.h
+  s_1263630bd68425::t_74f9814c97493f 407
+  s_1263630bd68425::t_90325ff1399e89 415-418
+ts/src/xcaf-document.ts
+  s_1263630bd68425::t_74f9814c97493f 29,41,124-133,136-138,262,336
+  s_1263630bd68425::t_90325ff1399e89 74-83,213-261,263-268,347-350,352,354
+test/xcaf-references.test.ts
+  s_1263630bd68425::t_b76d5591765f4e 30,182-184,186-190,197-214,217
+  s_1263630bd68425::t_be7adcd9061934 1-29,31-140,180-181,191-196,215-216,218-220
+  s_1263630bd68425::t_74f9814c97493f 141-179,185
+README.md
+  s_1263630bd68425::t_74f9814c97493f 284
+  s_1263630bd68425::t_be7adcd9061934 287-288
+  s_1263630bd68425::t_90325ff1399e89 285-286,289-302
+ts/src/raw-types.ts
+  s_1263630bd68425::t_90325ff1399e89 384-387
+  s_1263630bd68425::t_74f9814c97493f 377
+ts/src/index.ts
+  s_1263630bd68425::t_74f9814c97493f 38
+ts/src/types.ts
+  s_1263630bd68425::t_90325ff1399e89 155-159
+  s_1263630bd68425::t_74f9814c97493f 120-121,128-136,138
+xtask/src/codegen/config.rs
+  s_1263630bd68425::t_90325ff1399e89 5253,5511-5622
+  s_1263630bd68425::t_74f9814c97493f 5254-5283
+crate/src/kernel_generated.rs
+  s_1263630bd68425::t_e44ce19337bfff 4127,4293
+  s_1263630bd68425::t_be7adcd9061934 246-249,505-512,4125-4126,4237-4292
+  s_1263630bd68425::t_74f9814c97493f 239,494,4115-4124
+facade/generated/bindings.cpp
+  s_1263630bd68425::t_8ea860fcf6842f 333,340-343
+facade/generated/kernel.cpp
+  s_1263630bd68425::t_f37a37ae94e4c0 4140-4161,4324-4412
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bc51f7df6b9bca18ed68f7165ea408e05316ecc1",
+  "prompts": {},
+  "sessions": {
+    "s_1263630bd68425": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24ce7417-7089-4685-b90a-6bb12f142c6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": null
+    }
+  }
+}
