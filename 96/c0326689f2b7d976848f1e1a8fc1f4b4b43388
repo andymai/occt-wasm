@@ -1,0 +1,23 @@
+xtask/src/codegen/config.rs
+  s_1263630bd68425::t_c858e1ffd98194 5307-5309,5328-5353,5376,5387
+test/xcaf-references.test.ts
+  s_1263630bd68425::t_c858e1ffd98194 281-308
+facade/generated/kernel.cpp
+  s_1263630bd68425::t_8a5c146e88ede1 4170-4172,4191-4216,4239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "96c0326689f2b7d976848f1e1a8fc1f4b4b43388",
+  "prompts": {},
+  "sessions": {
+    "s_1263630bd68425": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24ce7417-7089-4685-b90a-6bb12f142c6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
