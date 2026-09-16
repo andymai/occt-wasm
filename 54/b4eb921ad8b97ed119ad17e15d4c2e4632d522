@@ -1,0 +1,54 @@
+ts/src/types.ts
+  s_aaa907c7afedec::t_f86abf84dbcea0 36-52
+xtask/src/codegen/config.rs
+  s_aaa907c7afedec::t_f86abf84dbcea0 2366,2371-2374,2380
+ts/src/raw-types.ts
+  s_aaa907c7afedec::t_f86abf84dbcea0 282
+crate/tests/integration.rs
+  s_aaa907c7afedec::t_f86abf84dbcea0 109,114,121-125
+ts/src/svg.ts
+  s_aaa907c7afedec::t_f86abf84dbcea0 16,20,328,429
+ts/src/index.ts
+  s_aaa907c7afedec::t_f86abf84dbcea0 29,876,885,894,1399-1405,1407-1411,1413-1417,1419-1429,2098
+  s_aaa907c7afedec::t_9945e2d8dcf492 99
+ts/src/worker.ts
+  s_aaa907c7afedec::t_f86abf84dbcea0 19,126,247
+facade/include/occt_kernel.h
+  s_aaa907c7afedec::t_f86abf84dbcea0 305
+crate/src/kernel_generated.rs
+  s_aaa907c7afedec::t_f86abf84dbcea0 122,361-362,2352,2359,2362
+test/parity-tolerance.test.ts
+  s_aaa907c7afedec::t_f86abf84dbcea0 186,190,203-211,218-220,224
+test/ts-wrapper-bulk.test.ts
+  s_aaa907c7afedec::t_f86abf84dbcea0 164-197
+examples/node-cli/example.mjs
+  s_1263630bd68425::t_bb23688a09c18e 60
+facade/generated/bindings.cpp
+  s_1263630bd68425::t_f089fe157c98a4 215
+facade/generated/kernel.cpp
+  s_1263630bd68425::t_c695c539eda378 2119,2125,2131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "54b4eb921ad8b97ed119ad17e15d4c2e4632d522",
+  "prompts": {},
+  "sessions": {
+    "s_1263630bd68425": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24ce7417-7089-4685-b90a-6bb12f142c6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    },
+    "s_aaa907c7afedec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "304eac1a-d2a7-4080-b658-7ad115c2183d",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
