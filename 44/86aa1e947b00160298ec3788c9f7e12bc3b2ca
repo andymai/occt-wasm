@@ -1,0 +1,28 @@
+test/xcaf-references.test.ts
+  s_1263630bd68425::t_c03b83a4ea0789 74-86
+facade/include/occt_kernel.h
+  s_1263630bd68425::t_c03b83a4ea0789 471,474-476
+xtask/src/codegen/config.rs
+  s_1263630bd68425::t_7b7f0346911a5b 5189,5696
+  s_1263630bd68425::t_c03b83a4ea0789 5243,5276,5324,5465,5495,5526,5575,5609
+facade/src/kernel.cpp
+  s_1263630bd68425::t_c03b83a4ea0789 46-56
+facade/generated/kernel.cpp
+  s_1263630bd68425::t_0ef2c149d2afb9 4092,4132,4153,4187,4287,4310,4331,4372,4398,4474
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4486aa1e947b00160298ec3788c9f7e12bc3b2ca",
+  "prompts": {},
+  "sessions": {
+    "s_1263630bd68425": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24ce7417-7089-4685-b90a-6bb12f142c6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
