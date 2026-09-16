@@ -66,7 +66,12 @@ describe("XCAFDocument.getReferredLabel", () => {
         doc.setName(proto, "gear");
         expect(doc.getLabelInfo(proto).name).toBe("gear");
         expect(doc.getLabelInfo(comp).name).toBe("gear-1");
-        expect(doc.getChildren(root)).toHaveLength(1);
+        // The housing's own box became the first component when it took a child.
+        const children = doc.getChildren(root);
+        expect(children).toHaveLength(2);
+        expect(children[1]).toBe(comp);
+        expect(doc.getLabelInfo(children[0]).isComponent).toBe(true);
+        expect(doc.getLabelInfo(doc.getReferredLabel(children[0])!).name).toBe("housing");
         doc.close();
     });
 });
@@ -76,10 +81,11 @@ describe("label tags are stable across reads", () => {
         const { doc, root, comp } = buildAssembly();
         expect(doc.getRoots()).toEqual([root]);
         expect(doc.getRoots()).toEqual([root]);
-        expect(doc.getChildren(root)).toEqual([comp]);
+        expect(doc.getChildren(root)).toEqual(doc.getChildren(root));
+        expect(doc.getChildren(root)[1]).toBe(comp);
         const proto = doc.getReferredLabel(comp);
         expect(doc.getReferredLabel(comp)).toBe(proto);
-        expect(doc.getReferredLabel(doc.getChildren(root)[0])).toBe(proto);
+        expect(doc.getReferredLabel(doc.getChildren(root)[1])).toBe(proto);
         doc.close();
     });
 });
@@ -228,6 +234,106 @@ describe("references survive a STEP round trip", () => {
         expect(m[3]).toBeCloseTo(10, 6);
         expect(m[11]).toBeCloseTo(5, 6);
         expect(imported.getLocation(byName.get("housing")!)).toEqual(IDENTITY);
+        imported.close();
+    });
+});
+
+describe("a part that takes children becomes an assembly", () => {
+    it("keeps its own geometry as a first component with its name and color", () => {
+        const doc = kernel.createXCAFDocument();
+        const box = kernel.makeBox(20, 20, 20);
+        const housing = doc.addShape(box, { name: "housing", color: [0.8, 0.2, 0.1] });
+        expect(doc.getLabelInfo(housing).isAssembly).toBe(false);
+
+        const gear = doc.addChild(housing, kernel.makeCylinder(5, 10), { name: "gear-1", location: { tx: 30 } });
+        const info = doc.getLabelInfo(housing);
+        expect(info.isAssembly).toBe(true);
+        expect(info.name).toBe("housing");
+
+        const [own, child] = doc.getChildren(housing);
+        expect(child).toBe(gear);
+        expect(doc.getLocation(own)).toEqual(IDENTITY);
+        const proto = doc.getReferredLabel(own)!;
+        const protoInfo = doc.getLabelInfo(proto);
+        expect(protoInfo.name).toBe("housing");
+        expect(protoInfo.hasColor).toBe(true);
+        expect(protoInfo.color[0]).toBeCloseTo(0.8, 6);
+        expect(kernel.getVolume(protoInfo.shapeHandle)).toBeCloseTo(8000, 3);
+
+        // The assembly's own shape is now the compound of both components.
+        expect(kernel.getVolume(info.shapeHandle)).toBeCloseTo(8000 + Math.PI * 25 * 10, 3);
+        doc.close();
+    });
+
+    it("adds further children without converting again", () => {
+        const doc = kernel.createXCAFDocument();
+        const housing = doc.addShape(kernel.makeBox(20, 20, 20), { name: "housing" });
+        doc.addChild(housing, kernel.makeCylinder(5, 10), { name: "gear-1" });
+        doc.addChild(housing, kernel.makeSphere(3), { name: "ball-1" });
+        expect(doc.getChildren(housing).map((l: number) => doc.getLabelInfo(l).name)).toEqual([
+            "housing",
+            "gear-1",
+            "ball-1",
+        ]);
+        doc.close();
+    });
+
+    it("moves registered sub-shapes onto the prototype, keeping their tags", () => {
+        const doc = kernel.createXCAFDocument();
+        const box = kernel.makeBox(10, 10, 10);
+        const part = doc.addShape(box, { name: "block" });
+        const top = doc.addSubShape(part, kernel.getSubShapes(box, "face")[5], { name: "top", color: [0, 1, 0] });
+
+        doc.addChild(part, kernel.makeSphere(1), { name: "ball-1" });
+        expect(doc.getSubShapes(part)).toEqual([]);
+        const proto = doc.getReferredLabel(doc.getChildren(part)[0])!;
+        const subs = doc.getSubShapes(proto);
+        expect(subs).toEqual([top]);
+        const info = doc.getLabelInfo(top);
+        expect(info.name).toBe("top");
+        expect(info.hasColor).toBe(true);
+        expect(info.color[1]).toBeCloseTo(1, 6);
+        expect(kernel.getShapeType(info.shapeHandle)).toBe("face");
+        doc.close();
+    });
+
+    it("leaves the document untouched when the child handle is invalid", () => {
+        const doc = kernel.createXCAFDocument();
+        const part = doc.addShape(kernel.makeBox(10, 10, 10), { name: "block" });
+        expect(() => doc.addChild(part, 999999 as never)).toThrow();
+        expect(doc.getLabelInfo(part).isAssembly).toBe(false);
+        expect(doc.getChildren(part)).toEqual([]);
+        doc.close();
+    });
+
+    it("rejects a component as parent", () => {
+        const doc = kernel.createXCAFDocument();
+        const housing = doc.addShape(kernel.makeBox(20, 20, 20));
+        const gear = doc.addChild(housing, kernel.makeCylinder(5, 10));
+        expect(() => doc.addChild(gear, kernel.makeSphere(1))).toThrow(/component/);
+        doc.close();
+    });
+
+    it("survives a STEP round trip with both parts and the placement", () => {
+        const doc = kernel.createXCAFDocument();
+        const housing = doc.addShape(kernel.makeBox(20, 20, 20), { name: "housing", color: [0.8, 0.2, 0.1] });
+        doc.addChild(housing, kernel.makeCylinder(5, 10), { name: "gear-1", location: { tx: 10, tz: 5 } });
+        const step = doc.exportSTEP();
+        doc.close();
+
+        const imported = kernel.importXCAFFromSTEP(step);
+        const root = imported.getRoots()[0];
+        expect(imported.getLabelInfo(root).isAssembly).toBe(true);
+        expect(imported.getLabelInfo(root).name).toBe("housing");
+        const children = imported.getChildren(root);
+        expect(children).toHaveLength(2);
+        const names = children.map((l: number) => imported.getLabelInfo(imported.getReferredLabel(l)!).name);
+        expect(names).toContain("housing");
+        const gear = children.find((l: number) => imported.getLabelInfo(l).name === "gear-1")!;
+        expect(imported.getLocation(gear)[3]).toBeCloseTo(10, 6);
+        expect(imported.getLocation(gear)[11]).toBeCloseTo(5, 6);
+        const shape = imported.getLabelInfo(root).shapeHandle;
+        expect(kernel.getVolume(shape)).toBeCloseTo(8000 + Math.PI * 25 * 10, 1);
         imported.close();
     });
 });

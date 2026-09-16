@@ -5304,6 +5304,66 @@ Handle(XCAFDoc_ShapeTool) shapeTool =
     XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
 
 TDF_Label parentLabel = lookupLabel(it->second.labelRegistry, parentLabelId);
+const TopoDS_Shape& child = get(shapeId);
+if (shapeTool->IsReference(parentLabel))
+    throw std::runtime_error(\"xcafAddComponent: parent must be a part or an assembly, not a component\");
+
+// XDE has no part that also has components: an assembly's shape is the
+// compound of its components, so a part given children would lose its own
+// geometry on export. Turn it into an assembly whose first component is the
+// geometry it had, at identity, carrying the part's name and color. The
+// registered shape keeps its facade ID; the new part label is the prototype
+// behind that component.
+if (!shapeTool->IsAssembly(parentLabel) && shapeTool->IsSimpleShape(parentLabel)) {
+    TopoDS_Shape own = shapeTool->GetShape(parentLabel);
+    bool empty = own.IsNull() || (own.ShapeType() == TopAbs_COMPOUND && own.NbChildren() == 0);
+    if (!empty) {
+        TDF_Label partLabel = shapeTool->NewShape();
+        shapeTool->SetShape(partLabel, own);
+        Handle(XCAFDoc_ColorTool) colorTool =
+            XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
+        const XCAFDoc_ColorType colorTypes[] = {XCAFDoc_ColorGen, XCAFDoc_ColorSurf,
+                                                XCAFDoc_ColorCurv};
+        auto copyColors = [&](const TDF_Label& from, const TDF_Label& to) {
+            Quantity_Color color;
+            for (XCAFDoc_ColorType type : colorTypes) {
+                if (colorTool->GetColor(from, type, color))
+                    colorTool->SetColor(to, color, type);
+            }
+        };
+        copyColors(parentLabel, partLabel);
+        // Sub-shape labels live under the part; re-register them under the new
+        // prototype so their names, colors and facade tags follow the geometry.
+        NCollection_Sequence<TDF_Label> subs;
+        XCAFDoc_ShapeTool::GetSubShapes(parentLabel, subs);
+        for (int i = 1; i <= subs.Length(); ++i) {
+            TDF_Label oldSub = subs.Value(i);
+            TopoDS_Shape subShape;
+            TDF_Label newSub;
+            if (!XCAFDoc_ShapeTool::GetShape(oldSub, subShape) ||
+                !shapeTool->AddSubShape(partLabel, subShape, newSub) || newSub.IsNull())
+                continue;
+            Handle(TDataStd_Name) subName;
+            if (oldSub.FindAttribute(TDataStd_Name::GetID(), subName))
+                TDataStd_Name::Set(newSub, subName->Get());
+            copyColors(oldSub, newSub);
+            auto known = it->second.labelIds.find(oldSub);
+            if (known != it->second.labelIds.end()) {
+                int tagId = known->second;
+                it->second.labelIds.erase(known);
+                it->second.labelIds.emplace(newSub, tagId);
+                it->second.labelRegistry[tagId] = newSub;
+            }
+            oldSub.ForgetAllAttributes();
+        }
+        TDF_Label ownComp = shapeTool->AddComponent(parentLabel, partLabel, TopLoc_Location());
+        Handle(TDataStd_Name) nameAttr;
+        if (parentLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+            TDataStd_Name::Set(partLabel, nameAttr->Get());
+            TDataStd_Name::Set(ownComp, nameAttr->Get());
+        }
+    }
+}
 
 // Build location transform (Euler angles in radians)
 gp_Trsf trsf;
@@ -5318,14 +5378,19 @@ trsf.SetTranslationPart(gp_Vec(tx, ty, tz));
 TopLoc_Location loc(trsf);
 
 // First add the shape as a standalone label, then add as component with location
-TDF_Label shapeLabel = shapeTool->AddShape(get(shapeId));
+TDF_Label shapeLabel = shapeTool->AddShape(child);
 TDF_Label compLabel = shapeTool->AddComponent(parentLabel, shapeLabel, loc);
+if (compLabel.IsNull())
+    throw std::runtime_error(\"xcafAddComponent: parent must be a part or an assembly, not a component\");
+shapeTool->UpdateAssemblies();
 
 int facadeId = registerLabel(it->second, compLabel);
 return facadeId;",
         includes: &[
-            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
-            "TDF_Label.hxx", "TopLoc_Location.hxx",
+            "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx", "XCAFDoc_ColorTool.hxx",
+            "TDF_Label.hxx", "TopLoc_Location.hxx", "TopAbs_ShapeEnum.hxx",
+            "TDataStd_Name.hxx", "Quantity_Color.hxx", "NCollection_Sequence.hxx",
+            "XCAFDoc_ColorType.hxx",
             "gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx", "gp_Trsf.hxx", "gp_Vec.hxx",
         ],
         category: "xcaf",

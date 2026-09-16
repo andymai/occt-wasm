@@ -140,7 +140,16 @@ export class XCAFDocument {
         return tag(t);
     }
 
-    /** Add a shape as a child component of a parent label. */
+    /**
+     * Add a shape as a child component of a parent label.
+     *
+     * `parent` may be an assembly or a part. A part becomes an assembly on
+     * its first child: the geometry it held moves into a first component at
+     * identity, carrying the part's name and color, so `getChildren(parent)`
+     * then lists that component ahead of the new one and exports keep both.
+     * A component label cannot take children; resolve it with
+     * {@link getReferredLabel} first.
+     */
     addChild(parent: LabelTag, shape: ShapeHandle, options?: AddChildOptions): LabelTag {
         this.#ensureOpen();
         const loc = options?.location ?? {};
