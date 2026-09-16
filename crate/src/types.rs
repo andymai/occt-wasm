@@ -18,6 +18,21 @@ impl ShapeHandle {
     }
 }
 
+/// Handle to an XCAF document owned by the kernel.
+///
+/// Returned by `xcaf_new_document` and `xcaf_import_step`, and taken by every
+/// other `xcaf_*` method. Freed with `xcaf_close`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DocumentHandle(pub(crate) u32);
+
+impl DocumentHandle {
+    /// Returns the raw document ID. Useful for debugging.
+    #[must_use]
+    pub const fn id(self) -> u32 {
+        self.0
+    }
+}
+
 /// A 3D vector or point.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3 {

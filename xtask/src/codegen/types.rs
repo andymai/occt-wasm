@@ -50,6 +50,9 @@ pub enum FacadeParam {
     /// `uint32_t` shape ID resolved via `get(id)`.
     ShapeId(&'static str),
 
+    /// `uint32_t` XCAF document ID (a `DocumentHandle` in the crate).
+    DocId(&'static str),
+
     /// `double` scalar value.
     Double(&'static str),
 
@@ -91,9 +94,12 @@ impl FacadeParam {
             | Self::VectorShapeIds(_)
             | Self::VectorDouble(_)
             | Self::VectorInt(_) => 2,
-            Self::ShapeId(_) | Self::Double(_) | Self::Bool(_) | Self::Int(_) | Self::Uint32(_) => {
-                1
-            }
+            Self::ShapeId(_)
+            | Self::DocId(_)
+            | Self::Double(_)
+            | Self::Bool(_)
+            | Self::Int(_)
+            | Self::Uint32(_) => 1,
         }
     }
 
@@ -101,6 +107,7 @@ impl FacadeParam {
     pub const fn name(self) -> &'static str {
         match self {
             Self::ShapeId(n)
+            | Self::DocId(n)
             | Self::Double(n)
             | Self::VectorShapeIds(n)
             | Self::Bool(n)
@@ -152,8 +159,10 @@ pub enum ReturnType {
     EdgeData,
     /// `ProjectionData` return (HLR projection data struct).
     ProjectionData,
-    /// `uint32_t` return (non-shape-ID integer, e.g. document ID or count).
+    /// `uint32_t` return (non-shape-ID integer, e.g. a count).
     Uint32,
+    /// `uint32_t` XCAF document ID (a `DocumentHandle` in the crate).
+    DocId,
     /// `XCAFLabelInfo` return (XCAF label info struct).
     XCAFLabelInfo,
 }

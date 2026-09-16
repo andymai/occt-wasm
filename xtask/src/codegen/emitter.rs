@@ -11,7 +11,9 @@ use super::types::{FacadeParam, MethodKind, MethodSpec, ReturnType};
 /// Format a [`FacadeParam`] as a C++ formal parameter declaration.
 fn param_to_cpp(param: &FacadeParam) -> String {
     match param {
-        FacadeParam::ShapeId(name) | FacadeParam::Uint32(name) => format!("uint32_t {name}"),
+        FacadeParam::ShapeId(name) | FacadeParam::DocId(name) | FacadeParam::Uint32(name) => {
+            format!("uint32_t {name}")
+        }
         FacadeParam::Double(name) => format!("double {name}"),
         FacadeParam::VectorShapeIds(name) => format!("std::vector<uint32_t> {name}"),
         FacadeParam::Bool(name) => format!("bool {name}"),
@@ -197,7 +199,7 @@ fn emit_setup_shape(buf: &mut String, spec: &MethodSpec) {
 /// Map a `ReturnType` to its C++ type spelling.
 const fn cpp_return_type(ret: ReturnType) -> &'static str {
     match ret {
-        ReturnType::ShapeId | ReturnType::Uint32 => "uint32_t",
+        ReturnType::ShapeId | ReturnType::DocId | ReturnType::Uint32 => "uint32_t",
         ReturnType::Bool => "bool",
         ReturnType::Void => "void",
         ReturnType::VectorUint32 => "std::vector<uint32_t>",

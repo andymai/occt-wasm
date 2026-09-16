@@ -13,6 +13,7 @@ use super::wasi_emitter::camel_to_snake;
 fn param_to_rust(param: &FacadeParam) -> String {
     match param {
         FacadeParam::ShapeId(name) => format!("{}: ShapeHandle", rust_param_name(name)),
+        FacadeParam::DocId(name) => format!("{}: DocumentHandle", rust_param_name(name)),
         FacadeParam::Double(name) => format!("{}: f64", rust_param_name(name)),
         FacadeParam::Bool(name) => format!("{}: bool", rust_param_name(name)),
         FacadeParam::Int(name) => format!("{}: i32", rust_param_name(name)),
@@ -46,6 +47,7 @@ fn rust_param_list(params: &[FacadeParam]) -> String {
 const fn rust_return_type(rt: ReturnType) -> &'static str {
     match rt {
         ReturnType::ShapeId => "OcctResult<ShapeHandle>",
+        ReturnType::DocId => "OcctResult<DocumentHandle>",
         ReturnType::Uint32 => "OcctResult<u32>",
         ReturnType::Bool => "OcctResult<bool>",
         ReturnType::Void => "OcctResult<()>",
@@ -201,7 +203,9 @@ fn emit_wasm_call_args(params: &[FacadeParam]) -> String {
     let args: Vec<String> = params
         .iter()
         .flat_map(|p| match p {
-            FacadeParam::ShapeId(name) => vec![format!("{}.0", rust_param_name(name))],
+            FacadeParam::ShapeId(name) | FacadeParam::DocId(name) => {
+                vec![format!("{}.0", rust_param_name(name))]
+            }
             FacadeParam::Double(name) | FacadeParam::Int(name) | FacadeParam::Uint32(name) => {
                 vec![rust_param_name(name)]
             }
@@ -260,7 +264,7 @@ fn wasm_typed_func_type(spec: &MethodSpec) -> String {
         .params
         .iter()
         .flat_map(|p| match p {
-            FacadeParam::ShapeId(_) | FacadeParam::Uint32(_) => vec!["u32"],
+            FacadeParam::ShapeId(_) | FacadeParam::DocId(_) | FacadeParam::Uint32(_) => vec!["u32"],
             FacadeParam::Double(_) => vec!["f64"],
             FacadeParam::Bool(_) | FacadeParam::Int(_) => vec!["i32"],
             FacadeParam::String(_)
@@ -274,7 +278,7 @@ fn wasm_typed_func_type(spec: &MethodSpec) -> String {
     // All non-scalar returns cross the WASM boundary as an `i32` status/length;
     // the match is exhaustive so a new `ReturnType` is a compile error.
     let ret_type = match spec.return_type {
-        ReturnType::ShapeId | ReturnType::Uint32 => "u32",
+        ReturnType::ShapeId | ReturnType::DocId | ReturnType::Uint32 => "u32",
         ReturnType::Double => "f64",
         ReturnType::Bool
         | ReturnType::Void
@@ -381,6 +385,18 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
             );
             let _ = writeln!(buf, "        }}");
             let _ = writeln!(buf, "        Ok(ShapeHandle(result))");
+        }
+        ReturnType::DocId => {
+            let _ = writeln!(
+                buf,
+                "        let result = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
+            );
+            if has_heap_params {
+                emit_wasm_call_cleanup(buf, spec.params);
+                let _ = writeln!(buf, "        let result = result?;");
+            }
+            let _ = writeln!(buf, "        self.check_error(\"{snake_name}\")?;");
+            let _ = writeln!(buf, "        Ok(DocumentHandle(result))");
         }
         ReturnType::Uint32 | ReturnType::Double | ReturnType::Int => {
             let _ = writeln!(
@@ -567,7 +583,10 @@ pub fn emit_rust_host(methods: &[&MethodSpec]) -> String {
         buf,
         "    BoundingBox, EdgeData, EvolutionData, LabelInfo, Mesh, MeshBatch,"
     );
-    let _ = writeln!(buf, "    NurbsCurveData, ProjectionData, ShapeHandle,");
+    let _ = writeln!(
+        buf,
+        "    DocumentHandle, NurbsCurveData, ProjectionData, ShapeHandle,"
+    );
     let _ = writeln!(buf, "}};");
     let _ = writeln!(buf);
 
@@ -636,6 +655,43 @@ pub fn emit_rust_host(methods: &[&MethodSpec]) -> String {
 mod tests {
     use super::*;
     use crate::codegen::types::{FacadeParam, MethodKind, MethodSpec, ReturnType};
+
+    static XCAF_NEW_DOCUMENT: MethodSpec = MethodSpec {
+        name: "xcafNewDocument",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        return_type: ReturnType::DocId,
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "return 1;",
+        includes: &[],
+        category: "xcaf",
+    };
+
+    static XCAF_CLOSE: MethodSpec = MethodSpec {
+        name: "xcafClose",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::DocId("docId")],
+        return_type: ReturnType::Void,
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "(void)docId;",
+        includes: &[],
+        category: "xcaf",
+    };
+
+    #[test]
+    fn document_ids_are_document_handles() {
+        let mut buf = String::new();
+        emit_rust_method(&mut buf, &XCAF_NEW_DOCUMENT);
+        assert!(buf.contains("-> OcctResult<DocumentHandle>"));
+        assert!(buf.contains("Ok(DocumentHandle(result))"));
+
+        let mut buf = String::new();
+        emit_rust_method(&mut buf, &XCAF_CLOSE);
+        assert!(buf.contains("doc_id: DocumentHandle"));
+        assert!(buf.contains("(doc_id.0,)"));
+    }
 
     static MAKE_BOX: MethodSpec = MethodSpec {
         name: "makeBox",

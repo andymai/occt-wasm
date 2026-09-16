@@ -354,3 +354,43 @@ fn helix_handedness_mirrors_across_the_axis_plane() {
     assert!((left[0] - right[0]).abs() < 1e-6);
     assert!((left[2] - right[2]).abs() < 1e-6);
 }
+
+#[test]
+fn xcaf_document_roundtrip() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let doc = kernel.xcaf_new_document().unwrap();
+    let housing = kernel.make_box(20.0, 20.0, 20.0).unwrap();
+    let gear = kernel.make_cylinder(5.0, 10.0).unwrap();
+    let root = kernel.xcaf_add_shape(doc, housing).unwrap();
+    kernel.xcaf_set_name(doc, root, "housing").unwrap();
+    kernel.xcaf_set_color(doc, root, 0.8, 0.2, 0.1).unwrap();
+    let comp = kernel
+        .xcaf_add_component(doc, root, gear, 10.0, 0.0, 5.0, 0.0, 0.0, 0.0)
+        .unwrap();
+    kernel.xcaf_set_name(doc, comp, "gear-1").unwrap();
+
+    let info = kernel.xcaf_get_label_info(doc, comp).unwrap();
+    assert!(info.is_component);
+    assert_eq!(info.name, "gear-1");
+    let proto = kernel.xcaf_get_referred_label(doc, comp).unwrap();
+    assert!(proto > 0);
+    assert_eq!(kernel.xcaf_get_referred_label(doc, proto).unwrap(), 0);
+    let location = kernel.xcaf_get_label_location(doc, comp).unwrap();
+    assert_eq!(location.len(), 12);
+    assert!((location[3] - 10.0).abs() < 1e-9);
+    assert!((location[11] - 5.0).abs() < 1e-9);
+
+    let step = kernel.xcaf_export_step(doc).unwrap();
+    assert!(step.contains("STEP"));
+    kernel.xcaf_close(doc).unwrap();
+
+    let imported = kernel.xcaf_import_step(&step).unwrap();
+    let roots = kernel.xcaf_get_root_labels(imported).unwrap();
+    assert_eq!(roots.len(), 1);
+    let root_info = kernel.xcaf_get_label_info(imported, roots[0]).unwrap();
+    assert_eq!(root_info.name, "housing");
+    assert!(root_info.shape_id > 0);
+    kernel.xcaf_close(imported).unwrap();
+}
