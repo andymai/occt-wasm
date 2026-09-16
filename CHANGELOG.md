@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.1.0](https://github.com/andymai/occt-wasm/compare/v5.0.0...v5.1.0) (2026-09-16)
+
+
+### Features
+
+* add a loose mode to getBoundingBox ([#318](https://github.com/andymai/occt-wasm/issues/318)) ([8292a3f](https://github.com/andymai/occt-wasm/commit/8292a3fa86078389fcbba59309bab01606ec02da))
+* **xcaf:** resolve component references and named sub-shapes ([#322](https://github.com/andymai/occt-wasm/issues/322)) ([758f41d](https://github.com/andymai/occt-wasm/commit/758f41d9d2144237c9b60d70878b2a10cbebe07d))
+
+
+### Bug Fixes
+
+* **facade:** flip mesh normals on reversed faces ([#317](https://github.com/andymai/occt-wasm/issues/317)) ([e51d4d0](https://github.com/andymai/occt-wasm/commit/e51d4d069d1f2cdf57bc935c4e8bd9a5fba69c8a))
+
 ## [5.0.0](https://github.com/andymai/occt-wasm/compare/v4.4.0...v5.0.0) (2026-09-10)
 
 
