@@ -281,6 +281,25 @@ doc.close();
 const imported = kernel.importXCAFFromSTEP(stepData);
 ```
 
+Walking an imported assembly: each component is a placed reference to a prototype label (a part or sub-assembly). Resolve it with `getReferredLabel` to reach the prototype's name, named sub-shapes and children. To author the same structure, add a compound with `doc.addShape(compound, { assembly: true })`.
+
+```typescript check doc
+import type { LabelTag } from "occt-wasm";
+
+function walk(label: LabelTag, depth = 0): void {
+  const info = doc.getLabelInfo(label);
+  console.log(`${"  ".repeat(depth)}${info.name}`);
+  const proto = doc.getReferredLabel(label) ?? label;
+  for (const sub of doc.getSubShapes(proto)) {
+    console.log(`${"  ".repeat(depth + 1)}(${doc.getLabelInfo(sub).name})`);
+  }
+  for (const child of doc.getChildren(proto)) walk(child, depth + 1);
+}
+for (const root of doc.getRoots()) walk(root);
+```
+
+`getLocation(label)` returns a component's placement as a 3x4 matrix in the layout `kernel.transform` accepts, so a prototype's geometry can be tessellated once and instanced per component.
+
 ## Bundler Configuration
 
 ### Vite

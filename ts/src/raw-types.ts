@@ -374,12 +374,17 @@ export interface OcctRawKernel {
     xcafNewDocument(): number;
     xcafClose(docId: number): void;
     xcafAddShape(docId: number, shapeId: number): number;
+    xcafAddAssembly(docId: number, shapeId: number): number;
     xcafAddComponent(docId: number, parentTag: number, shapeId: number, tx: number, ty: number, tz: number, rx: number, ry: number, rz: number): number;
     xcafSetColor(docId: number, tag: number, r: number, g: number, b: number): void;
     xcafSetName(docId: number, tag: number, name: string): void;
     xcafGetLabelInfo(docId: number, tag: number): { labelId: number; name: string; hasColor: boolean; r: number; g: number; b: number; isAssembly: boolean; isComponent: boolean; shapeId: number };
     xcafGetChildLabels(docId: number, parentTag: number): EmbindVectorI32;
     xcafGetRootLabels(docId: number): EmbindVectorI32;
+    xcafGetReferredLabel(docId: number, tag: number): number;
+    xcafGetLabelLocation(docId: number, tag: number): EmbindVectorF64;
+    xcafGetSubShapeLabels(docId: number, tag: number): EmbindVectorI32;
+    xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
     xcafImportSTEP(stepData: string): number;
     xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;

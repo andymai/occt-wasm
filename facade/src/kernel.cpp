@@ -43,6 +43,17 @@ TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId) {
     return it->second;
 }
 
+int OcctKernel::registerLabel(XCAFDocRecord& record, const TDF_Label& label) {
+    auto known = record.labelIds.find(label);
+    if (known != record.labelIds.end()) {
+        return known->second;
+    }
+    int facadeId = record.nextLabelId++;
+    record.labelRegistry[facadeId] = label;
+    record.labelIds.emplace(label, facadeId);
+    return facadeId;
+}
+
 // --- MeshData implementation ---
 
 MeshData::~MeshData() {

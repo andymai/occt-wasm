@@ -236,12 +236,17 @@ pub(crate) struct GeneratedFuncs {
     fn_xcaf_new_document: TypedFunc<(), u32>,
     fn_xcaf_close: TypedFunc<(u32,), i32>,
     fn_xcaf_add_shape: TypedFunc<(u32, u32), i32>,
+    fn_xcaf_add_assembly: TypedFunc<(u32, u32), i32>,
     fn_xcaf_add_component: TypedFunc<(u32, i32, u32, f64, f64, f64, f64, f64, f64), i32>,
     fn_xcaf_set_color: TypedFunc<(u32, i32, f64, f64, f64), i32>,
     fn_xcaf_set_name: TypedFunc<(u32, i32, i32, i32), i32>,
     fn_xcaf_get_label_info: TypedFunc<(u32, i32), i32>,
     fn_xcaf_get_child_labels: TypedFunc<(u32, i32), i32>,
     fn_xcaf_get_root_labels: TypedFunc<(u32,), i32>,
+    fn_xcaf_get_referred_label: TypedFunc<(u32, i32), i32>,
+    fn_xcaf_get_label_location: TypedFunc<(u32, i32), i32>,
+    fn_xcaf_get_sub_shape_labels: TypedFunc<(u32, i32), i32>,
+    fn_xcaf_add_sub_shape: TypedFunc<(u32, i32, u32), i32>,
     fn_xcaf_export_step: TypedFunc<(u32,), i32>,
     fn_xcaf_import_step: TypedFunc<(i32, i32), u32>,
     fn_xcaf_export_gltf: TypedFunc<(u32, f64, f64), i32>,
@@ -486,6 +491,7 @@ impl GeneratedFuncs {
             fn_xcaf_new_document: instance.get_typed_func(&mut store, "occt_xcaf_new_document")?,
             fn_xcaf_close: instance.get_typed_func(&mut store, "occt_xcaf_close")?,
             fn_xcaf_add_shape: instance.get_typed_func(&mut store, "occt_xcaf_add_shape")?,
+            fn_xcaf_add_assembly: instance.get_typed_func(&mut store, "occt_xcaf_add_assembly")?,
             fn_xcaf_add_component: instance
                 .get_typed_func(&mut store, "occt_xcaf_add_component")?,
             fn_xcaf_set_color: instance.get_typed_func(&mut store, "occt_xcaf_set_color")?,
@@ -496,6 +502,14 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_xcaf_get_child_labels")?,
             fn_xcaf_get_root_labels: instance
                 .get_typed_func(&mut store, "occt_xcaf_get_root_labels")?,
+            fn_xcaf_get_referred_label: instance
+                .get_typed_func(&mut store, "occt_xcaf_get_referred_label")?,
+            fn_xcaf_get_label_location: instance
+                .get_typed_func(&mut store, "occt_xcaf_get_label_location")?,
+            fn_xcaf_get_sub_shape_labels: instance
+                .get_typed_func(&mut store, "occt_xcaf_get_sub_shape_labels")?,
+            fn_xcaf_add_sub_shape: instance
+                .get_typed_func(&mut store, "occt_xcaf_add_sub_shape")?,
             fn_xcaf_export_step: instance.get_typed_func(&mut store, "occt_xcaf_export_step")?,
             fn_xcaf_import_step: instance.get_typed_func(&mut store, "occt_xcaf_import_step")?,
             fn_xcaf_export_gltf: instance.get_typed_func(&mut store, "occt_xcaf_export_gltf")?,
@@ -4098,6 +4112,19 @@ impl crate::kernel::OcctKernel {
         Ok(result)
     }
 
+    pub fn xcaf_add_assembly(
+        &mut self,
+        doc_id: ShapeHandle,
+        shape_id: ShapeHandle,
+    ) -> OcctResult<i32> {
+        let result = self
+            .generated
+            .fn_xcaf_add_assembly
+            .call(&mut self.store, (doc_id.0, shape_id.0))?;
+        self.check_error("xcaf_add_assembly")?;
+        Ok(result)
+    }
+
     pub fn xcaf_add_component(
         &mut self,
         doc_id: ShapeHandle,
@@ -4205,6 +4232,63 @@ impl crate::kernel::OcctKernel {
             return Err(self.read_last_error("xcaf_get_root_labels"));
         }
         self.read_vec_i32_result()
+    }
+
+    pub fn xcaf_get_referred_label(
+        &mut self,
+        doc_id: ShapeHandle,
+        label_id: i32,
+    ) -> OcctResult<i32> {
+        let result = self
+            .generated
+            .fn_xcaf_get_referred_label
+            .call(&mut self.store, (doc_id.0, label_id))?;
+        self.check_error("xcaf_get_referred_label")?;
+        Ok(result)
+    }
+
+    pub fn xcaf_get_label_location(
+        &mut self,
+        doc_id: ShapeHandle,
+        label_id: i32,
+    ) -> OcctResult<Vec<f64>> {
+        let len = self
+            .generated
+            .fn_xcaf_get_label_location
+            .call(&mut self.store, (doc_id.0, label_id))?;
+        if len < 0 {
+            return Err(self.read_last_error("xcaf_get_label_location"));
+        }
+        self.read_vec_f64_result()
+    }
+
+    pub fn xcaf_get_sub_shape_labels(
+        &mut self,
+        doc_id: ShapeHandle,
+        label_id: i32,
+    ) -> OcctResult<Vec<i32>> {
+        let len = self
+            .generated
+            .fn_xcaf_get_sub_shape_labels
+            .call(&mut self.store, (doc_id.0, label_id))?;
+        if len < 0 {
+            return Err(self.read_last_error("xcaf_get_sub_shape_labels"));
+        }
+        self.read_vec_i32_result()
+    }
+
+    pub fn xcaf_add_sub_shape(
+        &mut self,
+        doc_id: ShapeHandle,
+        label_id: i32,
+        shape_id: ShapeHandle,
+    ) -> OcctResult<i32> {
+        let result = self
+            .generated
+            .fn_xcaf_add_sub_shape
+            .call(&mut self.store, (doc_id.0, label_id, shape_id.0))?;
+        self.check_error("xcaf_add_sub_shape")?;
+        Ok(result)
     }
 
     pub fn xcaf_export_step(&mut self, doc_id: ShapeHandle) -> OcctResult<String> {
