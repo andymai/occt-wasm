@@ -5322,9 +5322,16 @@ if (!shapeTool->IsAssembly(parentLabel) && shapeTool->IsSimpleShape(parentLabel)
         shapeTool->SetShape(partLabel, own);
         Handle(XCAFDoc_ColorTool) colorTool =
             XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
-        Quantity_Color color;
-        if (colorTool->GetColor(parentLabel, XCAFDoc_ColorGen, color))
-            colorTool->SetColor(partLabel, color, XCAFDoc_ColorGen);
+        const XCAFDoc_ColorType colorTypes[] = {XCAFDoc_ColorGen, XCAFDoc_ColorSurf,
+                                                XCAFDoc_ColorCurv};
+        auto copyColors = [&](const TDF_Label& from, const TDF_Label& to) {
+            Quantity_Color color;
+            for (XCAFDoc_ColorType type : colorTypes) {
+                if (colorTool->GetColor(from, type, color))
+                    colorTool->SetColor(to, color, type);
+            }
+        };
+        copyColors(parentLabel, partLabel);
         // Sub-shape labels live under the part; re-register them under the new
         // prototype so their names, colors and facade tags follow the geometry.
         NCollection_Sequence<TDF_Label> subs;
@@ -5339,9 +5346,7 @@ if (!shapeTool->IsAssembly(parentLabel) && shapeTool->IsSimpleShape(parentLabel)
             Handle(TDataStd_Name) subName;
             if (oldSub.FindAttribute(TDataStd_Name::GetID(), subName))
                 TDataStd_Name::Set(newSub, subName->Get());
-            Quantity_Color subColor;
-            if (colorTool->GetColor(oldSub, XCAFDoc_ColorGen, subColor))
-                colorTool->SetColor(newSub, subColor, XCAFDoc_ColorGen);
+            copyColors(oldSub, newSub);
             auto known = it->second.labelIds.find(oldSub);
             if (known != it->second.labelIds.end()) {
                 int tagId = known->second;
@@ -5385,6 +5390,7 @@ return facadeId;",
             "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx", "XCAFDoc_ColorTool.hxx",
             "TDF_Label.hxx", "TopLoc_Location.hxx", "TopAbs_ShapeEnum.hxx",
             "TDataStd_Name.hxx", "Quantity_Color.hxx", "NCollection_Sequence.hxx",
+            "XCAFDoc_ColorType.hxx",
             "gp_Ax1.hxx", "gp_Dir.hxx", "gp_Pnt.hxx", "gp_Trsf.hxx", "gp_Vec.hxx",
         ],
         category: "xcaf",
