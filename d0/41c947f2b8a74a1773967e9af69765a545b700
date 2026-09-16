@@ -1,0 +1,36 @@
+xtask/src/codegen/wasi_emitter.rs
+  s_1263630bd68425::t_e600592c5e7835 47-49,81,118,146,182-186
+crate/src/types.rs
+  s_1263630bd68425::t_e600592c5e7835 21-35
+xtask/src/codegen/rust_emitter.rs
+  s_1263630bd68425::t_e600592c5e7835 16,50,206-208,267,281,389-400,586-588
+  s_1263630bd68425::t_6ef75d95e3f106 659-695
+  s_1263630bd68425::t_759970ec32045e 589
+xtask/src/codegen/config.rs
+  s_1263630bd68425::t_e600592c5e7835 5196,5201,5226,5255,5286,5338,5368,5391,5448,5479,5509,5535,5560,5587,5618,5704,5710
+crate/src/kernel_generated.rs
+  s_1263630bd68425::t_f2abd4d658aeee 8-9,4082,4088,4091,4104,4117,4130,4160,4178,4198,4213,4226,4239,4252,4267,4282,4294,4305,4315,4320
+crate/tests/integration.rs
+  s_1263630bd68425::t_6ef75d95e3f106 357-396
+xtask/src/codegen/emitter.rs
+  s_1263630bd68425::t_e600592c5e7835 14-16,202
+xtask/src/codegen/types.rs
+  s_1263630bd68425::t_f2abd4d658aeee 97-102,110
+  s_1263630bd68425::t_e600592c5e7835 53-55,162,164-165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d041c947f2b8a74a1773967e9af69765a545b700",
+  "prompts": {},
+  "sessions": {
+    "s_1263630bd68425": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24ce7417-7089-4685-b90a-6bb12f142c6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
