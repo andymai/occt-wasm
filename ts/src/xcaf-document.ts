@@ -26,6 +26,7 @@ import type {
     Color3,
     LabelTag,
     LabelInfo,
+    LabelOptions,
     AddShapeOptions,
     AddChildOptions,
     GLTFExportOptions,
@@ -37,6 +38,7 @@ export interface RawXCAFKernel {
     xcafNewDocument(): number;
     xcafClose(docId: number): void;
     xcafAddShape(docId: number, shapeId: number): number;
+    xcafAddAssembly(docId: number, shapeId: number): number;
     xcafAddComponent(
         docId: number,
         parentTag: number,
@@ -69,6 +71,16 @@ export interface RawXCAFKernel {
         parentTag: number,
     ): { size(): number; get(i: number): number; delete(): void };
     xcafGetRootLabels(docId: number): { size(): number; get(i: number): number; delete(): void };
+    xcafGetReferredLabel(docId: number, tag: number): number;
+    xcafGetLabelLocation(
+        docId: number,
+        tag: number,
+    ): { size(): number; get(i: number): number; delete(): void };
+    xcafGetSubShapeLabels(
+        docId: number,
+        tag: number,
+    ): { size(): number; get(i: number): number; delete(): void };
+    xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
     xcafImportSTEP(stepData: string): number;
     xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;
@@ -109,10 +121,21 @@ export class XCAFDocument {
         return new XCAFDocument(raw, docId, fs);
     }
 
-    /** Add a shape as a root label. */
+    /**
+     * Add a shape as a root label.
+     *
+     * By default the shape becomes a single part, even when it is a compound.
+     * With `{ assembly: true }` a compound becomes an assembly instead: one
+     * component per top-level child, each a placed reference to a prototype
+     * label holding that child's geometry. This is the structure STEP import
+     * produces, and the only one `exportSTEP` writes as an assembly. Throws if
+     * `assembly` is set and the shape is not a compound.
+     */
     addShape(shape: ShapeHandle, options?: AddShapeOptions): LabelTag {
         this.#ensureOpen();
-        const t = wrap("xcafAddShape", () => this.#raw.xcafAddShape(this.#docId, shape));
+        const t = options?.assembly
+            ? wrap("xcafAddAssembly", () => this.#raw.xcafAddAssembly(this.#docId, shape))
+            : wrap("xcafAddShape", () => this.#raw.xcafAddShape(this.#docId, shape));
         this.#applyOptions(t, options);
         return tag(t);
     }
@@ -187,6 +210,62 @@ export class XCAFDocument {
         );
     }
 
+    /**
+     * Resolve a component label to the label it instantiates.
+     *
+     * In an XCAF assembly a component (`isComponent`) is a placed reference:
+     * it carries a location and points at a prototype label, the part or
+     * sub-assembly that owns the geometry, the sub-shapes and the children.
+     * `getChildren` on the component itself is therefore empty; walk into the
+     * referred label instead. Returns `null` when `label` is not a reference.
+     */
+    getReferredLabel(label: LabelTag): LabelTag | null {
+        this.#ensureOpen();
+        const t = wrap("xcafGetReferredLabel", () =>
+            this.#raw.xcafGetReferredLabel(this.#docId, label),
+        );
+        return t > 0 ? tag(t) : null;
+    }
+
+    /**
+     * The placement of a label relative to its parent, as a 3x4 row-major
+     * affine matrix (`[r00,r01,r02,tx, r10,r11,r12,ty, r20,r21,r22,tz]`), the
+     * layout `OcctKernel.transform` and `located` accept. Identity for labels
+     * that are not components. Compose these down the tree to place a
+     * prototype's geometry once per instance.
+     */
+    getLocation(label: LabelTag): number[] {
+        this.#ensureOpen();
+        return this.#vecToNumbers(
+            wrap("xcafGetLabelLocation", () => this.#raw.xcafGetLabelLocation(this.#docId, label)),
+        );
+    }
+
+    /**
+     * Get the named sub-shape labels of a part (faces, edges or solids that
+     * carry their own name or color). Pass the prototype label, not a
+     * component: see {@link getReferredLabel}.
+     */
+    getSubShapes(label: LabelTag): LabelTag[] {
+        this.#ensureOpen();
+        return this.#vecToTags(
+            wrap("xcafGetSubShapeLabels", () => this.#raw.xcafGetSubShapeLabels(this.#docId, label)),
+        );
+    }
+
+    /**
+     * Register a sub-shape of a part so it can carry its own name or color.
+     * `label` must be a top-level part (one added with `addShape`, or the
+     * prototype behind a component) and `shape` one of its sub-shapes, for
+     * example a face from `kernel.getSubShapes`. Throws otherwise.
+     */
+    addSubShape(label: LabelTag, shape: ShapeHandle, options?: LabelOptions): LabelTag {
+        this.#ensureOpen();
+        const t = wrap("xcafAddSubShape", () => this.#raw.xcafAddSubShape(this.#docId, label, shape));
+        this.#applyOptions(t, options);
+        return tag(t);
+    }
+
     /** Export as STEP with colors and names preserved. */
     exportSTEP(): string {
         this.#ensureOpen();
@@ -254,7 +333,7 @@ export class XCAFDocument {
         this.close();
     }
 
-    #applyOptions(labelId: number, options?: AddShapeOptions): void {
+    #applyOptions(labelId: number, options?: LabelOptions): void {
         if (options?.name) {
             wrap("xcafSetName", () => this.#raw.xcafSetName(this.#docId, labelId, options.name!));
         }
@@ -265,10 +344,14 @@ export class XCAFDocument {
     }
 
     #vecToTags(vec: { size(): number; get(i: number): number; delete(): void }): LabelTag[] {
+        return this.#vecToNumbers(vec).map(tag);
+    }
+
+    #vecToNumbers(vec: { size(): number; get(i: number): number; delete(): void }): number[] {
         try {
-            const result: LabelTag[] = [];
+            const result: number[] = [];
             for (let i = 0; i < vec.size(); i++) {
-                result.push(tag(vec.get(i)));
+                result.push(vec.get(i));
             }
             return result;
         } finally {

@@ -4137,6 +4137,28 @@ int OcctKernel::xcafAddShape(uint32_t docId, uint32_t shapeId) {
     }
 }
 
+int OcctKernel::xcafAddAssembly(uint32_t docId, uint32_t shapeId) {
+    try {
+        auto it = xcafDocs_.find(docId);
+        if (it == xcafDocs_.end())
+            throw std::runtime_error("xcafAddAssembly: invalid document ID");
+        
+        const TopoDS_Shape& shape = get(shapeId);
+        if (shape.ShapeType() != TopAbs_COMPOUND)
+            throw std::runtime_error("xcafAddAssembly: shape must be a compound");
+        
+        Handle(XCAFDoc_ShapeTool) shapeTool =
+            XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+        TDF_Label label = shapeTool->AddShape(shape, Standard_True);
+        
+        int facadeId = it->second.nextLabelId++;
+        it->second.labelRegistry[facadeId] = label;
+        return facadeId;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("xcafAddAssembly: ") + e.what());
+    }
+}
+
 int OcctKernel::xcafAddComponent(uint32_t docId, int parentLabelId, uint32_t shapeId, double tx, double ty, double tz, double rx, double ry, double rz) {
     try {
         auto it = xcafDocs_.find(docId);
@@ -4296,6 +4318,95 @@ std::vector<int> OcctKernel::xcafGetRootLabels(uint32_t docId) {
         return ids;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafGetRootLabels: ") + e.what());
+    }
+}
+
+int OcctKernel::xcafGetReferredLabel(uint32_t docId, int labelId) {
+    try {
+        auto it = xcafDocs_.find(docId);
+        if (it == xcafDocs_.end())
+            throw std::runtime_error("xcafGetReferredLabel: invalid document ID");
+        
+        TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+        
+        TDF_Label referred;
+        if (!XCAFDoc_ShapeTool::GetReferredShape(label, referred) || referred.IsNull())
+            return 0;
+        
+        int facadeId = it->second.nextLabelId++;
+        it->second.labelRegistry[facadeId] = referred;
+        return facadeId;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("xcafGetReferredLabel: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::xcafGetLabelLocation(uint32_t docId, int labelId) {
+    try {
+        auto it = xcafDocs_.find(docId);
+        if (it == xcafDocs_.end())
+            throw std::runtime_error("xcafGetLabelLocation: invalid document ID");
+        
+        TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+        
+        const gp_Trsf& trsf = XCAFDoc_ShapeTool::GetLocation(label).Transformation();
+        std::vector<double> matrix(12);
+        for (int row = 1; row <= 3; ++row) {
+            for (int col = 1; col <= 4; ++col) {
+                matrix[static_cast<size_t>((row - 1) * 4 + (col - 1))] = trsf.Value(row, col);
+            }
+        }
+        return matrix;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("xcafGetLabelLocation: ") + e.what());
+    }
+}
+
+std::vector<int> OcctKernel::xcafGetSubShapeLabels(uint32_t docId, int labelId) {
+    try {
+        auto it = xcafDocs_.find(docId);
+        if (it == xcafDocs_.end())
+            throw std::runtime_error("xcafGetSubShapeLabels: invalid document ID");
+        
+        TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+        
+        NCollection_Sequence<TDF_Label> subs;
+        XCAFDoc_ShapeTool::GetSubShapes(label, subs);
+        
+        std::vector<int> ids;
+        for (int i = 1; i <= subs.Length(); ++i) {
+            int facadeId = it->second.nextLabelId++;
+            it->second.labelRegistry[facadeId] = subs.Value(i);
+            ids.push_back(facadeId);
+        }
+        return ids;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("xcafGetSubShapeLabels: ") + e.what());
+    }
+}
+
+int OcctKernel::xcafAddSubShape(uint32_t docId, int labelId, uint32_t shapeId) {
+    try {
+        auto it = xcafDocs_.find(docId);
+        if (it == xcafDocs_.end())
+            throw std::runtime_error("xcafAddSubShape: invalid document ID");
+        
+        TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+        
+        Handle(XCAFDoc_ShapeTool) shapeTool =
+            XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+        
+        TDF_Label subLabel;
+        if (!shapeTool->AddSubShape(label, get(shapeId), subLabel) || subLabel.IsNull()) {
+            throw std::runtime_error(
+                "xcafAddSubShape: label must be a top-level part and the shape one of its sub-shapes");
+        }
+        
+        int facadeId = it->second.nextLabelId++;
+        it->second.labelRegistry[facadeId] = subLabel;
+        return facadeId;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("xcafAddSubShape: ") + e.what());
     }
 }
 

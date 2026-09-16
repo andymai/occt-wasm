@@ -5251,6 +5251,37 @@ return facadeId;",
         return_type: ReturnType::Int,
     },
     MethodSpec {
+        name: "xcafAddAssembly",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::ShapeId("shapeId")],
+        occt_class: "",
+        ctor_args: "",
+        // makeAssembly=true decomposes a compound into an assembly label whose
+        // children are components, each a placed reference to a prototype label
+        // holding one top-level child of the compound. This is the structure
+        // STEP importers produce and the only one the STEP writer emits as an
+        // assembly.
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafAddAssembly: invalid document ID\");
+
+const TopoDS_Shape& shape = get(shapeId);
+if (shape.ShapeType() != TopAbs_COMPOUND)
+    throw std::runtime_error(\"xcafAddAssembly: shape must be a compound\");
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+TDF_Label label = shapeTool->AddShape(shape, Standard_True);
+
+int facadeId = it->second.nextLabelId++;
+it->second.labelRegistry[facadeId] = label;
+return facadeId;",
+        includes: &["XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx", "TDF_Label.hxx", "TopAbs_ShapeEnum.hxx"],
+        category: "xcaf",
+        return_type: ReturnType::Int,
+    },
+    MethodSpec {
         name: "xcafAddComponent",
         kind: MethodKind::CustomBody,
         params: &[
@@ -5476,6 +5507,118 @@ return ids;",
         ],
         category: "xcaf",
         return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
+        name: "xcafGetReferredLabel",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::Int("labelId")],
+        occt_class: "",
+        ctor_args: "",
+        // A component label is a reference: it carries a location and points at
+        // the prototype label (part or sub-assembly) that holds the geometry and
+        // the children. 0 means the label is not a reference.
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetReferredLabel: invalid document ID\");
+
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+
+TDF_Label referred;
+if (!XCAFDoc_ShapeTool::GetReferredShape(label, referred) || referred.IsNull())
+    return 0;
+
+int facadeId = it->second.nextLabelId++;
+it->second.labelRegistry[facadeId] = referred;
+return facadeId;",
+        includes: &["XCAFDoc_ShapeTool.hxx", "TDF_Label.hxx"],
+        category: "xcaf",
+        return_type: ReturnType::Int,
+    },
+    MethodSpec {
+        name: "xcafGetLabelLocation",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::Int("labelId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetLabelLocation: invalid document ID\");
+
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+
+const gp_Trsf& trsf = XCAFDoc_ShapeTool::GetLocation(label).Transformation();
+std::vector<double> matrix(12);
+for (int row = 1; row <= 3; ++row) {
+    for (int col = 1; col <= 4; ++col) {
+        matrix[static_cast<size_t>((row - 1) * 4 + (col - 1))] = trsf.Value(row, col);
+    }
+}
+return matrix;",
+        includes: &["XCAFDoc_ShapeTool.hxx", "TDF_Label.hxx", "TopLoc_Location.hxx", "gp_Trsf.hxx"],
+        category: "xcaf",
+        return_type: ReturnType::VectorDouble,
+    },
+    MethodSpec {
+        name: "xcafGetSubShapeLabels",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("docId"), FacadeParam::Int("labelId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafGetSubShapeLabels: invalid document ID\");
+
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+
+NCollection_Sequence<TDF_Label> subs;
+XCAFDoc_ShapeTool::GetSubShapes(label, subs);
+
+std::vector<int> ids;
+for (int i = 1; i <= subs.Length(); ++i) {
+    int facadeId = it->second.nextLabelId++;
+    it->second.labelRegistry[facadeId] = subs.Value(i);
+    ids.push_back(facadeId);
+}
+return ids;",
+        includes: &["XCAFDoc_ShapeTool.hxx", "TDF_Label.hxx", "NCollection_Sequence.hxx"],
+        category: "xcaf",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
+        name: "xcafAddSubShape",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("docId"),
+            FacadeParam::Int("labelId"),
+            FacadeParam::ShapeId("shapeId"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafAddSubShape: invalid document ID\");
+
+TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
+
+Handle(XCAFDoc_ShapeTool) shapeTool =
+    XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
+
+TDF_Label subLabel;
+if (!shapeTool->AddSubShape(label, get(shapeId), subLabel) || subLabel.IsNull()) {
+    throw std::runtime_error(
+        \"xcafAddSubShape: label must be a top-level part and the shape one of its sub-shapes\");
+}
+
+int facadeId = it->second.nextLabelId++;
+it->second.labelRegistry[facadeId] = subLabel;
+return facadeId;",
+        includes: &["XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx", "TDF_Label.hxx"],
+        category: "xcaf",
+        return_type: ReturnType::Int,
     },
     MethodSpec {
         name: "xcafExportSTEP",

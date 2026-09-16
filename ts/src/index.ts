@@ -35,6 +35,7 @@ export {
     type GLTFExportOptions,
     type InitOptions,
     type LabelInfo,
+    type LabelOptions,
     type LabelTag,
     type Location,
     type Mesh,
