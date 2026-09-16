@@ -1,0 +1,50 @@
+ts/src/raw-types.ts
+  s_1263630bd68425::t_74f9814c97493f 376
+  s_1263630bd68425::t_90325ff1399e89 383-386
+ts/src/index.ts
+  s_1263630bd68425::t_74f9814c97493f 37
+xtask/src/codegen/config.rs
+  s_1263630bd68425::t_90325ff1399e89 5229,5487-5598
+  s_1263630bd68425::t_74f9814c97493f 5230-5259
+facade/include/occt_kernel.h
+  s_1263630bd68425::t_74f9814c97493f 406
+  s_1263630bd68425::t_90325ff1399e89 414-417
+crate/src/kernel_generated.rs
+  s_1263630bd68425::t_74f9814c97493f 238,491,4097-4106
+  s_1263630bd68425::t_be7adcd9061934 245-248,502-509,4107-4108,4219-4274
+  s_1263630bd68425::t_e44ce19337bfff 4109,4275
+ts/src/xcaf-document.ts
+  s_1263630bd68425::t_74f9814c97493f 29,41,124-133,136-138,262,336
+  s_1263630bd68425::t_90325ff1399e89 74-83,213-261,263-268,347-350,352,354
+README.md
+  s_1263630bd68425::t_be7adcd9061934 287-288
+  s_1263630bd68425::t_74f9814c97493f 284
+  s_1263630bd68425::t_90325ff1399e89 285-286,289-302
+test/xcaf-references.test.ts
+  s_1263630bd68425::t_74f9814c97493f 141-179,185
+  s_1263630bd68425::t_be7adcd9061934 1-29,31-140,180-181,191-196,215-216,218-220
+  s_1263630bd68425::t_b76d5591765f4e 30,182-184,186-190,197-214,217
+ts/src/types.ts
+  s_1263630bd68425::t_74f9814c97493f 103-104,111-119,121
+  s_1263630bd68425::t_90325ff1399e89 138-142
+facade/generated/bindings.cpp
+  s_1263630bd68425::t_8ea860fcf6842f 332,339-342
+facade/generated/kernel.cpp
+  s_1263630bd68425::t_f37a37ae94e4c0 4124-4145,4308-4396
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "54ba555e6420c27d93f1b3ab76e781d00b02ce34",
+  "prompts": {},
+  "sessions": {
+    "s_1263630bd68425": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24ce7417-7089-4685-b90a-6bb12f142c6f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
