@@ -26,6 +26,7 @@ export {
     type AddShapeOptions,
     type AlignAnchor,
     type BoundingBox,
+    type BoundingBoxOptions,
     type Color3,
     type CurveKind,
     type CurvatureData,
@@ -95,6 +96,7 @@ import type {
     SweepFullOptions,
     SweepOrientedOptions,
     TessellateOptions,
+    BoundingBoxOptions,
     BooleanOp,
     UVBounds,
     Vec3,
@@ -871,7 +873,7 @@ export class OcctKernel {
      */
     alignX(shape: ShapeHandle, target = 0, anchor: AlignAnchor = "center"): ShapeHandle {
         return wrap("alignX", () => {
-            const bb = this.getBoundingBox(shape, false);
+            const bb = this.getBoundingBox(shape);
             const cur = anchor === "min" ? bb.xmin : anchor === "max" ? bb.xmax : (bb.xmin + bb.xmax) / 2;
             return handle(this.#raw.translate(shape, target - cur, 0, 0));
         });
@@ -880,7 +882,7 @@ export class OcctKernel {
     /** Translate along Y so the chosen bounding-box anchor lands at `target`. */
     alignY(shape: ShapeHandle, target = 0, anchor: AlignAnchor = "center"): ShapeHandle {
         return wrap("alignY", () => {
-            const bb = this.getBoundingBox(shape, false);
+            const bb = this.getBoundingBox(shape);
             const cur = anchor === "min" ? bb.ymin : anchor === "max" ? bb.ymax : (bb.ymin + bb.ymax) / 2;
             return handle(this.#raw.translate(shape, 0, target - cur, 0));
         });
@@ -889,7 +891,7 @@ export class OcctKernel {
     /** Translate along Z so the chosen bounding-box anchor lands at `target`. */
     alignZ(shape: ShapeHandle, target = 0, anchor: AlignAnchor = "center"): ShapeHandle {
         return wrap("alignZ", () => {
-            const bb = this.getBoundingBox(shape, false);
+            const bb = this.getBoundingBox(shape);
             const cur = anchor === "min" ? bb.zmin : anchor === "max" ? bb.zmax : (bb.zmin + bb.zmax) / 2;
             return handle(this.#raw.translate(shape, 0, 0, target - cur));
         });
@@ -1394,48 +1396,37 @@ export class OcctKernel {
     /**
      * Compute the axis-aligned bounding box of a shape.
      *
-     * Uses `BRepBndLib::AddOptimal` for surface-precise bounds independent of
-     * tessellation state. The simpler `BRepBndLib::Add` falls back to BSpline
-     * pole hulls when triangulation is absent, which overshoots curved
-     * geometry by ~0.27·r for arcs of radius r — that was the source of the
-     * uniform 1.2 mm bounds shift versus brepjs in occt-wasm 2.0.
+     * By default the box is precise: `BRepBndLib::AddOptimal` finds each
+     * surface's true extrema, so the bounds are the same whether or not the
+     * shape has been tessellated. (Loose bounds were the source of the uniform
+     * 1.2 mm shift versus brepjs in occt-wasm 2.0.) That extremum search is
+     * what costs time on BSpline geometry with no mesh: a filleted box takes
+     * ~5 ms precise versus ~0.06 ms loose. On analytic shapes both take a few
+     * microseconds.
      *
-     * @param useTriangulation - `false` (the default) does the surface analysis
-     *     from scratch, giving the same bounds whether or not the shape has been
-     *     tessellated. `true` bounds an existing triangulation instead, which is
-     *     far faster but only as tight as that mesh — on a 2.0-deflection mesh
-     *     it overshot a 26 mm extent by 1.8 mm, and on a 0.1-deflection mesh by
-     *     0.16 mm. With no triangulation present the two agree exactly and cost
-     *     the same, so `true` is worth it only when you have a fine mesh and
-     *     want the ~30x faster query. brepjs's
-     *     `BRepBndLib.Add(shape, box, true)` corresponds to `true` here.
+     * `{ precise: false }` switches to `BRepBndLib::Add`: analytic extents,
+     * BSpline control hulls, plus the shape tolerance. The result always
+     * contains the precise box, which makes it the right choice for culling
+     * or scene fitting of unmeshed freeform geometry (fillets, lofts, STEP
+     * imports).
+     *
+     * `{ useTriangulation: true }` bounds an existing triangulation instead,
+     * in either mode. Far faster on a meshed shape, but only as tight as that
+     * mesh: on a 2.0-deflection mesh it overshot a 26 mm extent by 1.8 mm, and
+     * on a 0.1-deflection mesh by 0.16 mm. With no triangulation present it
+     * changes nothing.
      */
-    getBoundingBox(shape: ShapeHandle, useTriangulation = false): BoundingBox {
-        return wrap("getBoundingBox", () => this.#raw.getBoundingBox(shape, useTriangulation));
-    }
-
-    /**
-     * Compute a conservative axis-aligned bounding box of a shape, cheaply.
-     *
-     * Uses `BRepBndLib::Add`, the classic OCCT bounding routine: it takes the
-     * triangulation nodes when a mesh is present, otherwise each surface's
-     * analytic extent or, for BSplines, its control-point hull (which can
-     * overshoot curved geometry), and enlarges the result by the shape tolerance.
-     * The box is never tighter than {@link getBoundingBox}, but it skips the
-     * per-surface extremum search. That search is what makes the precise
-     * method slow on BSpline geometry with no mesh (fillets, lofts, STEP
-     * imports): a filleted box bounds in ~0.06 ms here versus ~5 ms precise.
-     * On analytic shapes, or once a mesh exists and `useTriangulation` is
-     * `true`, both methods cost the same few microseconds, so reach for this
-     * one on unmeshed freeform geometry in culling or scene-fitting paths.
-     *
-     * @param useTriangulation - `true` (the default, matching OCCT) bounds the
-     *     existing triangulation when there is one, which is both the fastest
-     *     and the tightest path for a meshed shape. `false` ignores the mesh
-     *     and bounds the surfaces' control points instead.
-     */
-    getBoundingBoxFast(shape: ShapeHandle, useTriangulation = true): BoundingBox {
-        return wrap("getBoundingBoxFast", () => this.#raw.getBoundingBoxFast(shape, useTriangulation));
+    getBoundingBox(shape: ShapeHandle, options?: BoundingBoxOptions): BoundingBox;
+    /** @deprecated Pass `{ useTriangulation }` instead. */
+    getBoundingBox(shape: ShapeHandle, useTriangulation: boolean): BoundingBox;
+    getBoundingBox(shape: ShapeHandle, options: boolean | BoundingBoxOptions = {}): BoundingBox {
+        const { precise = true, useTriangulation = false } =
+            typeof options === "boolean" ? { useTriangulation: options } : options;
+        return wrap("getBoundingBox", () =>
+            precise
+                ? this.#raw.getBoundingBox(shape, useTriangulation)
+                : this.#raw.getBoundingBoxLoose(shape, useTriangulation),
+        );
     }
 
     getVolume(shape: ShapeHandle): number {
@@ -2104,7 +2095,7 @@ export class OcctKernel {
     /** Return a human-readable summary of a shape for debugging. */
     describe(shape: ShapeHandle): string {
         const type = this.getShapeType(shape);
-        const bbox = this.getBoundingBox(shape, true);
+        const bbox = this.getBoundingBox(shape, { useTriangulation: true });
         const dims = `[${(bbox.xmax - bbox.xmin).toFixed(2)} x ${(bbox.ymax - bbox.ymin).toFixed(2)} x ${(bbox.zmax - bbox.zmin).toFixed(2)}]`;
         const parts: string[] = [`${type} ${dims}`];
 

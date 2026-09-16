@@ -212,7 +212,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
 
         // query
         .function("getBoundingBox", &OcctKernel::getBoundingBox)
-        .function("getBoundingBoxFast", &OcctKernel::getBoundingBoxFast)
+        .function("getBoundingBoxLoose", &OcctKernel::getBoundingBoxLoose)
         .function("getVolume", &OcctKernel::getVolume)
         .function("getSurfaceArea", &OcctKernel::getSurfaceArea)
         .function("getLength", &OcctKernel::getLength)

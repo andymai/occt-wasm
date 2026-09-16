@@ -106,23 +106,23 @@ fn bounding_box() {
 }
 
 #[test]
-fn bounding_box_fast_is_conservative() {
+fn bounding_box_loose_contains_precise() {
     let Some(mut kernel) = try_kernel() else {
         return;
     };
     let shape = kernel.make_box(10.0, 20.0, 30.0).unwrap();
-    let bbox = kernel.get_bounding_box_fast(shape, true).unwrap();
+    let bbox = kernel.get_bounding_box_loose(shape, false).unwrap();
     assert!((bbox.min.x).abs() < 0.01);
     assert!((bbox.max.x - 10.0).abs() < 0.01);
     assert!((bbox.max.z - 30.0).abs() < 0.01);
 
     let cyl = kernel.make_cylinder(5.0, 10.0).unwrap();
     let precise = kernel.get_bounding_box(cyl, false).unwrap();
-    let fast = kernel.get_bounding_box_fast(cyl, false).unwrap();
-    assert!(fast.min.x <= precise.min.x && fast.max.x >= precise.max.x);
-    assert!(fast.min.y <= precise.min.y && fast.max.y >= precise.max.y);
-    assert!(fast.min.z <= precise.min.z && fast.max.z >= precise.max.z);
-    assert!((fast.max.z - 10.0).abs() < 0.01);
+    let loose = kernel.get_bounding_box_loose(cyl, false).unwrap();
+    assert!(loose.min.x <= precise.min.x && loose.max.x >= precise.max.x);
+    assert!(loose.min.y <= precise.min.y && loose.max.y >= precise.max.y);
+    assert!(loose.min.z <= precise.min.z && loose.max.z >= precise.max.z);
+    assert!((loose.max.z - 10.0).abs() < 0.01);
 }
 
 #[test]

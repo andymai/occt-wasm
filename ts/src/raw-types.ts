@@ -279,7 +279,7 @@ export interface OcctRawKernel {
 
     // Query
     getBoundingBox(id: number, useTriangulation: boolean): BoundingBox;
-    getBoundingBoxFast(id: number, useTriangulation: boolean): BoundingBox;
+    getBoundingBoxLoose(id: number, useTriangulation: boolean): BoundingBox;
     getVolume(id: number): number;
     getSurfaceArea(id: number): number;
     getLength(id: number): number;

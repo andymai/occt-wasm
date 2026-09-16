@@ -2116,19 +2116,19 @@ BBoxData OcctKernel::getBoundingBox(uint32_t id, bool useTriangulation) {
     }
 }
 
-BBoxData OcctKernel::getBoundingBoxFast(uint32_t id, bool useTriangulation) {
+BBoxData OcctKernel::getBoundingBoxLoose(uint32_t id, bool useTriangulation) {
     try {
         const auto& shape = get(id);
         Bnd_Box box;
         BRepBndLib::Add(shape, box, useTriangulation);
         if (box.IsVoid()) {
-            throw std::runtime_error("getBoundingBoxFast: shape has no geometry");
+            throw std::runtime_error("getBoundingBoxLoose: shape has no geometry");
         }
         BBoxData result{};
         box.Get(result.xmin, result.ymin, result.zmin, result.xmax, result.ymax, result.zmax);
         return result;
     } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("getBoundingBoxFast: ") + e.what());
+        throw std::runtime_error(std::string("getBoundingBoxLoose: ") + e.what());
     }
 }
 

@@ -161,3 +161,37 @@ describe("wrapper bulk return path: getNurbsCurveData poles (Float64 read)", () 
         expect(data.poles[n - 2]).toBeCloseTo(pts[pts.length - 1]!.y, 6);
     });
 });
+
+describe("getBoundingBox options", () => {
+    it("default, { precise: true }, and the boolean overload agree on a box", () => {
+        const box = kernel.makeBox(10, 20, 30);
+        const byDefault = kernel.getBoundingBox(box);
+        const precise = kernel.getBoundingBox(box, { precise: true });
+        const legacy = kernel.getBoundingBox(box, false);
+        expect(precise).toEqual(byDefault);
+        expect(legacy).toEqual(byDefault);
+        expect(byDefault.xmax).toBeCloseTo(10, 3);
+        expect(byDefault.zmax).toBeCloseTo(30, 3);
+    });
+
+    it("{ precise: false } contains the precise box on BSpline geometry", () => {
+        const box = kernel.makeBox(20, 20, 20);
+        const filleted = kernel.fillet(box, kernel.getSubShapes(box, "edge"), 2);
+        const precise = kernel.getBoundingBox(filleted);
+        const loose = kernel.getBoundingBox(filleted, { precise: false });
+        for (const k of ["xmin", "ymin", "zmin"] as const) expect(loose[k]).toBeLessThanOrEqual(precise[k]);
+        for (const k of ["xmax", "ymax", "zmax"] as const) expect(loose[k]).toBeGreaterThanOrEqual(precise[k]);
+        expect(precise.xmax).toBeCloseTo(20, 3);
+        expect(loose.xmax).toBeLessThan(21);
+    });
+
+    it("{ useTriangulation: true } bounds the mesh in either mode", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        kernel.tessellate(cyl, { linearDeflection: 0.01, angularDeflection: 0.1 });
+        const precise = kernel.getBoundingBox(cyl, { useTriangulation: true });
+        const loose = kernel.getBoundingBox(cyl, { precise: false, useTriangulation: true });
+        expect(precise.xmax).toBeCloseTo(5, 1);
+        expect(loose.xmax).toBeCloseTo(5, 1);
+        expect(loose.xmax).toBeGreaterThanOrEqual(precise.xmax);
+    });
+});
