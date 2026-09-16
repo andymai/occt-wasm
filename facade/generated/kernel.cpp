@@ -4089,7 +4089,7 @@ uint32_t OcctKernel::xcafNewDocument() {
         Handle(TDocStd_Document) doc;
         app->NewDocument("BinXCAF", doc);
         uint32_t id = ++nextXcafId_; // pre-increment; default init may be 0 in WASM
-        xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
+        xcafDocs_[id] = XCAFDocRecord{doc, {}, {}, 1};
         return id;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafNewDocument: ") + e.what());
@@ -4129,8 +4129,7 @@ int OcctKernel::xcafAddShape(uint32_t docId, uint32_t shapeId) {
         // as one part keeps per-label colors attached to its geometry.
         TDF_Label label = shapeTool->AddShape(get(shapeId), Standard_False);
         
-        int facadeId = it->second.nextLabelId++;
-        it->second.labelRegistry[facadeId] = label;
+        int facadeId = registerLabel(it->second, label);
         return facadeId;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafAddShape: ") + e.what());
@@ -4151,8 +4150,7 @@ int OcctKernel::xcafAddAssembly(uint32_t docId, uint32_t shapeId) {
             XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
         TDF_Label label = shapeTool->AddShape(shape, Standard_True);
         
-        int facadeId = it->second.nextLabelId++;
-        it->second.labelRegistry[facadeId] = label;
+        int facadeId = registerLabel(it->second, label);
         return facadeId;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafAddAssembly: ") + e.what());
@@ -4186,8 +4184,7 @@ int OcctKernel::xcafAddComponent(uint32_t docId, int parentLabelId, uint32_t sha
         TDF_Label shapeLabel = shapeTool->AddShape(get(shapeId));
         TDF_Label compLabel = shapeTool->AddComponent(parentLabel, shapeLabel, loc);
         
-        int facadeId = it->second.nextLabelId++;
-        it->second.labelRegistry[facadeId] = compLabel;
+        int facadeId = registerLabel(it->second, compLabel);
         return facadeId;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafAddComponent: ") + e.what());
@@ -4287,8 +4284,7 @@ std::vector<int> OcctKernel::xcafGetChildLabels(uint32_t docId, int parentLabelI
         
         std::vector<int> ids;
         for (int i = 1; i <= children.Length(); ++i) {
-            int facadeId = it->second.nextLabelId++;
-            it->second.labelRegistry[facadeId] = children.Value(i);
+            int facadeId = registerLabel(it->second, children.Value(i));
             ids.push_back(facadeId);
         }
         return ids;
@@ -4311,8 +4307,7 @@ std::vector<int> OcctKernel::xcafGetRootLabels(uint32_t docId) {
         
         std::vector<int> ids;
         for (int i = 1; i <= roots.Length(); ++i) {
-            int facadeId = it->second.nextLabelId++;
-            it->second.labelRegistry[facadeId] = roots.Value(i);
+            int facadeId = registerLabel(it->second, roots.Value(i));
             ids.push_back(facadeId);
         }
         return ids;
@@ -4333,8 +4328,7 @@ int OcctKernel::xcafGetReferredLabel(uint32_t docId, int labelId) {
         if (!XCAFDoc_ShapeTool::GetReferredShape(label, referred) || referred.IsNull())
             return 0;
         
-        int facadeId = it->second.nextLabelId++;
-        it->second.labelRegistry[facadeId] = referred;
+        int facadeId = registerLabel(it->second, referred);
         return facadeId;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafGetReferredLabel: ") + e.what());
@@ -4375,8 +4369,7 @@ std::vector<int> OcctKernel::xcafGetSubShapeLabels(uint32_t docId, int labelId) 
         
         std::vector<int> ids;
         for (int i = 1; i <= subs.Length(); ++i) {
-            int facadeId = it->second.nextLabelId++;
-            it->second.labelRegistry[facadeId] = subs.Value(i);
+            int facadeId = registerLabel(it->second, subs.Value(i));
             ids.push_back(facadeId);
         }
         return ids;
@@ -4402,8 +4395,7 @@ int OcctKernel::xcafAddSubShape(uint32_t docId, int labelId, uint32_t shapeId) {
                 "xcafAddSubShape: label must be a top-level part and the shape one of its sub-shapes");
         }
         
-        int facadeId = it->second.nextLabelId++;
-        it->second.labelRegistry[facadeId] = subLabel;
+        int facadeId = registerLabel(it->second, subLabel);
         return facadeId;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafAddSubShape: ") + e.what());
@@ -4479,7 +4471,7 @@ uint32_t OcctKernel::xcafImportSTEP(const std::string& stepData) {
         }
         
         uint32_t id = ++nextXcafId_;
-        xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
+        xcafDocs_[id] = XCAFDocRecord{doc, {}, {}, 1};
         return id;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafImportSTEP: ") + e.what());

@@ -468,8 +468,12 @@ class OcctKernel {
     struct XCAFDocRecord {
         Handle(TDocStd_Document) doc;
         std::map<int, TDF_Label> labelRegistry;
+        std::unordered_map<TDF_Label, int> labelIds;
         int nextLabelId = 1;
     };
+    // One facade ID per TDF_Label for the document's lifetime, so repeated
+    // traversals hand back the same tags instead of growing the registry.
+    static int registerLabel(XCAFDocRecord& record, const TDF_Label& label);
     std::map<uint32_t, XCAFDocRecord> xcafDocs_;
     uint32_t nextXcafId_ = 1;
 };

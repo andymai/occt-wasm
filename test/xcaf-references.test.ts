@@ -71,6 +71,19 @@ describe("XCAFDocument.getReferredLabel", () => {
     });
 });
 
+describe("label tags are stable across reads", () => {
+    it("returns the same tag for the same label on every call", () => {
+        const { doc, root, comp } = buildAssembly();
+        expect(doc.getRoots()).toEqual([root]);
+        expect(doc.getRoots()).toEqual([root]);
+        expect(doc.getChildren(root)).toEqual([comp]);
+        const proto = doc.getReferredLabel(comp);
+        expect(doc.getReferredLabel(comp)).toBe(proto);
+        expect(doc.getReferredLabel(doc.getChildren(root)[0])).toBe(proto);
+        doc.close();
+    });
+});
+
 describe("XCAFDocument.getLocation", () => {
     it("is identity for a part and the placement for a component", () => {
         const { doc, root, comp } = buildAssembly();

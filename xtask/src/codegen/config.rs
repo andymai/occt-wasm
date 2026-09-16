@@ -5186,7 +5186,7 @@ Handle(TDocStd_Application) app = getXCAFApp();
 Handle(TDocStd_Document) doc;
 app->NewDocument(\"BinXCAF\", doc);
 uint32_t id = ++nextXcafId_; // pre-increment; default init may be 0 in WASM
-xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
+xcafDocs_[id] = XCAFDocRecord{doc, {}, {}, 1};
 return id;",
         includes: &[
             "TDocStd_Application.hxx", "TDocStd_Document.hxx",
@@ -5240,8 +5240,7 @@ Handle(XCAFDoc_ShapeTool) shapeTool =
 // as one part keeps per-label colors attached to its geometry.
 TDF_Label label = shapeTool->AddShape(get(shapeId), Standard_False);
 
-int facadeId = it->second.nextLabelId++;
-it->second.labelRegistry[facadeId] = label;
+int facadeId = registerLabel(it->second, label);
 return facadeId;",
         includes: &[
             "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
@@ -5274,8 +5273,7 @@ Handle(XCAFDoc_ShapeTool) shapeTool =
     XCAFDoc_DocumentTool::ShapeTool(it->second.doc->Main());
 TDF_Label label = shapeTool->AddShape(shape, Standard_True);
 
-int facadeId = it->second.nextLabelId++;
-it->second.labelRegistry[facadeId] = label;
+int facadeId = registerLabel(it->second, label);
 return facadeId;",
         includes: &["XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx", "TDF_Label.hxx", "TopAbs_ShapeEnum.hxx"],
         category: "xcaf",
@@ -5323,8 +5321,7 @@ TopLoc_Location loc(trsf);
 TDF_Label shapeLabel = shapeTool->AddShape(get(shapeId));
 TDF_Label compLabel = shapeTool->AddComponent(parentLabel, shapeLabel, loc);
 
-int facadeId = it->second.nextLabelId++;
-it->second.labelRegistry[facadeId] = compLabel;
+int facadeId = registerLabel(it->second, compLabel);
 return facadeId;",
         includes: &[
             "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
@@ -5465,8 +5462,7 @@ shapeTool->GetComponents(parentLabel, children);
 
 std::vector<int> ids;
 for (int i = 1; i <= children.Length(); ++i) {
-    int facadeId = it->second.nextLabelId++;
-    it->second.labelRegistry[facadeId] = children.Value(i);
+    int facadeId = registerLabel(it->second, children.Value(i));
     ids.push_back(facadeId);
 }
 return ids;",
@@ -5496,8 +5492,7 @@ shapeTool->GetFreeShapes(roots);
 
 std::vector<int> ids;
 for (int i = 1; i <= roots.Length(); ++i) {
-    int facadeId = it->second.nextLabelId++;
-    it->second.labelRegistry[facadeId] = roots.Value(i);
+    int facadeId = registerLabel(it->second, roots.Value(i));
     ids.push_back(facadeId);
 }
 return ids;",
@@ -5528,8 +5523,7 @@ TDF_Label referred;
 if (!XCAFDoc_ShapeTool::GetReferredShape(label, referred) || referred.IsNull())
     return 0;
 
-int facadeId = it->second.nextLabelId++;
-it->second.labelRegistry[facadeId] = referred;
+int facadeId = registerLabel(it->second, referred);
 return facadeId;",
         includes: &["XCAFDoc_ShapeTool.hxx", "TDF_Label.hxx"],
         category: "xcaf",
@@ -5578,8 +5572,7 @@ XCAFDoc_ShapeTool::GetSubShapes(label, subs);
 
 std::vector<int> ids;
 for (int i = 1; i <= subs.Length(); ++i) {
-    int facadeId = it->second.nextLabelId++;
-    it->second.labelRegistry[facadeId] = subs.Value(i);
+    int facadeId = registerLabel(it->second, subs.Value(i));
     ids.push_back(facadeId);
 }
 return ids;",
@@ -5613,8 +5606,7 @@ if (!shapeTool->AddSubShape(label, get(shapeId), subLabel) || subLabel.IsNull())
         \"xcafAddSubShape: label must be a top-level part and the shape one of its sub-shapes\");
 }
 
-int facadeId = it->second.nextLabelId++;
-it->second.labelRegistry[facadeId] = subLabel;
+int facadeId = registerLabel(it->second, subLabel);
 return facadeId;",
         includes: &["XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx", "TDF_Label.hxx"],
         category: "xcaf",
@@ -5701,7 +5693,7 @@ if (!reader.Transfer(doc)) {
 }
 
 uint32_t id = ++nextXcafId_;
-xcafDocs_[id] = XCAFDocRecord{doc, {}, 1};
+xcafDocs_[id] = XCAFDocRecord{doc, {}, {}, 1};
 return id;",
         includes: &[
             "STEPCAFControl_Reader.hxx", "TDocStd_Application.hxx",
