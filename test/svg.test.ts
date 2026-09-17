@@ -87,30 +87,47 @@ describe("toMultiviewSVG", () => {
 });
 
 describe("view geometry", () => {
-    // Every named view must draw a two-dimensional panel. The projection comes
-    // back in the view plane (z always 0), so mapping it onto world-space basis
-    // vectors flattened any view whose screen-up is not a world axis lying in
-    // the XY plane: front/back/left/right collapsed to a single horizontal
-    // line, and iso came out sheared. Structure-only assertions pass through
-    // that, so measure the extents.
-    const spans = (svg: string): { w: number; h: number } => {
-        const xs: number[] = [];
-        const ys: number[] = [];
-        for (const d of svg.matchAll(/<path d="([^"]+)"/g)) {
-            for (const pt of d[1]!.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)) {
-                xs.push(Number(pt[1]));
-                ys.push(Number(pt[2]));
+    type Pt = [x: number, y: number];
+    interface Drawn {
+        visible: Pt[];
+        hidden: Pt[];
+    }
+
+    // Every vertex of every <path>, split by stroke style: hidden edges carry
+    // a dasharray.
+    const drawn = (svg: string): Drawn => {
+        const out: Drawn = { visible: [], hidden: [] };
+        for (const tag of svg.matchAll(/<path d="([^"]+)"[^>]*>/g)) {
+            const bucket = tag[0].includes("stroke-dasharray") ? out.hidden : out.visible;
+            for (const pt of tag[1]!.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)) {
+                bucket.push([Number(pt[1]), Number(pt[2])]);
             }
         }
-        return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+        return out;
     };
 
-    for (const view of ["front", "back", "left", "right", "top", "bottom", "iso"] as const) {
+    const bbox = (pts: Pt[]) => ({
+        minX: Math.min(...pts.map((p) => p[0])),
+        maxX: Math.max(...pts.map((p) => p[0])),
+        minY: Math.min(...pts.map((p) => p[1])),
+        maxY: Math.max(...pts.map((p) => p[1])),
+    });
+
+    const centroid = (pts: Pt[]): Pt => [
+        pts.reduce((sum, p) => sum + p[0], 0) / pts.length,
+        pts.reduce((sum, p) => sum + p[1], 0) / pts.length,
+    ];
+
+    const VIEWS = ["front", "back", "top", "bottom", "left", "right", "iso"] as const;
+    type View = (typeof VIEWS)[number];
+
+    for (const view of VIEWS) {
         it(`draws ${view} with extent on both axes`, () => {
-            const box = kernel.makeBox(100, 60, 40);
-            const { w, h } = spans(kernel.toSVG(box, view));
-            expect(w).toBeGreaterThan(1);
-            expect(h).toBeGreaterThan(1);
+            // Structure-only assertions (labels, dashes, no NaN) pass for a
+            // panel that collapsed to a line, so measure the extents.
+            const b = bbox(drawn(kernel.toSVG(kernel.makeBox(100, 60, 40), view)).visible);
+            expect(b.maxX - b.minX).toBeGreaterThan(1);
+            expect(b.maxY - b.minY).toBeGreaterThan(1);
         });
     }
 
@@ -118,10 +135,97 @@ describe("view geometry", () => {
         const box = kernel.makeBox(100, 60, 40);
         // One panel, one scale: the ratio of the drawn extents is the ratio of
         // the modelled ones. 100x40 for front, 100x60 for top.
-        const f = spans(kernel.toSVG(box, "front"));
-        expect(f.w / f.h).toBeCloseTo(100 / 40, 1);
-        const t = spans(kernel.toSVG(box, "top"));
-        expect(t.w / t.h).toBeCloseTo(100 / 60, 1);
+        const f = bbox(drawn(kernel.toSVG(box, "front")).visible);
+        expect((f.maxX - f.minX) / (f.maxY - f.minY)).toBeCloseTo(100 / 40, 1);
+        const t = bbox(drawn(kernel.toSVG(box, "top")).visible);
+        expect((t.maxX - t.minX) / (t.maxY - t.minY)).toBeCloseTo(100 / 60, 1);
+    });
+
+    // Where each world axis points on screen, as [dx, dy] with SVG y down, so
+    // [0, -1] is up. This is what the gnomon draws; the geometry has to agree.
+    // Axes into the screen are omitted.
+    const AXES: Record<View, Partial<Record<"x" | "y" | "z", Pt>>> = {
+        front: { x: [1, 0], z: [0, -1] },
+        back: { x: [-1, 0], z: [0, -1] },
+        top: { x: [1, 0], y: [0, -1] },
+        bottom: { x: [1, 0], y: [0, 1] },
+        right: { y: [1, 0], z: [0, -1] },
+        left: { y: [-1, 0], z: [0, -1] },
+        // Isometric: X and Y leave the origin 30 degrees below horizontal.
+        iso: { x: [-Math.sqrt(3) / 2, 0.5], y: [Math.sqrt(3) / 2, 0.5], z: [0, -1] },
+    };
+
+    for (const view of VIEWS) {
+        it(`${view}: world axes point where the gnomon says`, () => {
+            for (const [axis, [dx, dy]] of Object.entries(AXES[view]) as Array<[string, Pt]>) {
+                // A small box centred on the origin and a bigger one centred
+                // 100 units along the axis: the bigger cluster has to sit in
+                // the expected direction, and only in that direction.
+                const at = { x: 0, y: 0, z: 0, [axis]: 100 };
+                const shape = kernel.makeCompound([
+                    kernel.translate(kernel.makeBox(4, 4, 4), -2, -2, -2),
+                    kernel.translate(kernel.makeBox(12, 12, 12), at.x - 6, at.y - 6, at.z - 6),
+                ]);
+                const pts = drawn(kernel.toSVG(shape, view, { showGnomon: false })).visible;
+                const along = pts.map((p) => p[0] * dx + p[1] * dy);
+                const cut = (Math.min(...along) + Math.max(...along)) / 2;
+                const near = pts.filter((_, i) => along[i]! < cut);
+                const far = pts.filter((_, i) => along[i]! >= cut);
+                const size = (c: Pt[]) => {
+                    const b = bbox(c);
+                    return Math.hypot(b.maxX - b.minX, b.maxY - b.minY);
+                };
+                expect(size(far), `${view} +${axis} should point along [${dx}, ${dy}]`).toBeGreaterThan(size(near));
+                const [nx, ny] = centroid(near);
+                const [fx, fy] = centroid(far);
+                const parallel = (fx - nx) * dx + (fy - ny) * dy;
+                const perpendicular = Math.abs((fx - nx) * -dy + (fy - ny) * dx);
+                // Any sideways component would be shear or a mirror.
+                expect(perpendicular, `${view} +${axis} is skewed`).toBeLessThan(parallel * 0.02);
+            }
+        });
+    }
+
+    // Which side the camera is on. A bump on the near face is drawn solid, one
+    // on the far face dashed; both sit inside the body's silhouette at
+    // different positions, so the interior vertices of each stroke style tell
+    // them apart. Each row: near-face bump, far-face bump, screen axis, sign of
+    // (solid minus dashed) along it.
+    const body = () => kernel.makeBox(100, 60, 40);
+    const bump = (x: number, y: number, z: number) => kernel.translate(kernel.makeBox(10, 10, 10), x, y, z);
+    const SIDES: Array<[View, number[], number[], 0 | 1, 1 | -1]> = [
+        ["front", [20, -10, 15], [60, 60, 15], 0, -1],
+        ["back", [60, 60, 15], [20, -10, 15], 0, -1],
+        ["right", [100, 40, 15], [-10, 10, 15], 0, 1],
+        ["left", [-10, 10, 15], [100, 40, 15], 0, 1],
+        ["top", [45, 40, 40], [45, 10, -10], 1, -1],
+        ["bottom", [45, 10, -10], [45, 40, 40], 1, -1],
+    ];
+    for (const [view, near, far, axis, sign] of SIDES) {
+        it(`${view}: the near face is solid and the far face dashed`, () => {
+            const shape = kernel.fuseAll([body(), bump(near[0], near[1], near[2]), bump(far[0], far[1], far[2])]);
+            const d = drawn(kernel.toSVG(shape, view, { showGnomon: false }));
+            const b = bbox([...d.visible, ...d.hidden]);
+            const inside = (p: Pt) =>
+                p[0] > b.minX + 2 && p[0] < b.maxX - 2 && p[1] > b.minY + 2 && p[1] < b.maxY - 2;
+            const solid = d.visible.filter(inside);
+            const dashed = d.hidden.filter(inside);
+            expect(solid.length).toBeGreaterThan(0);
+            expect(dashed.length).toBeGreaterThan(0);
+            expect(Math.sign(centroid(solid)[axis] - centroid(dashed)[axis])).toBe(sign);
+        });
+    }
+
+    it("iso: the camera is above the part, on its +X+Y side", () => {
+        const d = drawn(kernel.toSVG(kernel.makeBox(100, 60, 40), "iso", { showGnomon: false }));
+        const ys = [...d.visible, ...d.hidden].map((p) => p[1]);
+        const top = Math.min(...ys);
+        const bottom = Math.max(...ys);
+        // The three hidden edges meet at the far corner (0, 0, 0). One climbs
+        // to (0, 0, 40), the topmost point of the hexagon; none reaches
+        // (100, 60, 0), the bottommost, whose edges all face the camera.
+        expect(d.hidden.some((p) => Math.abs(p[1] - top) < 0.5)).toBe(true);
+        expect(d.hidden.some((p) => Math.abs(p[1] - bottom) < 0.5)).toBe(false);
     });
 });
 

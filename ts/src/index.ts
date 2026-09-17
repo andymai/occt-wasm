@@ -1765,6 +1765,14 @@ export class OcctKernel {
     // Projection (HLR)
     // =======================================================================
 
+    /**
+     * Hidden-line removal (HLRBRep) of `shape` as seen by a camera on the
+     * `viewDirection` side of `viewOrigin`: `viewDirection` is the view-plane
+     * normal pointing from the scene toward the viewer, `xAxis` is screen-right
+     * (OCCT picks one when omitted). The returned edges lie in that plane, with
+     * x along `xAxis`, y along `viewDirection × xAxis` and z = 0. Edges the
+     * shape occludes from that camera land in the `hidden*` compounds.
+     * @throws OcctError */
     projectEdges(
         shape: ShapeHandle,
         viewOrigin: Vec3,

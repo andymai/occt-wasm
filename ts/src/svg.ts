@@ -74,7 +74,7 @@ export interface MultiviewSvgOptions extends SvgViewOptions {
 }
 
 interface ViewBasis {
-    /** Projection direction (camera looks along this). */
+    /** Direction the camera looks along. */
     dir: Vec3;
     /** Screen-horizontal axis (points right). */
     sx: Vec3;
@@ -84,30 +84,30 @@ interface ViewBasis {
 
 const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
 
-// gp_Ax2(origin, dir, xAxis) uses Y = dir × xAxis as its vertical, so the
-// screen-up axis below is computed the same way to match the HLR projection.
+// Screen-up is (-dir) x sx: with the viewer on the -dir side, (sx, sy, -dir) is
+// right-handed, so the panel is a true view rather than a mirror image.
+function basis(dir: Vec3, sx: Vec3): ViewBasis {
+    return { dir, sx, sy: cross(neg(dir), sx) };
+}
+
 function basisFor(view: ViewName): ViewBasis {
     switch (view) {
         case "front":
-            return { dir: v(0, 1, 0), sx: v(1, 0, 0), sy: v(0, 0, 1) };
+            return basis(v(0, 1, 0), v(1, 0, 0));
         case "back":
-            return { dir: v(0, -1, 0), sx: v(-1, 0, 0), sy: v(0, 0, 1) };
+            return basis(v(0, -1, 0), v(-1, 0, 0));
         case "top":
-            return { dir: v(0, 0, -1), sx: v(1, 0, 0), sy: v(0, 1, 0) };
+            return basis(v(0, 0, -1), v(1, 0, 0));
         case "bottom":
-            return { dir: v(0, 0, 1), sx: v(1, 0, 0), sy: v(0, -1, 0) };
+            return basis(v(0, 0, 1), v(1, 0, 0));
         case "right":
-            return { dir: v(-1, 0, 0), sx: v(0, 1, 0), sy: v(0, 0, 1) };
+            return basis(v(-1, 0, 0), v(0, 1, 0));
         case "left":
-            return { dir: v(1, 0, 0), sx: v(0, -1, 0), sy: v(0, 0, 1) };
-        case "iso": {
-            const dir = normalize(v(-1, -1, -1));
-            const sx = normalize(v(1, -1, 0));
-            // Screen-up = dir × sx, oriented so world +Z reads upward.
-            let sy = cross(dir, sx);
-            if (sy.z < 0) sy = neg(sy);
-            return { dir, sx, sy };
-        }
+            return basis(v(1, 0, 0), v(0, -1, 0));
+        case "iso":
+            // Camera in the +X+Y+Z octant looking at the origin with +Z up, so
+            // +X runs to the lower left and +Y to the lower right.
+            return basis(normalize(v(-1, -1, -1)), normalize(v(-1, 1, 0)));
     }
 }
 
@@ -169,7 +169,12 @@ function collectEdges(
     basis: ViewBasis,
     deflection: number,
 ): ViewEdges {
-    const proj = kernel.projectEdges(shape, ORIGIN, basis.dir, basis.sx);
+    // HLR puts the viewer on the +Z side of the gp_Ax2 it projects with, so the
+    // direction it gets is the view-plane normal toward the camera, -dir. The
+    // result comes back in that frame: x along sx, y along (-dir) x sx, which
+    // is sy, and z always 0. The in-plane coordinates are the screen
+    // coordinates as they stand.
+    const proj = kernel.projectEdges(shape, ORIGIN, neg(basis.dir), basis.sx);
     try {
         const toLines = (h: ShapeHandle): Polyline[] => {
             if (Number(h) === 0) return [];
@@ -180,16 +185,7 @@ function collectEdges(
                 const count = edgeGroups[g + 1]!;
                 const line: Polyline = [];
                 for (let i = 0; i < count; i += 3) {
-                    // projectEdges returns the HLR result in the view plane:
-                    // x runs along the xAxis we passed, y along gp_Ax2's own
-                    // vertical (dir x xAxis), and z is always 0. Projecting
-                    // those points onto world-space basis vectors again is
-                    // what collapsed every view whose screen-up is not a world
-                    // axis of the XY plane -- for `front`, sy = (0,0,1) and
-                    // every z is 0, so the panel came out as a single line.
-                    // Take the in-plane coordinates directly; negate y because
-                    // gp_Ax2's vertical points down-screen (pathData flips it).
-                    line.push(points[start + i]!, -points[start + i + 1]!);
+                    line.push(points[start + i]!, points[start + i + 1]!);
                 }
                 if (line.length >= 4) lines.push(line);
             }
