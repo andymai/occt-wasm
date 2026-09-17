@@ -245,6 +245,48 @@ return store(faceMaker.Shape());",
         category: "booleans",
         return_type: ReturnType::ShapeId,
     },
+    // The plane overload of BRepAlgoAPI_Section. `section` takes a shape as the
+    // tool, so sectioning by a plane means building a face large enough to span
+    // the target -- the caller has to size it from a bounding box, and a face
+    // that is too small silently returns a partial section. gp_Pln is infinite,
+    // so there is nothing to size.
+    //
+    // Approximation stays at its default (off), so the section keeps its
+    // analytic geometry: the section of a cylinder comes back as a circle edge
+    // whose radius is exact, not as a polyline or a BSpline fit.
+    MethodSpec {
+        name: "sectionPlane",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::Double("ox"),
+            FacadeParam::Double("oy"),
+            FacadeParam::Double("oz"),
+            FacadeParam::Double("nx"),
+            FacadeParam::Double("ny"),
+            FacadeParam::Double("nz"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Pln plane(gp_Pnt(ox, oy, oz), gp_Dir(nx, ny, nz));
+// PerformNow = false: build explicitly so a failure is reported here rather
+// than from the constructor.
+BRepAlgoAPI_Section op(get(shapeId), plane, Standard_False);
+op.Build();
+if (!op.IsDone() || op.HasErrors()) {
+    throw std::runtime_error(\"sectionPlane: section failed\");
+}
+return store(op.Shape());",
+        includes: &[
+            "BRepAlgoAPI_Section.hxx",
+            "gp_Pln.hxx",
+            "gp_Pnt.hxx",
+            "gp_Dir.hxx",
+        ],
+        category: "booleans",
+        return_type: ReturnType::ShapeId,
+    },
     MethodSpec {
         name: "intersect",
         kind: MethodKind::CustomBody,

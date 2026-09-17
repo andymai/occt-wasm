@@ -346,6 +346,23 @@ export class OcctKernel {
         return wrap("section", () => handle(this.#raw.section(a, b)));
     }
 
+    /**
+     * Section `shape` with the infinite plane through `origin` with the given
+     * `normal`. Returns a compound of the intersection edges.
+     *
+     * The plane overload of {@link OcctKernel.section}: no face has to be built
+     * and sized to span the shape. The edges keep their analytic geometry — the
+     * section of a cylinder is a circle edge with an exact radius — so lengths
+     * and areas measured from the result do not carry a tessellation error.
+     * @throws OcctError */
+    sectionPlane(shape: ShapeHandle, origin: Vec3, normal: Vec3): ShapeHandle {
+        return wrap("sectionPlane", () =>
+            handle(
+                this.#raw.sectionPlane(shape, origin.x, origin.y, origin.z, normal.x, normal.y, normal.z),
+            ),
+        );
+    }
+
     /** Fuse all shapes in the array into a single shape.
      * @throws OcctError */
     fuseAll(shapes: ShapeHandle[]): ShapeHandle {

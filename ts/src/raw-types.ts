@@ -160,6 +160,7 @@ export interface OcctRawKernel {
     common(a: number, b: number): number;
     intersect(a: number, b: number): number;
     section(a: number, b: number): number;
+    sectionPlane(shapeId: number, ox: number, oy: number, oz: number, nx: number, ny: number, nz: number): number;
     fuseAll(shapeIds: EmbindVectorU32): number;
     cutAll(shapeId: number, toolIds: EmbindVectorU32): number;
     split(shapeId: number, toolIds: EmbindVectorU32): number;

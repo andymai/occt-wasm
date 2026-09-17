@@ -119,6 +119,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("cut", &OcctKernel::cut)
         .function("common", &OcctKernel::common)
         .function("section", &OcctKernel::section)
+        .function("sectionPlane", &OcctKernel::sectionPlane)
         .function("intersect", &OcctKernel::intersect)
         .function("fuseAll", &OcctKernel::fuseAll)
         .function("intersectionCells", &OcctKernel::intersectionCells)

@@ -47,6 +47,7 @@ export interface OcctWorkerProxy {
     common(a: ShapeHandle, b: ShapeHandle): Promise<ShapeHandle>;
     intersect(a: ShapeHandle, b: ShapeHandle): Promise<ShapeHandle>;
     section(a: ShapeHandle, b: ShapeHandle): Promise<ShapeHandle>;
+    sectionPlane(shape: ShapeHandle, origin: Vec3, normal: Vec3): Promise<ShapeHandle>;
     fuseAll(shapes: ShapeHandle[]): Promise<ShapeHandle>;
     cutAll(shape: ShapeHandle, tools: ShapeHandle[]): Promise<ShapeHandle>;
     split(shape: ShapeHandle, tools: ShapeHandle[]): Promise<ShapeHandle>;
