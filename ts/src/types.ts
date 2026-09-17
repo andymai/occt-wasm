@@ -563,7 +563,7 @@ export class OcctError extends Error {
 }
 
 /** Operation categories used to infer error codes from context. */
-const BOOLEAN_OPS = new Set(["fuse", "cut", "common", "intersect", "section", "fuseAll", "cutAll", "split", "booleanPipeline", "fuseWithHistory", "cutWithHistory", "intersectWithHistory"]);
+const BOOLEAN_OPS = new Set(["fuse", "cut", "common", "intersect", "section", "sectionPlane", "fuseAll", "cutAll", "split", "booleanPipeline", "fuseWithHistory", "cutWithHistory", "intersectWithHistory"]);
 const TESSELLATION_OPS = new Set(["tessellate", "wireframe", "meshShape", "meshBatch"]);
 const IO_OPS = new Set(["importStep", "exportStep", "importStl", "exportStl", "toBREP", "fromBREP", "xcafExportSTEP", "xcafImportSTEP", "xcafExportGLTF"]);
 const HEALING_OPS = new Set(["fixShape", "unifySameDomain", "healSolid", "healFace", "healWire", "fixFaceOrientations", "removeDegenerateEdges", "fixWireOnFace", "buildCurves3d"]);

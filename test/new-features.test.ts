@@ -106,6 +106,13 @@ describe("OcctErrorCode classification", () => {
         expect(err.code).toBe(OcctErrorCode.BooleanFailed);
     });
 
+    it("classifies a sectionPlane failure as BooleanFailed", () => {
+        // The facade reports "section failed", not the BooleanOp template's
+        // "boolean operation failed", so only the operation name classifies it.
+        const err = new OcctError("sectionPlane", "section failed");
+        expect(err.code).toBe(OcctErrorCode.BooleanFailed);
+    });
+
     it("falls back to TessellationFailed for tessellation operations", () => {
         const err = new OcctError("tessellate", "unexpected error");
         expect(err.code).toBe(OcctErrorCode.TessellationFailed);
