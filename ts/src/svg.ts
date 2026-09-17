@@ -180,8 +180,16 @@ function collectEdges(
                 const count = edgeGroups[g + 1]!;
                 const line: Polyline = [];
                 for (let i = 0; i < count; i += 3) {
-                    const p = v(points[start + i]!, points[start + i + 1]!, points[start + i + 2]!);
-                    line.push(dot(p, basis.sx), dot(p, basis.sy));
+                    // projectEdges returns the HLR result in the view plane:
+                    // x runs along the xAxis we passed, y along gp_Ax2's own
+                    // vertical (dir x xAxis), and z is always 0. Projecting
+                    // those points onto world-space basis vectors again is
+                    // what collapsed every view whose screen-up is not a world
+                    // axis of the XY plane -- for `front`, sy = (0,0,1) and
+                    // every z is 0, so the panel came out as a single line.
+                    // Take the in-plane coordinates directly; negate y because
+                    // gp_Ax2's vertical points down-screen (pathData flips it).
+                    line.push(points[start + i]!, -points[start + i + 1]!);
                 }
                 if (line.length >= 4) lines.push(line);
             }

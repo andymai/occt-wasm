@@ -86,6 +86,45 @@ describe("toMultiviewSVG", () => {
     });
 });
 
+describe("view geometry", () => {
+    // Every named view must draw a two-dimensional panel. The projection comes
+    // back in the view plane (z always 0), so mapping it onto world-space basis
+    // vectors flattened any view whose screen-up is not a world axis lying in
+    // the XY plane: front/back/left/right collapsed to a single horizontal
+    // line, and iso came out sheared. Structure-only assertions pass through
+    // that, so measure the extents.
+    const spans = (svg: string): { w: number; h: number } => {
+        const xs: number[] = [];
+        const ys: number[] = [];
+        for (const d of svg.matchAll(/<path d="([^"]+)"/g)) {
+            for (const pt of d[1]!.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)) {
+                xs.push(Number(pt[1]));
+                ys.push(Number(pt[2]));
+            }
+        }
+        return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    };
+
+    for (const view of ["front", "back", "left", "right", "top", "bottom", "iso"] as const) {
+        it(`draws ${view} with extent on both axes`, () => {
+            const box = kernel.makeBox(100, 60, 40);
+            const { w, h } = spans(kernel.toSVG(box, view));
+            expect(w).toBeGreaterThan(1);
+            expect(h).toBeGreaterThan(1);
+        });
+    }
+
+    it("front shows width x height, top shows width x depth", () => {
+        const box = kernel.makeBox(100, 60, 40);
+        // One panel, one scale: the ratio of the drawn extents is the ratio of
+        // the modelled ones. 100x40 for front, 100x60 for top.
+        const f = spans(kernel.toSVG(box, "front"));
+        expect(f.w / f.h).toBeCloseTo(100 / 40, 1);
+        const t = spans(kernel.toSVG(box, "top"));
+        expect(t.w / t.h).toBeCloseTo(100 / 60, 1);
+    });
+});
+
 describe("toSVG", () => {
     it("renders a single standalone view", () => {
         const box = kernel.makeBox(8, 8, 8);
