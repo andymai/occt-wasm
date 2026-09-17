@@ -369,7 +369,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | Category         | What's covered                                                                                                 |
 | ---------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Primitives**   | Box, cylinder, sphere, cone, torus, ellipsoid, rectangle, half-space                                           |
-| **Booleans**     | Fuse, cut, common, intersect, section + multi-shape variants, intersection cells                               |
+| **Booleans**     | Fuse, cut, common, intersect, section (by shape or plane) + multi-shape variants, intersection cells           |
 | **Modeling**     | Extrude, revolve, fillet, chamfer, shell, offset, draft                                                        |
 | **Sweeps**       | Pipe, loft, sweep, oriented sweep (fixed/Frenet/up-axis/auxiliary), draft prism, extrusion laws                |
 | **Construction** | Vertices, edges (line/arc/circle/ellipse/bezier/helix), wires, faces, solids, compounds, sewing                |

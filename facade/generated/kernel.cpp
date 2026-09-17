@@ -473,6 +473,22 @@ uint32_t OcctKernel::section(uint32_t a, uint32_t b) {
     }
 }
 
+uint32_t OcctKernel::sectionPlane(uint32_t shapeId, double ox, double oy, double oz, double nx, double ny, double nz) {
+    try {
+        gp_Pln plane(gp_Pnt(ox, oy, oz), gp_Dir(nx, ny, nz));
+        // PerformNow = false: build explicitly so a failure is reported here rather
+        // than from the constructor.
+        BRepAlgoAPI_Section op(get(shapeId), plane, Standard_False);
+        op.Build();
+        if (!op.IsDone() || op.HasErrors()) {
+            throw std::runtime_error("sectionPlane: section failed");
+        }
+        return store(op.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("sectionPlane: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::intersect(uint32_t a, uint32_t b) {
     try {
         return common(a, b);

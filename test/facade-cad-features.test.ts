@@ -64,6 +64,35 @@ describe("halfSpace", () => {
     });
 });
 
+describe("sectionPlane", () => {
+    it("keeps the section analytic: a cylinder cuts to one exact circle", () => {
+        const cyl = kernel.makeCylinder(20, 40); // z in [0,40]
+        const sec = kernel.sectionPlane(cyl, { x: 0, y: 0, z: 20 }, { x: 0, y: 0, z: 1 });
+
+        // One circular edge, not a polyline: the length is the analytic
+        // circumference rather than a tessellation of it.
+        expect(kernel.getSubShapes(sec, "edge").length).toBe(1);
+        expect(kernel.getLength(sec)).toBeCloseTo(2 * Math.PI * 20, 9);
+    });
+
+    it("the plane is unbounded, so nothing has to be sized to the shape", () => {
+        // Far from the origin: a section face sized by a fixed extent, or
+        // centred on the origin, would miss this entirely.
+        const box = kernel.translate(kernel.makeBox(10, 10, 10), 1000, 1000, 1000);
+        const sec = kernel.sectionPlane(box, { x: 0, y: 0, z: 1005 }, { x: 0, y: 0, z: 1 });
+
+        expect(kernel.getSubShapes(sec, "edge").length).toBe(4);
+        expect(kernel.getLength(sec)).toBeCloseTo(40, 9);
+    });
+
+    it("a plane that misses the shape gives an empty section, not an error", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const sec = kernel.sectionPlane(box, { x: 0, y: 0, z: 50 }, { x: 0, y: 0, z: 1 });
+
+        expect(kernel.getSubShapes(sec, "edge").length).toBe(0);
+    });
+});
+
 describe("sweepOriented", () => {
     // Circular profile in the YZ plane (normal +X), swept along an arc that
     // starts heading +X so the profile is perpendicular to the spine.

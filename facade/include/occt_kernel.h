@@ -150,6 +150,8 @@ class OcctKernel {
     uint32_t common(uint32_t a, uint32_t b);
     uint32_t intersect(uint32_t a, uint32_t b);
     uint32_t section(uint32_t a, uint32_t b);
+    uint32_t sectionPlane(uint32_t shapeId, double ox, double oy, double oz, double nx, double ny,
+                          double nz);
     uint32_t fuseAll(std::vector<uint32_t> shapeIds);
     uint32_t cutAll(uint32_t shapeId, std::vector<uint32_t> toolIds);
     uint32_t split(uint32_t shapeId, std::vector<uint32_t> toolIds);

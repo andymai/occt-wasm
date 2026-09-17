@@ -38,6 +38,7 @@ pub(crate) struct GeneratedFuncs {
     fn_cut: TypedFunc<(u32, u32), u32>,
     fn_common: TypedFunc<(u32, u32), u32>,
     fn_section: TypedFunc<(u32, u32), u32>,
+    fn_section_plane: TypedFunc<(u32, f64, f64, f64, f64, f64, f64), u32>,
     fn_intersect: TypedFunc<(u32, u32), u32>,
     fn_fuse_all: TypedFunc<(i32, i32), u32>,
     fn_intersection_cells: TypedFunc<(i32, i32), u32>,
@@ -273,6 +274,7 @@ impl GeneratedFuncs {
             fn_cut: instance.get_typed_func(&mut store, "occt_cut")?,
             fn_common: instance.get_typed_func(&mut store, "occt_common")?,
             fn_section: instance.get_typed_func(&mut store, "occt_section")?,
+            fn_section_plane: instance.get_typed_func(&mut store, "occt_section_plane")?,
             fn_intersect: instance.get_typed_func(&mut store, "occt_intersect")?,
             fn_fuse_all: instance.get_typed_func(&mut store, "occt_fuse_all")?,
             fn_intersection_cells: instance
@@ -681,6 +683,27 @@ impl crate::kernel::OcctKernel {
         self.check_error("section")?;
         if result == 0 {
             return Err(self.read_last_error("section"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn section_plane(
+        &mut self,
+        shape_id: ShapeHandle,
+        ox: f64,
+        oy: f64,
+        oz: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_section_plane
+            .call(&mut self.store, (shape_id.0, ox, oy, oz, nx, ny, nz))?;
+        self.check_error("section_plane")?;
+        if result == 0 {
+            return Err(self.read_last_error("section_plane"));
         }
         Ok(ShapeHandle(result))
     }
