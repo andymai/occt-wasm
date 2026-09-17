@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.0](https://github.com/andymai/occt-wasm/compare/v5.2.0...v5.3.0) (2026-09-17)
+
+
+### Features
+
+* **facade:** source wireframe edges from the stored triangulation ([#335](https://github.com/andymai/occt-wasm/issues/335)) ([988f6b7](https://github.com/andymai/occt-wasm/commit/988f6b765df545f59e6e6c1238be21b349191092))
+
 ## [5.2.0](https://github.com/andymai/occt-wasm/compare/v5.1.1...v5.2.0) (2026-09-17)
 
 
