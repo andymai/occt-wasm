@@ -1,0 +1,21 @@
+examples/step-viewer/index.html
+  s_32c5eb9744c1b0::t_3045f90ef6c825 79-80
+examples/three-js/index.html
+  s_32c5eb9744c1b0::t_61d00892b6bf16 52-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5546ecc6e3e2982ccb91daab4b13ec4b1fbbf6bd",
+  "prompts": {},
+  "sessions": {
+    "s_32c5eb9744c1b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e306d16c-496b-4f0e-894c-b661a95e4c2f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
