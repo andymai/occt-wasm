@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.2.0](https://github.com/andymai/occt-wasm/compare/v5.1.1...v5.2.0) (2026-09-17)
+
+
+### Features
+
+* **facade:** sectionPlane sections a shape with an unbounded plane ([#332](https://github.com/andymai/occt-wasm/issues/332)) ([e8c9b5d](https://github.com/andymai/occt-wasm/commit/e8c9b5d8a995cffe5afd5fc02d836bd0f64c80f3))
+
+
+### Bug Fixes
+
+* **svg:** front/side views collapsed to a line and hidden lines were inverted ([#333](https://github.com/andymai/occt-wasm/issues/333)) ([5d4862f](https://github.com/andymai/occt-wasm/commit/5d4862f080926f16e8e0d7c8e9e3ddeac9bd9f46))
+
 ## [5.1.1](https://github.com/andymai/occt-wasm/compare/v5.1.0...v5.1.1) (2026-09-16)
 
 
