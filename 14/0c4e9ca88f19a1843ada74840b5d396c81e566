@@ -1,0 +1,24 @@
+ts/src/index.ts
+  s_32c5eb9744c1b0::t_25d70d8efdeb57 1768-1775
+ts/src/svg.ts
+  s_32c5eb9744c1b0::t_25d70d8efdeb57 77,87-92,96,98,100,102,104,106-110,172-177,188
+test/svg.test.ts
+  s_32c5eb9744c1b0::t_7c97a380694955 154-155
+  s_32c5eb9744c1b0::t_f2f45a576ce6c6 90-103,106,109-124,126-130,138-153,156-228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "140c4e9ca88f19a1843ada74840b5d396c81e566",
+  "prompts": {},
+  "sessions": {
+    "s_32c5eb9744c1b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e306d16c-496b-4f0e-894c-b661a95e4c2f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
