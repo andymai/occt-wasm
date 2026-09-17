@@ -16,7 +16,7 @@
  */
 
 import * as Comlink from "comlink";
-import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
+import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, WireframeOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
 import type { BooleanOp, TransitionMode } from "./types.js";
 
 /**
@@ -107,7 +107,7 @@ export interface OcctWorkerProxy {
 
     // Tessellation
     tessellate(shape: ShapeHandle, options?: TessellateOptions): Promise<Mesh>;
-    wireframe(shape: ShapeHandle, deflection?: number): Promise<EdgeData>;
+    wireframe(shape: ShapeHandle, options?: number | WireframeOptions): Promise<EdgeData>;
     meshShape(shape: ShapeHandle, options?: TessellateOptions): Promise<Mesh>;
     meshBatch(shapes: ShapeHandle[], options?: TessellateOptions): Promise<MeshBatchData>;
 
@@ -238,7 +238,7 @@ export class OcctWorker {
     tessellate(shape: ShapeHandle, options?: TessellateOptions) { return this.#proxy.tessellate(shape, options); }
     meshShape(shape: ShapeHandle, options?: TessellateOptions) { return this.#proxy.meshShape(shape, options); }
     meshBatch(shapes: ShapeHandle[], options?: TessellateOptions) { return this.#proxy.meshBatch(shapes, options); }
-    wireframe(shape: ShapeHandle, deflection?: number) { return this.#proxy.wireframe(shape, deflection); }
+    wireframe(shape: ShapeHandle, options?: number | WireframeOptions) { return this.#proxy.wireframe(shape, options); }
     translate(shape: ShapeHandle, dx: number, dy: number, dz: number) { return this.#proxy.translate(shape, dx, dy, dz); }
     rotate(shape: ShapeHandle, axis: { point: Vec3; direction: Vec3 }, angleRad: number) { return this.#proxy.rotate(shape, axis, angleRad); }
     importStep(data: string | ArrayBuffer) { return this.#proxy.importStep(data); }

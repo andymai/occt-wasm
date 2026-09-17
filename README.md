@@ -67,6 +67,10 @@ import { OcctKernel } from "occt-wasm";
   const mesh = kernel.tessellate(fused);
   // mesh.positions (Float32Array), mesh.normals, mesh.indices
 
+  // Edge overlay that shares vertices with that mesh (falls back to
+  // curve sampling for edges that were never meshed)
+  const outline = kernel.wireframe(fused, { source: "triangulation" });
+
   // STEP I/O
   const step = kernel.exportStep(fused);
   const reimported = kernel.importStep(step);
@@ -375,7 +379,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | **Construction** | Vertices, edges (line/arc/circle/ellipse/bezier/helix), wires, faces, solids, compounds, sewing                |
 | **Transforms**   | Translate, rotate, scale, mirror, align to bounding box, 3x4 matrix, linear/circular patterns                  |
 | **Topology**     | Shape type queries, type predicates, sub-shape extraction, adjacency, hash codes                               |
-| **Tessellation** | Triangle meshes (absolute or relative deflection), wireframe polylines, per-face groups, batched meshing       |
+| **Tessellation** | Triangle meshes (absolute or relative deflection), wireframe polylines (curve-sampled or mesh-aligned), per-face groups, batched meshing |
 | **I/O**          | STEP, STL (ASCII + binary), BREP (text + binary) import/export                                                 |
 | **Query**        | Bounding box, volume, surface area, length, center of mass, inertia tensor, point-in-solid, curvature          |
 | **Surfaces**     | Type, normal, UV bounds, point classification, B-spline construction                                           |

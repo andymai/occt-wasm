@@ -195,3 +195,81 @@ describe("getBoundingBox options", () => {
         expect(loose.xmax).toBeGreaterThanOrEqual(precise.xmax);
     });
 });
+
+describe("wireframe source", () => {
+    // Keys every XYZ triple of a Float32Array by its exact bit pattern, so
+    // membership means "the same vertex", not "close to one".
+    const vertexSet = (positions: Float32Array): Set<string> => {
+        const set = new Set<string>();
+        for (let i = 0; i < positions.length; i += 3) {
+            set.add(`${positions[i]},${positions[i + 1]},${positions[i + 2]}`);
+        }
+        return set;
+    };
+    const countShared = (points: Float32Array, vertices: Set<string>): number => {
+        let shared = 0;
+        for (let i = 0; i < points.length; i += 3) {
+            if (vertices.has(`${points[i]},${points[i + 1]},${points[i + 2]}`)) shared++;
+        }
+        return shared;
+    };
+
+    it("triangulation mode shares every point with the mesh, curve mode does not", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        const mesh = kernel.meshShape(cyl, { linearDeflection: 0.5, angularDeflection: 0.5 });
+        const vertices = vertexSet(mesh.positions);
+
+        const aligned = kernel.wireframe(cyl, { source: "triangulation" });
+        expect(aligned.edgeCount).toBe(3);
+        expect(countShared(aligned.points, vertices)).toBe(aligned.points.length / 3);
+
+        // The rim circles sampled at the same chord error land between mesh
+        // vertices, which is exactly the separation the aligned mode removes.
+        const sampled = kernel.wireframe(cyl, 0.5);
+        expect(countShared(sampled.points, vertices)).toBeLessThan(sampled.points.length / 3);
+    });
+
+    it("triangulation mode falls back to curve sampling on an unmeshed shape", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        const sampled = kernel.wireframe(cyl, 0.05);
+        const aligned = kernel.wireframe(cyl, { source: "triangulation", deflection: 0.05 });
+        expect(Array.from(aligned.edgeGroups)).toEqual(Array.from(sampled.edgeGroups));
+        expect(Array.from(aligned.points)).toEqual(Array.from(sampled.points));
+    });
+
+    it("falls back per edge when only part of a compound was meshed", () => {
+        const cyl = kernel.makeCylinder(5, 10);
+        const box = kernel.translate(kernel.makeBox(4, 4, 4), 20, 0, 0);
+        const mesh = kernel.meshShape(cyl, { linearDeflection: 0.5, angularDeflection: 0.5 });
+        const vertices = vertexSet(mesh.positions);
+        const compound = kernel.makeCompound([cyl, box]);
+
+        const aligned = kernel.wireframe(compound, { source: "triangulation", deflection: 0.5 });
+        const cylAlone = kernel.wireframe(cyl, { source: "triangulation" });
+        const boxAlone = kernel.wireframe(box, 0.5);
+        expect(aligned.edgeCount).toBe(cylAlone.edgeCount + boxAlone.edgeCount);
+        expect(aligned.points.length).toBe(cylAlone.points.length + boxAlone.points.length);
+        // The cylinder's rims come from its mesh; the box edges are straight, so
+        // both sources put their two endpoints on the same corners.
+        const boxVertices = vertexSet(boxAlone.points);
+        for (let i = 0; i < aligned.points.length; i += 3) {
+            const key = `${aligned.points[i]},${aligned.points[i + 1]},${aligned.points[i + 2]}`;
+            expect(vertices.has(key) || boxVertices.has(key)).toBe(true);
+        }
+    });
+
+    it("skips degenerate edges in both modes", () => {
+        // A sphere carries one seam edge plus two zero-length pole edges.
+        const sphere = kernel.makeSphere(5);
+        const sampled = kernel.wireframe(sphere, 0.1);
+        expect(sampled.edgeCount).toBe(1);
+        kernel.meshShape(sphere, { linearDeflection: 0.1, angularDeflection: 0.5 });
+        const aligned = kernel.wireframe(sphere, { source: "triangulation" });
+        expect(aligned.edgeCount).toBe(1);
+        for (const data of [sampled, aligned]) {
+            for (let g = 0; g < data.edgeGroups.length; g += 3) {
+                expect(data.edgeGroups[g + 1]).toBeGreaterThanOrEqual(6);
+            }
+        }
+    });
+});

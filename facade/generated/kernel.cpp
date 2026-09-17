@@ -101,6 +101,8 @@
 #include <NCollection_List.hxx>
 #include <NCollection_Sequence.hxx>
 #include <NCollection_Vec3.hxx>
+#include <Poly_Polygon3D.hxx>
+#include <Poly_PolygonOnTriangulation.hxx>
 #include <Poly_Triangulation.hxx>
 #include <Precision.hxx>
 #include <Quantity_Color.hxx>
@@ -137,6 +139,7 @@
 #include <TopoDS.hxx>
 #include <TopoDS_Builder.hxx>
 #include <TopoDS_Compound.hxx>
+#include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
@@ -3935,9 +3938,14 @@ MeshBatchData OcctKernel::meshBatch(std::vector<uint32_t> ids, double linearDefl
     }
 }
 
-EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
+EdgeData OcctKernel::wireframe(uint32_t id, double deflection, int source) {
     try {
         const auto& shape = get(id);
+        // source 0 samples the analytic curve; 1 reads the polygon BRepMesh stored
+        // on the edge so the polyline shares vertices with the face mesh, following
+        // StdPrs_WFShape::addEdges: PolygonOnTriangulation, then Polygon3D, then the
+        // analytic sampler for edges that were never meshed.
+        const bool fromTriangulation = source == 1;
         
         struct EdgeSample {
             std::vector<gp_Pnt> pts;
@@ -3946,19 +3954,64 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection) {
         std::vector<EdgeSample> edgeSamples;
         int totalPoints = 0;
         
+        auto appendNodes = [](std::vector<gp_Pnt>& pts, const TopLoc_Location& loc, int lower,
+                              int upper, auto&& nodeAt) {
+            const gp_Trsf& trsf = loc.Transformation();
+            const bool identity = loc.IsIdentity();
+            pts.reserve(pts.size() + static_cast<size_t>(upper - lower + 1));
+            for (int i = lower; i <= upper; i++) {
+                gp_Pnt p = nodeAt(i);
+                pts.push_back(identity ? p : p.Transformed(trsf));
+            }
+        };
+        
         // Use IndexedMap to avoid duplicate edges (shared between faces)
         NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
         TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
         for (int ei = 1; ei <= edgeMap.Extent(); ei++) {
-            BRepAdaptor_Curve curve(TopoDS::Edge(edgeMap.FindKey(ei)));
-            // GCPnts_TangentialDeflection takes (curve, angular, curvature): the
-            // caller's deflection is the chord error, capped at 0.5 rad per step.
-            GCPnts_TangentialDeflection sampler(curve, 0.5, deflection);
-            EdgeSample es;
-            for (int i = 1; i <= sampler.NbPoints(); i++) {
-                es.pts.push_back(sampler.Value(i));
+            const TopoDS_Edge& edge = TopoDS::Edge(edgeMap.FindKey(ei));
+            if (BRep_Tool::Degenerated(edge)) {
+                continue;
             }
-            es.hash = static_cast<int>(TopTools_ShapeMapHasher{}(edgeMap.FindKey(ei)) % 2147483647);
+            EdgeSample es;
+            bool sampled = false;
+            if (fromTriangulation) {
+                TopLoc_Location loc;
+                Handle(Poly_Triangulation) tri;
+                Handle(Poly_PolygonOnTriangulation) onTri;
+                BRep_Tool::PolygonOnTriangulation(edge, onTri, tri, loc);
+                if (!onTri.IsNull() && !tri.IsNull()) {
+                    const auto& nodes = onTri->Nodes();
+                    appendNodes(es.pts, loc, nodes.Lower(), nodes.Upper(),
+                                [&](int i) { return tri->Node(nodes.Value(i)); });
+                    sampled = true;
+                } else {
+                    Handle(Poly_Polygon3D) poly3d = BRep_Tool::Polygon3D(edge, loc);
+                    if (!poly3d.IsNull()) {
+                        const auto& nodes = poly3d->Nodes();
+                        appendNodes(es.pts, loc, nodes.Lower(), nodes.Upper(),
+                                    [&](int i) { return nodes.Value(i); });
+                        sampled = true;
+                    }
+                }
+            }
+            if (!sampled) {
+                if (!BRep_Tool::IsGeometric(edge)) {
+                    continue;
+                }
+                BRepAdaptor_Curve curve(edge);
+                // GCPnts_TangentialDeflection takes (curve, angular, curvature): the
+                // caller's deflection is the chord error, capped at 0.5 rad per step.
+                GCPnts_TangentialDeflection sampler(curve, 0.5, deflection);
+                es.pts.reserve(static_cast<size_t>(sampler.NbPoints()));
+                for (int i = 1; i <= sampler.NbPoints(); i++) {
+                    es.pts.push_back(sampler.Value(i));
+                }
+            }
+            if (es.pts.empty()) {
+                continue;
+            }
+            es.hash = static_cast<int>(TopTools_ShapeMapHasher{}(edge) % 2147483647);
             totalPoints += static_cast<int>(es.pts.size());
             edgeSamples.push_back(std::move(es));
         }

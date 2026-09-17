@@ -814,7 +814,7 @@ describe("arena memory management", () => {
 describe("tessellation (extended)", () => {
     it("wireframe returns edge polyline data for a box", () => {
         const box = kernel.makeBox(10, 10, 10);
-        const data = kernel.wireframe(box, 0.1);
+        const data = kernel.wireframe(box, 0.1, 0);
         expect(data.pointCount).toBeGreaterThan(0);
         expect(data.edgeGroupCount).toBeGreaterThan(0);
         const ptr = data.getPointsPtr();
@@ -830,8 +830,8 @@ describe("tessellation (extended)", () => {
         // Chord-error sampling puts ~pi*sqrt(r/(2d)) points on a circle rim:
         // ~16 at d=0.1 and ~157 at d=1e-3 for r=5. The old angular-slot
         // misroute sampled ~2*pi/d points instead (~6283 per rim at 1e-3).
-        const fine = kernel.wireframe(cyl, 1e-3);
-        const coarse = kernel.wireframe(cyl, 0.1);
+        const fine = kernel.wireframe(cyl, 1e-3, 0);
+        const coarse = kernel.wireframe(cyl, 0.1, 0);
         const finePts = fine.pointCount / 3;
         const coarsePts = coarse.pointCount / 3;
         fine.delete();
