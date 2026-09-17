@@ -261,7 +261,7 @@ export interface OcctRawKernel {
     // Tessellation
     tessellate(id: number, linDefl: number, angDefl: number): RawMeshData;
     tessellateRelative(id: number, linDefl: number, angDefl: number): RawMeshData;
-    wireframe(id: number, deflection: number): RawEdgeData;
+    wireframe(id: number, deflection: number, source: number): RawEdgeData;
     hasTriangulation(id: number): boolean;
     meshShape(id: number, linDefl: number, angDefl: number): RawMeshData;
     meshBatch(ids: EmbindVectorU32, linDefl: number, angDefl: number): RawMeshBatchData;

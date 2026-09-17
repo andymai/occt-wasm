@@ -284,7 +284,7 @@ class OcctKernel {
     // --- Tessellation / Mesh ---
     MeshData tessellate(uint32_t id, double linearDeflection, double angularDeflection);
     MeshData tessellateRelative(uint32_t id, double linearDeflection, double angularDeflection);
-    EdgeData wireframe(uint32_t id, double deflection);
+    EdgeData wireframe(uint32_t id, double deflection, int source);
     bool hasTriangulation(uint32_t id);
     MeshData meshShape(uint32_t id, double linearDeflection, double angularDeflection);
     MeshBatchData meshBatch(std::vector<uint32_t> ids, double linearDeflection,

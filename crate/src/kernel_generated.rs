@@ -226,7 +226,7 @@ pub(crate) struct GeneratedFuncs {
     fn_tessellate_relative: TypedFunc<(u32, f64, f64), i32>,
     fn_mesh_shape: TypedFunc<(u32, f64, f64), i32>,
     fn_mesh_batch: TypedFunc<(i32, i32, f64, f64), i32>,
-    fn_wireframe: TypedFunc<(u32, f64), i32>,
+    fn_wireframe: TypedFunc<(u32, f64, i32), i32>,
     fn_project_edges: TypedFunc<(u32, f64, f64, f64, f64, f64, f64, f64, f64, f64, i32), i32>,
     fn_release: TypedFunc<(u32,), i32>,
     fn_release_all: TypedFunc<(), i32>,
@@ -4001,11 +4001,16 @@ impl crate::kernel::OcctKernel {
         self.read_mesh_batch_result()
     }
 
-    pub fn wireframe(&mut self, id: ShapeHandle, deflection: f64) -> OcctResult<EdgeData> {
+    pub fn wireframe(
+        &mut self,
+        id: ShapeHandle,
+        deflection: f64,
+        source: i32,
+    ) -> OcctResult<EdgeData> {
         let status = self
             .generated
             .fn_wireframe
-            .call(&mut self.store, (id.0, deflection))?;
+            .call(&mut self.store, (id.0, deflection, source))?;
         if status < 0 {
             return Err(self.read_last_error("wireframe"));
         }

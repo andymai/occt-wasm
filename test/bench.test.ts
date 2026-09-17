@@ -294,6 +294,31 @@ describe("Core 5 — raw facade benchmarks", () => {
         expect(r.median).toBeLessThan(200);
     });
 
+    // Both wireframe benchmarks walk the same 24 edges of a filleted box that was
+    // meshed at 0.01 beforehand; only the point source differs. Triangulation
+    // mode reads stored polygon nodes instead of re-sampling each curve.
+    let wireframeShape = 0;
+    beforeAll(() => {
+        wireframeShape = roundedBox(20, 20, 20, 3);
+        kernel.meshShape(wireframeShape, 0.01, 0.5).delete();
+    });
+
+    it("wireframe ×20 curve", () => {
+        const r = bench("wireframe ×20 curve", () => {
+            for (let i = 0; i < 20; i++) kernel.wireframe(wireframeShape, 0.01, 0).delete();
+        });
+        record(r);
+        expect(r.median).toBeLessThan(500);
+    });
+
+    it("wireframe ×20 triangulation", () => {
+        const r = bench("wireframe ×20 triangulation", () => {
+            for (let i = 0; i < 20; i++) kernel.wireframe(wireframeShape, 0.01, 1).delete();
+        });
+        record(r);
+        expect(r.median).toBeLessThan(500);
+    });
+
     // interpolatePoints is marshalling-dominated (cheap OCCT interpolation, large
     // point-array input), so these two benchmarks run the *same* interpolation and
     // differ only in how the points cross the JS->WASM boundary: per-element

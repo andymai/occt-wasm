@@ -55,6 +55,8 @@ export {
     type TessellateOptions,
     type UVBounds,
     type Vec3,
+    type WireframeOptions,
+    type WireframeSource,
 } from "./types.js";
 
 export { XCAFDocument, type EmscriptenFS } from "./xcaf-document.js";
@@ -97,6 +99,7 @@ import type {
     SweepFullOptions,
     SweepOrientedOptions,
     TessellateOptions,
+    WireframeOptions,
     BoundingBoxOptions,
     BooleanOp,
     UVBounds,
@@ -1233,10 +1236,19 @@ export class OcctKernel {
         });
     }
 
-    /** Sample edges as polylines for wireframe rendering. */
-    wireframe(shape: ShapeHandle, deflection = 0.1): EdgeData {
+    /**
+     * Sample edges as polylines for wireframe rendering.
+     *
+     * Degenerate edges (sphere poles, cone apexes) are skipped. Pass a number
+     * for the chord deflection, or a `WireframeOptions` to source the points
+     * from the stored mesh polygons instead (see `WireframeSource`).
+     */
+    wireframe(shape: ShapeHandle, options: number | WireframeOptions = 0.1): EdgeData {
         return wrap("wireframe", () => {
-            const raw = this.#raw.wireframe(shape, deflection);
+            const opts = typeof options === "number" ? { deflection: options } : options;
+            const deflection = opts.deflection ?? 0.1;
+            const source = opts.source === "triangulation" ? 1 : 0;
+            const raw = this.#raw.wireframe(shape, deflection, source);
             try {
                 const points = new Float32Array(
                     this.#module.HEAPF32.buffer.slice(

@@ -70,6 +70,27 @@ export interface TessellateOptions {
     relative?: boolean | undefined;
 }
 
+/**
+ * Where `wireframe` takes each edge's polyline from.
+ *
+ * - `"curve"` samples the edge's analytic curve at the requested chord
+ *   deflection, independent of any mesh.
+ * - `"triangulation"` reads the polygon BRepMesh stored on the edge when the
+ *   shape was last meshed (`meshShape`, `tessellate`, `meshBatch`), so every
+ *   point is a vertex of the adjacent face's mesh and the overlay never floats
+ *   off a coarse surface. Edges without a stored polygon fall back to curve
+ *   sampling, mirroring OCCT's own shaded-view wireframe.
+ */
+export type WireframeSource = "curve" | "triangulation";
+
+/** Options controlling `wireframe` edge sampling. */
+export interface WireframeOptions {
+    /** Maximum chord deviation for curve-sampled edges. Default: 0.1 */
+    deflection?: number | undefined;
+    /** Polyline source. Default: `"curve"` */
+    source?: WireframeSource | undefined;
+}
+
 /** Options for WASM module initialization. */
 export interface InitOptions {
     /**
