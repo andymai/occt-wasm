@@ -110,7 +110,32 @@ describe("bench-check", () => {
         results["mesh sphere (tol=0.01)"] *= 1.5; // 0.47ms -> 0.71ms, +50% but +0.24ms
         const { status, stdout } = check(results);
         expect(status).toBe(0);
-        expect(stdout).toContain("OK (sub-0.5ms noise): mesh sphere");
+        expect(stdout).toContain("OK (sub-1ms noise): mesh sphere");
+    });
+
+    it("ignores a sub-ms benchmark swing that clears the old 0.5ms floor but not 1ms", () => {
+        // meshBatch 0.86ms -> 1.46ms: +0.6ms of jitter, which failed the build
+        // under the old 0.5ms floor even though a 0.6ms swing on a 0.86ms benchmark
+        // is not separable from scheduling noise on a shared runner.
+        const results = scale(1);
+        results["meshBatch ×10 spheres"] += 0.6;
+        const { status, stdout } = check(results);
+        expect(status).toBe(0);
+        expect(stdout).toContain("OK (sub-1ms noise): meshBatch ×10 spheres");
+    });
+
+    it("does not flag a benchmark that ran faster than baseline but normalized above it", () => {
+        // Fast runner (0.72x) on which exportSTEP only reaches 0.86x because its
+        // fixed STEP-schema cost does not scale with runner speed. Dividing its raw
+        // 0.86x by the pack's 0.72x factor lands it ~19% "over" the baseline, but
+        // it ran faster than baseline in raw terms, so it is a normalization
+        // artifact, not a regression.
+        const results = scale(0.72);
+        results["exportSTEP ×10"] = BASELINE["exportSTEP ×10"] * 0.86;
+        const { status, stdout } = check(results);
+        expect(status).toBe(0);
+        expect(stdout).toContain("OK (normalization artifact, raw <= baseline): exportSTEP");
+        expect(stdout).toContain("No performance regressions detected");
     });
 
     it("fails when the results are missing a baseline benchmark", () => {
