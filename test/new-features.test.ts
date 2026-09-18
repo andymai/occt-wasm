@@ -594,6 +594,31 @@ describe("Named enums", () => {
             const offset = kernel.offsetWire2D(wire, 2.0, JoinType.Arc);
             expect(offset).toBeGreaterThan(0);
         });
+
+        it("offsets an open wire made of a single edge", () => {
+            // BRepOffsetAPI_MakeOffset reports IsDone() == false for a one-edge
+            // wire. Drawing one line and giving it a width is the first thing
+            // anyone tries, so the facade splits the edge and lets OCCT work.
+            const edge = kernel.makeLineEdge(0, 0, 0, 40, 0, 0);
+            const edges = new Module.VectorUint32();
+            edges.push_back(edge);
+            const wire = kernel.makeWire(edges);
+            edges.delete();
+
+            const offset = kernel.offsetWire2D(wire, 2.0, JoinType.Arc);
+            expect(offset).toBeGreaterThan(0);
+
+            // A 40-long segment offset by 2 closes into a stadium: the straight
+            // part is 40 x 4 and the two semicircular caps add pi * 2^2.
+            const face = kernel.makeFace(offset);
+            expect(kernel.getSurfaceArea(face)).toBeCloseTo(40 * 4 + Math.PI * 4, 1);
+
+            // Four edges: two straights and two caps. The midpoint split used
+            // to get here must not survive into the result.
+            const resultEdges = kernel.getSubShapes(offset, "edge");
+            expect(resultEdges.size()).toBe(4);
+            resultEdges.delete();
+        });
     });
 
     describe("BooleanOp", () => {
