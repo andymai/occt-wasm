@@ -25,7 +25,7 @@ cd ts && npx vitest run -t "fuse"                      # tests whose name matche
 cd ts && npx tsgo --noEmit && npx eslint src/          # the lint gate — no WASM needed
 ```
 
-Benchmarks: `npx vitest run test/bench.test.ts` (from repo root, after a build) writes `benchmarks/last-run.json`; `node scripts/bench-check.js` gates it against `baseline.json` (a regression is >15% **and** >0.5ms). Results are first divided by a runner speed factor (the median of the per-benchmark result/baseline ratios), since shared CI runners vary 23-42% run to run and vary uniformly across every benchmark at once; only a benchmark moving against that trend trips the gate. `baseline.json` therefore encodes the relative cost shape, and CI uploads `last-run.json` as the `benchmark-results` artifact so a refresh uses runner numbers. Refresh with `node scripts/bench-check.js --update-baseline` after a run.
+Benchmarks: `npx vitest run test/bench.test.ts` (from repo root, after a build) writes `benchmarks/last-run.json`; `node scripts/bench-check.js` gates it against `baseline.json` (a regression must clear >15% **and** >1ms in absolute terms **and** have run slower than baseline in raw wall-clock terms). Results are first divided by a runner speed factor (the median of the per-benchmark result/baseline ratios), since shared CI runners vary 23-42% run to run and vary uniformly across every benchmark at once; only a benchmark moving against that trend trips the gate. `baseline.json` therefore encodes the relative cost shape, and CI uploads `last-run.json` as the `benchmark-results` artifact so a refresh uses runner numbers. Refresh with `node scripts/bench-check.js --update-baseline` after a run.
 
 ## Architecture
 
