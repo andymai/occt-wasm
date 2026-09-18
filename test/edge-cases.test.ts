@@ -395,17 +395,20 @@ describe("empty/null shapes", () => {
         }
     });
 
-    it("sew with empty shape vector throws or returns empty shape", () => {
+    it("sew with an empty shape vector throws", () => {
+        // Sewing nothing yields a null SewedShape(); the facade rejects it rather
+        // than storing a null handle the caller would trip over later.
         const shapeVec = new Module.VectorUint32();
-        let result: number | undefined;
-        try {
-            result = kernel.sew(shapeVec, 0.01);
-        } catch {
-            shapeVec.delete();
-            return;
-        }
+        expectThrows(() => kernel.sew(shapeVec, 0.01), "sew([])");
         shapeVec.delete();
-        expect(result).toBeGreaterThanOrEqual(0);
+    });
+
+    it("sewAndSolidify with an empty face vector throws", () => {
+        // Guards the null SewedShape() before ShapeType() is called on it, which
+        // would otherwise be a hard WASM trap rather than a catchable error.
+        const faceVec = new Module.VectorUint32();
+        expectThrows(() => kernel.sewAndSolidify(faceVec, 0.01), "sewAndSolidify([])");
+        faceVec.delete();
     });
 
     it("makeFace on a null shape throws or returns null", () => {
