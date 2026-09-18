@@ -1,0 +1,23 @@
+scripts/reembed-wasmbr.sh
+  s_70666e95ec5557::t_d62ceab7393bf6 107-113
+  s_70666e95ec5557::t_46cb2dc4b21c64 1-38,40-106,114-134
+  s_70666e95ec5557::t_3fb0fd5bf5b379 39
+CLAUDE.md
+  s_70666e95ec5557::t_b57f2614eea6fc 48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a8f1a43c42f0b1e9674f371b95a5f13b6e854ed5",
+  "prompts": {},
+  "sessions": {
+    "s_70666e95ec5557": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd50da92-0160-439b-9b43-6ec6b391b633",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
