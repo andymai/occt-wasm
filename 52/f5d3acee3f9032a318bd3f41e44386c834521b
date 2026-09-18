@@ -1,0 +1,26 @@
+xtask/src/codegen/config.rs
+  s_70666e95ec5557::t_bd2c894197c584 1457-1461
+  s_70666e95ec5557::t_66f508dabf763d 1968-1972
+  s_70666e95ec5557::t_411efea9bdf630 4349-4354,4356-4357,4359-4361
+  s_70666e95ec5557::t_df68e1c01ef5cb 4400-4405,4407-4408,4410-4412
+test/edge-cases.test.ts
+  s_70666e95ec5557::t_fa5baf8f4a15da 398-400,402,404-411
+facade/generated/kernel.cpp
+  s_70666e95ec5557::t_1b6777d08fef37 1451-1455,1805-1809,3464-3469,3471-3472,3474-3476,3505-3510,3512-3513,3515-3517
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "52f5d3acee3f9032a318bd3f41e44386c834521b",
+  "prompts": {},
+  "sessions": {
+    "s_70666e95ec5557": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd50da92-0160-439b-9b43-6ec6b391b633",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
