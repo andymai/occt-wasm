@@ -1,0 +1,23 @@
+scripts/bench-check.js
+  s_70666e95ec5557::t_ef520f3d565302 149-158,161,164-165
+  s_70666e95ec5557::t_78a3431aa897a2 4-9
+  s_70666e95ec5557::t_10cd55933fc002 51-57
+test/bench-check.test.ts
+  s_70666e95ec5557::t_1df5d61b9ecb66 113-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0994fb7a9128d90eab15acdfb4865361c20b12be",
+  "prompts": {},
+  "sessions": {
+    "s_70666e95ec5557": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd50da92-0160-439b-9b43-6ec6b391b633",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
