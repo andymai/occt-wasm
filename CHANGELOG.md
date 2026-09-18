@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.2](https://github.com/andymai/occt-wasm/compare/v5.3.1...v5.3.2) (2026-09-18)
+
+
+### Bug Fixes
+
+* **facade:** guard temp-file readback size and null sewn shapes ([#343](https://github.com/andymai/occt-wasm/issues/343)) ([1c78374](https://github.com/andymai/occt-wasm/commit/1c78374243a65858cb352442f25e6fa4f20cbe4e))
+
 ## [5.3.1](https://github.com/andymai/occt-wasm/compare/v5.3.0...v5.3.1) (2026-09-18)
 
 
