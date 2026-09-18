@@ -1448,7 +1448,11 @@ uint32_t OcctKernel::sew(std::vector<uint32_t> shapeIds, double tolerance) {
             sewer.Add(get(sid));
         }
         sewer.Perform();
-        return store(sewer.SewedShape());
+        TopoDS_Shape sewn = sewer.SewedShape();
+        if (sewn.IsNull()) {
+            throw std::runtime_error("sew: sewing produced no shape");
+        }
+        return store(sewn);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("sew: ") + e.what());
     }
@@ -1798,6 +1802,11 @@ uint32_t OcctKernel::sewAndSolidify(std::vector<uint32_t> faceIds, double tolera
         }
         sewer.Perform();
         TopoDS_Shape sewn = sewer.SewedShape();
+        // A null sewn shape would trap on ShapeType() below (a null handle deref is a
+        // hard WASM trap, not a catchable Standard_Failure), so reject it up front.
+        if (sewn.IsNull()) {
+            throw std::runtime_error("sewAndSolidify: sewing produced no shape");
+        }
         // Try to make a solid from the sewn shell
         if (sewn.ShapeType() == TopAbs_SHELL) {
             BRepBuilderAPI_MakeSolid maker(TopoDS::Shell(sewn));
@@ -3452,10 +3461,19 @@ std::string OcctKernel::exportStep(uint32_t id) {
         }
         fseek(f, 0, SEEK_END);
         long size = ftell(f);
+        // ftell returns -1 on error; a negative length cast to std::string's size_type
+        // is huge and throws bad_alloc, so fail cleanly here instead.
+        if (size < 0) {
+            fclose(f);
+            throw std::runtime_error("exportStep: cannot determine temp file size");
+        }
         fseek(f, 0, SEEK_SET);
-        std::string result(size, '\0');
-        fread(&result[0], 1, size, f);
+        std::string result(static_cast<size_t>(size), '\0');
+        size_t nread = fread(&result[0], 1, static_cast<size_t>(size), f);
         fclose(f);
+        if (nread != static_cast<size_t>(size)) {
+            throw std::runtime_error("exportStep: short read from temp file");
+        }
         
         return result;
     } catch (const Standard_Failure& e) {
@@ -3484,10 +3502,19 @@ std::string OcctKernel::exportStl(uint32_t id, double linearDeflection, bool asc
         }
         fseek(f, 0, SEEK_END);
         long size = ftell(f);
+        // ftell returns -1 on error; a negative length cast to std::string's size_type
+        // is huge and throws bad_alloc, so fail cleanly here instead.
+        if (size < 0) {
+            fclose(f);
+            throw std::runtime_error("exportStl: cannot determine temp file size");
+        }
         fseek(f, 0, SEEK_SET);
-        std::string result(size, '\0');
-        fread(&result[0], 1, size, f);
+        std::string result(static_cast<size_t>(size), '\0');
+        size_t nread = fread(&result[0], 1, static_cast<size_t>(size), f);
         fclose(f);
+        if (nread != static_cast<size_t>(size)) {
+            throw std::runtime_error("exportStl: short read from temp file");
+        }
         
         return result;
     } catch (const Standard_Failure& e) {
