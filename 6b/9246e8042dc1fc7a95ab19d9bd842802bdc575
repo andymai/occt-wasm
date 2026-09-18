@@ -1,0 +1,19 @@
+CLAUDE.md
+  s_70666e95ec5557::t_9b7302b09abf5d 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6b9246e8042dc1fc7a95ab19d9bd842802bdc575",
+  "prompts": {},
+  "sessions": {
+    "s_70666e95ec5557": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd50da92-0160-439b-9b43-6ec6b391b633",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
