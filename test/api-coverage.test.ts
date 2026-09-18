@@ -341,6 +341,20 @@ describe("sweeps", () => {
         // Tapered prism should still have positive volume
         expect(kernel.getVolume(result)).toBeGreaterThan(0);
     });
+
+    it("draftPrism gives the same solid whether or not the face was tessellated", () => {
+        // The neutral plane sits at the centre of the input's bounding box, so
+        // a box that shifts because the face carries a triangulation shifts the
+        // plane and changes the taper for identical input.
+        const plain = makeSquareFace(10);
+        const volPlain = kernel.getVolume(kernel.draftPrism(plain, 0, 0, 10, 5.0));
+
+        const drawn = makeSquareFace(10);
+        kernel.tessellate(drawn, 0.1, 0.5);
+        const volDrawn = kernel.getVolume(kernel.draftPrism(drawn, 0, 0, 10, 5.0));
+
+        expect(volDrawn).toBeCloseTo(volPlain, 9);
+    });
 });
 
 // ---------------------------------------------------------------------------

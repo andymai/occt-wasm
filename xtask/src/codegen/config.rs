@@ -3455,11 +3455,17 @@ return false;",
         setup_code: "\
 std::vector<double> result;
 result.reserve(ids.size() * 14);
+// The bounding box is taken with useTriangulation = false. Left at the
+// BRepBndLib default of true it reads the triangulation a previous
+// tessellate() wrote into the shape, so the same shape reports a different
+// box before and after it is rendered -- with nothing in the call to say so.
+// getBoundingBox/getBoundingBoxLoose already make the choice explicit; this
+// makes queryBatch agree with them.
 for (size_t i = 0; i < ids.size(); i++) {
     const auto& shape = get(ids[i]);
     { GProp_GProps props; BRepGProp::VolumeProperties(shape, props); result.push_back(props.Mass()); }
     { GProp_GProps props; BRepGProp::SurfaceProperties(shape, props); result.push_back(props.Mass()); }
-    { Bnd_Box box; BRepBndLib::Add(shape, box);
+    { Bnd_Box box; BRepBndLib::Add(shape, box, false);
       if (box.IsVoid()) { for (int j = 0; j < 6; j++) result.push_back(0.0); }
       else { double xmin,ymin,zmin,xmax,ymax,zmax; box.Get(xmin,ymin,zmin,xmax,ymax,zmax);
              result.push_back(xmin); result.push_back(ymin); result.push_back(zmin);
@@ -4027,7 +4033,10 @@ if (std::abs(angleRad) < 1e-10) {
 // Neutral plane: base of the input shape, perpendicular to extrude direction.
 // Compute centroid of input shape bounding box as a point on the base plane.
 Bnd_Box bbox;
-BRepBndLib::Add(get(shapeId), bbox);
+// useTriangulation = false: the neutral plane is placed at the centre of this
+// box, so a box that moved because the shape happens to carry a triangulation
+// would move the plane and change the drafted result for identical input.
+BRepBndLib::Add(get(shapeId), bbox, false);
 double xmin, ymin, zmin, xmax, ymax, zmax;
 bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 gp_Pnt center((xmin + xmax) / 2.0, (ymin + ymax) / 2.0, (zmin + zmax) / 2.0);

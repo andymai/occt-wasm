@@ -21,6 +21,31 @@ afterEach(() => { kernel.releaseAll(); });
 afterAll(() => { if (kernel) { kernel.releaseAll(); kernel.delete(); } });
 
 describe("queryBatch", () => {
+    it("reports the same bounding box before and after the shape is tessellated", () => {
+        // BRepBndLib::Add defaults to useTriangulation = true, so a shape that
+        // has been rendered once carries triangulation nodes and reports a
+        // different box from the same call. Nothing in the API says the result
+        // depends on whether you drew the shape first, and a caller that keys a
+        // cache on the box sees it change for no reason.
+        const sphere = kernel.makeSphere(5);
+        const ids = new Module.VectorUint32();
+        ids.push_back(sphere);
+
+        const before = kernel.queryBatch(ids);
+        const beforeBox = [2, 3, 4, 5, 6, 7].map((i) => before.get(i));
+
+        kernel.tessellate(sphere, 0.1, 0.5);
+
+        const after = kernel.queryBatch(ids);
+        const afterBox = [2, 3, 4, 5, 6, 7].map((i) => after.get(i));
+        ids.delete();
+
+        for (let i = 0; i < 6; i++) {
+            expect(afterBox[i]).toBeCloseTo(beforeBox[i], 9);
+        }
+    });
+
+
     it("returns volume, area, bbox, centerOfMass, shapeType, and isValid for multiple shapes", () => {
         const box = kernel.makeBox(10, 20, 30);
         const sphere = kernel.makeSphere(5);
