@@ -1,0 +1,94 @@
+name: WASI stale comment
+
+# When "Build WASI" fails a PR because the committed crate/src/occt-wasm.wasm.br
+# is stale, drop a PR comment with the one-command fix. Contributors can't build
+# the blob, so this points a maintainer straight at scripts/reembed-wasmbr.sh
+# instead of leaving a cryptic red X.
+#
+# Runs on workflow_run, so it executes from the base repo with a read-write token
+# and NEVER checks out or runs PR code — safe for fork PRs, which is exactly where
+# it's most useful. It targets the stale case precisely by checking for the
+# occt-wasm.wasm.br-fresh artifact (only the stale path uploads it), so a genuine
+# build break doesn't get a misleading "blob is stale" comment.
+
+on:
+  workflow_run:
+    workflows: ["Build WASI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  comment:
+    # Only PR runs; a push to main has no PR to comment on.
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment (or resolve) the re-embed hint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker="<!-- wasmbr-stale -->"
+
+          # workflow_run.pull_requests is empty for fork PRs, so resolve the PR
+          # from the head commit instead.
+          pr=$(gh api "repos/$REPO/commits/$SHA/pulls" \
+                 --jq 'map(select(.state == "open")) | .[0].number' 2>/dev/null || true)
+          if [[ -z "$pr" || "$pr" == "null" ]]; then
+            echo "No open PR for $SHA; nothing to do."
+            exit 0
+          fi
+
+          existing=$(gh api "repos/$REPO/issues/$pr/comments" --paginate \
+                       --jq "map(select(.body | contains(\"$marker\"))) | .[0].id" 2>/dev/null || true)
+
+          if [[ "$CONCLUSION" == "success" ]]; then
+            # Keep a prior hint honest once the blob is fresh again; never create
+            # a comment on success.
+            if [[ -n "$existing" && "$existing" != "null" ]]; then
+              gh api -X PATCH "repos/$REPO/issues/comments/$existing" \
+                -f body="$marker"$'\n'"✓ The embedded WASI blob is back in sync — **Build WASI** passed on the latest commit." >/dev/null
+              echo "Marked PR #$pr hint resolved."
+            fi
+            exit 0
+          fi
+
+          if [[ "$CONCLUSION" != "failure" ]]; then
+            echo "Conclusion '$CONCLUSION' is neither success nor failure; skipping."
+            exit 0
+          fi
+
+          # Only the stale-check path uploads this artifact; its absence means the
+          # WASI build failed for some other reason, which this comment shouldn't
+          # speak to.
+          has_fresh=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" \
+                        --jq 'any(.artifacts[]?; .name == "occt-wasm.wasm.br-fresh")' 2>/dev/null || echo false)
+          if [[ "$has_fresh" != "true" ]]; then
+            echo "Build WASI failed without a fresh-blob artifact; not a stale blob. Skipping."
+            exit 0
+          fi
+
+          body="$marker"$'\n'"The embedded WASI blob \`crate/src/occt-wasm.wasm.br\` is stale for this facade change, so **Build WASI** failed (this check is advisory, not required for merge). A maintainer can refresh it in one command:
+
+          \`\`\`
+          scripts/reembed-wasmbr.sh $pr --push
+          \`\`\`
+
+          It takes CI's freshly-built blob (a local rebuild isn't byte-identical) and commits it here. Nothing for the PR author to do."
+
+          if [[ -n "$existing" && "$existing" != "null" ]]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -f body="$body" >/dev/null
+            echo "Updated hint on PR #$pr."
+          else
+            gh api -X POST "repos/$REPO/issues/$pr/comments" -f body="$body" >/dev/null
+            echo "Commented on PR #$pr."
+          fi
