@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
  * Compare benchmark results against a stored baseline.
- * Fails with exit code 1 if a benchmark regresses by more than BOTH a relative
- * (15%) and an absolute (0.5ms) margin. The absolute floor keeps sub-millisecond
- * benchmarks (e.g. mesh sphere ~0.6ms) from flake-failing on timer/scheduling
- * jitter, where a 0.1ms swing is already +17% but is pure noise.
+ * Fails with exit code 1 if a benchmark regresses past BOTH a relative (15%) and
+ * an absolute (1ms) margin AND ran slower than the baseline in raw wall-clock
+ * terms. The absolute floor keeps sub-millisecond benchmarks from flake-failing
+ * on timer/scheduling jitter (a 0.5ms swing on a 0.8ms benchmark is +60% but pure
+ * noise); the raw-slower guard drops normalization artifacts, where a run that was
+ * faster than baseline gets inflated past baseline (see the regression loop).
  *
  * Results are normalized by a runner speed factor before that comparison. Back
  * to back CI runs of identical code differ by 23-42% per benchmark on shared
@@ -46,7 +48,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASELINE_PATH = process.env.BENCH_BASELINE_PATH ?? resolve(__dirname, '../benchmarks/baseline.json');
 const RESULTS_PATH = process.env.BENCH_RESULTS_PATH ?? resolve(__dirname, '../benchmarks/last-run.json');
 const THRESHOLD = 0.15; // 15% relative regression threshold
-const MIN_ABSOLUTE_MS = 0.5; // ignore regressions smaller than this in absolute terms (sub-ms noise)
+// Ignore regressions smaller than this in absolute terms. Sub-millisecond
+// benchmarks swing ~0.5ms run to run from timer and scheduling jitter alone
+// (meshBatch's 0.76ms baseline was seen at 1.3ms on an unchanged build, +0.54ms
+// and +71%), so the floor has to sit clear of that, not on top of it. The cost
+// is that a real sub-1ms regression on a fast benchmark reads as noise, but on a
+// shared runner it is not separable from noise anyway.
+const MIN_ABSOLUTE_MS = 1.0;
 // Below this many shared benchmarks the median ratio is too easily swung by a
 // real regression, so normalization is skipped rather than trusted.
 const MIN_SHARED_FOR_NORMALIZATION = 5;
@@ -138,11 +146,23 @@ for (const [name, raw] of Object.entries(results)) {
     const scaled = raw / runnerFactor;
     const change = (scaled - base) / base;
     const absoluteDelta = scaled - base;
+    // A run that was no slower than the baseline in raw wall-clock terms cannot be
+    // a real regression, whatever normalization does to it. exportSTEP carries a
+    // fixed STEP-schema/global-controller cost that does not shrink with runner
+    // speed, so on a fast runner it slows down less than the compute-bound pack;
+    // dividing it by the pack's speed factor then inflates a faster-than-baseline
+    // raw time into a phantom regression (seen at raw 17.7ms vs a 20.6ms baseline,
+    // reported "+19%"). Requiring raw > base drops exactly that artifact. Blind
+    // spot: a genuine regression on a runner fast enough to hold raw at or under
+    // baseline is not flagged, but the raw time is printed so it stays visible.
+    const ranSlowerRaw = raw > base;
     const shown = `${base.toFixed(1)}ms → ${scaled.toFixed(1)}ms`;
     const rawNote = normalizing ? ` [raw ${raw.toFixed(1)}ms]` : '';
-    if (change > THRESHOLD && absoluteDelta > MIN_ABSOLUTE_MS) {
+    if (change > THRESHOLD && absoluteDelta > MIN_ABSOLUTE_MS && ranSlowerRaw) {
         console.log(`  REGRESSION: ${name} ${shown} (+${(change * 100).toFixed(0)}%, +${absoluteDelta.toFixed(1)}ms)${rawNote}`);
         regressions++;
+    } else if (change > THRESHOLD && !ranSlowerRaw) {
+        console.log(`  OK (normalization artifact, raw <= baseline): ${name} ${shown} (+${(change * 100).toFixed(0)}%)${rawNote}`);
     } else if (change > THRESHOLD) {
         console.log(`  OK (sub-${MIN_ABSOLUTE_MS}ms noise): ${name} ${shown} (+${(change * 100).toFixed(0)}%, +${absoluteDelta.toFixed(1)}ms)${rawNote}`);
     } else if (change < -THRESHOLD) {
