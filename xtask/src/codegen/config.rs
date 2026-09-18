@@ -889,13 +889,60 @@ case 1: jt = GeomAbs_Intersection; break;
 case 2: jt = GeomAbs_Tangent; break;
 default: jt = GeomAbs_Arc; break;
 }
-BRepOffsetAPI_MakeOffset maker(TopoDS::Wire(get(wireId)), jt);
+TopoDS_Wire wire = TopoDS::Wire(get(wireId));
+
+// BRepOffsetAPI_MakeOffset reports IsDone() == false for a wire made of a
+// single edge -- drawing one line and giving it a width is the first thing
+// anyone tries. Two collinear edges over the same curve succeed and produce
+// the expected contour, so split the lone edge at its midpoint and let OCCT
+// do the rest. Nothing here computes geometry: in particular the offset
+// plane, which a single straight edge does not determine on its own, stays
+// OCCT's decision.
+TopoDS_Edge onlyEdge;
+int edgeCount = 0;
+bool wasSplit = false;
+for (TopExp_Explorer edgeExp(wire, TopAbs_EDGE); edgeExp.More(); edgeExp.Next()) {
+    if (edgeCount == 0) {
+        onlyEdge = TopoDS::Edge(edgeExp.Current());
+    }
+    ++edgeCount;
+}
+if (edgeCount == 1) {
+    Standard_Real first = 0.0, last = 0.0;
+    Handle(Geom_Curve) curve = BRep_Tool::Curve(onlyEdge, first, last);
+    if (!curve.IsNull()) {
+        const Standard_Real mid = (first + last) * 0.5;
+        BRepBuilderAPI_MakeWire mkWire;
+        mkWire.Add(BRepBuilderAPI_MakeEdge(curve, first, mid).Edge());
+        mkWire.Add(BRepBuilderAPI_MakeEdge(curve, mid, last).Edge());
+        if (mkWire.IsDone()) {
+            wire = mkWire.Wire();
+            wasSplit = true;
+        }
+    }
+}
+
+BRepOffsetAPI_MakeOffset maker(wire, jt);
 maker.Perform(offset);
 if (!maker.IsDone()) {
     throw std::runtime_error(\"offsetWire2D: operation failed\");
 }
+if (wasSplit) {
+    // The split survives into the contour as a redundant vertex on each side
+    // (6 edges where 4 describe the shape). Merge them back, so the result is
+    // the same whether or not the input needed splitting. Scoped to the split
+    // case: collinear edges the caller built on purpose are left alone.
+    ShapeUpgrade_UnifySameDomain unifier(maker.Shape(), true, true, false);
+    unifier.Build();
+    return store(unifier.Shape());
+}
 return store(maker.Shape());",
-        includes: &["BRepOffsetAPI_MakeOffset.hxx", "GeomAbs_JoinType.hxx", "TopoDS.hxx"],
+        includes: &[
+            "BRepOffsetAPI_MakeOffset.hxx", "GeomAbs_JoinType.hxx", "TopoDS.hxx",
+            "BRepBuilderAPI_MakeEdge.hxx", "BRepBuilderAPI_MakeWire.hxx",
+            "BRep_Tool.hxx", "Geom_Curve.hxx", "TopExp_Explorer.hxx",
+            "TopoDS_Edge.hxx", "TopoDS_Wire.hxx", "ShapeUpgrade_UnifySameDomain.hxx",
+        ],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
