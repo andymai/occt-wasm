@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.3.1](https://github.com/andymai/occt-wasm/compare/v5.3.0...v5.3.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **facade:** offsetWire2D fails on a wire made of a single edge ([#338](https://github.com/andymai/occt-wasm/issues/338)) ([4831d54](https://github.com/andymai/occt-wasm/commit/4831d54fbae73e6e7e68ba38b0ce0d9d550932e7))
+* **facade:** queryBatch and draftPrism read a triangulation-dependent bbox ([#337](https://github.com/andymai/occt-wasm/issues/337)) ([65201ad](https://github.com/andymai/occt-wasm/commit/65201ad9fb21f105fb2def0b4795553daee6ac85))
+
 ## [5.3.0](https://github.com/andymai/occt-wasm/compare/v5.2.0...v5.3.0) (2026-09-17)
 
 
