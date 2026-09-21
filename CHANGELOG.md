@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.4](https://github.com/andymai/occt-wasm/compare/v5.3.3...v5.3.4) (2026-09-21)
+
+
+### Bug Fixes
+
+* **crate:** make the shape-list methods return usable handles ([#354](https://github.com/andymai/occt-wasm/issues/354)) ([7754e80](https://github.com/andymai/occt-wasm/commit/7754e80a5d6acd3865915293367b28c059a3934b))
+
 ## [5.3.3](https://github.com/andymai/occt-wasm/compare/v5.3.2...v5.3.3) (2026-09-21)
 
 
