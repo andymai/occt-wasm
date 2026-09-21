@@ -130,8 +130,12 @@ pub enum ReturnType {
     Bool,
     /// `void` return.
     Void,
-    /// `std::vector<uint32_t>` return.
+    /// `std::vector<uint32_t>` return of plain integers.
     VectorUint32,
+    /// `std::vector<uint32_t>` return of arena shape IDs. Identical to
+    /// `VectorUint32` across the boundary; the crate maps it to `ShapeHandle`
+    /// so an enumerated sub-shape can be passed straight back in.
+    VectorShapeIds,
     /// `std::vector<double>` return.
     VectorDouble,
     /// `double` return.

@@ -862,7 +862,7 @@ for (size_t i = 0; i < solidIds.size(); i++) {
 return results.take();",
         includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx"],
         category: "modeling",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "offsetWire2D",
@@ -1165,7 +1165,7 @@ for (size_t i = 0; i < ids.size(); i++) {
 return results.take();",
         includes: &["gp_Trsf.hxx", "gp_Vec.hxx", "BRepBuilderAPI_Transform.hxx"],
         category: "transforms",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "composeTransform",
@@ -1212,7 +1212,7 @@ for (size_t i = 0; i < ids.size(); i++) {
 return results.take();",
         includes: &["gp_Trsf.hxx", "BRepBuilderAPI_Transform.hxx"],
         category: "transforms",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "rotateBatch",
@@ -1236,7 +1236,7 @@ for (size_t i = 0; i < ids.size(); i++) {
 return results.take();",
         includes: &["gp_Trsf.hxx", "gp_Ax1.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "BRepBuilderAPI_Transform.hxx"],
         category: "transforms",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "scaleBatch",
@@ -1259,7 +1259,7 @@ for (size_t i = 0; i < ids.size(); i++) {
 return results.take();",
         includes: &["gp_Trsf.hxx", "gp_Pnt.hxx", "BRepBuilderAPI_Transform.hxx"],
         category: "transforms",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "mirrorBatch",
@@ -1283,7 +1283,7 @@ for (size_t i = 0; i < ids.size(); i++) {
 return results.take();",
         includes: &["gp_Trsf.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "BRepBuilderAPI_Transform.hxx"],
         category: "transforms",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     // ── Construction ────────────────────────────────────────────
     MethodSpec {
@@ -2129,7 +2129,7 @@ return result.take();",
             "NCollection_IndexedMap.hxx", "TopTools_ShapeMapHasher.hxx",
         ],
         category: "topology",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "subShapeCount",
@@ -2296,7 +2296,7 @@ for (TopoDS_Iterator it(get(id)); it.More(); it.Next()) {
 return result.take();",
         includes: &["TopoDS_Iterator.hxx"],
         category: "topology",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "edgeToFaceMap",
@@ -2396,7 +2396,7 @@ for (TopExp_Explorer exF(shape, TopAbs_FACE); exF.More(); exF.Next()) {
 return result.take();",
         includes: &["TopExp_Explorer.hxx"],
         category: "topology",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "sharedEdges",
@@ -2419,7 +2419,7 @@ for (TopExp_Explorer exA(fa, TopAbs_EDGE); exA.More(); exA.Next()) {
 return result.take();",
         includes: &["TopExp_Explorer.hxx"],
         category: "topology",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     // ── Query ──────────────────────────────────────────────────────
     MethodSpec {
@@ -3465,7 +3465,7 @@ return result;",
             "Geom_BezierCurve.hxx", "GeomConvert.hxx", "TopoDS.hxx",
         ],
         category: "curve",
-        return_type: ReturnType::VectorUint32,
+        return_type: ReturnType::VectorShapeIds,
     },
     MethodSpec {
         name: "hasTriangulation",
