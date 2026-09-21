@@ -904,27 +904,18 @@ std::vector<uint32_t> OcctKernel::filletBatch(std::vector<uint32_t> solidIds, st
         if (flatEdgeIds.size() != totalEdges) {
             throw std::runtime_error("filletBatch: flatEdgeIds length must equal sum of edgeCounts");
         }
-        std::vector<uint32_t> results;
-        results.reserve(solidIds.size());
-        try {
-            for (size_t i = 0; i < solidIds.size(); i++) {
-                BRepFilletAPI_MakeFillet maker(TopoDS::Solid(get(solidIds[i])));
-                for (int j = 0; j < edgeCounts[i]; j++) {
-                    maker.Add(radii[i], TopoDS::Edge(get(flatEdgeIds[edgeOffset + j])));
-                }
-                maker.Build();
-                if (!maker.IsDone()) throw std::runtime_error("filletBatch: fillet failed on solid " + std::to_string(i));
-                results.push_back(store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletBatch", true)));
-                edgeOffset += static_cast<size_t>(edgeCounts[i]);
+        BatchScope results(*this, solidIds.size());
+        for (size_t i = 0; i < solidIds.size(); i++) {
+            BRepFilletAPI_MakeFillet maker(TopoDS::Solid(get(solidIds[i])));
+            for (int j = 0; j < edgeCounts[i]; j++) {
+                maker.Add(radii[i], TopoDS::Edge(get(flatEdgeIds[edgeOffset + j])));
             }
-        } catch (...) {
-            // A mid-batch failure (unfilletable solid or an invalid result) must not
-            // leak the shapes already stored for earlier solids: those have no handle
-            // for JS to release, so they would sit in the arena until releaseAll.
-            for (uint32_t storedId : results) release(storedId);
-            throw;
+            maker.Build();
+            if (!maker.IsDone()) throw std::runtime_error("filletBatch: fillet failed on solid " + std::to_string(i));
+            results.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletBatch", true));
+            edgeOffset += static_cast<size_t>(edgeCounts[i]);
         }
-        return results;
+        return results.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("filletBatch: ") + e.what());
     }
@@ -1219,15 +1210,14 @@ std::vector<uint32_t> OcctKernel::translateBatch(std::vector<uint32_t> ids, std:
         if (offsets.size() != ids.size() * 3) {
             throw std::runtime_error("translateBatch: offsets must have 3 * ids.size() elements");
         }
-        std::vector<uint32_t> results;
-        results.reserve(ids.size());
+        BatchScope results(*this, ids.size());
         for (size_t i = 0; i < ids.size(); i++) {
             gp_Trsf trsf;
             trsf.SetTranslation(gp_Vec(offsets[i * 3], offsets[i * 3 + 1], offsets[i * 3 + 2]));
             BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
-            results.push_back(store(maker.Shape()));
+            results.add(maker.Shape());
         }
-        return results;
+        return results.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("translateBatch: ") + e.what());
     }
@@ -1255,8 +1245,7 @@ std::vector<uint32_t> OcctKernel::transformBatch(std::vector<uint32_t> ids, std:
         if (matrices.size() != ids.size() * 12) {
             throw std::runtime_error("transformBatch: matrices must have 12 * ids.size() elements");
         }
-        std::vector<uint32_t> results;
-        results.reserve(ids.size());
+        BatchScope results(*this, ids.size());
         for (size_t i = 0; i < ids.size(); i++) {
             size_t o = i * 12;
             gp_Trsf trsf;
@@ -1265,9 +1254,9 @@ std::vector<uint32_t> OcctKernel::transformBatch(std::vector<uint32_t> ids, std:
                            matrices[o+8], matrices[o+9], matrices[o+10], matrices[o+11]);
             BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
             if (!maker.IsDone()) throw std::runtime_error("transformBatch: failed on shape " + std::to_string(i));
-            results.push_back(store(maker.Shape()));
+            results.add(maker.Shape());
         }
-        return results;
+        return results.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("transformBatch: ") + e.what());
     }
@@ -1278,17 +1267,16 @@ std::vector<uint32_t> OcctKernel::rotateBatch(std::vector<uint32_t> ids, std::ve
         if (params.size() != ids.size() * 7) {
             throw std::runtime_error("rotateBatch: params must have 7 * ids.size() elements (px,py,pz,dx,dy,dz,angle)");
         }
-        std::vector<uint32_t> results;
-        results.reserve(ids.size());
+        BatchScope results(*this, ids.size());
         for (size_t i = 0; i < ids.size(); i++) {
             size_t o = i * 7;
             gp_Trsf trsf;
             trsf.SetRotation(gp_Ax1(gp_Pnt(params[o], params[o+1], params[o+2]),
                                      gp_Dir(params[o+3], params[o+4], params[o+5])), params[o+6]);
             BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
-            results.push_back(store(maker.Shape()));
+            results.add(maker.Shape());
         }
-        return results;
+        return results.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("rotateBatch: ") + e.what());
     }
@@ -1299,16 +1287,15 @@ std::vector<uint32_t> OcctKernel::scaleBatch(std::vector<uint32_t> ids, std::vec
         if (params.size() != ids.size() * 4) {
             throw std::runtime_error("scaleBatch: params must have 4 * ids.size() elements (px,py,pz,factor)");
         }
-        std::vector<uint32_t> results;
-        results.reserve(ids.size());
+        BatchScope results(*this, ids.size());
         for (size_t i = 0; i < ids.size(); i++) {
             size_t o = i * 4;
             gp_Trsf trsf;
             trsf.SetScale(gp_Pnt(params[o], params[o+1], params[o+2]), params[o+3]);
             BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
-            results.push_back(store(maker.Shape()));
+            results.add(maker.Shape());
         }
-        return results;
+        return results.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("scaleBatch: ") + e.what());
     }
@@ -1319,17 +1306,16 @@ std::vector<uint32_t> OcctKernel::mirrorBatch(std::vector<uint32_t> ids, std::ve
         if (params.size() != ids.size() * 6) {
             throw std::runtime_error("mirrorBatch: params must have 6 * ids.size() elements (px,py,pz,nx,ny,nz)");
         }
-        std::vector<uint32_t> results;
-        results.reserve(ids.size());
+        BatchScope results(*this, ids.size());
         for (size_t i = 0; i < ids.size(); i++) {
             size_t o = i * 6;
             gp_Trsf trsf;
             trsf.SetMirror(gp_Ax2(gp_Pnt(params[o], params[o+1], params[o+2]),
                                    gp_Dir(params[o+3], params[o+4], params[o+5])));
             BRepBuilderAPI_Transform maker(get(ids[i]), trsf, true);
-            results.push_back(store(maker.Shape()));
+            results.add(maker.Shape());
         }
-        return results;
+        return results.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("mirrorBatch: ") + e.what());
     }
@@ -1930,13 +1916,13 @@ std::vector<uint32_t> OcctKernel::getSubShapes(uint32_t id, const std::string& s
             throw std::runtime_error("Unknown shape type: " + t);
         };
         TopAbs_ShapeEnum toExplore = parseType(shapeType);
-        std::vector<uint32_t> result;
         NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
         TopExp::MapShapes(get(id), toExplore, map);
+        BatchScope result(*this, static_cast<size_t>(map.Extent()));
         for (int i = 1; i <= map.Extent(); i++) {
-            result.push_back(store(map.FindKey(i)));
+            result.add(map.FindKey(i));
         }
-        return result;
+        return result.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("getSubShapes: ") + e.what());
     }
@@ -2055,11 +2041,11 @@ std::string OcctKernel::shapeOrientation(uint32_t id) {
 
 std::vector<uint32_t> OcctKernel::iterShapes(uint32_t id) {
     try {
-        std::vector<uint32_t> result;
+        BatchScope result(*this, 0);
         for (TopoDS_Iterator it(get(id)); it.More(); it.Next()) {
-            result.push_back(store(it.Value()));
+            result.add(it.Value());
         }
-        return result;
+        return result.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("iterShapes: ") + e.what());
     }
@@ -2127,7 +2113,7 @@ std::vector<uint32_t> OcctKernel::adjacentFaces(uint32_t shapeId, uint32_t faceI
     try {
         const auto& shape = get(shapeId);
         const auto& targetFace = get(faceId);
-        std::vector<uint32_t> result;
+        BatchScope result(*this, 0);
         
         // Find faces that share an edge with targetFace
         for (TopExp_Explorer exF(shape, TopAbs_FACE); exF.More(); exF.Next()) {
@@ -2144,10 +2130,10 @@ std::vector<uint32_t> OcctKernel::adjacentFaces(uint32_t shapeId, uint32_t faceI
                 }
             }
             if (adjacent) {
-                result.push_back(store(exF.Current()));
+                result.add(exF.Current());
             }
         }
-        return result;
+        return result.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("adjacentFaces: ") + e.what());
     }
@@ -2157,16 +2143,16 @@ std::vector<uint32_t> OcctKernel::sharedEdges(uint32_t faceA, uint32_t faceB) {
     try {
         const auto& fa = get(faceA);
         const auto& fb = get(faceB);
-        std::vector<uint32_t> result;
+        BatchScope result(*this, 0);
         for (TopExp_Explorer exA(fa, TopAbs_EDGE); exA.More(); exA.Next()) {
             for (TopExp_Explorer exB(fb, TopAbs_EDGE); exB.More(); exB.Next()) {
                 if (exA.Current().IsSame(exB.Current())) {
-                    result.push_back(store(exA.Current()));
+                    result.add(exA.Current());
                     break;
                 }
             }
         }
-        return result;
+        return result.take();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("sharedEdges: ") + e.what());
     }
@@ -3682,8 +3668,11 @@ EvolutionData OcctKernel::filletWithHistory(uint32_t solidId, std::vector<uint32
         if (!maker.IsDone()) {
             throw std::runtime_error("filletWithHistory: operation failed");
         }
-        uint32_t resultId = store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletWithHistory", false));
-        return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletWithHistory", false));
+        EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("filletWithHistory: ") + e.what());
     }
@@ -3760,8 +3749,11 @@ EvolutionData OcctKernel::chamferWithHistory(uint32_t solidId, std::vector<uint3
         if (!maker.IsDone()) {
             throw std::runtime_error("chamferWithHistory: operation failed");
         }
-        uint32_t resultId = store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferWithHistory", false));
-        return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferWithHistory", false));
+        EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferWithHistory: ") + e.what());
     }
@@ -3780,8 +3772,11 @@ EvolutionData OcctKernel::shellWithHistory(uint32_t solidId, std::vector<uint32_
         if (!maker.IsDone()) {
             throw std::runtime_error("shellWithHistory: operation failed");
         }
-        uint32_t resultId = store(maker.Shape());
-        return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(maker.Shape());
+        EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("shellWithHistory: ") + e.what());
     }

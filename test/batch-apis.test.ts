@@ -278,3 +278,131 @@ describe("mirrorBatch", () => {
         result.delete();
     });
 });
+
+describe("batch arena rollback", () => {
+    // Results a batch stored before it threw reach no caller, so releasing the
+    // inputs can never free them: without a rollback they sit in the arena for
+    // the kernel's lifetime (#349).
+    const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const withArgs = (ids: number[], params: number[], fn: (i: any, p: any) => void) => {
+        const idVec = new Module.VectorUint32();
+        for (const id of ids) idVec.push_back(id);
+        const paramVec = new Module.VectorDouble();
+        for (const value of params) paramVec.push_back(value);
+        try {
+            fn(idVec, paramVec);
+        } finally {
+            idVec.delete();
+            paramVec.delete();
+        }
+    };
+
+    const CASES = [
+        // A zero-length rotation axis / mirror normal makes gp_Dir throw on the
+        // second item; the other three take a released ID, which get() rejects.
+        {
+            method: "rotateBatch",
+            failing: [0, 0, 0, 0, 0, 1, 0.5, 0, 0, 0, 0, 0, 0, 0.5],
+            ok: [0, 0, 0, 0, 0, 1, 0.5, 0, 0, 0, 0, 0, 1, 0.5],
+            staleSecondInput: false,
+        },
+        {
+            method: "mirrorBatch",
+            failing: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            ok: [0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+            staleSecondInput: false,
+        },
+        {
+            method: "translateBatch",
+            failing: [1, 0, 0, 0, 1, 0],
+            ok: [1, 0, 0, 0, 1, 0],
+            staleSecondInput: true,
+        },
+        {
+            method: "transformBatch",
+            failing: [...IDENTITY, ...IDENTITY],
+            ok: [...IDENTITY, ...IDENTITY],
+            staleSecondInput: true,
+        },
+        {
+            method: "scaleBatch",
+            failing: [0, 0, 0, 2, 0, 0, 0, 3],
+            ok: [0, 0, 0, 2, 0, 0, 0, 3],
+            staleSecondInput: true,
+        },
+    ];
+
+    it.each(CASES)(
+        "$method releases earlier results when a later item fails",
+        ({ method, failing, staleSecondInput }) => {
+            const first = kernel.makeBox(1, 2, 3);
+            const second = kernel.makeBox(2, 3, 4);
+            if (staleSecondInput) kernel.release(second);
+            const before = kernel.getShapeCount();
+
+            expect(() =>
+                withArgs([first, second], failing, (ids, params) =>
+                    kernel[method](ids, params),
+                ),
+            ).toThrow();
+
+            expect(kernel.getShapeCount()).toBe(before);
+            expect(kernel.getVolume(first)).toBeCloseTo(6, 9);
+            if (!staleSecondInput) expect(kernel.getVolume(second)).toBeCloseTo(24, 9);
+        },
+    );
+
+    it.each(CASES)("$method keeps every result when the batch succeeds", ({ method, ok }) => {
+        const first = kernel.makeBox(1, 2, 3);
+        const second = kernel.makeBox(2, 3, 4);
+        const before = kernel.getShapeCount();
+
+        withArgs([first, second], ok, (ids, params) => {
+            const results = kernel[method](ids, params);
+            expect(results.size()).toBe(2);
+            expect(kernel.getShapeCount()).toBe(before + 2);
+            // The returned IDs still resolve: take() hands them over, it does
+            // not release them.
+            for (let i = 0; i < 2; i++) {
+                expect(kernel.getVolume(results.get(i))).toBeGreaterThan(0);
+            }
+            results.delete();
+        });
+    });
+
+    it("filletBatch releases earlier results when a later solid fails", () => {
+        const first = kernel.makeBox(10, 10, 10);
+        const second = kernel.makeBox(10, 10, 10);
+        const edges = kernel.getSubShapes(first, "edge");
+        const staleEdge = kernel.getSubShapes(second, "edge").get(0);
+        kernel.release(staleEdge);
+        const before = kernel.getShapeCount();
+
+        const solidIds = new Module.VectorUint32();
+        solidIds.push_back(first);
+        solidIds.push_back(second);
+        const edgeCounts = new Module.VectorInt();
+        edgeCounts.push_back(1);
+        edgeCounts.push_back(1);
+        const flatEdgeIds = new Module.VectorUint32();
+        flatEdgeIds.push_back(edges.get(0));
+        flatEdgeIds.push_back(staleEdge);
+        const radii = new Module.VectorDouble();
+        radii.push_back(1);
+        radii.push_back(1);
+
+        expect(() =>
+            kernel.filletBatch(solidIds, edgeCounts, flatEdgeIds, radii),
+        ).toThrow();
+        expect(kernel.getShapeCount()).toBe(before);
+        expect(kernel.getVolume(first)).toBeCloseTo(1000, 6);
+
+        solidIds.delete();
+        edgeCounts.delete();
+        flatEdgeIds.delete();
+        radii.delete();
+        edges.delete();
+    });
+});
