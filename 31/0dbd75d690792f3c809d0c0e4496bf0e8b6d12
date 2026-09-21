@@ -1,0 +1,32 @@
+test/edge-cases.test.ts
+  s_78a3c8c2734a6a::t_d95eb71f48ac82 70-86,620-689
+  s_78a3c8c2734a6a::t_df95d3567b633a 690-691
+CLAUDE.md
+  s_78a3c8c2734a6a::t_80c4d39000bb22 53-54
+occt
+  s_89ebab1cd8d9f3::t_aac85bc6068529 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "310dbd75d690792f3c809d0c0e4496bf0e8b6d12",
+  "prompts": {},
+  "sessions": {
+    "s_78a3c8c2734a6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f0368c7-3e02-48e9-88d2-75822d2f5a96",
+        "model": "claude-opus-5"
+      },
+      "human_author": null
+    },
+    "s_89ebab1cd8d9f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d66a1fbe-8127-4890-8649-771e75111e0d",
+        "model": "unknown"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
