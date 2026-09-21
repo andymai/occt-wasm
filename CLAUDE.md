@@ -50,6 +50,8 @@ Any facade/codegen change invalidates the committed `wasm.br`. CI's "WASI build 
 ### Memory & errors
 Shapes live in a u32-keyed arena (`store`/`get`/`release`/`releaseAll`); IDs are never auto-freed, so the TS wrapper backs them with `Symbol.dispose` + a FinalizationRegistry safety net. Array arguments cross the boundary through `#withU32`/`#withF64`/`#withI32` scope guards (a bulk heap copy above a size threshold). The facade catches OCCT `Standard_Failure` and re-throws `std::runtime_error`; the TS `wrap()` in `types.ts` converts any throw to an `OcctError` whose `code` is inferred by `classifyError` from the operation name + message.
 
+That translation has a hard floor: a bad access inside OCCT is a **WASM trap**, not a `Standard_Failure`, so no facade handler sees it. OCCT's own `*_Raise_if` guards do not help either, because Release builds define `-DNo_Exception` and compile them all away, and the signal fallback OCCT relies on natively does not exist here (`OSD::SetSignal(false)`). A null deref OCCT can survive on Linux has to be guarded in the fork instead (#348, `Geom2dAdaptor_Curve`).
+
 ## CI shape
 - **lint** (no WASM): `cargo fmt --check`, `clippy -D warnings`, `tsgo --noEmit` (TS 7 native compiler; `typescript@6` stays for eslint/typedoc's JS API), `eslint`, plus the codegen drift check. Also `npm run typecheck:tests` (`tsconfig.test.json` covers `test/`, which the `ts/` config excludes) and `npm run typecheck:docs`.
 - **build-test**: builds the Embind WASM in the builder container, runs the full vitest suite + the bench gate.
