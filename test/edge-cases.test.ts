@@ -636,6 +636,7 @@ describe("unbuildable fillets", () => {
             }
         }
         faces.delete();
+        expect(top, "no top face found").toBeGreaterThan(0);
         const removed = new Module.VectorUint32();
         removed.push_back(top);
         const shell = kernel.shell(box, removed, 2, 1e-3);
@@ -653,6 +654,9 @@ describe("unbuildable fillets", () => {
             }
         }
         edges.delete();
+        // Returning 0 here would make the fillet fail on an invalid ID instead
+        // of on the geometry, which the trap assertion would happily accept.
+        expect(found, "selector matched no edge").toBeGreaterThan(0);
         return found;
     }
 
