@@ -405,6 +405,15 @@ impl OcctKernel {
         self.read_u32_slice(ptr as u32, len)
     }
 
+    /// Read a `Vec<ShapeHandle>` result.
+    pub(crate) fn read_vec_shape_result(&mut self) -> OcctResult<Vec<ShapeHandle>> {
+        Ok(self
+            .read_vec_u32_result()?
+            .into_iter()
+            .map(ShapeHandle)
+            .collect())
+    }
+
     /// Read a `Vec<f64>` result.
     pub(crate) fn read_vec_f64_result(&mut self) -> OcctResult<Vec<f64>> {
         let ptr = self.fn_get_vec_f64_result.call(&mut self.store, ())?;

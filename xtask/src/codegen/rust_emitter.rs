@@ -56,6 +56,7 @@ const fn rust_return_type(rt: ReturnType) -> &'static str {
         ReturnType::String => "OcctResult<String>",
         ReturnType::Bytes => "OcctResult<Vec<u8>>",
         ReturnType::VectorUint32 => "OcctResult<Vec<u32>>",
+        ReturnType::VectorShapeIds => "OcctResult<Vec<ShapeHandle>>",
         ReturnType::VectorDouble => "OcctResult<Vec<f64>>",
         ReturnType::VectorInt => "OcctResult<Vec<i32>>",
         ReturnType::BBoxData => "OcctResult<BoundingBox>",
@@ -286,6 +287,7 @@ fn wasm_typed_func_type(spec: &MethodSpec) -> String {
         | ReturnType::String
         | ReturnType::Bytes
         | ReturnType::VectorUint32
+        | ReturnType::VectorShapeIds
         | ReturnType::VectorDouble
         | ReturnType::VectorInt
         | ReturnType::BBoxData
@@ -466,7 +468,7 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
             };
             let _ = writeln!(buf, "        self.{reader}()");
         }
-        ReturnType::VectorUint32 => {
+        ReturnType::VectorUint32 | ReturnType::VectorShapeIds => {
             let _ = writeln!(
                 buf,
                 "        let len = self.{fn_field}.call(&mut self.store, {call_tuple}){call_suffix};"
@@ -481,7 +483,12 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
                 "            return Err(self.read_last_error(\"{snake_name}\"));"
             );
             let _ = writeln!(buf, "        }}");
-            let _ = writeln!(buf, "        self.read_vec_u32_result()");
+            let reader = if spec.return_type == ReturnType::VectorShapeIds {
+                "read_vec_shape_result"
+            } else {
+                "read_vec_u32_result"
+            };
+            let _ = writeln!(buf, "        self.{reader}()");
         }
         ReturnType::VectorDouble => {
             let _ = writeln!(
