@@ -113,6 +113,28 @@ uint32_t OcctKernel::store(const TopoDS_Shape& shape) {
     return id;
 }
 
+OcctKernel::BatchScope::BatchScope(OcctKernel& kernel, size_t expected) : kernel_(kernel) {
+    ids_.reserve(expected);
+}
+
+OcctKernel::BatchScope::~BatchScope() {
+    for (uint32_t id : ids_) {
+        kernel_.arena_.erase(id);
+    }
+}
+
+uint32_t OcctKernel::BatchScope::add(const TopoDS_Shape& shape) {
+    uint32_t id = kernel_.store(shape);
+    ids_.push_back(id);
+    return id;
+}
+
+std::vector<uint32_t> OcctKernel::BatchScope::take() {
+    std::vector<uint32_t> taken = std::move(ids_);
+    ids_.clear();
+    return taken;
+}
+
 const TopoDS_Shape& OcctKernel::get(uint32_t id) const {
     auto it = arena_.find(id);
     if (it == arena_.end()) {

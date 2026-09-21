@@ -457,6 +457,27 @@ class OcctKernel {
     std::vector<int> vectorI32FromHeap(int ptr, int count);
 
   private:
+    /// Collects shapes a multi-result method stores before it returns.
+    ///
+    /// Until the method returns, those IDs exist only inside the facade: a throw
+    /// partway through leaves the caller no handle to release them with, so they
+    /// would sit in the arena until releaseAll. Shapes added here are released
+    /// on unwind unless take() hands them to the caller.
+    class BatchScope {
+      public:
+        BatchScope(OcctKernel& kernel, size_t expected);
+        ~BatchScope();
+        BatchScope(const BatchScope&) = delete;
+        BatchScope& operator=(const BatchScope&) = delete;
+
+        uint32_t add(const TopoDS_Shape& shape);
+        std::vector<uint32_t> take();
+
+      private:
+        OcctKernel& kernel_;
+        std::vector<uint32_t> ids_;
+    };
+
     uint32_t store(const TopoDS_Shape& shape);
     const TopoDS_Shape& get(uint32_t id) const;
     TopoDS_Shape normalizeSolidOrientation(const TopoDS_Shape& shape);
