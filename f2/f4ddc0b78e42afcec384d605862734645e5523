@@ -1,0 +1,27 @@
+xtask/src/codegen/rust_emitter.rs
+  s_78a3c8c2734a6a::t_4e402d05451e52 58-59,290,471,486-491
+xtask/src/codegen/types.rs
+  s_78a3c8c2734a6a::t_e40b1ed3ad92f7 133,135-138
+xtask/src/codegen/wasi_emitter.rs
+  s_78a3c8c2734a6a::t_e40b1ed3ad92f7 126,155,217
+xtask/src/codegen/config.rs
+  s_78a3c8c2734a6a::t_4e402d05451e52 865,1168,1215,1239,1262,1286,2132,2299,2399,2422,3468
+xtask/src/codegen/emitter.rs
+  s_78a3c8c2734a6a::t_e40b1ed3ad92f7 205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f2f4ddc0b78e42afcec384d605862734645e5523",
+  "prompts": {},
+  "sessions": {
+    "s_78a3c8c2734a6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f0368c7-3e02-48e9-88d2-75822d2f5a96",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
