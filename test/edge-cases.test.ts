@@ -67,6 +67,23 @@ function expectThrows(fn: () => unknown, label?: string): void {
     expect(throws(fn), label ?? "expected call to throw").toBe(true);
 }
 
+/**
+ * Assert that `fn` fails with an ordinary C++ exception rather than a WASM
+ * trap. A trap is not catchable from C++, so it escapes every handler in the
+ * facade and leaves the operation half-finished.
+ */
+function expectCatchableFailure(fn: () => unknown, label: string): void {
+    let thrown: unknown;
+    try {
+        fn();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown, `${label}: expected a failure`).toBeDefined();
+    const trap = thrown instanceof WebAssembly.RuntimeError;
+    expect(trap, `${label}: WASM trap "${(thrown as Error)?.message}"`).toBe(false);
+}
+
 // ---------------------------------------------------------------------------
 // Invalid IDs
 // ---------------------------------------------------------------------------
@@ -597,6 +614,82 @@ describe("type mismatches", () => {
             return;
         }
         expect(result).toBeGreaterThanOrEqual(0);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Fillets that do not fit
+// ---------------------------------------------------------------------------
+
+describe("unbuildable fillets", () => {
+    // A radius equal to the wall thickness sends OCCT's blend solver through a
+    // restriction whose 2D adaptor holds no curve. Dereferencing it used to
+    // trap the module instead of failing (#348).
+    function shelledBox(): number {
+        const box = kernel.makeBox(40, 30, 20);
+        const faces = kernel.getSubShapes(box, "face");
+        let top = 0;
+        for (let i = 0; i < faces.size(); i++) {
+            if (kernel.getBoundingBox(faces.get(i), false).zmin > 19.999) {
+                top = faces.get(i);
+                break;
+            }
+        }
+        faces.delete();
+        expect(top, "no top face found").toBeGreaterThan(0);
+        const removed = new Module.VectorUint32();
+        removed.push_back(top);
+        const shell = kernel.shell(box, removed, 2, 1e-3);
+        removed.delete();
+        return shell;
+    }
+
+    function edgeWhere(shape: number, match: (bbox: any) => boolean): number {
+        const edges = kernel.getSubShapes(shape, "edge");
+        let found = 0;
+        for (let i = 0; i < edges.size(); i++) {
+            if (match(kernel.getBoundingBox(edges.get(i), false))) {
+                found = edges.get(i);
+                break;
+            }
+        }
+        edges.delete();
+        // Returning 0 here would make the fillet fail on an invalid ID instead
+        // of on the geometry, which the trap assertion would happily accept.
+        expect(found, "selector matched no edge").toBeGreaterThan(0);
+        return found;
+    }
+
+    const rimEdge = (shape: number) =>
+        edgeWhere(shape, (b) => b.zmin > 19.999 && b.xmin < 0.001 && b.xmax < 0.001);
+    const cornerEdge = (shape: number) =>
+        edgeWhere(shape, (b) => b.xmin > 39.999 && b.ymin > 29.999);
+
+    it("fails with a catchable error when the radius matches the wall thickness", () => {
+        const shape = shelledBox();
+        const edges = new Module.VectorUint32();
+        edges.push_back(rimEdge(shape));
+
+        expectCatchableFailure(() => kernel.fillet(shape, edges, 2), "fillet on a 2mm wall");
+
+        edges.delete();
+    });
+
+    it("leaves the kernel usable after the failure", () => {
+        const failed = shelledBox();
+        const rim = new Module.VectorUint32();
+        rim.push_back(rimEdge(failed));
+        expectThrows(() => kernel.fillet(failed, rim, 2));
+        rim.delete();
+
+        const shape = shelledBox();
+        const corner = new Module.VectorUint32();
+        corner.push_back(cornerEdge(shape));
+        const volume = kernel.getVolume(kernel.fillet(shape, corner, 1));
+        corner.delete();
+
+        expect(volume).toBeGreaterThan(7140);
+        expect(volume).toBeLessThan(7152);
     });
 });
 
