@@ -125,7 +125,14 @@ OcctKernel::BatchScope::~BatchScope() {
 
 uint32_t OcctKernel::BatchScope::add(const TopoDS_Shape& shape) {
     uint32_t id = kernel_.store(shape);
-    ids_.push_back(id);
+    try {
+        ids_.push_back(id);
+    } catch (...) {
+        // The shape is stored but unrecorded, so the destructor would not see
+        // it. Enumerators reserve nothing, so this growth can throw.
+        kernel_.arena_.erase(id);
+        throw;
+    }
     return id;
 }
 
