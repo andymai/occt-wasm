@@ -31,10 +31,15 @@ OCCT_CHECKED_OUT=$(git -C occt rev-parse HEAD)
 if [[ "${OCCT_PINNED}" != "${OCCT_CHECKED_OUT}" ]]; then
     echo "error: occt/ is checked out at ${OCCT_CHECKED_OUT}," >&2
     echo "       but the tag would say ${OCCT_REV} (${OCCT_PINNED})." >&2
-    echo "       Run: git -C occt checkout ${OCCT_REV}   (or commit the bump first)" >&2
+    echo "       Run: git -C occt checkout ${OCCT_PINNED}   (or commit the bump first)" >&2
     exit 1
 fi
-if [[ -n "$(git -C occt status --porcelain)" ]]; then
+# Inside an `if`, set -e does not fire, so a failed status would read as clean.
+if ! OCCT_STATUS=$(git -C occt status --porcelain); then
+    echo "error: could not read the status of occt/." >&2
+    exit 1
+fi
+if [[ -n "${OCCT_STATUS}" ]]; then
     echo "error: occt/ has uncommitted changes, which would be baked in under ${OCCT_REV}." >&2
     echo "       Commit them to the fork and bump the submodule first." >&2
     exit 1
