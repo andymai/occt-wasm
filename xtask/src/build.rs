@@ -222,7 +222,7 @@ fn link_wasm(
     let obj_strs: Vec<String> = objects.iter().map(|p| p.display().to_string()).collect();
     let output = dist_dir.join("occt-wasm.js");
     let output_str = output.display().to_string();
-    let post_js = root.join("scripts/symbol_dispose.js");
+    let post_js = root.join("facade/js/symbol_dispose.js");
     let post_js_str = post_js.display().to_string();
 
     let opt_level = if release && size {
