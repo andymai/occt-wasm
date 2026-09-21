@@ -1132,7 +1132,7 @@ impl crate::kernel::OcctKernel {
         edge_counts: &[i32],
         flat_edge_ids: &[ShapeHandle],
         radii: &[f64],
-    ) -> OcctResult<Vec<u32>> {
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let solid_ids_bytes: Vec<u8> = solid_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let solid_ids_ptr = self.write_bytes(&solid_ids_bytes)?;
         let solid_ids_len = solid_ids.len() as u32;
@@ -1190,7 +1190,7 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("fillet_batch"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
     pub fn offset_wire2_d(
@@ -1401,7 +1401,7 @@ impl crate::kernel::OcctKernel {
         &mut self,
         ids: &[ShapeHandle],
         offsets: &[f64],
-    ) -> OcctResult<Vec<u32>> {
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let ids_bytes: Vec<u8> = ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
@@ -1429,7 +1429,7 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("translate_batch"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
     pub fn compose_transform(&mut self, m1: &[f64], m2: &[f64]) -> OcctResult<Vec<f64>> {
@@ -1462,7 +1462,7 @@ impl crate::kernel::OcctKernel {
         &mut self,
         ids: &[ShapeHandle],
         matrices: &[f64],
-    ) -> OcctResult<Vec<u32>> {
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let ids_bytes: Vec<u8> = ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
@@ -1490,10 +1490,14 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("transform_batch"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
-    pub fn rotate_batch(&mut self, ids: &[ShapeHandle], params: &[f64]) -> OcctResult<Vec<u32>> {
+    pub fn rotate_batch(
+        &mut self,
+        ids: &[ShapeHandle],
+        params: &[f64],
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let ids_bytes: Vec<u8> = ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
@@ -1521,10 +1525,14 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("rotate_batch"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
-    pub fn scale_batch(&mut self, ids: &[ShapeHandle], params: &[f64]) -> OcctResult<Vec<u32>> {
+    pub fn scale_batch(
+        &mut self,
+        ids: &[ShapeHandle],
+        params: &[f64],
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let ids_bytes: Vec<u8> = ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
@@ -1552,10 +1560,14 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("scale_batch"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
-    pub fn mirror_batch(&mut self, ids: &[ShapeHandle], params: &[f64]) -> OcctResult<Vec<u32>> {
+    pub fn mirror_batch(
+        &mut self,
+        ids: &[ShapeHandle],
+        params: &[f64],
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let ids_bytes: Vec<u8> = ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
         let ids_ptr = self.write_bytes(&ids_bytes)?;
         let ids_len = ids.len() as u32;
@@ -1583,7 +1595,7 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("mirror_batch"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
     pub fn make_vertex(&mut self, x: f64, y: f64, z: f64) -> OcctResult<ShapeHandle> {
@@ -2187,7 +2199,11 @@ impl crate::kernel::OcctKernel {
         self.read_string_result()
     }
 
-    pub fn get_sub_shapes(&mut self, id: ShapeHandle, shape_type: &str) -> OcctResult<Vec<u32>> {
+    pub fn get_sub_shapes(
+        &mut self,
+        id: ShapeHandle,
+        shape_type: &str,
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let shape_type_ptr = self.write_bytes(shape_type.as_bytes())?;
         let shape_type_len = shape_type.len() as u32;
         let len = self.generated.fn_get_sub_shapes.call(
@@ -2199,7 +2215,7 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("get_sub_shapes"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
     pub fn sub_shape_count(&mut self, id: ShapeHandle, shape_type: &str) -> OcctResult<i32> {
@@ -2299,7 +2315,7 @@ impl crate::kernel::OcctKernel {
         self.read_string_result()
     }
 
-    pub fn iter_shapes(&mut self, id: ShapeHandle) -> OcctResult<Vec<u32>> {
+    pub fn iter_shapes(&mut self, id: ShapeHandle) -> OcctResult<Vec<ShapeHandle>> {
         let len = self
             .generated
             .fn_iter_shapes
@@ -2307,7 +2323,7 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("iter_shapes"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
     pub fn edge_to_face_map(
@@ -2345,7 +2361,7 @@ impl crate::kernel::OcctKernel {
         &mut self,
         shape_id: ShapeHandle,
         face_id: ShapeHandle,
-    ) -> OcctResult<Vec<u32>> {
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let len = self
             .generated
             .fn_adjacent_faces
@@ -2353,14 +2369,14 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("adjacent_faces"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
     pub fn shared_edges(
         &mut self,
         face_a: ShapeHandle,
         face_b: ShapeHandle,
-    ) -> OcctResult<Vec<u32>> {
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let len = self
             .generated
             .fn_shared_edges
@@ -2368,7 +2384,7 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("shared_edges"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
     pub fn get_bounding_box(
@@ -2927,7 +2943,11 @@ impl crate::kernel::OcctKernel {
         Ok(ShapeHandle(result))
     }
 
-    pub fn curve_split(&mut self, edge_id: ShapeHandle, param: f64) -> OcctResult<Vec<u32>> {
+    pub fn curve_split(
+        &mut self,
+        edge_id: ShapeHandle,
+        param: f64,
+    ) -> OcctResult<Vec<ShapeHandle>> {
         let len = self
             .generated
             .fn_curve_split
@@ -2935,7 +2955,7 @@ impl crate::kernel::OcctKernel {
         if len < 0 {
             return Err(self.read_last_error("curve_split"));
         }
-        self.read_vec_u32_result()
+        self.read_vec_shape_result()
     }
 
     pub fn has_triangulation(&mut self, id: ShapeHandle) -> OcctResult<bool> {

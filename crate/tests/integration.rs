@@ -394,3 +394,66 @@ fn xcaf_document_roundtrip() {
     assert!(root_info.shape_id > 0);
     kernel.xcaf_close(imported).unwrap();
 }
+
+#[test]
+fn enumerated_sub_shapes_feed_back_into_modelling() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    // get_sub_shapes hands back the same handle type the modelling calls take,
+    // so an enumerated edge can be filleted without leaving the type system.
+    let box_id = kernel.make_box(10.0, 10.0, 10.0).unwrap();
+    let edges = kernel.get_sub_shapes(box_id, "edge").unwrap();
+    assert_eq!(edges.len(), 12);
+
+    let rounded = kernel.fillet(box_id, &edges[..1], 1.0).unwrap();
+    let volume = kernel.get_volume(rounded).unwrap();
+    assert!(volume > 990.0 && volume < 1000.0, "volume {volume}");
+}
+
+#[test]
+fn unbuildable_fillet_reports_an_error_instead_of_trapping() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    // A radius equal to the wall thickness drives OCCT's blend solver into an
+    // adaptor holding no curve. Through wasmtime that dereference used to be a
+    // trap, which no caller can handle (#348).
+    let solid = kernel.make_box(40.0, 30.0, 20.0).unwrap();
+    let top = kernel
+        .get_sub_shapes(solid, "face")
+        .unwrap()
+        .into_iter()
+        .find(|f| kernel.get_bounding_box(*f, false).unwrap().min.z > 19.999)
+        .expect("top face");
+    let shelled = kernel.shell(solid, &[top], 2.0, 1e-3).unwrap();
+
+    let edges = kernel.get_sub_shapes(shelled, "edge").unwrap();
+    let rim = edges
+        .iter()
+        .copied()
+        .find(|e| {
+            let b = kernel.get_bounding_box(*e, false).unwrap();
+            b.min.z > 19.999 && b.min.x < 0.001 && b.max.x < 0.001
+        })
+        .expect("rim edge");
+
+    let failure = kernel.fillet(shelled, &[rim], 2.0).unwrap_err();
+    assert!(
+        format!("{failure}").contains("fillet"),
+        "expected a fillet error, got: {failure}"
+    );
+
+    // The store survives the failure, so the next build still works.
+    let corner = edges
+        .iter()
+        .copied()
+        .find(|e| {
+            let b = kernel.get_bounding_box(*e, false).unwrap();
+            b.min.x > 39.999 && b.min.y > 29.999
+        })
+        .expect("corner edge");
+    let good = kernel.fillet(shelled, &[corner], 1.0).unwrap();
+    let volume = kernel.get_volume(good).unwrap();
+    assert!((7140.0..7152.0).contains(&volume), "volume {volume}");
+}
