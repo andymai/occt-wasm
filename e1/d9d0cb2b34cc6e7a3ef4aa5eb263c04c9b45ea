@@ -1,0 +1,20 @@
+scripts/builder-image.sh
+  s_78a3c8c2734a6a::t_11b9428f7b0b6e 26-28,34-42,51
+  s_78a3c8c2734a6a::t_c9f3ca6488b476 29-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e1d9d0cb2b34cc6e7a3ef4aa5eb263c04c9b45ea",
+  "prompts": {},
+  "sessions": {
+    "s_78a3c8c2734a6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f0368c7-3e02-48e9-88d2-75822d2f5a96",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
