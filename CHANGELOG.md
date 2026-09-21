@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.3.3](https://github.com/andymai/occt-wasm/compare/v5.3.2...v5.3.3) (2026-09-21)
+
+
+### Bug Fixes
+
+* **facade:** release partial batch results when a later item fails ([#350](https://github.com/andymai/occt-wasm/issues/350)) ([755b99c](https://github.com/andymai/occt-wasm/commit/755b99ce5c2dc1c123fbbc0391befd1697fd82a4))
+* **facade:** surface an unbuildable fillet as an error, not a WASM trap ([#352](https://github.com/andymai/occt-wasm/issues/352)) ([a9049aa](https://github.com/andymai/occt-wasm/commit/a9049aac77aa9f312b24bab7ff175b02d3430563))
+
 ## [5.3.2](https://github.com/andymai/occt-wasm/compare/v5.3.1...v5.3.2) (2026-09-18)
 
 
