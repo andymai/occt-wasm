@@ -23,6 +23,28 @@ fi
 OCCT_REV=$(git rev-parse --short HEAD:occt)
 TAG="${OCCT_REV}"
 
+# The tag names the committed submodule pointer, but Dockerfile.builder bakes
+# whatever `occt/` currently holds. If those disagree the image ships one OCCT
+# under another one's name, and `:latest` carries it to every CI run.
+OCCT_PINNED=$(git rev-parse HEAD:occt)
+OCCT_CHECKED_OUT=$(git -C occt rev-parse HEAD)
+if [[ "${OCCT_PINNED}" != "${OCCT_CHECKED_OUT}" ]]; then
+    echo "error: occt/ is checked out at ${OCCT_CHECKED_OUT}," >&2
+    echo "       but the tag would say ${OCCT_REV} (${OCCT_PINNED})." >&2
+    echo "       Run: git -C occt checkout ${OCCT_PINNED}   (or commit the bump first)" >&2
+    exit 1
+fi
+# Inside an `if`, set -e does not fire, so a failed status would read as clean.
+if ! OCCT_STATUS=$(git -C occt status --porcelain); then
+    echo "error: could not read the status of occt/." >&2
+    exit 1
+fi
+if [[ -n "${OCCT_STATUS}" ]]; then
+    echo "error: occt/ has uncommitted changes, which would be baked in under ${OCCT_REV}." >&2
+    echo "       Commit them to the fork and bump the submodule first." >&2
+    exit 1
+fi
+
 echo "Building ${IMAGE}:${TAG}"
 echo "  OCCT rev: ${OCCT_REV}"
 echo "  Docker:   ${DOCKER}"
@@ -31,6 +53,7 @@ echo ""
 $DOCKER build \
     -f Dockerfile.builder \
     --progress=plain \
+    --label "org.opencontainers.image.revision=${OCCT_REV}" \
     -t "${IMAGE}:${TAG}" \
     -t "${IMAGE}:latest" \
     .
