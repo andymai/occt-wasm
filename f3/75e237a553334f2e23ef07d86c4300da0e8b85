@@ -1,0 +1,19 @@
+facade/src/kernel.cpp
+  s_78a3c8c2734a6a::t_aa64d75832c53f 128-135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f375e237a553334f2e23ef07d86c4300da0e8b85",
+  "prompts": {},
+  "sessions": {
+    "s_78a3c8c2734a6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f0368c7-3e02-48e9-88d2-75822d2f5a96",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
