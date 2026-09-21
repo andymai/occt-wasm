@@ -31,7 +31,7 @@ Benchmarks: `npx vitest run test/bench.test.ts` (from repo root, after a build) 
 
 Layering: **OCCT C++ → C++ facade (`OcctKernel`) → Embind / WASI C-ABI → TS wrapper or Rust crate**.
 
-- `facade/` — the C++ facade. Almost entirely **generated** (`facade/generated/{kernel,bindings,wasi_exports}.cpp`); only `facade/src/kernel.cpp` (the arena, mesh extraction, XCAF helpers) is hand-written.
+- `facade/` — everything linked into the module: the C++ facade, plus `facade/js/symbol_dispose.js`, the `--post-js` that gives every Embind class `Symbol.dispose`. Almost entirely **generated** (`facade/generated/{kernel,bindings,wasi_exports}.cpp`); only `facade/src/kernel.cpp` (the arena, mesh extraction, XCAF helpers) is hand-written.
 - `ts/src/` — the npm package. `index.ts` is the `OcctKernel` wrapper; `raw-types.ts` the Embind type surface; `types.ts` shared types + `OcctError`/`wrap`; `worker.ts` an off-main-thread Comlink proxy; `xcaf-document.ts` the XCAF assembly builder (real OCCT XDE for colors/names/glTF); `svg.ts` HLR projection rendering.
 - `xtask/` — Rust build orchestration **and** the code generator (`xtask/src/codegen/`).
 - `crate/` — the Rust crate; embeds `occt-wasm.wasm.br` and runs it via wasmtime. `crate/src/kernel_generated.rs` is generated.
