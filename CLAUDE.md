@@ -56,6 +56,7 @@ That translation has a hard floor: a bad access inside OCCT is a **WASM trap**, 
 - **lint** (no WASM): `cargo fmt --check`, `clippy -D warnings`, `tsgo --noEmit` (TS 7 native compiler; `typescript@6` stays for eslint/typedoc's JS API), `eslint`, plus the codegen drift check. Also `npm run typecheck:tests` (`tsconfig.test.json` covers `test/`, which the `ts/` config excludes) and `npm run typecheck:docs`.
 - **build-test**: builds the Embind WASM in the builder container, runs the full vitest suite + the bench gate.
 - **build-wasi**: the `wasm.br` stale-check above. Releases ship via release-please → npm (OIDC) and a `crate-v*` tag → crates.io.
+- release-please versions **only** the npm package; `crate` is in its `exclude-paths`, so a crate-only change cuts no npm release. The crate's own version is bumped by hand in a `chore(crate): release X.Y.Z` PR, then tagged. A commit that touches `xtask/` as well still bumps npm, since codegen changes can reach the facade.
 
 ## Conventions
 - Rust edition 2024, brepkit-level lints (deny `unsafe`/`unwrap`/`panic`). C++ clang-format (LLVM, 4-space, 100 col). TS strict, ESM-only, branded `ShapeHandle`.
