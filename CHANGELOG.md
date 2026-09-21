@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.5](https://github.com/andymai/occt-wasm/compare/v5.3.4...v5.3.5) (2026-09-21)
+
+
+### Bug Fixes
+
+* **ci:** move the npm post-js out of the excluded scripts directory ([#360](https://github.com/andymai/occt-wasm/issues/360)) ([00e8e32](https://github.com/andymai/occt-wasm/commit/00e8e320667d94ee0e1c2fd61e1c2beaf58a63f0))
+
 ## [5.3.4](https://github.com/andymai/occt-wasm/compare/v5.3.3...v5.3.4) (2026-09-21)
 
 
