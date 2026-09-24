@@ -51,7 +51,7 @@
     "eslint": "^10",
     "typedoc": "^0.28.18",
     "typescript": "^6.0",
-    "vitest": "^4"
+    "vitest": "^5"
   },
   "dependencies": {
     "comlink": "^4.4.2"
