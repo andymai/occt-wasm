@@ -77,6 +77,12 @@ describe("offsetWithJoin", () => {
     expect(surfaceTypes(arc)).toContain("cylinder");
     expect(kernel.isValid(sharp)).toBe(true);
     expect(surfaceTypes(sharp).every((type) => type === "plane")).toBe(true);
+
+    // At the concave edge the sharp result gives up a 2 × 2 square where the
+    // arc gives up only a quarter circle of radius 2, over the 6 mm that
+    // remain of the height.
+    const missing = (2 * 2 - (Math.PI * 2 * 2) / 4) * 6;
+    expect(kernel.getVolume(arc) - kernel.getVolume(sharp)).toBeCloseTo(missing, 2);
   });
 
   it("matches plain offset for Arc", () => {
@@ -107,6 +113,11 @@ describe("shellWithJoin", () => {
     expect(surfaceTypes(arc)).toContain("cylinder");
     expect(kernel.isValid(sharp)).toBe(true);
     expect(surfaceTypes(sharp).every((type) => type === "plane")).toBe(true);
+
+    // The sharp cavity stops at a 2 × 2 square in the corner, the arc one at
+    // a quarter circle - over the 8 mm cavity height that is extra wall.
+    const extraWall = (2 * 2 - (Math.PI * 2 * 2) / 4) * 8;
+    expect(kernel.getVolume(sharp) - kernel.getVolume(arc)).toBeCloseTo(extraWall, 2);
 
     // Same outer box either way - only the cavity's corner changes.
     const bb = kernel.getBoundingBox(sharp, true);
