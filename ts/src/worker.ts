@@ -17,7 +17,7 @@
 
 import * as Comlink from "comlink";
 import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, WireframeOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
-import type { BooleanOp, TransitionMode } from "./types.js";
+import type { BooleanOp, JoinType, TransitionMode } from "./types.js";
 
 /**
  * Async proxy to an OcctKernel running in a Web Worker.
@@ -57,8 +57,8 @@ export interface OcctWorkerProxy {
     revolve(shape: ShapeHandle, axis: { point: Vec3; direction: Vec3 }, angleRad: number): Promise<ShapeHandle>;
     fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: number): Promise<ShapeHandle>;
     chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: number): Promise<ShapeHandle>;
-    shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number, tolerance: number): Promise<ShapeHandle>;
-    offset(solid: ShapeHandle, distance: number, tolerance: number): Promise<ShapeHandle>;
+    shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number, tolerance: number, joinType?: JoinType): Promise<ShapeHandle>;
+    offset(solid: ShapeHandle, distance: number, tolerance: number, joinType?: JoinType): Promise<ShapeHandle>;
     draft(shape: ShapeHandle, face: ShapeHandle, angleRad: number, direction: Vec3): Promise<ShapeHandle>;
 
     // Sweeps
