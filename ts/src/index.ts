@@ -481,11 +481,18 @@ export class OcctKernel {
      *     Use `1e-6` for precise shells (matches brepjs default); `1e-3` is a
      *     coarser legacy value that survives more inputs but produces
      *     different topology than brepjs.
+     * @param joinType - How the walls meet where the offset faces move apart.
+     *     `JoinType.Arc` (the default) rounds those edges with a radius equal
+     *     to `thickness`; `JoinType.Intersection` extends the faces until they
+     *     meet and keeps the edges sharp. `JoinType.Tangent` is not supported
+     *     by OCCT's 3D offsets and throws.
      */
     shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number,
-          tolerance: number): ShapeHandle {
+          tolerance: number, joinType: JoinType = JoinType.Arc): ShapeHandle {
         return wrap("shell", () => {
-            return this.#withU32(facesToRemove, (vec) => handle(this.#raw.shell(solid, vec, thickness, tolerance)));
+            return this.#withU32(facesToRemove, (vec) => handle(joinType === JoinType.Arc
+                ? this.#raw.shell(solid, vec, thickness, tolerance)
+                : this.#raw.shellWithJoin(solid, vec, thickness, tolerance, joinType)));
         });
     }
 
@@ -495,9 +502,15 @@ export class OcctKernel {
      * @param tolerance - OCCT precision for the offset reconstruction. Use
      *     `1e-6` for precise offsets (matches brepjs default); `1e-3` is a
      *     coarser legacy value.
+     * @param joinType - How faces meet where they move apart: `JoinType.Arc`
+     *     (the default) rounds, `JoinType.Intersection` stays sharp. See
+     *     {@link OcctKernel.shell}.
      */
-    offset(solid: ShapeHandle, distance: number, tolerance: number): ShapeHandle {
-        return wrap("offset", () => handle(this.#raw.offset(solid, distance, tolerance)));
+    offset(solid: ShapeHandle, distance: number, tolerance: number,
+           joinType: JoinType = JoinType.Arc): ShapeHandle {
+        return wrap("offset", () => handle(joinType === JoinType.Arc
+            ? this.#raw.offset(solid, distance, tolerance)
+            : this.#raw.offsetWithJoin(solid, distance, tolerance, joinType)));
     }
 
     draft(shape: ShapeHandle, face: ShapeHandle, angleRad: number, direction: Vec3): ShapeHandle {

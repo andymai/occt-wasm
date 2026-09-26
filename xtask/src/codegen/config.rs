@@ -696,6 +696,81 @@ return store(maker.Shape());",
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
+    // `shell` / `offset` with a caller-chosen join type. The plain variants
+    // leave OCCT's default `GeomAbs_Arc`, which rounds every edge where the
+    // offset faces move apart (radius = thickness). `GeomAbs_Intersection`
+    // extends those faces until they meet instead, keeping the edge sharp -
+    // FreeCAD's "Join type: Intersection". `joinType` follows the TS
+    // `JoinType` enum: 0 = Arc, 2 = Intersection. OCCT's 3D offsets do not
+    // implement `GeomAbs_Tangent`, so 1 is rejected rather than passed on.
+    MethodSpec {
+        name: "shellWithJoin",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"), FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::Double("thickness"), FacadeParam::Double("tolerance"),
+            FacadeParam::Int("joinType"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+GeomAbs_JoinType jt;
+switch (joinType) {
+case 0: jt = GeomAbs_Arc; break;
+case 2: jt = GeomAbs_Intersection; break;
+default: throw std::runtime_error(\"shellWithJoin: joinType must be Arc (0) or Intersection (2)\");
+}
+NCollection_List<TopoDS_Shape> facesToRemove;
+for (uint32_t fid : faceIds) {
+    facesToRemove.Append(get(fid));
+}
+BRepOffsetAPI_MakeThickSolid maker;
+maker.MakeThickSolidByJoin(get(solidId), facesToRemove, -thickness, tolerance,
+                           BRepOffset_Skin, Standard_False, Standard_False, jt);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"shellWithJoin: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx", "GeomAbs_JoinType.hxx",
+            "BRepOffset_Mode.hxx",
+        ],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "offsetWithJoin",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::Double("distance"),
+            FacadeParam::Double("tolerance"),
+            FacadeParam::Int("joinType"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+GeomAbs_JoinType jt;
+switch (joinType) {
+case 0: jt = GeomAbs_Arc; break;
+case 2: jt = GeomAbs_Intersection; break;
+default: throw std::runtime_error(\"offsetWithJoin: joinType must be Arc (0) or Intersection (2)\");
+}
+BRepOffsetAPI_MakeOffsetShape maker;
+maker.PerformByJoin(get(solidId), distance, tolerance, BRepOffset_Skin, Standard_False,
+                    Standard_False, jt);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"offsetWithJoin: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepOffsetAPI_MakeOffsetShape.hxx", "GeomAbs_JoinType.hxx", "BRepOffset_Mode.hxx",
+        ],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
     MethodSpec {
         name: "draft",
         kind: MethodKind::CustomBody,

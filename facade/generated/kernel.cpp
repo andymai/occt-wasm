@@ -801,6 +801,52 @@ uint32_t OcctKernel::offset(uint32_t solidId, double distance, double tolerance)
     }
 }
 
+uint32_t OcctKernel::shellWithJoin(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness, double tolerance, int joinType) {
+    try {
+        GeomAbs_JoinType jt;
+        switch (joinType) {
+        case 0: jt = GeomAbs_Arc; break;
+        case 2: jt = GeomAbs_Intersection; break;
+        default: throw std::runtime_error("shellWithJoin: joinType must be Arc (0) or Intersection (2)");
+        }
+        NCollection_List<TopoDS_Shape> facesToRemove;
+        for (uint32_t fid : faceIds) {
+            facesToRemove.Append(get(fid));
+        }
+        BRepOffsetAPI_MakeThickSolid maker;
+        maker.MakeThickSolidByJoin(get(solidId), facesToRemove, -thickness, tolerance,
+                                   BRepOffset_Skin, Standard_False, Standard_False, jt);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("shellWithJoin: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("shellWithJoin: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::offsetWithJoin(uint32_t solidId, double distance, double tolerance, int joinType) {
+    try {
+        GeomAbs_JoinType jt;
+        switch (joinType) {
+        case 0: jt = GeomAbs_Arc; break;
+        case 2: jt = GeomAbs_Intersection; break;
+        default: throw std::runtime_error("offsetWithJoin: joinType must be Arc (0) or Intersection (2)");
+        }
+        BRepOffsetAPI_MakeOffsetShape maker;
+        maker.PerformByJoin(get(solidId), distance, tolerance, BRepOffset_Skin, Standard_False,
+                            Standard_False, jt);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("offsetWithJoin: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("offsetWithJoin: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::draft(uint32_t shapeId, uint32_t faceId, double angleRad, double dx, double dy, double dz) {
     try {
         gp_Dir pullDir(dx, dy, dz);
