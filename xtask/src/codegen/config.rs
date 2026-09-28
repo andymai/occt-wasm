@@ -700,9 +700,11 @@ return store(maker.Shape());",
     // leave OCCT's default `GeomAbs_Arc`, which rounds every edge where the
     // offset faces move apart (radius = thickness). `GeomAbs_Intersection`
     // extends those faces until they meet instead, keeping the edge sharp -
-    // FreeCAD's "Join type: Intersection". `joinType` follows the TS
-    // `JoinType` enum: 0 = Arc, 2 = Intersection. OCCT's 3D offsets do not
-    // implement `GeomAbs_Tangent`, so 1 is rejected rather than passed on.
+    // FreeCAD's "Join type: Intersection". `joinType` uses the raw codes
+    // `offsetWire2D` already takes (0 = Arc, 1 = Intersection), which differ
+    // from the TS `JoinType` enum values; the TS wrapper translates. OCCT's
+    // 3D offsets do not implement `GeomAbs_Tangent` (raw 2), so it is
+    // rejected rather than passed on.
     MethodSpec {
         name: "shellWithJoin",
         kind: MethodKind::CustomBody,
@@ -717,8 +719,8 @@ return store(maker.Shape());",
 GeomAbs_JoinType jt;
 switch (joinType) {
 case 0: jt = GeomAbs_Arc; break;
-case 2: jt = GeomAbs_Intersection; break;
-default: throw std::runtime_error(\"shellWithJoin: joinType must be Arc (0) or Intersection (2)\");
+case 1: jt = GeomAbs_Intersection; break;
+default: throw std::runtime_error(\"shellWithJoin: joinType must be Arc (0) or Intersection (1)\");
 }
 NCollection_List<TopoDS_Shape> facesToRemove;
 for (uint32_t fid : faceIds) {
@@ -754,8 +756,8 @@ return store(maker.Shape());",
 GeomAbs_JoinType jt;
 switch (joinType) {
 case 0: jt = GeomAbs_Arc; break;
-case 2: jt = GeomAbs_Intersection; break;
-default: throw std::runtime_error(\"offsetWithJoin: joinType must be Arc (0) or Intersection (2)\");
+case 1: jt = GeomAbs_Intersection; break;
+default: throw std::runtime_error(\"offsetWithJoin: joinType must be Arc (0) or Intersection (1)\");
 }
 BRepOffsetAPI_MakeOffsetShape maker;
 maker.PerformByJoin(get(solidId), distance, tolerance, BRepOffset_Skin, Standard_False,

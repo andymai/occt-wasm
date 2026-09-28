@@ -129,6 +129,14 @@ function handle(id: number): ShapeHandle {
     return id as ShapeHandle;
 }
 
+// The facade's join codes order Intersection before Tangent, unlike the enum.
+// brepjs sends those raw codes directly, so the wrapper translates.
+const RAW_JOIN_CODE: Record<JoinType, number> = {
+    [JoinType.Arc]: 0,
+    [JoinType.Intersection]: 1,
+    [JoinType.Tangent]: 2,
+};
+
 // Allowed values for the closed string-union enums returned by the kernel,
 // derived from the single source of truth in types.ts so they can't drift.
 // (SurfaceKind/CurveKind are open unions — `string & {}` — so any string is
@@ -484,15 +492,15 @@ export class OcctKernel {
      * @param joinType - How the walls meet where the offset faces move apart.
      *     `JoinType.Arc` (the default) rounds those edges with a radius equal
      *     to `thickness`; `JoinType.Intersection` extends the faces until they
-     *     meet and keeps the edges sharp. `JoinType.Tangent` is not supported
-     *     by OCCT's 3D offsets and throws.
+     *     meet and keeps the edges sharp. OCCT's 3D offsets do not implement
+     *     `JoinType.Tangent`, so the type excludes it.
      */
     shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number,
-          tolerance: number, joinType: JoinType = JoinType.Arc): ShapeHandle {
+          tolerance: number, joinType: JoinType.Arc | JoinType.Intersection = JoinType.Arc): ShapeHandle {
         return wrap("shell", () => {
             return this.#withU32(facesToRemove, (vec) => handle(joinType === JoinType.Arc
                 ? this.#raw.shell(solid, vec, thickness, tolerance)
-                : this.#raw.shellWithJoin(solid, vec, thickness, tolerance, joinType)));
+                : this.#raw.shellWithJoin(solid, vec, thickness, tolerance, RAW_JOIN_CODE[joinType])));
         });
     }
 
@@ -507,10 +515,10 @@ export class OcctKernel {
      *     {@link OcctKernel.shell}.
      */
     offset(solid: ShapeHandle, distance: number, tolerance: number,
-           joinType: JoinType = JoinType.Arc): ShapeHandle {
+           joinType: JoinType.Arc | JoinType.Intersection = JoinType.Arc): ShapeHandle {
         return wrap("offset", () => handle(joinType === JoinType.Arc
             ? this.#raw.offset(solid, distance, tolerance)
-            : this.#raw.offsetWithJoin(solid, distance, tolerance, joinType)));
+            : this.#raw.offsetWithJoin(solid, distance, tolerance, RAW_JOIN_CODE[joinType])));
     }
 
     draft(shape: ShapeHandle, face: ShapeHandle, angleRad: number, direction: Vec3): ShapeHandle {

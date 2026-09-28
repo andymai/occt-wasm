@@ -19,10 +19,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 let Module: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let kernel: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let wrapper: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let JoinType: any;
 
+// Raw facade codes, which order Intersection before Tangent (unlike JoinType).
 const ARC = 0;
-const TANGENT = 1;
-const INTERSECTION = 2;
+const INTERSECTION = 1;
+const TANGENT = 2;
 
 beforeAll(async () => {
   const jsPath = resolve(__dirname, "../dist/occt-wasm.js");
@@ -32,15 +37,21 @@ beforeAll(async () => {
     locateFile: (path: string) => (path.endsWith(".wasm") ? wasmPath : path),
   });
   kernel = new Module.OcctKernel();
+  const mod = await import(resolve(__dirname, "../ts/src/index.ts"));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  wrapper = new (mod.OcctKernel as any)(Module);
+  JoinType = mod.JoinType;
 }, 30_000);
 
 afterEach(() => {
   kernel.releaseAll();
+  wrapper.releaseAll();
 });
 
 afterAll(() => {
   kernel.releaseAll();
   kernel.delete();
+  wrapper[Symbol.dispose]();
 });
 
 /** L-shaped prism, 20 × 20 × 10, one concave vertical edge at (10, 10). */
@@ -134,5 +145,37 @@ describe("shellWithJoin", () => {
     const arc = kernel.shellWithJoin(solid, removed, 2, 1e-6, ARC);
     removed.delete();
     expect(kernel.getVolume(arc)).toBeCloseTo(kernel.getVolume(plain), 6);
+  });
+});
+
+describe("TS wrapper joinType", () => {
+  function wrapperLPrism(): number {
+    const a = wrapper.makeBox(20, 10, 10);
+    const b = wrapper.makeBox(10, 20, 10);
+    return wrapper.unifySameDomain(wrapper.fuse(a, b));
+  }
+
+  function wrapperSurfaceTypes(shape: number): string[] {
+    return wrapper.getSubShapes(shape, "face").map((f: number) => wrapper.surfaceType(f));
+  }
+
+  it("maps JoinType.Intersection onto the facade's raw code", () => {
+    const sharpOffset = wrapper.offset(wrapperLPrism(), -2, 1e-6, JoinType.Intersection);
+    expect(wrapperSurfaceTypes(sharpOffset).every((type) => type === "plane")).toBe(true);
+
+    const solid = wrapperLPrism();
+    const top = wrapper
+      .getSubShapes(solid, "face")
+      .find((f: number) => {
+        const bb = wrapper.getBoundingBox(f);
+        return bb.zmin > 9.99 && bb.zmax < 10.01;
+      });
+    const sharpShell = wrapper.shell(solid, [top], 2, 1e-6, JoinType.Intersection);
+    expect(wrapperSurfaceTypes(sharpShell).every((type) => type === "plane")).toBe(true);
+  });
+
+  it("defaults to Arc", () => {
+    const rounded = wrapper.offset(wrapperLPrism(), -2, 1e-6);
+    expect(wrapperSurfaceTypes(rounded)).toContain("cylinder");
   });
 });

@@ -192,7 +192,7 @@ Available error codes:
 
 Sweep, offset, and boolean operations use self-documenting enums instead of opaque numbers:
 
-```typescript check kernel,profile,spine,wire,base,tool1,tool2
+```typescript check kernel,profile,spine,wire,shape,face,base,tool1,tool2
 import { TransitionMode, JoinType, BooleanOp } from "occt-wasm";
 
 // Sweep with round-corner transitions
@@ -200,6 +200,10 @@ kernel.sweep(profile, spine, TransitionMode.RoundCorner);
 
 // Offset wire with arc joins
 kernel.offsetWire2D(wire, 2.0, JoinType.Arc);
+
+// Hollow a solid through one face; Intersection keeps the inner corners
+// at concave edges sharp where Arc would round them
+kernel.shell(shape, [face], 2.0, 1e-6, JoinType.Intersection);
 
 // Boolean pipeline
 kernel.booleanPipeline(base, [BooleanOp.Cut, BooleanOp.Fuse], [tool1, tool2]);

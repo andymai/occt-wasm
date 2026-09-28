@@ -806,8 +806,8 @@ uint32_t OcctKernel::shellWithJoin(uint32_t solidId, std::vector<uint32_t> faceI
         GeomAbs_JoinType jt;
         switch (joinType) {
         case 0: jt = GeomAbs_Arc; break;
-        case 2: jt = GeomAbs_Intersection; break;
-        default: throw std::runtime_error("shellWithJoin: joinType must be Arc (0) or Intersection (2)");
+        case 1: jt = GeomAbs_Intersection; break;
+        default: throw std::runtime_error("shellWithJoin: joinType must be Arc (0) or Intersection (1)");
         }
         NCollection_List<TopoDS_Shape> facesToRemove;
         for (uint32_t fid : faceIds) {
@@ -831,8 +831,8 @@ uint32_t OcctKernel::offsetWithJoin(uint32_t solidId, double distance, double to
         GeomAbs_JoinType jt;
         switch (joinType) {
         case 0: jt = GeomAbs_Arc; break;
-        case 2: jt = GeomAbs_Intersection; break;
-        default: throw std::runtime_error("offsetWithJoin: joinType must be Arc (0) or Intersection (2)");
+        case 1: jt = GeomAbs_Intersection; break;
+        default: throw std::runtime_error("offsetWithJoin: joinType must be Arc (0) or Intersection (1)");
         }
         BRepOffsetAPI_MakeOffsetShape maker;
         maker.PerformByJoin(get(solidId), distance, tolerance, BRepOffset_Skin, Standard_False,
