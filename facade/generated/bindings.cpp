@@ -309,6 +309,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("chamferWithHistory", &OcctKernel::chamferWithHistory)
         .function("shellWithHistory", &OcctKernel::shellWithHistory)
         .function("offsetWithHistory", &OcctKernel::offsetWithHistory)
+        .function("shellWithHistoryAndJoin", &OcctKernel::shellWithHistoryAndJoin)
+        .function("offsetWithHistoryAndJoin", &OcctKernel::offsetWithHistoryAndJoin)
         .function("thickenWithHistory", &OcctKernel::thickenWithHistory)
 
         // tessellate

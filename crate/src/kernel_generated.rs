@@ -223,6 +223,8 @@ pub(crate) struct GeneratedFuncs {
     fn_chamfer_with_history: TypedFunc<(u32, i32, i32, f64, i32, i32, i32), i32>,
     fn_shell_with_history: TypedFunc<(u32, i32, i32, f64, f64, i32, i32, i32), i32>,
     fn_offset_with_history: TypedFunc<(u32, f64, f64, i32, i32, i32), i32>,
+    fn_shell_with_history_and_join: TypedFunc<(u32, i32, i32, f64, f64, i32, i32, i32, i32), i32>,
+    fn_offset_with_history_and_join: TypedFunc<(u32, f64, f64, i32, i32, i32, i32), i32>,
     fn_thicken_with_history: TypedFunc<(u32, f64, f64, i32, i32, i32), i32>,
     fn_tessellate: TypedFunc<(u32, f64, f64), i32>,
     fn_tessellate_relative: TypedFunc<(u32, f64, f64), i32>,
@@ -479,6 +481,10 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_shell_with_history")?,
             fn_offset_with_history: instance
                 .get_typed_func(&mut store, "occt_offset_with_history")?,
+            fn_shell_with_history_and_join: instance
+                .get_typed_func(&mut store, "occt_shell_with_history_and_join")?,
+            fn_offset_with_history_and_join: instance
+                .get_typed_func(&mut store, "occt_offset_with_history_and_join")?,
             fn_thicken_with_history: instance
                 .get_typed_func(&mut store, "occt_thicken_with_history")?,
             fn_tessellate: instance.get_typed_func(&mut store, "occt_tessellate")?,
@@ -3963,6 +3969,89 @@ impl crate::kernel::OcctKernel {
         let status = status?;
         if status < 0 {
             return Err(self.read_last_error("offset_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn shell_with_history_and_join(
+        &mut self,
+        solid_id: ShapeHandle,
+        face_ids: &[ShapeHandle],
+        thickness: f64,
+        tolerance: f64,
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+        join_type: i32,
+    ) -> OcctResult<EvolutionData> {
+        let face_ids_bytes: Vec<u8> = face_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let face_ids_ptr = self.write_bytes(&face_ids_bytes)?;
+        let face_ids_len = face_ids.len() as u32;
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(face_ids_ptr);
+                return Err(e);
+            }
+        };
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_shell_with_history_and_join.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                face_ids_ptr as i32,
+                face_ids_len as i32,
+                thickness,
+                tolerance,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+                join_type,
+            ),
+        );
+        self.free_bytes(face_ids_ptr)?;
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("shell_with_history_and_join"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn offset_with_history_and_join(
+        &mut self,
+        solid_id: ShapeHandle,
+        distance: f64,
+        tolerance: f64,
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+        join_type: i32,
+    ) -> OcctResult<EvolutionData> {
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = self.write_bytes(&input_face_hashes_bytes)?;
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_offset_with_history_and_join.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                distance,
+                tolerance,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+                join_type,
+            ),
+        );
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("offset_with_history_and_join"));
         }
         self.read_evolution_result()
     }
