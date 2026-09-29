@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.4.0](https://github.com/andymai/occt-wasm/compare/v5.3.5...v5.4.0) (2026-09-29)
+
+
+### Features
+
+* **facade:** join type for shellWithHistory and offsetWithHistory ([#368](https://github.com/andymai/occt-wasm/issues/368)) ([f9c2dfa](https://github.com/andymai/occt-wasm/commit/f9c2dfa949487585f9002dff60678767c2f1c5b4))
+* **facade:** selectable join type for shell and offset ([#366](https://github.com/andymai/occt-wasm/issues/366)) ([90b2b0a](https://github.com/andymai/occt-wasm/commit/90b2b0acf31c0705743a6d45aea422b558594598))
+
 ## [5.3.5](https://github.com/andymai/occt-wasm/compare/v5.3.4...v5.3.5) (2026-09-21)
 
 
