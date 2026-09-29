@@ -1,0 +1,32 @@
+crate/src/host.rs
+  s_5f76b55bfd7138::t_c3b8bcd1d12106 1-55,59-103,109-121,127-135,143-144,148-150
+  s_5f76b55bfd7138::t_ffc4236d96c601 56-58,104-108,122-126,136-142,145-147
+crate/tests/integration.rs
+  s_5f76b55bfd7138::t_78da0867c9681f 33-37
+  s_5f76b55bfd7138::t_5178b2f80f7eb8 4-6,8,17,19-22
+  s_5f76b55bfd7138::t_547c8aa02415d3 158,176,247,256,369
+crate/src/kernel.rs
+  s_5f76b55bfd7138::t_ffc4236d96c601 160-164
+.github/workflows/publish-crate.yml
+  s_5f76b55bfd7138::t_d6dd252b5d9d59 90-94
+.github/workflows/crate-test.yml
+  s_5f76b55bfd7138::t_d6dd252b5d9d59 1-43
+crate/src/lib.rs
+  s_5f76b55bfd7138::t_ffc4236d96c601 57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f55e35838800ec90ba8f4e7f346e1a28c8d4593e",
+  "prompts": {},
+  "sessions": {
+    "s_5f76b55bfd7138": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "776db734-2a61-4180-950f-8d711d5bb413",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
