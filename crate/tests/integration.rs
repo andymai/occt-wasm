@@ -1,18 +1,25 @@
 //! Integration tests for the occt-wasm Rust crate.
 //!
 //! These tests require a real WASI WASM binary at `crate/src/occt-wasm.wasm.br`.
-//! They are skipped (not failed) when the binary is a placeholder.
+//! They are skipped (not failed) when the binary is a placeholder or the build
+//! is debug, unless `OCCT_WASM_REQUIRE_KERNEL` is set, which CI does so that a
+//! skip cannot pass for a green run.
 //!
-//! To run: `cargo xtask build-wasi && cargo test -p occt-wasm`
+//! To run: `cargo test --release -p occt-wasm --test integration`
 
 #![allow(clippy::unwrap_used, clippy::panic)]
 
-use occt_wasm::OcctKernel;
+use occt_wasm::{DocumentHandle, OcctKernel, ShapeHandle};
 
 /// Try to create a kernel. Returns None if the embedded WASM is a placeholder
 /// or if running in debug mode (WASM compilation is ~100x slower in debug).
 fn try_kernel() -> Option<OcctKernel> {
+    let required = std::env::var_os("OCCT_WASM_REQUIRE_KERNEL").is_some();
     if cfg!(debug_assertions) {
+        assert!(
+            !required,
+            "OCCT_WASM_REQUIRE_KERNEL needs a release build: `cargo test --release`"
+        );
         eprintln!(
             "Skipping test: WASM compilation too slow in debug mode. Use `cargo test --release`."
         );
@@ -23,10 +30,11 @@ fn try_kernel() -> Option<OcctKernel> {
         Err(e) => {
             let msg = e.to_string();
             // Placeholder WASM is too small to be a real module
-            if msg.contains("not enough bytes")
-                || msg.contains("unknown import")
-                || msg.contains("occt_init")
-                || msg.contains("no memory export")
+            if !required
+                && (msg.contains("not enough bytes")
+                    || msg.contains("unknown import")
+                    || msg.contains("occt_init")
+                    || msg.contains("no memory export"))
             {
                 eprintln!(
                     "Skipping test: WASM binary is a placeholder. Run `cargo xtask build-wasi` first."
@@ -147,6 +155,7 @@ fn tessellate_box() {
 }
 
 #[test]
+#[ignore = "exports write a temp file under /tmp, and the standalone WASI build has no filesystem"]
 fn step_roundtrip() {
     let Some(mut kernel) = try_kernel() else {
         return;
@@ -164,6 +173,7 @@ fn step_roundtrip() {
 }
 
 #[test]
+#[ignore = "exports write a temp file under /tmp, and the standalone WASI build has no filesystem"]
 fn stl_binary_roundtrip() {
     let Some(mut kernel) = try_kernel() else {
         return;
@@ -234,7 +244,7 @@ fn get_shape_type() {
     };
     let shape = kernel.make_box(10.0, 10.0, 10.0).unwrap();
     let shape_type = kernel.get_shape_type(shape).unwrap();
-    assert_eq!(shape_type, "Solid", "box should be a Solid");
+    assert_eq!(shape_type, "solid", "box should be a solid");
 }
 
 #[test]
@@ -243,7 +253,7 @@ fn get_sub_shapes() {
         return;
     };
     let shape = kernel.make_box(10.0, 10.0, 10.0).unwrap();
-    let faces = kernel.get_sub_shapes(shape, "Face").unwrap();
+    let faces = kernel.get_sub_shapes(shape, "face").unwrap();
     assert_eq!(faces.len(), 6, "box should have 6 faces");
 }
 
@@ -355,11 +365,8 @@ fn helix_handedness_mirrors_across_the_axis_plane() {
     assert!((left[2] - right[2]).abs() < 1e-6);
 }
 
-#[test]
-fn xcaf_document_roundtrip() {
-    let Some(mut kernel) = try_kernel() else {
-        return;
-    };
+/// An XCAF document with a named, coloured housing and one gear component.
+fn housing_with_gear(kernel: &mut OcctKernel) -> (DocumentHandle, i32, i32) {
     let doc = kernel.xcaf_new_document().unwrap();
     let housing = kernel.make_box(20.0, 20.0, 20.0).unwrap();
     let gear = kernel.make_cylinder(5.0, 10.0).unwrap();
@@ -370,6 +377,15 @@ fn xcaf_document_roundtrip() {
         .xcaf_add_component(doc, root, gear, 10.0, 0.0, 5.0, 0.0, 0.0, 0.0)
         .unwrap();
     kernel.xcaf_set_name(doc, comp, "gear-1").unwrap();
+    (doc, root, comp)
+}
+
+#[test]
+fn xcaf_document_assembly() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let (doc, _, comp) = housing_with_gear(&mut kernel);
 
     let info = kernel.xcaf_get_label_info(doc, comp).unwrap();
     assert!(info.is_component);
@@ -381,7 +397,16 @@ fn xcaf_document_roundtrip() {
     assert_eq!(location.len(), 12);
     assert!((location[3] - 10.0).abs() < 1e-9);
     assert!((location[11] - 5.0).abs() < 1e-9);
+    kernel.xcaf_close(doc).unwrap();
+}
 
+#[test]
+#[ignore = "exports write a temp file under /tmp, and the standalone WASI build has no filesystem"]
+fn xcaf_step_roundtrip() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let (doc, _, _) = housing_with_gear(&mut kernel);
     let step = kernel.xcaf_export_step(doc).unwrap();
     assert!(step.contains("STEP"));
     kernel.xcaf_close(doc).unwrap();
@@ -456,4 +481,126 @@ fn unbuildable_fillet_reports_an_error_instead_of_trapping() {
     let good = kernel.fillet(shelled, &[corner], 1.0).unwrap();
     let volume = kernel.get_volume(good).unwrap();
     assert!((7140.0..7152.0).contains(&volume), "volume {volume}");
+}
+
+/// L-shaped prism, 20 x 20 x 10, with one concave vertical edge at (10, 10).
+/// Offsetting inward pulls that edge's two faces apart, so the join type
+/// decides whether the gap is bridged by a cylinder (Arc) or planes (Intersection).
+fn l_prism(kernel: &mut OcctKernel) -> ShapeHandle {
+    let a = kernel.make_box(20.0, 10.0, 10.0).unwrap();
+    let b = kernel.make_box(10.0, 20.0, 10.0).unwrap();
+    let fused = kernel.fuse(a, b).unwrap();
+    kernel.unify_same_domain(fused).unwrap()
+}
+
+fn all_planar(kernel: &mut OcctKernel, shape: ShapeHandle) -> bool {
+    kernel
+        .get_sub_shapes(shape, "face")
+        .unwrap()
+        .into_iter()
+        .all(|f| kernel.surface_type(f).unwrap() == "plane")
+}
+
+fn top_face(kernel: &mut OcctKernel, shape: ShapeHandle) -> ShapeHandle {
+    kernel
+        .get_sub_shapes(shape, "face")
+        .unwrap()
+        .into_iter()
+        .find(|f| kernel.get_bounding_box(*f, false).unwrap().min.z > 9.999)
+        .expect("top face")
+}
+
+// Raw join codes: 0 = Arc, 1 = Intersection, 2 = Tangent (rejected in 3D).
+const ARC: i32 = 0;
+const INTERSECTION: i32 = 1;
+const TANGENT: i32 = 2;
+const BOUND: i32 = 1_000_000;
+
+#[test]
+fn join_type_keeps_the_concave_edge_sharp() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    // Intersection keeps a 2 x 2 square at the concave edge where Arc keeps a
+    // quarter circle of radius 2.
+    let corner = 4.0 - std::f64::consts::PI;
+
+    let solid = l_prism(&mut kernel);
+    let arc = kernel.offset_with_join(solid, -2.0, 1e-6, ARC).unwrap();
+    let sharp = kernel
+        .offset_with_join(solid, -2.0, 1e-6, INTERSECTION)
+        .unwrap();
+    assert!(!all_planar(&mut kernel, arc));
+    assert!(all_planar(&mut kernel, sharp));
+    let lost = kernel.get_volume(arc).unwrap() - kernel.get_volume(sharp).unwrap();
+    assert!(
+        (lost - corner * 6.0).abs() < 1e-2,
+        "offset volume difference {lost}"
+    );
+
+    let top = top_face(&mut kernel, solid);
+    let arc = kernel
+        .shell_with_join(solid, &[top], 2.0, 1e-6, ARC)
+        .unwrap();
+    let sharp = kernel
+        .shell_with_join(solid, &[top], 2.0, 1e-6, INTERSECTION)
+        .unwrap();
+    assert!(kernel.is_valid(sharp).unwrap());
+    assert!(all_planar(&mut kernel, sharp));
+    let extra = kernel.get_volume(sharp).unwrap() - kernel.get_volume(arc).unwrap();
+    assert!(
+        (extra - corner * 8.0).abs() < 1e-2,
+        "shell volume difference {extra}"
+    );
+}
+
+#[test]
+fn history_join_variants_return_a_usable_result() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let solid = l_prism(&mut kernel);
+    let hashes: Vec<i32> = kernel
+        .get_sub_shapes(solid, "face")
+        .unwrap()
+        .into_iter()
+        .map(|f| kernel.hash_code(f, BOUND).unwrap())
+        .collect();
+
+    let evo = kernel
+        .offset_with_history_and_join(solid, -2.0, 1e-6, &hashes, BOUND, INTERSECTION)
+        .unwrap();
+    assert!(all_planar(&mut kernel, evo.result()));
+    assert!(!evo.generated.is_empty());
+
+    let top = top_face(&mut kernel, solid);
+    let evo = kernel
+        .shell_with_history_and_join(solid, &[top], 2.0, 1e-6, &hashes, BOUND, INTERSECTION)
+        .unwrap();
+    assert!(all_planar(&mut kernel, evo.result()));
+    assert!(!evo.modified.is_empty());
+    let plain = kernel
+        .shell_with_join(solid, &[top], 2.0, 1e-6, INTERSECTION)
+        .unwrap();
+    let with_history = kernel.get_volume(evo.result()).unwrap();
+    assert!((with_history - kernel.get_volume(plain).unwrap()).abs() < 1e-6);
+}
+
+#[test]
+fn join_type_rejects_tangent() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let solid = l_prism(&mut kernel);
+    let err = kernel
+        .offset_with_join(solid, -2.0, 1e-6, TANGENT)
+        .unwrap_err();
+    assert!(format!("{err}").contains("joinType"), "got: {err}");
+    let err = kernel
+        .offset_with_history_and_join(solid, -2.0, 1e-6, &[], 1, TANGENT)
+        .unwrap_err();
+    assert!(format!("{err}").contains("joinType"), "got: {err}");
+
+    // The store survives the rejection.
+    assert!(kernel.offset_with_join(solid, -2.0, 1e-6, ARC).is_ok());
 }

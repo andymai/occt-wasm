@@ -120,6 +120,14 @@ pub struct EvolutionData {
     pub deleted: Vec<i32>,
 }
 
+impl EvolutionData {
+    /// The result as a handle, to pass on to further operations.
+    #[must_use]
+    pub const fn result(&self) -> ShapeHandle {
+        ShapeHandle(self.result_id)
+    }
+}
+
 /// Hidden line removal projection result.
 #[derive(Debug, Clone)]
 pub struct ProjectionData {

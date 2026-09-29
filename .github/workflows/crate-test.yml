@@ -1,0 +1,43 @@
+name: Crate tests
+
+# Runs the crate's integration suite against the committed WASI blob through
+# wasmtime. The npm tests exercise a different artifact (Embind), so this is
+# the only check on the C-ABI path crates.io users get. Release mode, because
+# debug wasmtime compiles the module ~100x slower and the suite skips there.
+
+on:
+  pull_request:
+    paths:
+      - crate/**
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - .github/workflows/crate-test.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crate-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Crate integration tests (release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: "1.95"
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+
+      - name: cargo test --release
+        env:
+          OCCT_WASM_REQUIRE_KERNEL: "1"
+        run: cargo test --release -p occt-wasm --test integration -- --test-threads=4

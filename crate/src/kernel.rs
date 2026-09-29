@@ -157,7 +157,11 @@ impl OcctKernel {
         let wasm_bytes = decompress_wasm()?;
         let module = Module::new(&engine, &wasm_bytes)?;
         let mut store = Store::new(&engine, ());
-        let linker = Linker::new(&engine);
+        let mut linker = Linker::new(&engine);
+        crate::host::define_imports(&mut linker)?;
+        // An import a future build adds instantiates as a trap instead of
+        // failing `new()`; it only matters if it is ever called.
+        linker.define_unknown_imports_as_traps(&module)?;
         let instance = linker.instantiate(&mut store, &module)?;
 
         let memory = instance
