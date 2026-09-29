@@ -178,4 +178,39 @@ describe("TS wrapper joinType", () => {
     const rounded = wrapper.offset(wrapperLPrism(), -2, 1e-6);
     expect(wrapperSurfaceTypes(rounded)).toContain("cylinder");
   });
+
+  /**
+   * A flat triangle, base 20 and height 3, in the XY plane. Its acute corners
+   * tell Intersection from Tangent: offset outward, Intersection gives a larger
+   * sharp triangle, while raw Tangent (2) comes back without a single edge.
+   */
+  const triangle = [
+    { x: 0, y: 0, z: 0 },
+    { x: 20, y: 0, z: 0 },
+    { x: 10, y: 3, z: 0 },
+  ];
+  const triangleArea = (20 * 3) / 2;
+  const triangleInradius = triangleArea / ((20 + 2 * Math.hypot(10, 3)) / 2);
+
+  function wrapperTriangleWire(): number {
+    return wrapper.makeWire(triangle.map((start, i) => wrapper.makeLineEdge(start, triangle[(i + 1) % 3])));
+  }
+
+  function wrapperCurveTypes(shape: number): string[] {
+    return wrapper.getSubShapes(shape, "edge").map((e: number) => wrapper.curveType(e));
+  }
+
+  it("maps JoinType.Intersection onto the facade's raw code in offsetWire2D", () => {
+    // Offset outward by 2 with sharp corners, the triangle grows about its
+    // incentre: every length scales by (r + 2) / r.
+    const sharp = wrapper.offsetWire2D(wrapperTriangleWire(), 2, JoinType.Intersection);
+    expect(wrapperCurveTypes(sharp)).toEqual(["line", "line", "line"]);
+    const scale = (triangleInradius + 2) / triangleInradius;
+    expect(wrapper.getSurfaceArea(wrapper.makeFace(sharp))).toBeCloseTo(triangleArea * scale * scale, 2);
+  });
+
+  it("keeps Arc as the default in offsetWire2D", () => {
+    const rounded = wrapper.offsetWire2D(wrapperTriangleWire(), 2);
+    expect(wrapperCurveTypes(rounded)).toContain("circle");
+  });
 });

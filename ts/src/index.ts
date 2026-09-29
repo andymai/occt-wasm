@@ -1912,7 +1912,7 @@ export class OcctKernel {
 
     /** Offset a 2D wire. */
     offsetWire2D(wire: ShapeHandle, offset: number, joinType: JoinType = JoinType.Arc): ShapeHandle {
-        return wrap("offsetWire2D", () => handle(this.#raw.offsetWire2D(wire, offset, joinType)));
+        return wrap("offsetWire2D", () => handle(this.#raw.offsetWire2D(wire, offset, RAW_JOIN_CODE[joinType])));
     }
 
     // =======================================================================
