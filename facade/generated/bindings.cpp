@@ -136,6 +136,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("chamferAsymmetric", &OcctKernel::chamferAsymmetric)
         .function("shell", &OcctKernel::shell)
         .function("offset", &OcctKernel::offset)
+        .function("shellWithJoin", &OcctKernel::shellWithJoin)
+        .function("offsetWithJoin", &OcctKernel::offsetWithJoin)
         .function("draft", &OcctKernel::draft)
         .function("thicken", &OcctKernel::thicken)
         .function("defeature", &OcctKernel::defeature)

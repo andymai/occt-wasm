@@ -175,6 +175,8 @@ export interface OcctRawKernel {
     chamferAsymmetric(solidId: number, edgeId: number, distance1: number, distance2: number, referenceFaceId: number): number;
     shell(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number): number;
     offset(solidId: number, distance: number, tolerance: number): number;
+    shellWithJoin(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, joinType: number): number;
+    offsetWithJoin(solidId: number, distance: number, tolerance: number, joinType: number): number;
     draft(shapeId: number, faceId: number, angle: number, dx: number, dy: number, dz: number): number;
 
     // Sweeps

@@ -170,6 +170,9 @@ class OcctKernel {
     uint32_t shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness,
                    double tolerance);
     uint32_t offset(uint32_t solidId, double distance, double tolerance);
+    uint32_t shellWithJoin(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness,
+                           double tolerance, int joinType);
+    uint32_t offsetWithJoin(uint32_t solidId, double distance, double tolerance, int joinType);
     uint32_t draft(uint32_t shapeId, uint32_t faceId, double angleRad, double dx, double dy,
                    double dz);
 

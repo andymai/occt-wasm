@@ -53,6 +53,8 @@ pub(crate) struct GeneratedFuncs {
     fn_chamfer_asymmetric: TypedFunc<(u32, u32, f64, f64, u32), u32>,
     fn_shell: TypedFunc<(u32, i32, i32, f64, f64), u32>,
     fn_offset: TypedFunc<(u32, f64, f64), u32>,
+    fn_shell_with_join: TypedFunc<(u32, i32, i32, f64, f64, i32), u32>,
+    fn_offset_with_join: TypedFunc<(u32, f64, f64, i32), u32>,
     fn_draft: TypedFunc<(u32, u32, f64, f64, f64, f64), u32>,
     fn_thicken: TypedFunc<(u32, f64, f64), u32>,
     fn_defeature: TypedFunc<(u32, i32, i32, f64), u32>,
@@ -292,6 +294,8 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_chamfer_asymmetric")?,
             fn_shell: instance.get_typed_func(&mut store, "occt_shell")?,
             fn_offset: instance.get_typed_func(&mut store, "occt_offset")?,
+            fn_shell_with_join: instance.get_typed_func(&mut store, "occt_shell_with_join")?,
+            fn_offset_with_join: instance.get_typed_func(&mut store, "occt_offset_with_join")?,
             fn_draft: instance.get_typed_func(&mut store, "occt_draft")?,
             fn_thicken: instance.get_typed_func(&mut store, "occt_thicken")?,
             fn_defeature: instance.get_typed_func(&mut store, "occt_defeature")?,
@@ -1019,6 +1023,55 @@ impl crate::kernel::OcctKernel {
         self.check_error("offset")?;
         if result == 0 {
             return Err(self.read_last_error("offset"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn shell_with_join(
+        &mut self,
+        solid_id: ShapeHandle,
+        face_ids: &[ShapeHandle],
+        thickness: f64,
+        tolerance: f64,
+        join_type: i32,
+    ) -> OcctResult<ShapeHandle> {
+        let face_ids_bytes: Vec<u8> = face_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let face_ids_ptr = self.write_bytes(&face_ids_bytes)?;
+        let face_ids_len = face_ids.len() as u32;
+        let result = self.generated.fn_shell_with_join.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                face_ids_ptr as i32,
+                face_ids_len as i32,
+                thickness,
+                tolerance,
+                join_type,
+            ),
+        );
+        self.free_bytes(face_ids_ptr)?;
+        let result = result?;
+        self.check_error("shell_with_join")?;
+        if result == 0 {
+            return Err(self.read_last_error("shell_with_join"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn offset_with_join(
+        &mut self,
+        solid_id: ShapeHandle,
+        distance: f64,
+        tolerance: f64,
+        join_type: i32,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self.generated.fn_offset_with_join.call(
+            &mut self.store,
+            (solid_id.0, distance, tolerance, join_type),
+        )?;
+        self.check_error("offset_with_join")?;
+        if result == 0 {
+            return Err(self.read_last_error("offset_with_join"));
         }
         Ok(ShapeHandle(result))
     }

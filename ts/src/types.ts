@@ -390,7 +390,7 @@ export interface SweepOrientedOptions extends SweepToleranceOptions {
     contact?: SweepContact;
 }
 
-/** Join type for offset/fillet operations (BRepOffsetAPI_MakeOffset). */
+/** How offset faces or edges meet at a joint: `shell`, `offset`, `offsetWire2D`. */
 export enum JoinType {
     /** Arc interpolation at joints (default). */
     Arc = 0,
