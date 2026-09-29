@@ -54,6 +54,7 @@
 )]
 
 pub mod error;
+mod host;
 pub mod kernel;
 mod kernel_generated;
 pub mod types;
