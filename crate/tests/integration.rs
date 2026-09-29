@@ -9,7 +9,7 @@
 
 #![allow(clippy::unwrap_used, clippy::panic)]
 
-use occt_wasm::{OcctKernel, ShapeHandle};
+use occt_wasm::{DocumentHandle, OcctKernel, ShapeHandle};
 
 /// Try to create a kernel. Returns None if the embedded WASM is a placeholder
 /// or if running in debug mode (WASM compilation is ~100x slower in debug).
@@ -365,12 +365,8 @@ fn helix_handedness_mirrors_across_the_axis_plane() {
     assert!((left[2] - right[2]).abs() < 1e-6);
 }
 
-#[test]
-#[ignore = "exports write a temp file under /tmp, and the standalone WASI build has no filesystem"]
-fn xcaf_document_roundtrip() {
-    let Some(mut kernel) = try_kernel() else {
-        return;
-    };
+/// An XCAF document with a named, coloured housing and one gear component.
+fn housing_with_gear(kernel: &mut OcctKernel) -> (DocumentHandle, i32, i32) {
     let doc = kernel.xcaf_new_document().unwrap();
     let housing = kernel.make_box(20.0, 20.0, 20.0).unwrap();
     let gear = kernel.make_cylinder(5.0, 10.0).unwrap();
@@ -381,6 +377,15 @@ fn xcaf_document_roundtrip() {
         .xcaf_add_component(doc, root, gear, 10.0, 0.0, 5.0, 0.0, 0.0, 0.0)
         .unwrap();
     kernel.xcaf_set_name(doc, comp, "gear-1").unwrap();
+    (doc, root, comp)
+}
+
+#[test]
+fn xcaf_document_assembly() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let (doc, _, comp) = housing_with_gear(&mut kernel);
 
     let info = kernel.xcaf_get_label_info(doc, comp).unwrap();
     assert!(info.is_component);
@@ -392,7 +397,16 @@ fn xcaf_document_roundtrip() {
     assert_eq!(location.len(), 12);
     assert!((location[3] - 10.0).abs() < 1e-9);
     assert!((location[11] - 5.0).abs() < 1e-9);
+    kernel.xcaf_close(doc).unwrap();
+}
 
+#[test]
+#[ignore = "exports write a temp file under /tmp, and the standalone WASI build has no filesystem"]
+fn xcaf_step_roundtrip() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let (doc, _, _) = housing_with_gear(&mut kernel);
     let step = kernel.xcaf_export_step(doc).unwrap();
     assert!(step.contains("STEP"));
     kernel.xcaf_close(doc).unwrap();
