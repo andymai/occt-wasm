@@ -2007,21 +2007,28 @@ export class OcctKernel {
         );
     }
 
-    shellWithHistory(solid: ShapeHandle, faces: ShapeHandle[], thickness: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+    /** {@link OcctKernel.shell} with face history. `joinType` behaves as it does there. */
+    shellWithHistory(solid: ShapeHandle, faces: ShapeHandle[], thickness: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number,
+                     joinType: JoinType.Arc | JoinType.Intersection = JoinType.Arc): EvolutionData {
         return wrap("shellWithHistory", () =>
             this.#withU32(faces, (faceVec) =>
                 this.#withI32(inputFaceHashes, (hashes) =>
-                    this.#extractEvolution(
-                        this.#raw.shellWithHistory(solid, faceVec, thickness, tolerance, hashes, hashUpperBound),
+                    this.#extractEvolution(joinType === JoinType.Arc
+                        ? this.#raw.shellWithHistory(solid, faceVec, thickness, tolerance, hashes, hashUpperBound)
+                        : this.#raw.shellWithHistoryAndJoin(solid, faceVec, thickness, tolerance, hashes, hashUpperBound, RAW_JOIN_CODE[joinType]),
                     ),
                 ),
             ),
         );
     }
 
-    offsetWithHistory(solid: ShapeHandle, distance: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+    /** {@link OcctKernel.offset} with face history. `joinType` behaves as it does there. */
+    offsetWithHistory(solid: ShapeHandle, distance: number, tolerance: number, inputFaceHashes: number[], hashUpperBound: number,
+                      joinType: JoinType.Arc | JoinType.Intersection = JoinType.Arc): EvolutionData {
         return wrap("offsetWithHistory", () => {
-            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.offsetWithHistory(solid, distance, tolerance, hashes, hashUpperBound)));
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(joinType === JoinType.Arc
+                ? this.#raw.offsetWithHistory(solid, distance, tolerance, hashes, hashUpperBound)
+                : this.#raw.offsetWithHistoryAndJoin(solid, distance, tolerance, hashes, hashUpperBound, RAW_JOIN_CODE[joinType])));
         });
     }
 

@@ -284,6 +284,10 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
         includes.insert("ShapeFix_Shape.hxx".to_owned());
     }
 
+    if needs_solid_join_type(methods) {
+        includes.insert("GeomAbs_JoinType.hxx".to_owned());
+    }
+
     for spec in methods {
         if matches!(spec.kind, MethodKind::Skip) {
             continue;
@@ -328,19 +332,48 @@ fn needs_unwrap_singleton_solid(methods: &[&MethodSpec]) -> bool {
     })
 }
 
+fn needs_solid_join_type(methods: &[&MethodSpec]) -> bool {
+    methods
+        .iter()
+        .any(|m| m.setup_code.contains("solidJoinType"))
+}
+
 /// Emit static helper functions that generated methods depend on.
 ///
 /// Emits `unwrapSingletonSolid` + `validateFilletResult` for the fillet/chamfer
-/// family and `buildEvolution` if any method returns `EvolutionData`.
+/// family, `solidJoinType` for the 3D offset join variants, and
+/// `buildEvolution` if any method returns `EvolutionData`.
 #[allow(clippy::too_many_lines)]
 fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
     let needs_evolution = methods
         .iter()
         .any(|m| matches!(m.return_type, ReturnType::EvolutionData));
     let needs_unwrap = needs_unwrap_singleton_solid(methods);
+    let needs_join = needs_solid_join_type(methods);
 
-    if needs_evolution || needs_unwrap {
+    if needs_evolution || needs_unwrap || needs_join {
         let _ = writeln!(buf, "// === helper functions ===");
+        let _ = writeln!(buf);
+    }
+
+    if needs_join {
+        for line in [
+            "/// Map a raw join code for the 3D offset family (shell/offset and their",
+            "/// history variants). The codes are the ones `offsetWire2D` takes: 0 = Arc,",
+            "/// 1 = Intersection. `BRepOffset_MakeOffset` has no branch for",
+            "/// `GeomAbs_Tangent` (raw 2), so it is rejected instead of passed on.",
+            "static GeomAbs_JoinType solidJoinType(int joinType, const char* op) {",
+            "    switch (joinType) {",
+            "    case 0: return GeomAbs_Arc;",
+            "    case 1: return GeomAbs_Intersection;",
+            "    default:",
+            "        throw std::runtime_error(std::string(op) +",
+            "                                 \": joinType must be Arc (0) or Intersection (1)\");",
+            "    }",
+            "}",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
         let _ = writeln!(buf);
     }
 

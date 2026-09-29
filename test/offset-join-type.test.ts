@@ -179,3 +179,85 @@ describe("TS wrapper joinType", () => {
     expect(wrapperSurfaceTypes(rounded)).toContain("cylinder");
   });
 });
+
+describe("*WithHistory joinType", () => {
+  const BOUND = 1_000_000;
+
+  function wrapperLPrism(): number {
+    const a = wrapper.makeBox(20, 10, 10);
+    const b = wrapper.makeBox(10, 20, 10);
+    return wrapper.unifySameDomain(wrapper.fuse(a, b));
+  }
+
+  function wrapperSurfaceTypes(shape: number): string[] {
+    return wrapper.getSubShapes(shape, "face").map((f: number) => wrapper.surfaceType(f));
+  }
+
+  function faceHashes(shape: number): number[] {
+    return wrapper.getSubShapes(shape, "face").map((f: number) => wrapper.hashCode(f, BOUND));
+  }
+
+  function wrapperTopFace(shape: number): number {
+    return wrapper.getSubShapes(shape, "face").find((f: number) => {
+      const bb = wrapper.getBoundingBox(f);
+      return bb.zmin > 9.99 && bb.zmax < 10.01;
+    });
+  }
+
+  it("offsetWithHistory keeps the concave edge sharp and tracks faces", () => {
+    const solid = wrapperLPrism();
+    const evo = wrapper.offsetWithHistory(solid, -2, 1e-6, faceHashes(solid), BOUND, JoinType.Intersection);
+    expect(wrapperSurfaceTypes(evo.result).every((type) => type === "plane")).toBe(true);
+    // BRepOffsetAPI_MakeOffsetShape reports offset faces as Generated, whatever the join.
+    expect(evo.generated.length).toBeGreaterThan(0);
+
+    const plain = wrapper.offset(wrapperLPrism(), -2, 1e-6, JoinType.Intersection);
+    expect(wrapper.getVolume(evo.result)).toBeCloseTo(wrapper.getVolume(plain), 6);
+  });
+
+  it("shellWithHistory keeps the inner concave wall sharp and tracks faces", () => {
+    const solid = wrapperLPrism();
+    const top = wrapperTopFace(solid);
+    const evo = wrapper.shellWithHistory(solid, [top], 2, 1e-6, faceHashes(solid), BOUND, JoinType.Intersection);
+    expect(wrapper.isValid(evo.result)).toBe(true);
+    expect(wrapperSurfaceTypes(evo.result).every((type) => type === "plane")).toBe(true);
+    expect(evo.modified.length).toBeGreaterThan(0);
+
+    const plain = wrapper.shell(solid, [top], 2, 1e-6, JoinType.Intersection);
+    expect(wrapper.getVolume(evo.result)).toBeCloseTo(wrapper.getVolume(plain), 6);
+  });
+
+  it("defaults to Arc", () => {
+    const solid = wrapperLPrism();
+    const evo = wrapper.offsetWithHistory(solid, -2, 1e-6, faceHashes(solid), BOUND);
+    expect(wrapperSurfaceTypes(evo.result)).toContain("cylinder");
+  });
+
+  it("raw variants match the plain history methods for Arc and reject Tangent", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resultOf = (evo: any): number => {
+      evo.modified.delete();
+      evo.generated.delete();
+      evo.deleted.delete();
+      return evo.resultId;
+    };
+    const solid = lPrism();
+    const hashes = new Module.VectorInt();
+    const removed = new Module.VectorUint32();
+    removed.push_back(topFace(solid, 10));
+
+    const plainShell = resultOf(kernel.shellWithHistory(solid, removed, 2, 1e-6, hashes, BOUND));
+    const arcShell = resultOf(kernel.shellWithHistoryAndJoin(solid, removed, 2, 1e-6, hashes, BOUND, ARC));
+    expect(kernel.getVolume(arcShell)).toBeCloseTo(kernel.getVolume(plainShell), 6);
+
+    const plainOffset = resultOf(kernel.offsetWithHistory(solid, -2, 1e-6, hashes, BOUND));
+    const arcOffset = resultOf(kernel.offsetWithHistoryAndJoin(solid, -2, 1e-6, hashes, BOUND, ARC));
+    expect(kernel.getVolume(arcOffset)).toBeCloseTo(kernel.getVolume(plainOffset), 6);
+
+    expect(() => kernel.shellWithHistoryAndJoin(solid, removed, 2, 1e-6, hashes, BOUND, TANGENT)).toThrow();
+    expect(() => kernel.offsetWithHistoryAndJoin(solid, -2, 1e-6, hashes, BOUND, TANGENT)).toThrow();
+
+    removed.delete();
+    hashes.delete();
+  });
+});

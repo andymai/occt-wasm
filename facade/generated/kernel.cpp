@@ -182,6 +182,20 @@
 
 // === helper functions ===
 
+/// Map a raw join code for the 3D offset family (shell/offset and their
+/// history variants). The codes are the ones `offsetWire2D` takes: 0 = Arc,
+/// 1 = Intersection. `BRepOffset_MakeOffset` has no branch for
+/// `GeomAbs_Tangent` (raw 2), so it is rejected instead of passed on.
+static GeomAbs_JoinType solidJoinType(int joinType, const char* op) {
+    switch (joinType) {
+    case 0: return GeomAbs_Arc;
+    case 1: return GeomAbs_Intersection;
+    default:
+        throw std::runtime_error(std::string(op) +
+                                 ": joinType must be Arc (0) or Intersection (1)");
+    }
+}
+
 /// Unwrap a singleton compound: if `shape` is a Compound holding exactly one
 /// Solid, return that Solid.
 ///
@@ -803,12 +817,7 @@ uint32_t OcctKernel::offset(uint32_t solidId, double distance, double tolerance)
 
 uint32_t OcctKernel::shellWithJoin(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness, double tolerance, int joinType) {
     try {
-        GeomAbs_JoinType jt;
-        switch (joinType) {
-        case 0: jt = GeomAbs_Arc; break;
-        case 1: jt = GeomAbs_Intersection; break;
-        default: throw std::runtime_error("shellWithJoin: joinType must be Arc (0) or Intersection (1)");
-        }
+        const GeomAbs_JoinType jt = solidJoinType(joinType, "shellWithJoin");
         NCollection_List<TopoDS_Shape> facesToRemove;
         for (uint32_t fid : faceIds) {
             facesToRemove.Append(get(fid));
@@ -828,12 +837,7 @@ uint32_t OcctKernel::shellWithJoin(uint32_t solidId, std::vector<uint32_t> faceI
 
 uint32_t OcctKernel::offsetWithJoin(uint32_t solidId, double distance, double tolerance, int joinType) {
     try {
-        GeomAbs_JoinType jt;
-        switch (joinType) {
-        case 0: jt = GeomAbs_Arc; break;
-        case 1: jt = GeomAbs_Intersection; break;
-        default: throw std::runtime_error("offsetWithJoin: joinType must be Arc (0) or Intersection (1)");
-        }
+        const GeomAbs_JoinType jt = solidJoinType(joinType, "offsetWithJoin");
         BRepOffsetAPI_MakeOffsetShape maker;
         maker.PerformByJoin(get(solidId), distance, tolerance, BRepOffset_Skin, Standard_False,
                             Standard_False, jt);
@@ -3841,6 +3845,52 @@ EvolutionData OcctKernel::offsetWithHistory(uint32_t solidId, double distance, d
         return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("offsetWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::shellWithHistoryAndJoin(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness, double tolerance, std::vector<int> inputFaceHashes, int hashUpperBound, int joinType) {
+    try {
+        const GeomAbs_JoinType jt = solidJoinType(joinType, "shellWithHistoryAndJoin");
+        const auto& solid = get(solidId);
+        NCollection_List<TopoDS_Shape> facesToRemove;
+        for (uint32_t fid : faceIds) {
+            facesToRemove.Append(get(fid));
+        }
+        BRepOffsetAPI_MakeThickSolid maker;
+        maker.MakeThickSolidByJoin(solid, facesToRemove, -thickness, tolerance, BRepOffset_Skin,
+                                   Standard_False, Standard_False, jt);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("shellWithHistoryAndJoin: operation failed");
+        }
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(maker.Shape());
+        EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("shellWithHistoryAndJoin: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::offsetWithHistoryAndJoin(uint32_t solidId, double distance, double tolerance, std::vector<int> inputFaceHashes, int hashUpperBound, int joinType) {
+    try {
+        const GeomAbs_JoinType jt = solidJoinType(joinType, "offsetWithHistoryAndJoin");
+        const auto& solid = get(solidId);
+        BRepOffsetAPI_MakeOffsetShape maker;
+        maker.PerformByJoin(solid, distance, tolerance, BRepOffset_Skin, Standard_False,
+                            Standard_False, jt);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("offsetWithHistoryAndJoin: operation failed");
+        }
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(maker.Shape());
+        EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("offsetWithHistoryAndJoin: ") + e.what());
     }
 }
 

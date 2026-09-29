@@ -382,6 +382,13 @@ class OcctKernel {
                                    std::vector<int> inputFaceHashes, int hashUpperBound);
     EvolutionData offsetWithHistory(uint32_t solidId, double distance, double tolerance,
                                     std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData shellWithHistoryAndJoin(uint32_t solidId, std::vector<uint32_t> faceIds,
+                                          double thickness, double tolerance,
+                                          std::vector<int> inputFaceHashes, int hashUpperBound,
+                                          int joinType);
+    EvolutionData offsetWithHistoryAndJoin(uint32_t solidId, double distance, double tolerance,
+                                           std::vector<int> inputFaceHashes, int hashUpperBound,
+                                           int joinType);
     EvolutionData thickenWithHistory(uint32_t shapeId, double thickness, double tolerance,
                                      std::vector<int> inputFaceHashes, int hashUpperBound);
 

@@ -349,6 +349,8 @@ export interface OcctRawKernel {
     chamferWithHistory(solidId: number, edgeIds: EmbindVectorU32, distance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     shellWithHistory(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     offsetWithHistory(solidId: number, distance: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    shellWithHistoryAndJoin(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number, joinType: number): RawEvolutionData;
+    offsetWithHistoryAndJoin(solidId: number, distance: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number, joinType: number): RawEvolutionData;
     thickenWithHistory(shapeId: number, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
 
     // Null shape
