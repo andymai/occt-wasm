@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.4.1](https://github.com/andymai/occt-wasm/compare/v5.4.0...v5.4.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **crate:** instantiate the embedded kernel, test the join methods ([#371](https://github.com/andymai/occt-wasm/issues/371)) ([badfd43](https://github.com/andymai/occt-wasm/commit/badfd4338988c109815e36a93b29f5e2cc756ba7))
+* **ts:** translate JoinType to the raw code in offsetWire2D ([#369](https://github.com/andymai/occt-wasm/issues/369)) ([275e9a7](https://github.com/andymai/occt-wasm/commit/275e9a732a316dd2a188f5fb2fea99d08d7fe53b))
+
 ## [5.4.0](https://github.com/andymai/occt-wasm/compare/v5.3.5...v5.4.0) (2026-09-29)
 
 
