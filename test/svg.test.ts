@@ -85,7 +85,7 @@ describe("toMultiviewSVG", () => {
             expect(along).toBeGreaterThan(5);
             expect(Math.abs(across)).toBeLessThan(0.5);
         }
-        // No two labels share a spot (the iso X and Y letters used to touch).
+        // No two labels share a spot (the iso X and Y tips sit close together).
         for (let i = 0; i < labels.length; i++) {
             for (let j = i + 1; j < labels.length; j++) {
                 const d = Math.hypot(Number(labels[i]!["x"]) - Number(labels[j]!["x"]), Number(labels[i]!["y"]) - Number(labels[j]!["y"]));

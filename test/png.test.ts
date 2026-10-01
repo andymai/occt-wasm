@@ -243,7 +243,7 @@ describe("toPNG options", () => {
         const at = (x: number, y: number) => img.px[(y * img.w + x) * 3]!;
         const outerTop = at(120, 0);
         const seam = at(239, 120);
-        // #e0e0e0 is 224; the old centred stroke left the outer frame at ~239.
+        // #e0e0e0 is 224; a stroke centred on the edge leaves the outer frame at ~239.
         expect(outerTop).toBeLessThan(232);
         expect(Math.abs(outerTop - seam)).toBeLessThan(8);
     });
@@ -287,14 +287,14 @@ describe("toMultiviewPNG", () => {
         }
     });
 
-    it("scale changes sampling, not the image size", async () => {
+    it("supersample changes sampling, not the image size", async () => {
         const box = kernel.makeBox(100, 60, 40);
-        const a = header(await kernel.toMultiviewPNG(box, { scale: 1 }));
-        const b = header(await kernel.toMultiviewPNG(box, { scale: 3 }));
+        const a = header(await kernel.toMultiviewPNG(box, { supersample: 1 }));
+        const b = header(await kernel.toMultiviewPNG(box, { supersample: 3 }));
         expect(b).toEqual(a);
     });
 
-    it("hidden edges add ink that --no-hidden leaves out", async () => {
+    it("hidden edges add ink that showHidden: false leaves out", async () => {
         const box = kernel.makeBox(100, 60, 40);
         const withHidden = inkBox(await decode(await kernel.toMultiviewPNG(box))).count;
         const without = inkBox(

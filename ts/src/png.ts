@@ -49,8 +49,9 @@ export interface PngViewOptions extends ViewOptions {
      * Supersampling factor (default 2). The scene is rasterised this many
      * times larger and box-filtered down, which is what keeps a 1 px line
      * legible. 1 disables it; above 3 the file grows for no visible gain.
+     * The output size is `width` x `height` either way.
      */
-    scale?: number;
+    supersample?: number;
 }
 
 export interface MultiviewPngOptions extends MultiviewOptions, PngViewOptions {}
@@ -299,10 +300,9 @@ function drawPanel(
     const border = parseColor("#e0e0e0");
     canvas.fillRect(ox * s, oy * s, (ox + t.panelW) * s, (oy + t.panelH) * s, parseColor(o.background));
     // Panel border: one pixel per side, inside the panel, as SVG's
-    // <rect x="0.5" y="0.5" width="w-1" height="h-1"> draws it. Centred on
-    // the panel edge instead, half the stroke fell outside the canvas (or
-    // onto the neighbour), so the outer frame came out fainter than the
-    // seams between panels.
+    // <rect x="0.5" y="0.5" width="w-1" height="h-1"> draws it. A stroke
+    // centred on the edge would put half of it outside the canvas, leaving
+    // the outer frame fainter than the seams between panels.
     const i = s / 2;
     const x0 = ox * s + i;
     const y0 = oy * s + i;
@@ -451,7 +451,7 @@ async function encodePng(canvas: Canvas): Promise<Uint8Array> {
 // --- public API -------------------------------------------------------------
 
 function superScale(options: PngViewOptions): number {
-    const s = options.scale ?? 2;
+    const s = options.supersample ?? 2;
     return Math.max(1, Math.min(4, Math.round(s)));
 }
 

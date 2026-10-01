@@ -10,11 +10,11 @@
  * @module
  */
 
-import type { BoundingBox, ProjectionData, ShapeHandle, Vec3 } from "./types.js";
+import type { BoundingBox, BoundingBoxOptions, ProjectionData, ShapeHandle, Vec3 } from "./types.js";
 
 /** The subset of the kernel API the renderers depend on. */
 export interface ViewKernel {
-    getBoundingBox(shape: ShapeHandle, options?: { precise?: boolean; useTriangulation?: boolean }): BoundingBox;
+    getBoundingBox(shape: ShapeHandle, options?: BoundingBoxOptions): BoundingBox;
     projectEdges(
         shape: ShapeHandle,
         viewOrigin: Vec3,
@@ -83,6 +83,8 @@ export interface ViewBasis {
 
 const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
 
+// Screen-up is (-dir) x sx: with the viewer on the -dir side, (sx, sy, -dir) is
+// right-handed, so the panel is a true view rather than a mirror image.
 function basis(dir: Vec3, sx: Vec3): ViewBasis {
     return { dir, sx, sy: cross(neg(dir), sx) };
 }
@@ -166,9 +168,11 @@ export function collectEdges(
     viewBasis: ViewBasis,
     deflection: number,
 ): ViewEdges {
-    // projectEdges returns the HLR result in the view plane: x along the xAxis
-    // we pass, y along gp_Ax2's own vertical, z always 0. The in-plane
-    // coordinates are the screen coordinates as they stand.
+    // HLR puts the viewer on the +Z side of the gp_Ax2 it projects with, so the
+    // direction it gets is the view-plane normal toward the camera, -dir. The
+    // result comes back in that frame: x along sx, y along (-dir) x sx, which
+    // is sy, and z always 0. The in-plane coordinates are the screen
+    // coordinates as they stand.
     const proj = kernel.projectEdges(shape, ORIGIN, neg(viewBasis.dir), viewBasis.sx);
     try {
         const toLines = (h: ShapeHandle): Polyline[] => {
@@ -316,11 +320,10 @@ export interface GnomonArm {
 /** The gnomon arms for a view, or an empty list when every axis points into
  *  the screen. Axes within 0.05 of the view direction are dropped. */
 export function gnomonArms(viewBasis: ViewBasis, t: PanelTransform): GnomonArm[] {
-    // The label sits past the tip, along the arm: centred on the tip, as it
-    // was, the line ran through the letter, and in the iso view the X and Y
-    // tips are close enough that the two letters touched.
-    // Same footprint as before (arm + label within ~22 px of the origin), so
-    // the gnomon stays in the corner and clear of the drawing.
+    // The label sits past the tip, along the arm. Centred on the tip, the line
+    // would run through the letter, and the iso view's X and Y tips are close
+    // enough that their letters would touch. Arm + label stay within ~22 px
+    // of the origin, so the gnomon keeps to the corner, clear of the drawing.
     const len = 15;
     const gap = 7;
     const ox = t.pad + len + gap;
