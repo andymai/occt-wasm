@@ -3,7 +3,8 @@ name: OSV Scan
 # Defense complement to Dependabot cooldown. Cooldown blocks fresh-but-untrusted
 # in PR proposals; OSV catches old-but-known-bad in the lockfiles. Scans every
 # lockfile in the repo (root + ts/ npm, root Cargo).
-# PRs are report-only; main + weekly schedule fail closed.
+# PRs are report-only; main fails closed, and so does the weekly schedule in
+# the upstream repo (forks skip it).
 
 on:
   pull_request:
