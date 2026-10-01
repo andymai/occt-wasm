@@ -69,6 +69,19 @@ export {
     type SvgViewOptions,
     type ViewName,
 } from "./svg.js";
+
+export {
+    renderMultiviewPNG,
+    renderShapePNG,
+    type MultiviewPngOptions,
+    type PngViewOptions,
+} from "./png.js";
+import {
+    renderMultiviewPNG as renderMultiviewPNGImpl,
+    renderShapePNG as renderShapePNGImpl,
+    type MultiviewPngOptions,
+    type PngViewOptions,
+} from "./png.js";
 import {
     renderMultiviewSVG as renderMultiviewSVGImpl,
     renderShapeSVG as renderShapeSVGImpl,
@@ -1867,6 +1880,24 @@ export class OcctKernel {
      */
     toMultiviewSVG(shape: ShapeHandle, options: MultiviewSvgOptions = {}): string {
         return wrap("toMultiviewSVG", () => renderMultiviewSVGImpl(this, shape, options));
+    }
+
+    /**
+     * The same drawing as {@link toSVG}, rasterised to PNG bytes. Async
+     * because the encoder compresses through the platform's
+     * CompressionStream.
+     */
+    toPNG(shape: ShapeHandle, view: ViewName = "front", options: PngViewOptions = {}): Promise<Uint8Array> {
+        return renderShapePNGImpl(this, shape, view, options);
+    }
+
+    /**
+     * The same drawing as {@link toMultiviewSVG}, rasterised to PNG bytes.
+     * For consumers that cannot render SVG -- image viewers, READMEs, and
+     * vision models that take raster input only.
+     */
+    toMultiviewPNG(shape: ShapeHandle, options: MultiviewPngOptions = {}): Promise<Uint8Array> {
+        return renderMultiviewPNGImpl(this, shape, options);
     }
 
     // =======================================================================
