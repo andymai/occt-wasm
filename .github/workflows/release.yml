@@ -24,7 +24,7 @@ jobs:
     name: Release Please
     runs-on: ubuntu-latest
     # Skip on workflow_dispatch -- the human knows what tag to publish.
-    if: github.event_name == 'push'
+    if: github.repository == 'andymai/occt-wasm' && github.event_name == 'push'
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -40,7 +40,7 @@ jobs:
     # Run on a real release-please release OR a manual dispatch. `always()`
     # lets this evaluate even when release-please is skipped.
     if: |
-      always() && !cancelled() &&
+      always() && !cancelled() && github.repository == 'andymai/occt-wasm' &&
       (needs.release-please.outputs.release_created == 'true' ||
        github.event_name == 'workflow_dispatch')
     uses: ./.github/workflows/build-wasm.yml
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [release-please, build]
     if: |
-      always() && !cancelled() &&
+      always() && !cancelled() && github.repository == 'andymai/occt-wasm' &&
       needs.build.result == 'success' &&
       (needs.release-please.outputs.release_created == 'true' ||
        github.event_name == 'workflow_dispatch')
