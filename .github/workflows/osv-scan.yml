@@ -3,7 +3,8 @@ name: OSV Scan
 # Defense complement to Dependabot cooldown. Cooldown blocks fresh-but-untrusted
 # in PR proposals; OSV catches old-but-known-bad in the lockfiles. Scans every
 # lockfile in the repo (root + ts/ npm, root Cargo).
-# PRs are report-only; main + weekly schedule fail closed.
+# PRs are report-only; main fails closed, and so does the weekly schedule in
+# the upstream repo (forks skip it).
 
 on:
   pull_request:
@@ -40,7 +41,7 @@ jobs:
 
   scan-main:
     name: OSV Scan (blocking)
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'andymai/occt-wasm')
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
     with:
       scan-args: |-

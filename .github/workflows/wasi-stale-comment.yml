@@ -24,7 +24,7 @@ permissions:
 jobs:
   comment:
     # Only PR runs; a push to main has no PR to comment on.
-    if: github.event.workflow_run.event == 'pull_request'
+    if: github.repository == 'andymai/occt-wasm' && github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Comment (or resolve) the re-embed hint
