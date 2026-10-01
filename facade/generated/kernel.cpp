@@ -144,7 +144,6 @@
 #include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Wire.hxx>
-#include <XCAFApp_Application.hxx>
 #include <XCAFDoc_ColorTool.hxx>
 #include <XCAFDoc_ColorType.hxx>
 #include <XCAFDoc_DocumentTool.hxx>

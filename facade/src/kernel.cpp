@@ -17,7 +17,7 @@
 #include <TopoDS_Compound.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Iterator.hxx>
-#include <XCAFApp_Application.hxx>
+#include <XCAFDoc_DocumentTool.hxx>
 #include <cstdlib>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
@@ -27,10 +27,31 @@
 
 // --- XCAF helpers (used by generated xcaf methods) ---
 
+namespace {
+
+// XCAFApp_Application without its constructor, which registers a presentation
+// driver for OCCT's own viewer (TPrsStd_DriverTable / XCAFPrs_Driver). Nothing
+// here displays a document, but that one call links the AIS, PrsDim and V3d
+// code (TKVCAF, TKV3d, part of TKService) into the module: about 1 MB of the
+// .wasm. InitDocument is the part the XCAF methods depend on, and it is the
+// same call XCAFApp_Application::InitDocument makes.
+class XcafApplication : public TDocStd_Application {
+  public:
+    const char* ResourcesName() override {
+        return "XCAF";
+    }
+
+    void InitDocument(const Handle(CDM_Document) & doc) const override {
+        XCAFDoc_DocumentTool::Set(Handle(TDocStd_Document)::DownCast(doc)->Main());
+    }
+};
+
+} // namespace
+
 const Handle(TDocStd_Application) & getXCAFApp() {
     static Handle(TDocStd_Application) app;
     if (app.IsNull()) {
-        app = XCAFApp_Application::GetApplication();
+        app = new XcafApplication;
     }
     return app;
 }
