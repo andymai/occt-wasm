@@ -46,7 +46,9 @@ export interface ViewOptions {
     deflection?: number;
     /** Draw hidden (occluded) edges dashed (default true). */
     showHidden?: boolean;
-    /** Draw a small XYZ axis gnomon in each panel (default true). */
+    /** Draw a small XYZ axis gnomon in each panel (default true). The labels
+     *  sit past each arm's tip; without it a line drawing is pure grey, and
+     *  the PNG is written as greyscale. */
     showGnomon?: boolean;
     /** Stroke width for visible edges in px (default 1). */
     strokeWidth?: number;
@@ -54,7 +56,7 @@ export interface ViewOptions {
     background?: string;
     /** Visible-edge stroke color (default "#111111"). */
     visibleColor?: string;
-    /** Hidden-edge stroke color (default "#9aa0a6"). */
+    /** Hidden-edge stroke color (default "#9e9e9e"; a pure grey, so a drawing without the gnomon is written as a greyscale PNG). */
     hiddenColor?: string;
 }
 
@@ -283,7 +285,7 @@ export function resolved(options: ViewOptions) {
         strokeWidth: options.strokeWidth ?? 1,
         background: options.background ?? "#ffffff",
         visibleColor: options.visibleColor ?? "#111111",
-        hiddenColor: options.hiddenColor ?? "#9aa0a6",
+        hiddenColor: options.hiddenColor ?? "#9e9e9e",
     };
 }
 
@@ -306,14 +308,23 @@ export interface GnomonArm {
     y1: number;
     color: string;
     label: string;
+    /** Where the label goes: past the tip along the arm, clear of the line. */
+    lx: number;
+    ly: number;
 }
 
 /** The gnomon arms for a view, or an empty list when every axis points into
  *  the screen. Axes within 0.05 of the view direction are dropped. */
 export function gnomonArms(viewBasis: ViewBasis, t: PanelTransform): GnomonArm[] {
-    const len = 18;
-    const ox = t.pad + len + 4;
-    const oy = t.panelH - t.pad - len - 4;
+    // The label sits past the tip, along the arm: centred on the tip, as it
+    // was, the line ran through the letter, and in the iso view the X and Y
+    // tips are close enough that the two letters touched.
+    // Same footprint as before (arm + label within ~22 px of the origin), so
+    // the gnomon stays in the corner and clear of the drawing.
+    const len = 15;
+    const gap = 7;
+    const ox = t.pad + len + gap;
+    const oy = t.panelH - t.pad - len - gap;
     const axes: Array<[Vec3, string, string]> = [
         [v(1, 0, 0), "#d33", "X"],
         [v(0, 1, 0), "#3a3", "Y"],
@@ -323,8 +334,12 @@ export function gnomonArms(viewBasis: ViewBasis, t: PanelTransform): GnomonArm[]
     for (const [axis, color, label] of axes) {
         const dx = dot(axis, viewBasis.sx);
         const dy = -dot(axis, viewBasis.sy);
-        if (Math.hypot(dx, dy) < 0.05) continue; // axis points into the screen
-        arms.push({ x0: ox, y0: oy, x1: ox + dx * len, y1: oy + dy * len, color, label });
+        const m = Math.hypot(dx, dy);
+        if (m < 0.05) continue; // axis points into the screen
+        arms.push({
+            x0: ox, y0: oy, x1: ox + dx * len, y1: oy + dy * len, color, label,
+            lx: ox + dx * len + (dx / m) * gap, ly: oy + dy * len + (dy / m) * gap,
+        });
     }
     return arms;
 }

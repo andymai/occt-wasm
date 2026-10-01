@@ -76,7 +76,7 @@ function gnomon(basis: ViewBasis, t: PanelTransform): string {
         const ex = round(arm.x1);
         const ey = round(arm.y1);
         s += `<line x1="${round(arm.x0)}" y1="${round(arm.y0)}" x2="${ex}" y2="${ey}" stroke="${arm.color}" stroke-width="1.5"/>`;
-        s += `<text x="${ex}" y="${ey}" font-size="9" fill="${arm.color}" text-anchor="middle" dominant-baseline="middle">${arm.label}</text>`;
+        s += `<text x="${round(arm.lx)}" y="${round(arm.ly)}" font-size="9" fill="${arm.color}" text-anchor="middle" dominant-baseline="middle">${arm.label}</text>`;
     }
     return s;
 }

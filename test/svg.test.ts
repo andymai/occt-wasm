@@ -60,6 +60,18 @@ describe("toMultiviewSVG", () => {
         expect(svg).toContain(">Z</text>");
     });
 
+    it("puts each gnomon label past its arm's tip, clear of the line", () => {
+        const svg = kernel.toSVG(kernel.makeBox(10, 20, 30), "iso");
+        const lines = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)" stroke="(#[0-9a-f]+)" stroke-width="1.5"\/><text x="([\d.]+)" y="([\d.]+)"/g)];
+        expect(lines).toHaveLength(3);
+        for (const m of lines) {
+            const [x0, y0, x1, y1, , lx, ly] = [1, 2, 3, 4, 5, 6, 7].map((k) => (k === 5 ? 0 : Number(m[k])));
+            const arm = Math.hypot(x1! - x0!, y1! - y0!);
+            // Further from the origin than the tip, by the gap.
+            expect(Math.hypot(lx! - x0!, ly! - y0!)).toBeGreaterThan(arm + 5);
+        }
+    });
+
     it("draws hidden edges dashed by default and omits them when disabled", () => {
         const box = kernel.makeBox(10, 10, 10);
         const withHidden = kernel.toMultiviewSVG(box);

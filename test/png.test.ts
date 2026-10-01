@@ -64,9 +64,10 @@ function chunkTypes(png: Uint8Array): string[] {
 }
 
 /** Decode to raw RGB rows. Only the shapes this encoder writes: 8-bit
- *  truecolour, filter 0 on every row. */
+ *  greyscale or truecolour, filter 0 on every row. Greyscale is expanded. */
 async function decode(png: Uint8Array): Promise<{ w: number; h: number; px: Uint8Array }> {
-    const { width: w, height: h } = header(png);
+    const { width: w, height: h, colorType } = header(png);
+    const channels = colorType === 0 ? 1 : 3;
     const dv = new DataView(png.buffer, png.byteOffset);
     const idat: Uint8Array[] = [];
     let at = 8;
@@ -99,11 +100,13 @@ async function decode(png: Uint8Array): Promise<{ w: number; h: number; px: Uint
         raw.set(p, ro);
         ro += p.length;
     }
-    const stride = w * 3;
-    const px = new Uint8Array(stride * h);
+    const stride = w * channels;
+    const px = new Uint8Array(w * 3 * h);
     for (let y = 0; y < h; y++) {
         expect(raw[y * (stride + 1)]).toBe(0); // filter: None
-        px.set(raw.subarray(y * (stride + 1) + 1, y * (stride + 1) + 1 + stride), y * stride);
+        const row = raw.subarray(y * (stride + 1) + 1, y * (stride + 1) + 1 + stride);
+        if (channels === 3) px.set(row, y * w * 3);
+        else for (let x = 0; x < w; x++) px.fill(row[x]!, (y * w + x) * 3, (y * w + x) * 3 + 3);
     }
     return { w, h, px };
 }
@@ -166,6 +169,27 @@ describe("toPNG", () => {
         const w = ink.maxX - ink.minX;
         const h = ink.maxY - ink.minY;
         expect(w / h).toBeCloseTo(100 / 40, 0);
+    });
+});
+
+describe("toPNG colour type", () => {
+    it("is greyscale without the gnomon, and smaller", async () => {
+        const box = kernel.makeBox(100, 60, 40);
+        const grey = await kernel.toPNG(box, "iso", { showGnomon: false });
+        const colour = await kernel.toPNG(box, "iso");
+        expect(header(grey).colorType).toBe(0);
+        expect(header(colour).colorType).toBe(2);
+        expect(grey.length).toBeLessThan(colour.length);
+        // Same drawing either way: the decoded ink matches where there is no gnomon.
+        expect(inkBox(await decode(grey)).count).toBeGreaterThan(200);
+    });
+
+    it("a coloured stroke keeps it truecolour", async () => {
+        const png = await kernel.toPNG(kernel.makeBox(10, 10, 10), "front", {
+            showGnomon: false,
+            visibleColor: "#c00000",
+        });
+        expect(header(png).colorType).toBe(2);
     });
 });
 

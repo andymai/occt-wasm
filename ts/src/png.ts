@@ -312,7 +312,7 @@ function drawPanel(
         for (const arm of gnomonArms(basis, t)) {
             const c = parseColor(arm.color);
             canvas.line((arm.x0 + ox) * s, (arm.y0 + oy) * s, (arm.x1 + ox) * s, (arm.y1 + oy) * s, c, 1.5 * s);
-            canvas.text(arm.label, (arm.x1 + ox) * s, (arm.y1 + oy) * s, 9 * s, c, "middle");
+            canvas.text(arm.label, (arm.lx + ox) * s, (arm.ly + oy) * s, 9 * s, c, "middle");
         }
     }
     if (label !== null) {
@@ -387,22 +387,39 @@ async function deflate(raw: Uint8Array): Promise<Uint8Array> {
     return out;
 }
 
-/** Encode an RGB canvas as a PNG (8-bit truecolour, no alpha). */
+/** True when every pixel has r = g = b. */
+function isGrey(px: Uint8Array): boolean {
+    for (let i = 0; i < px.length; i += 3) {
+        if (px[i] !== px[i + 1] || px[i] !== px[i + 2]) return false;
+    }
+    return true;
+}
+
+/** Encode an RGB canvas as a PNG: 8-bit greyscale when every pixel is grey
+ *  (a line drawing without the coloured gnomon), else 8-bit truecolour. */
 async function encodePng(canvas: Canvas): Promise<Uint8Array> {
     // Filter type 0 (None) on every row: the drawings are mostly flat colour,
     // so deflate does the work and the encoder stays short.
-    const stride = canvas.w * 3;
+    const grey = isGrey(canvas.px);
+    const channels = grey ? 1 : 3;
+    const stride = canvas.w * channels;
     const raw = new Uint8Array((stride + 1) * canvas.h);
     for (let y = 0; y < canvas.h; y++) {
-        raw[y * (stride + 1)] = 0;
-        raw.set(canvas.px.subarray(y * stride, (y + 1) * stride), y * (stride + 1) + 1);
+        const row = y * (stride + 1);
+        raw[row] = 0;
+        if (grey) {
+            const src = y * canvas.w * 3;
+            for (let x = 0; x < canvas.w; x++) raw[row + 1 + x] = canvas.px[src + x * 3]!;
+        } else {
+            raw.set(canvas.px.subarray(y * stride, (y + 1) * stride), row + 1);
+        }
     }
     const ihdr = new Uint8Array(13);
     const dv = new DataView(ihdr.buffer);
     dv.setUint32(0, canvas.w);
     dv.setUint32(4, canvas.h);
     ihdr[8] = 8; // bit depth
-    ihdr[9] = 2; // colour type: truecolour
+    ihdr[9] = grey ? 0 : 2; // colour type: greyscale / truecolour
     const idat = await deflate(raw);
     const parts = [
         new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
