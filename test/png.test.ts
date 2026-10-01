@@ -111,7 +111,7 @@ async function decode(png: Uint8Array): Promise<{ w: number; h: number; px: Uint
     return { w, h, px };
 }
 
-/** Bounding box of every pixel darker than white, and how many there are. */
+/** Bounding box of every pixel darker than the panel frame, and how many there are. */
 function inkBox(img: { w: number; h: number; px: Uint8Array }) {
     let minX = Infinity;
     let minY = Infinity;
@@ -121,7 +121,8 @@ function inkBox(img: { w: number; h: number; px: Uint8Array }) {
     for (let y = 0; y < img.h; y++) {
         for (let x = 0; x < img.w; x++) {
             const i = (y * img.w + x) * 3;
-            if (img.px[i]! > 230 && img.px[i + 1]! > 230 && img.px[i + 2]! > 230) continue;
+            // Lighter than the #e0e0e0 panel frame counts as background.
+            if (img.px[i]! > 215 && img.px[i + 1]! > 215 && img.px[i + 2]! > 215) continue;
             count++;
             if (x < minX) minX = x;
             if (x > maxX) maxX = x;
@@ -180,8 +181,22 @@ describe("toPNG colour type", () => {
         expect(header(grey).colorType).toBe(0);
         expect(header(colour).colorType).toBe(2);
         expect(grey.length).toBeLessThan(colour.length);
-        // Same drawing either way: the decoded ink matches where there is no gnomon.
-        expect(inkBox(await decode(grey)).count).toBeGreaterThan(200);
+        // The same drawing apart from the gnomon: every pixel that differs lies
+        // in its bottom-left corner.
+        const a = await decode(grey);
+        const b = await decode(colour);
+        expect(inkBox(a).count).toBeGreaterThan(200);
+        let differing = 0;
+        for (let y = 0; y < a.h; y++) {
+            for (let x = 0; x < a.w; x++) {
+                const i = (y * a.w + x) * 3;
+                if (a.px[i] === b.px[i] && a.px[i + 1] === b.px[i + 1] && a.px[i + 2] === b.px[i + 2]) continue;
+                differing++;
+                expect(x).toBeLessThan(70);
+                expect(y).toBeGreaterThan(a.h - 70);
+            }
+        }
+        expect(differing).toBeGreaterThan(0);
     });
 
     it("a coloured stroke keeps it truecolour", async () => {
@@ -190,6 +205,47 @@ describe("toPNG colour type", () => {
             visibleColor: "#c00000",
         });
         expect(header(png).colorType).toBe(2);
+    });
+});
+
+describe("toPNG options", () => {
+    it("strokeWidth 0 draws no edges, as in SVG", async () => {
+        const box = kernel.makeBox(100, 60, 40);
+        const img = await decode(await kernel.toPNG(box, "front", { showGnomon: false, strokeWidth: 0 }));
+        // Only the panel border is left: nothing inside it.
+        let inside = 0;
+        for (let y = 4; y < img.h - 4; y++) {
+            for (let x = 4; x < img.w - 4; x++) if (img.px[(y * img.w + x) * 3]! < 250) inside++;
+        }
+        expect(inside).toBe(0);
+    });
+
+    it("accepts #rgb, #rrggbb and rgb(), and rejects other colours rather than drawing black", async () => {
+        const box = kernel.makeBox(10, 10, 10);
+        for (const c of ["#c00", "#cc0000", "rgb(204, 0, 0)"]) {
+            const img = await decode(await kernel.toPNG(box, "front", { showGnomon: false, visibleColor: c }));
+            let red = 0;
+            // A 1 px line is blended with the white around it; red is r well above g and b.
+            for (let i = 0; i < img.px.length; i += 3) if (img.px[i]! - img.px[i + 1]! > 60 && img.px[i]! - img.px[i + 2]! > 60) red++;
+            expect(red, c).toBeGreaterThan(50);
+        }
+        await expect(kernel.toPNG(box, "front", { visibleColor: "red" })).rejects.toThrow(/unsupported colour "red"/);
+    });
+
+    it("tags a failure with the method name, as toSVG does", async () => {
+        const box = kernel.makeBox(10, 10, 10);
+        await expect(kernel.toMultiviewPNG(box, { columns: 0 })).rejects.toThrow(/^toMultiviewPNG: .*columns must be a positive integer/);
+        expect(() => kernel.toMultiviewSVG(box, { columns: 0 })).toThrow(/columns must be a positive integer/);
+    });
+
+    it("draws the outer frame as dark as the seams between panels", async () => {
+        const img = await decode(await kernel.toMultiviewPNG(kernel.makeBox(10, 10, 10), { showGnomon: false, showDimensions: false }));
+        const at = (x: number, y: number) => img.px[(y * img.w + x) * 3]!;
+        const outerTop = at(120, 0);
+        const seam = at(239, 120);
+        // #e0e0e0 is 224; the old centred stroke left the outer frame at ~239.
+        expect(outerTop).toBeLessThan(232);
+        expect(Math.abs(outerTop - seam)).toBeLessThan(8);
     });
 });
 

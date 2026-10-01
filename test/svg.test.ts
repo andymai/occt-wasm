@@ -62,13 +62,23 @@ describe("toMultiviewSVG", () => {
 
     it("puts each gnomon label past its arm's tip, clear of the line", () => {
         const svg = kernel.toSVG(kernel.makeBox(10, 20, 30), "iso");
-        const lines = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)" stroke="(#[0-9a-f]+)" stroke-width="1.5"\/><text x="([\d.]+)" y="([\d.]+)"/g)];
-        expect(lines).toHaveLength(3);
-        for (const m of lines) {
-            const [x0, y0, x1, y1, , lx, ly] = [1, 2, 3, 4, 5, 6, 7].map((k) => (k === 5 ? 0 : Number(m[k])));
-            const arm = Math.hypot(x1! - x0!, y1! - y0!);
-            // Further from the origin than the tip, by the gap.
-            expect(Math.hypot(lx! - x0!, ly! - y0!)).toBeGreaterThan(arm + 5);
+        // Read attributes by name, so the test does not depend on their order,
+        // the stroke width, or the sign of a coordinate.
+        const attrs = (tag: string): Record<string, string> =>
+            Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map((m) => [m[1]!, m[2]!]));
+        const AXIS_COLOURS = new Set(["#d33", "#3a3", "#36c"]);
+        const arms = [...svg.matchAll(/<line\b[^>]*>/g)].map((m) => attrs(m[0])).filter((a) => AXIS_COLOURS.has(a["stroke"] ?? ""));
+        const labels = [...svg.matchAll(/<text\b[^>]*>([XYZ])<\/text>/g)].map((m) => attrs(m[0]));
+        expect(arms).toHaveLength(3);
+        expect(labels).toHaveLength(3);
+        for (const arm of arms) {
+            const label = labels.find((l) => l["fill"] === arm["stroke"])!;
+            expect(label).toBeDefined();
+            const [x0, y0, x1, y1] = [arm["x1"], arm["y1"], arm["x2"], arm["y2"]].map(Number) as [number, number, number, number];
+            const [lx, ly] = [Number(label["x"]), Number(label["y"])];
+            const reach = Math.hypot(x1 - x0, y1 - y0);
+            // Past the tip along the arm, by the gap -- not on it.
+            expect(Math.hypot(lx - x0, ly - y0)).toBeGreaterThan(reach + 5);
         }
     });
 

@@ -669,6 +669,18 @@ function messageOf(e: unknown): string {
  * given operation name. Shared by the kernel and the XCAF document so error
  * classification stays in one place.
  */
+/** {@link wrap} for an async operation: a rejection is classified and
+ *  tagged with `operation` exactly as a synchronous throw would be. */
+export async function wrapAsync<T>(operation: string, fn: () => Promise<T>): Promise<T> {
+    try {
+        return await fn();
+    } catch (e: unknown) {
+        return wrap(operation, () => {
+            throw e;
+        });
+    }
+}
+
 export function wrap<T>(operation: string, fn: () => T): T {
     try {
         return fn();

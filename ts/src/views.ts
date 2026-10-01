@@ -369,6 +369,9 @@ export function gridLayout(
         maxRange = Math.max(maxRange, ext.maxU - ext.minU, ext.maxV - ext.minV);
     }
     const scale = inner / maxRange;
+    if (!Number.isInteger(columns) || columns < 1) {
+        throw new RangeError(`columns must be a positive integer, got ${columns}`);
+    }
     const rows = Math.ceil(extents.length / columns);
     const footerH = showDimensions ? 22 : 0;
     const panels = extents.map((ext, i) => ({

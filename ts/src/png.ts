@@ -63,25 +63,24 @@ interface Rgb {
     b: number;
 }
 
-/** Parse "#rgb" or "#rrggbb". Anything else is treated as black, which shows
- *  up as a visible mistake rather than a silent one. */
+/** Parse a colour option: `#rgb`, `#rrggbb` or `rgb(r, g, b)`. The SVG
+ *  renderer passes the string through to the document, where any CSS colour
+ *  works; the rasteriser cannot honour every CSS form, so anything else is
+ *  an error rather than a silent change of colour. */
 function parseColor(css: string): Rgb {
-    const h = css.trim().replace(/^#/, "");
-    if (h.length === 3) {
-        return {
-            r: parseInt(h[0]! + h[0]!, 16),
-            g: parseInt(h[1]! + h[1]!, 16),
-            b: parseInt(h[2]! + h[2]!, 16),
-        };
+    const c = css.trim();
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
+    if (hex) {
+        const h = hex[1]!;
+        const pair = (i: number) => (h.length === 3 ? h[i]! + h[i]! : h.slice(2 * i, 2 * i + 2));
+        return { r: parseInt(pair(0), 16), g: parseInt(pair(1), 16), b: parseInt(pair(2), 16) };
     }
-    if (h.length === 6) {
-        return {
-            r: parseInt(h.slice(0, 2), 16),
-            g: parseInt(h.slice(2, 4), 16),
-            b: parseInt(h.slice(4, 6), 16),
-        };
+    const rgb = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i.exec(c);
+    if (rgb) {
+        const [r, g, b] = [rgb[1]!, rgb[2]!, rgb[3]!].map(Number) as [number, number, number];
+        if (r <= 255 && g <= 255 && b <= 255) return { r, g, b };
     }
-    return { r: 0, g: 0, b: 0 };
+    throw new TypeError(`unsupported colour "${css}" for PNG: use #rgb, #rrggbb or rgb(r, g, b)`);
 }
 
 /** An RGB canvas with alpha-blended drawing. No alpha channel is kept: the
@@ -127,6 +126,9 @@ class Canvas {
      * caller-visible option, and a box of a few hundred pixels is cheap.
      */
     line(x0: number, y0: number, x1: number, y1: number, c: Rgb, width: number): void {
+        // Like SVG's stroke-width: 0 (or less) draws nothing. A positive width
+        // below a tenth of a device pixel is kept at that, so it still shows.
+        if (!(width > 0)) return;
         const half = Math.max(width, 0.1) / 2;
         const dx = x1 - x0;
         const dy = y1 - y0;
@@ -296,11 +298,20 @@ function drawPanel(
 ): void {
     const border = parseColor("#e0e0e0");
     canvas.fillRect(ox * s, oy * s, (ox + t.panelW) * s, (oy + t.panelH) * s, parseColor(o.background));
-    // Panel border, one device pixel per side at scale 1.
-    canvas.line(ox * s, oy * s, (ox + t.panelW) * s, oy * s, border, s);
-    canvas.line(ox * s, (oy + t.panelH) * s, (ox + t.panelW) * s, (oy + t.panelH) * s, border, s);
-    canvas.line(ox * s, oy * s, ox * s, (oy + t.panelH) * s, border, s);
-    canvas.line((ox + t.panelW) * s, oy * s, (ox + t.panelW) * s, (oy + t.panelH) * s, border, s);
+    // Panel border: one pixel per side, inside the panel, as SVG's
+    // <rect x="0.5" y="0.5" width="w-1" height="h-1"> draws it. Centred on
+    // the panel edge instead, half the stroke fell outside the canvas (or
+    // onto the neighbour), so the outer frame came out fainter than the
+    // seams between panels.
+    const i = s / 2;
+    const x0 = ox * s + i;
+    const y0 = oy * s + i;
+    const x1 = (ox + t.panelW) * s - i;
+    const y1 = (oy + t.panelH) * s - i;
+    canvas.line(x0, y0, x1, y0, border, s);
+    canvas.line(x0, y1, x1, y1, border, s);
+    canvas.line(x0, y0, x0, y1, border, s);
+    canvas.line(x1, y0, x1, y1, border, s);
 
     if (o.showHidden && edges.hidden.length > 0) {
         strokePolylines(canvas, edges.hidden, t, ox, oy, s, parseColor(o.hiddenColor), o.strokeWidth, true);
