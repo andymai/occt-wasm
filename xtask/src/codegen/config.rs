@@ -5499,7 +5499,6 @@ xcafDocs_[id] = XCAFDocRecord{doc, {}, {}, 1};
 return id;",
         includes: &[
             "TDocStd_Application.hxx", "TDocStd_Document.hxx",
-            "XCAFApp_Application.hxx",
         ],
         category: "xcaf",
         return_type: ReturnType::DocId,
@@ -5524,7 +5523,6 @@ try {
 xcafDocs_.erase(it);",
         includes: &[
             "TDocStd_Application.hxx", "TDocStd_Document.hxx",
-            "XCAFApp_Application.hxx",
         ],
         category: "xcaf",
         return_type: ReturnType::Void,
@@ -6071,8 +6069,7 @@ xcafDocs_[id] = XCAFDocRecord{doc, {}, {}, 1};
 return id;",
         includes: &[
             "STEPCAFControl_Reader.hxx", "TDocStd_Application.hxx",
-            "TDocStd_Document.hxx", "XCAFApp_Application.hxx",
-            "Standard_Failure.hxx",
+            "TDocStd_Document.hxx", "Standard_Failure.hxx",
         ],
         category: "xcaf",
         return_type: ReturnType::DocId,
