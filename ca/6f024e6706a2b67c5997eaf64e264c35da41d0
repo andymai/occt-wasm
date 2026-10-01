@@ -1,0 +1,19 @@
+.github/workflows/osv-scan.yml
+  s_f7c55554805f9e::t_5fc5cdb0377768 6-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ca6f024e6706a2b67c5997eaf64e264c35da41d0",
+  "prompts": {},
+  "sessions": {
+    "s_f7c55554805f9e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ef17648b-4e46-4541-b4cd-ed0c2e1ab23d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
