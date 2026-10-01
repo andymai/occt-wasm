@@ -664,11 +664,6 @@ function messageOf(e: unknown): string {
     return String(e);
 }
 
-/**
- * Run `fn`, re-throwing any failure as an {@link OcctError} tagged with the
- * given operation name. Shared by the kernel and the XCAF document so error
- * classification stays in one place.
- */
 /** {@link wrap} for an async operation: a rejection is classified and
  *  tagged with `operation` exactly as a synchronous throw would be. */
 export async function wrapAsync<T>(operation: string, fn: () => Promise<T>): Promise<T> {
@@ -681,6 +676,11 @@ export async function wrapAsync<T>(operation: string, fn: () => Promise<T>): Pro
     }
 }
 
+/**
+ * Run `fn`, re-throwing any failure as an {@link OcctError} tagged with the
+ * given operation name. Shared by the kernel and the XCAF document so error
+ * classification stays in one place.
+ */
 export function wrap<T>(operation: string, fn: () => T): T {
     try {
         return fn();

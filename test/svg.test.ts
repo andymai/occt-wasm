@@ -77,8 +77,20 @@ describe("toMultiviewSVG", () => {
             const [x0, y0, x1, y1] = [arm["x1"], arm["y1"], arm["x2"], arm["y2"]].map(Number) as [number, number, number, number];
             const [lx, ly] = [Number(label["x"]), Number(label["y"])];
             const reach = Math.hypot(x1 - x0, y1 - y0);
-            // Past the tip along the arm, by the gap -- not on it.
-            expect(Math.hypot(lx - x0, ly - y0)).toBeGreaterThan(reach + 5);
+            const [ux, uy] = [(x1 - x0) / reach, (y1 - y0) / reach];
+            // Past the tip *along the arm*: the offset from the tip projects
+            // onto the arm's direction by the gap, and has no sideways part.
+            const along = (lx - x1) * ux + (ly - y1) * uy;
+            const across = (lx - x1) * -uy + (ly - y1) * ux;
+            expect(along).toBeGreaterThan(5);
+            expect(Math.abs(across)).toBeLessThan(0.5);
+        }
+        // No two labels share a spot (the iso X and Y letters used to touch).
+        for (let i = 0; i < labels.length; i++) {
+            for (let j = i + 1; j < labels.length; j++) {
+                const d = Math.hypot(Number(labels[i]!["x"]) - Number(labels[j]!["x"]), Number(labels[i]!["y"]) - Number(labels[j]!["y"]));
+                expect(d).toBeGreaterThan(9); // the label font size
+            }
         }
     });
 
