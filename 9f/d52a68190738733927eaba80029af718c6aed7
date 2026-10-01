@@ -1,0 +1,21 @@
+Cargo.lock
+  s_8d4b1bf8e1caa7::t_102e70d94ed75a 252,254,261,263,270,272,280,282,291,293,322,324,335,337,341,343,350,352,362,364,375,377,381,383,392,394,917,919,929,931,1460,1462,1512,1514,1543,1545,1563,1565,1578,1580,1584,1586,1596,1598,1622,1624,1636,1638,1648,1650,1659,1661,1671,1673,1682,1684
+package-lock.json
+  s_8d4b1bf8e1caa7::t_aa79b4b2bffc85 1828-1830
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9fd52a68190738733927eaba80029af718c6aed7",
+  "prompts": {},
+  "sessions": {
+    "s_8d4b1bf8e1caa7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b64e8e9a-9723-420e-b985-df0d5864f7d6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
