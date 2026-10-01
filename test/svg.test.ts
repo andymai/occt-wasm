@@ -60,6 +60,40 @@ describe("toMultiviewSVG", () => {
         expect(svg).toContain(">Z</text>");
     });
 
+    it("puts each gnomon label past its arm's tip, clear of the line", () => {
+        const svg = kernel.toSVG(kernel.makeBox(10, 20, 30), "iso");
+        // Read attributes by name, so the test does not depend on their order,
+        // the stroke width, or the sign of a coordinate.
+        const attrs = (tag: string): Record<string, string> =>
+            Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map((m) => [m[1]!, m[2]!]));
+        const AXIS_COLOURS = new Set(["#d33", "#3a3", "#36c"]);
+        const arms = [...svg.matchAll(/<line\b[^>]*>/g)].map((m) => attrs(m[0])).filter((a) => AXIS_COLOURS.has(a["stroke"] ?? ""));
+        const labels = [...svg.matchAll(/<text\b[^>]*>([XYZ])<\/text>/g)].map((m) => attrs(m[0]));
+        expect(arms).toHaveLength(3);
+        expect(labels).toHaveLength(3);
+        for (const arm of arms) {
+            const label = labels.find((l) => l["fill"] === arm["stroke"])!;
+            expect(label).toBeDefined();
+            const [x0, y0, x1, y1] = [arm["x1"], arm["y1"], arm["x2"], arm["y2"]].map(Number) as [number, number, number, number];
+            const [lx, ly] = [Number(label["x"]), Number(label["y"])];
+            const reach = Math.hypot(x1 - x0, y1 - y0);
+            const [ux, uy] = [(x1 - x0) / reach, (y1 - y0) / reach];
+            // Past the tip *along the arm*: the offset from the tip projects
+            // onto the arm's direction by the gap, and has no sideways part.
+            const along = (lx - x1) * ux + (ly - y1) * uy;
+            const across = (lx - x1) * -uy + (ly - y1) * ux;
+            expect(along).toBeGreaterThan(5);
+            expect(Math.abs(across)).toBeLessThan(0.5);
+        }
+        // No two labels share a spot (the iso X and Y tips sit close together).
+        for (let i = 0; i < labels.length; i++) {
+            for (let j = i + 1; j < labels.length; j++) {
+                const d = Math.hypot(Number(labels[i]!["x"]) - Number(labels[j]!["x"]), Number(labels[i]!["y"]) - Number(labels[j]!["y"]));
+                expect(d).toBeGreaterThan(9); // the label font size
+            }
+        }
+    });
+
     it("draws hidden edges dashed by default and omits them when disabled", () => {
         const box = kernel.makeBox(10, 10, 10);
         const withHidden = kernel.toMultiviewSVG(box);

@@ -69,6 +69,19 @@ export {
     type SvgViewOptions,
     type ViewName,
 } from "./svg.js";
+
+export {
+    renderMultiviewPNG,
+    renderShapePNG,
+    type MultiviewPngOptions,
+    type PngViewOptions,
+} from "./png.js";
+import {
+    renderMultiviewPNG as renderMultiviewPNGImpl,
+    renderShapePNG as renderShapePNGImpl,
+    type MultiviewPngOptions,
+    type PngViewOptions,
+} from "./png.js";
 import {
     renderMultiviewSVG as renderMultiviewSVGImpl,
     renderShapeSVG as renderShapeSVGImpl,
@@ -105,7 +118,7 @@ import type {
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, SweepContact, SweepLaw, SweepMode, TransitionMode, addExceptionDecoder, wrap } from "./types.js";
+import { JoinType, SweepContact, SweepLaw, SweepMode, TransitionMode, addExceptionDecoder, wrap, wrapAsync } from "./types.js";
 import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 import type {
     OcctWasmModule,
@@ -1867,6 +1880,24 @@ export class OcctKernel {
      */
     toMultiviewSVG(shape: ShapeHandle, options: MultiviewSvgOptions = {}): string {
         return wrap("toMultiviewSVG", () => renderMultiviewSVGImpl(this, shape, options));
+    }
+
+    /**
+     * The same drawing as {@link toSVG}, rasterised to PNG bytes. Async
+     * because the encoder compresses through the platform's
+     * CompressionStream.
+     */
+    toPNG(shape: ShapeHandle, view: ViewName = "front", options: PngViewOptions = {}): Promise<Uint8Array> {
+        return wrapAsync("toPNG", () => renderShapePNGImpl(this, shape, view, options));
+    }
+
+    /**
+     * The same drawing as {@link toMultiviewSVG}, rasterised to PNG bytes.
+     * For consumers that cannot render SVG -- image viewers, READMEs, and
+     * vision models that take raster input only.
+     */
+    toMultiviewPNG(shape: ShapeHandle, options: MultiviewPngOptions = {}): Promise<Uint8Array> {
+        return wrapAsync("toMultiviewPNG", () => renderMultiviewPNGImpl(this, shape, options));
     }
 
     // =======================================================================
