@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.5.0](https://github.com/andymai/occt-wasm/compare/v5.4.1...v5.5.0) (2026-10-01)
+
+
+### Features
+
+* **ts:** toPNG / toMultiviewPNG, and gnomon labels clear of their arms ([#378](https://github.com/andymai/occt-wasm/issues/378)) ([ce791a1](https://github.com/andymai/occt-wasm/commit/ce791a1767383e51b206132a9c74a8bd51309ed6))
+
+
+### Performance
+
+* **facade:** stop XCAF documents linking OCCT's viewer code ([#379](https://github.com/andymai/occt-wasm/issues/379)) ([bda4012](https://github.com/andymai/occt-wasm/commit/bda40127495723725c02e49ad448b60bd0446d3c))
+
 ## [5.4.1](https://github.com/andymai/occt-wasm/compare/v5.4.0...v5.4.1) (2026-09-30)
 
 
