@@ -294,6 +294,15 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
         includes.insert("TopoDS_Shape.hxx".to_owned());
     }
 
+    if needs_finite_check(methods) {
+        includes.insert("BRep_Tool.hxx".to_owned());
+        includes.insert("NCollection_List.hxx".to_owned());
+        includes.insert("Precision.hxx".to_owned());
+        includes.insert("TopExp_Explorer.hxx".to_owned());
+        includes.insert("TopoDS.hxx".to_owned());
+        includes.insert("TopoDS_Shape.hxx".to_owned());
+    }
+
     for spec in methods {
         if matches!(spec.kind, MethodKind::Skip) {
             continue;
@@ -347,6 +356,13 @@ fn needs_build_boolean(methods: &[&MethodSpec]) -> bool {
         .any(|m| matches!(m.kind, MethodKind::BooleanOp) || m.setup_code.contains("buildBoolean("))
 }
 
+/// Do any methods need the `isFiniteShape` / `allFinite` OBB guard?
+///
+/// `buildBoolean` uses it, as do the n-way booleans that name `allFinite`.
+fn needs_finite_check(methods: &[&MethodSpec]) -> bool {
+    needs_build_boolean(methods) || methods.iter().any(|m| m.setup_code.contains("allFinite("))
+}
+
 fn needs_solid_join_type(methods: &[&MethodSpec]) -> bool {
     methods
         .iter()
@@ -367,8 +383,9 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
     let needs_unwrap = needs_unwrap_singleton_solid(methods);
     let needs_join = needs_solid_join_type(methods);
     let needs_boolean = needs_build_boolean(methods);
+    let needs_finite = needs_finite_check(methods);
 
-    if needs_evolution || needs_unwrap || needs_join || needs_boolean {
+    if needs_evolution || needs_unwrap || needs_join || needs_boolean || needs_finite {
         let _ = writeln!(buf, "// === helper functions ===");
         let _ = writeln!(buf);
     }
@@ -394,6 +411,39 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
         let _ = writeln!(buf);
     }
 
+    if needs_finite {
+        for line in [
+            "/// True when no face or edge of `shape` is unbounded.",
+            "///",
+            "/// An oriented bounding box cannot enclose infinite geometry, so with OBB on",
+            "/// the interference pre-check drops every pair involving it and a cut by a",
+            "/// half-space silently does nothing. An unbounded face (an infinite plane)",
+            "/// has no edges; a half-infinite one has an edge with an infinite range.",
+            "static bool isFiniteShape(const TopoDS_Shape& shape) {",
+            "    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {",
+            "        if (!TopExp_Explorer(ex.Current(), TopAbs_EDGE).More()) return false;",
+            "    }",
+            "    for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {",
+            "        double first = 0.0;",
+            "        double last = 0.0;",
+            "        BRep_Tool::Range(TopoDS::Edge(ex.Current()), first, last);",
+            "        if (Precision::IsInfinite(first) || Precision::IsInfinite(last)) return false;",
+            "    }",
+            "    return true;",
+            "}",
+            "",
+            "static bool allFinite(const NCollection_List<TopoDS_Shape>& shapes) {",
+            "    for (const TopoDS_Shape& shape : shapes) {",
+            "        if (!isFiniteShape(shape)) return false;",
+            "    }",
+            "    return true;",
+            "}",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
+        let _ = writeln!(buf);
+    }
+
     if needs_boolean {
         for line in [
             "/// Run a two-operand boolean, building it exactly once.",
@@ -401,7 +451,8 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
             "/// The two-shape `BRepAlgoAPI_*` constructors already call `Build()`, and",
             "/// `Build()` starts by clearing the previous result, so constructing with the",
             "/// shapes and then calling `Build()` computes the whole boolean twice. OBB",
-            "/// matches `fuseAll`/`cutAll`: a tighter interference pre-check.",
+            "/// matches `fuseAll`/`cutAll`: a tighter interference pre-check, used only",
+            "/// when both operands are finite.",
             "static void buildBoolean(BRepAlgoAPI_BooleanOperation& op, const TopoDS_Shape& a,",
             "                         const TopoDS_Shape& b) {",
             "    NCollection_List<TopoDS_Shape> args;",
@@ -410,7 +461,7 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
             "    tools.Append(b);",
             "    op.SetArguments(args);",
             "    op.SetTools(tools);",
-            "    op.SetUseOBB(true);",
+            "    op.SetUseOBB(allFinite(args) && allFinite(tools));",
             "    op.Build();",
             "}",
         ] {
@@ -988,6 +1039,8 @@ mod tests {
             "only the helper builds"
         );
         assert!(output.contains("static void buildBoolean("));
+        assert!(output.contains("static bool isFiniteShape("));
+        assert!(output.contains("op.SetUseOBB(allFinite(args) && allFinite(tools));"));
         assert!(output.contains("op.HasErrors()"));
         assert!(output.contains("boolean operation failed"));
     }

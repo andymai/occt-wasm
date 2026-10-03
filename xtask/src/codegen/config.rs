@@ -325,7 +325,7 @@ BRepAlgoAPI_Fuse fuser;
 fuser.SetArguments(args);
 fuser.SetTools(tools);
 fuser.SetRunParallel(true);
-fuser.SetUseOBB(true);
+fuser.SetUseOBB(allFinite(args) && allFinite(tools));
 fuser.Build();
 if (!fuser.IsDone() || fuser.HasErrors()) {
     throw std::runtime_error(\"fuseAll: operation failed\");
@@ -401,7 +401,7 @@ BRepAlgoAPI_Cut cutter;
 cutter.SetArguments(args);
 cutter.SetTools(tools);
 cutter.SetRunParallel(true);
-cutter.SetUseOBB(true);
+cutter.SetUseOBB(allFinite(args) && allFinite(tools));
 cutter.Build();
 if (!cutter.IsDone() || cutter.HasErrors()) {
     throw std::runtime_error(\"cutAll: operation failed\");

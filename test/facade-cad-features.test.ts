@@ -62,6 +62,19 @@ describe("halfSpace", () => {
         const downPart = kernel.common(box, hsDown);
         expect(kernel.getVolume(upPart) + kernel.getVolume(downPart)).toBeCloseTo(1000, 3);
     });
+
+    // The n-way booleans enable OBB, which cannot bound an infinite face.
+    it("cuts through cutAll and fuses through fuseAll", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const hs = kernel.halfSpace({ x: 0, y: 0, z: 5 }, { x: 0, y: 0, z: 1 });
+        const other = kernel.translate(kernel.makeBox(10, 10, 10), 20, 0, 0);
+
+        expect(kernel.getVolume(kernel.cutAll(box, [hs, other]))).toBeCloseTo(500, 3);
+        expect(kernel.getVolume(kernel.common(kernel.fuseAll([box, other]), hs))).toBeCloseTo(
+            1000,
+            3,
+        );
+    });
 });
 
 describe("sectionPlane", () => {

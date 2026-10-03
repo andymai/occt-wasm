@@ -196,12 +196,39 @@ static GeomAbs_JoinType solidJoinType(int joinType, const char* op) {
     }
 }
 
+/// True when no face or edge of `shape` is unbounded.
+///
+/// An oriented bounding box cannot enclose infinite geometry, so with OBB on
+/// the interference pre-check drops every pair involving it and a cut by a
+/// half-space silently does nothing. An unbounded face (an infinite plane)
+/// has no edges; a half-infinite one has an edge with an infinite range.
+static bool isFiniteShape(const TopoDS_Shape& shape) {
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        if (!TopExp_Explorer(ex.Current(), TopAbs_EDGE).More()) return false;
+    }
+    for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
+        double first = 0.0;
+        double last = 0.0;
+        BRep_Tool::Range(TopoDS::Edge(ex.Current()), first, last);
+        if (Precision::IsInfinite(first) || Precision::IsInfinite(last)) return false;
+    }
+    return true;
+}
+
+static bool allFinite(const NCollection_List<TopoDS_Shape>& shapes) {
+    for (const TopoDS_Shape& shape : shapes) {
+        if (!isFiniteShape(shape)) return false;
+    }
+    return true;
+}
+
 /// Run a two-operand boolean, building it exactly once.
 ///
 /// The two-shape `BRepAlgoAPI_*` constructors already call `Build()`, and
 /// `Build()` starts by clearing the previous result, so constructing with the
 /// shapes and then calling `Build()` computes the whole boolean twice. OBB
-/// matches `fuseAll`/`cutAll`: a tighter interference pre-check.
+/// matches `fuseAll`/`cutAll`: a tighter interference pre-check, used only
+/// when both operands are finite.
 static void buildBoolean(BRepAlgoAPI_BooleanOperation& op, const TopoDS_Shape& a,
                          const TopoDS_Shape& b) {
     NCollection_List<TopoDS_Shape> args;
@@ -210,7 +237,7 @@ static void buildBoolean(BRepAlgoAPI_BooleanOperation& op, const TopoDS_Shape& a
     tools.Append(b);
     op.SetArguments(args);
     op.SetTools(tools);
-    op.SetUseOBB(true);
+    op.SetUseOBB(allFinite(args) && allFinite(tools));
     op.Build();
 }
 
@@ -550,7 +577,7 @@ uint32_t OcctKernel::fuseAll(std::vector<uint32_t> shapeIds) {
         fuser.SetArguments(args);
         fuser.SetTools(tools);
         fuser.SetRunParallel(true);
-        fuser.SetUseOBB(true);
+        fuser.SetUseOBB(allFinite(args) && allFinite(tools));
         fuser.Build();
         if (!fuser.IsDone() || fuser.HasErrors()) {
             throw std::runtime_error("fuseAll: operation failed");
@@ -611,7 +638,7 @@ uint32_t OcctKernel::cutAll(uint32_t shapeId, std::vector<uint32_t> toolIds) {
         cutter.SetArguments(args);
         cutter.SetTools(tools);
         cutter.SetRunParallel(true);
-        cutter.SetUseOBB(true);
+        cutter.SetUseOBB(allFinite(args) && allFinite(tools));
         cutter.Build();
         if (!cutter.IsDone() || cutter.HasErrors()) {
             throw std::runtime_error("cutAll: operation failed");
