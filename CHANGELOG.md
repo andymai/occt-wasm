@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.5.1](https://github.com/andymai/occt-wasm/compare/v5.5.0...v5.5.1) (2026-10-03)
+
+
+### Performance
+
+* **facade:** build two-operand booleans once ([#383](https://github.com/andymai/occt-wasm/issues/383)) ([99f200f](https://github.com/andymai/occt-wasm/commit/99f200f0327bcaa1831ef170b7df94c84e613a8e))
+
 ## [5.5.0](https://github.com/andymai/occt-wasm/compare/v5.4.1...v5.5.0) (2026-10-01)
 
 
