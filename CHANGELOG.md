@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.0](https://github.com/andymai/occt-wasm/compare/v5.5.1...v5.6.0) (2026-10-03)
+
+
+### Features
+
+* **facade:** booleanOp with glue, fuzzy, simplify and n-way history ([#385](https://github.com/andymai/occt-wasm/issues/385)) ([2ff1466](https://github.com/andymai/occt-wasm/commit/2ff1466d8e3cb5ae8a9997b420db9f580c365c83))
+
 ## [5.5.1](https://github.com/andymai/occt-wasm/compare/v5.5.0...v5.5.1) (2026-10-03)
 
 
