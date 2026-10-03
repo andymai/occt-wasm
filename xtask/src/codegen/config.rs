@@ -411,6 +411,75 @@ return store(cutter.Shape());",
         category: "booleans",
         return_type: ReturnType::ShapeId,
     },
+    // One entry point for the boolean family with every knob exposed: fuse,
+    // cut or common of any number of arguments against any number of tools,
+    // glue (0 off, 1 shift, 2 full), a fuzzy value (0 off), result
+    // simplification (an angular tolerance; 0 off), and face history for the
+    // hashes passed (empty: none collected).
+    MethodSpec {
+        name: "booleanOp",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Int("opCode"),
+            FacadeParam::VectorShapeIds("argIds"),
+            FacadeParam::VectorShapeIds("toolIds"),
+            FacadeParam::Int("glue"),
+            FacadeParam::Double("fuzzyValue"),
+            FacadeParam::Double("simplifyAngularTolerance"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (argIds.empty() || toolIds.empty()) {
+    throw std::runtime_error(\"booleanOp: needs at least one argument and one tool\");
+}
+std::unique_ptr<BRepAlgoAPI_BooleanOperation> op;
+switch (opCode) {
+case 0: op = std::make_unique<BRepAlgoAPI_Fuse>(); break;
+case 1: op = std::make_unique<BRepAlgoAPI_Cut>(); break;
+case 2: op = std::make_unique<BRepAlgoAPI_Common>(); break;
+default: throw std::runtime_error(\"booleanOp: opCode must be 0 (fuse), 1 (cut) or 2 (common)\");
+}
+NCollection_List<TopoDS_Shape> args;
+for (uint32_t id : argIds) args.Append(get(id));
+NCollection_List<TopoDS_Shape> tools;
+for (uint32_t id : toolIds) tools.Append(get(id));
+op->SetArguments(args);
+op->SetTools(tools);
+switch (glue) {
+case 0: break;
+case 1: op->SetGlue(BOPAlgo_GlueShift); break;
+case 2: op->SetGlue(BOPAlgo_GlueFull); break;
+default: throw std::runtime_error(\"booleanOp: glue must be 0 (off), 1 (shift) or 2 (full)\");
+}
+if (fuzzyValue > 0.0) op->SetFuzzyValue(fuzzyValue);
+op->SetRunParallel(true);
+op->SetUseOBB(allFinite(args) && allFinite(tools));
+op->Build();
+if (!op->IsDone() || op->HasErrors()) {
+    throw std::runtime_error(\"booleanOp: operation failed\");
+}
+if (simplifyAngularTolerance > 0.0) {
+    op->SimplifyResult(Standard_True, Standard_True, simplifyAngularTolerance);
+}
+EvolutionData evo;
+evo.resultId = store(op->Shape());
+if (!inputFaceHashes.empty()) {
+    std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
+    for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, tracked, hashUpperBound);
+    for (const TopoDS_Shape& s : tools) appendEvolution(evo, *op, s, tracked, hashUpperBound);
+}
+return evo;",
+        includes: &[
+            "BRepAlgoAPI_Fuse.hxx", "BRepAlgoAPI_Cut.hxx", "BRepAlgoAPI_Common.hxx",
+            "BRepAlgoAPI_BooleanOperation.hxx", "BOPAlgo_GlueEnum.hxx", "NCollection_List.hxx",
+            "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx", "memory", "unordered_set",
+        ],
+        category: "booleans",
+        return_type: ReturnType::EvolutionData,
+    },
     MethodSpec {
         name: "booleanPipeline",
         kind: MethodKind::CustomBody,

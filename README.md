@@ -193,7 +193,7 @@ Available error codes:
 Sweep, offset, and boolean operations use self-documenting enums instead of opaque numbers:
 
 ```typescript check kernel,profile,spine,wire,shape,face,base,tool1,tool2
-import { TransitionMode, JoinType, BooleanOp } from "occt-wasm";
+import { TransitionMode, JoinType, BooleanOp, BooleanGlue } from "occt-wasm";
 
 // Sweep with round-corner transitions
 kernel.sweep(profile, spine, TransitionMode.RoundCorner);
@@ -207,6 +207,9 @@ kernel.shell(shape, [face], 2.0, 1e-6, JoinType.Intersection);
 
 // Boolean pipeline
 kernel.booleanPipeline(base, [BooleanOp.Cut, BooleanOp.Fuse], [tool1, tool2]);
+
+// One boolean against several tools, glued where the operands share faces
+kernel.booleanOp(BooleanOp.Fuse, [base], [tool1, tool2], { glue: BooleanGlue.Shift });
 ```
 
 Numeric values (0, 1, 2) are still accepted for backwards compatibility.

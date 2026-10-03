@@ -14,6 +14,7 @@
  */
 
 export {
+    BooleanGlue,
     BooleanOp,
     JoinType,
     OcctError,
@@ -25,6 +26,7 @@ export {
     type AddChildOptions,
     type AddShapeOptions,
     type AlignAnchor,
+    type BooleanOpOptions,
     type BoundingBox,
     type BoundingBoxOptions,
     type Color3,
@@ -115,10 +117,11 @@ import type {
     WireframeOptions,
     BoundingBoxOptions,
     BooleanOp,
+    BooleanOpOptions,
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, SweepContact, SweepLaw, SweepMode, TransitionMode, addExceptionDecoder, wrap, wrapAsync } from "./types.js";
+import { BooleanGlue, JoinType, SweepContact, SweepLaw, SweepMode, TransitionMode, addExceptionDecoder, wrap, wrapAsync } from "./types.js";
 import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 import type {
     OcctWasmModule,
@@ -1046,6 +1049,48 @@ export class OcctKernel {
             this.#withU32(shapes, (ids) =>
                 this.#withF64(offsets, (off) =>
                     this.#vecToHandles(this.#raw.translateBatch(ids, off)),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * Fuse, cut or intersect any number of arguments with any number of tools in
+     * one boolean, with OCCT's glue, fuzzy and simplification options and face
+     * history for the hashes given. With no options this matches `fuseAll` /
+     * `cutAll` and the two-shape booleans.
+     * @throws OcctError
+     */
+    booleanOp(
+        op: BooleanOp,
+        args: ShapeHandle[],
+        tools: ShapeHandle[],
+        options: BooleanOpOptions = {},
+    ): EvolutionData {
+        const {
+            glue = BooleanGlue.Off,
+            fuzzyValue = 0,
+            simplifyAngularTolerance = 0,
+            inputFaceHashes = [],
+            hashUpperBound = 0,
+        } = options;
+        return wrap("booleanOp", () =>
+            this.#withU32(args, (argIds) =>
+                this.#withU32(tools, (toolIds) =>
+                    this.#withI32(inputFaceHashes, (hashes) =>
+                        this.#extractEvolution(
+                            this.#raw.booleanOp(
+                                op,
+                                argIds,
+                                toolIds,
+                                glue,
+                                fuzzyValue,
+                                simplifyAngularTolerance,
+                                hashes,
+                                hashUpperBound,
+                            ),
+                        ),
+                    ),
                 ),
             ),
         );

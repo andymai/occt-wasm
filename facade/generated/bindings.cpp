@@ -124,6 +124,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("fuseAll", &OcctKernel::fuseAll)
         .function("intersectionCells", &OcctKernel::intersectionCells)
         .function("cutAll", &OcctKernel::cutAll)
+        .function("booleanOp", &OcctKernel::booleanOp)
         .function("booleanPipeline", &OcctKernel::booleanPipeline)
         .function("split", &OcctKernel::split)
 

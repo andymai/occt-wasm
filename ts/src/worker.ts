@@ -17,7 +17,7 @@
 
 import * as Comlink from "comlink";
 import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, WireframeOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
-import type { BooleanOp, JoinType, TransitionMode } from "./types.js";
+import type { BooleanOp, BooleanOpOptions, EvolutionData, JoinType, TransitionMode } from "./types.js";
 
 /**
  * Async proxy to an OcctKernel running in a Web Worker.
@@ -158,6 +158,7 @@ export interface OcctWorkerProxy {
     // Batch
     translateBatch(shapes: ShapeHandle[], offsets: number[]): Promise<ShapeHandle[]>;
     booleanPipeline(base: ShapeHandle, opCodes: BooleanOp[], tools: ShapeHandle[]): Promise<ShapeHandle>;
+    booleanOp(op: BooleanOp, args: ShapeHandle[], tools: ShapeHandle[], options?: BooleanOpOptions): Promise<EvolutionData>;
     queryBatch(shapes: ShapeHandle[]): Promise<ShapeQueryResult[]>;
     filletBatch(ops: Array<{ solid: ShapeHandle; edges: ShapeHandle[]; radius: number }>): Promise<ShapeHandle[]>;
     transformBatch(shapes: ShapeHandle[], matrices: number[]): Promise<ShapeHandle[]>;

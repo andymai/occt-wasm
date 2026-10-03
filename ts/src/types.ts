@@ -410,6 +410,33 @@ export enum BooleanOp {
     Common = 2,
 }
 
+/**
+ * OCCT's gluing option for {@link OcctKernel.booleanOp}. It skips face/face
+ * intersection where the operands only touch along coinciding faces, which is
+ * faster but wrong if those faces actually cross.
+ */
+export enum BooleanGlue {
+    /** Full intersection (the default). */
+    Off = 0,
+    /** Operands share partially coinciding faces. */
+    Shift = 1,
+    /** Operands share whole faces. */
+    Full = 2,
+}
+
+/** Options for {@link OcctKernel.booleanOp}. Every field is off by default. */
+export interface BooleanOpOptions {
+    glue?: BooleanGlue;
+    /** Fuzzy tolerance in model units; nearly coincident geometry within it is merged. */
+    fuzzyValue?: number;
+    /** Unify same-domain faces and edges of the result within this angle (radians). */
+    simplifyAngularTolerance?: number;
+    /** Face hashes to track; the result's `modified`/`generated`/`deleted` cover them. */
+    inputFaceHashes?: number[];
+    /** Upper bound the hashes were computed with. Required with `inputFaceHashes`. */
+    hashUpperBound?: number;
+}
+
 /** UV parameter bounds of a face surface. */
 export interface UVBounds {
     uMin: number;

@@ -163,6 +163,16 @@ export interface OcctRawKernel {
     sectionPlane(shapeId: number, ox: number, oy: number, oz: number, nx: number, ny: number, nz: number): number;
     fuseAll(shapeIds: EmbindVectorU32): number;
     cutAll(shapeId: number, toolIds: EmbindVectorU32): number;
+    booleanOp(
+        opCode: number,
+        argIds: EmbindVectorU32,
+        toolIds: EmbindVectorU32,
+        glue: number,
+        fuzzyValue: number,
+        simplifyAngularTolerance: number,
+        inputFaceHashes: EmbindVectorI32,
+        hashUpperBound: number,
+    ): RawEvolutionData;
     split(shapeId: number, toolIds: EmbindVectorU32): number;
     intersectionCells(shapeIds: EmbindVectorU32): number;
 
