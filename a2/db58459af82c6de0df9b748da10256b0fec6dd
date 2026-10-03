@@ -1,0 +1,24 @@
+test/boolean-op.test.ts
+  s_ecfadab7dc0ed4::t_ce808acc133733 73,76,83,105-133
+  s_ecfadab7dc0ed4::t_26ebd79bfdf95d 134
+xtask/src/codegen/emitter.rs
+  s_ecfadab7dc0ed4::t_ce808acc133733 536-539
+facade/generated/kernel.cpp
+  s_ecfadab7dc0ed4::t_f99bebb8ca1a70 297-300
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a2db58459af82c6de0df9b748da10256b0fec6dd",
+  "prompts": {},
+  "sessions": {
+    "s_ecfadab7dc0ed4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e974b0-81fc-44e7-84c5-a753966b5aa7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
