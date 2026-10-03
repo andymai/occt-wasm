@@ -435,6 +435,9 @@ return store(cutter.Shape());",
 if (argIds.empty() || toolIds.empty()) {
     throw std::runtime_error(\"booleanOp: needs at least one argument and one tool\");
 }
+if (!inputFaceHashes.empty() && hashUpperBound <= 0) {
+    throw std::runtime_error(\"booleanOp: hashUpperBound must be positive with face hashes\");
+}
 std::unique_ptr<BRepAlgoAPI_BooleanOperation> op;
 switch (opCode) {
 case 0: op = std::make_unique<BRepAlgoAPI_Fuse>(); break;
