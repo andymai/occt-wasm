@@ -1,0 +1,25 @@
+test/facade-cad-features.test.ts
+  s_ecfadab7dc0ed4::t_0681415fa2d05e 65-77
+xtask/src/codegen/emitter.rs
+  s_ecfadab7dc0ed4::t_b8908f764f5109 297-305,359-365,386,388,414-446,454-455,464,1042-1043
+xtask/src/codegen/config.rs
+  s_ecfadab7dc0ed4::t_74a456e17928b8 328,404
+facade/generated/kernel.cpp
+  s_ecfadab7dc0ed4::t_457d4dbf89f205 199-224,230-231,240,580,641
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4ad36cc9b3108e58201f68d7fc40112b66ca4711",
+  "prompts": {},
+  "sessions": {
+    "s_ecfadab7dc0ed4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31e974b0-81fc-44e7-84c5-a753966b5aa7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
