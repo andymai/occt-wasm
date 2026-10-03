@@ -43,6 +43,7 @@ pub(crate) struct GeneratedFuncs {
     fn_fuse_all: TypedFunc<(i32, i32), u32>,
     fn_intersection_cells: TypedFunc<(i32, i32), u32>,
     fn_cut_all: TypedFunc<(u32, i32, i32), u32>,
+    fn_boolean_op: TypedFunc<(i32, i32, i32, i32, i32, i32, f64, f64, i32, i32, i32), i32>,
     fn_boolean_pipeline: TypedFunc<(u32, i32, i32, i32, i32), u32>,
     fn_split: TypedFunc<(u32, i32, i32), u32>,
     fn_extrude: TypedFunc<(u32, f64, f64, f64), u32>,
@@ -284,6 +285,7 @@ impl GeneratedFuncs {
             fn_intersection_cells: instance
                 .get_typed_func(&mut store, "occt_intersection_cells")?,
             fn_cut_all: instance.get_typed_func(&mut store, "occt_cut_all")?,
+            fn_boolean_op: instance.get_typed_func(&mut store, "occt_boolean_op")?,
             fn_boolean_pipeline: instance.get_typed_func(&mut store, "occt_boolean_pipeline")?,
             fn_split: instance.get_typed_func(&mut store, "occt_split")?,
             fn_extrude: instance.get_typed_func(&mut store, "occt_extrude")?,
@@ -783,6 +785,68 @@ impl crate::kernel::OcctKernel {
             return Err(self.read_last_error("cut_all"));
         }
         Ok(ShapeHandle(result))
+    }
+
+    pub fn boolean_op(
+        &mut self,
+        op_code: i32,
+        arg_ids: &[ShapeHandle],
+        tool_ids: &[ShapeHandle],
+        glue: i32,
+        fuzzy_value: f64,
+        simplify_angular_tolerance: f64,
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let arg_ids_bytes: Vec<u8> = arg_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let arg_ids_ptr = self.write_bytes(&arg_ids_bytes)?;
+        let arg_ids_len = arg_ids.len() as u32;
+        let tool_ids_bytes: Vec<u8> = tool_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let tool_ids_ptr = match self.write_bytes(&tool_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(arg_ids_ptr);
+                return Err(e);
+            }
+        };
+        let tool_ids_len = tool_ids.len() as u32;
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(arg_ids_ptr);
+                let _ = self.free_bytes(tool_ids_ptr);
+                return Err(e);
+            }
+        };
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_boolean_op.call(
+            &mut self.store,
+            (
+                op_code,
+                arg_ids_ptr as i32,
+                arg_ids_len as i32,
+                tool_ids_ptr as i32,
+                tool_ids_len as i32,
+                glue,
+                fuzzy_value,
+                simplify_angular_tolerance,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(arg_ids_ptr)?;
+        self.free_bytes(tool_ids_ptr)?;
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("boolean_op"));
+        }
+        self.read_evolution_result()
     }
 
     pub fn boolean_pipeline(

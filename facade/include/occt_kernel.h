@@ -154,6 +154,9 @@ class OcctKernel {
                           double nz);
     uint32_t fuseAll(std::vector<uint32_t> shapeIds);
     uint32_t cutAll(uint32_t shapeId, std::vector<uint32_t> toolIds);
+    EvolutionData booleanOp(int opCode, std::vector<uint32_t> argIds, std::vector<uint32_t> toolIds,
+                            int glue, double fuzzyValue, double simplifyAngularTolerance,
+                            std::vector<int> inputFaceHashes, int hashUpperBound);
     uint32_t split(uint32_t shapeId, std::vector<uint32_t> toolIds);
     uint32_t intersectionCells(std::vector<uint32_t> shapeIds);
 

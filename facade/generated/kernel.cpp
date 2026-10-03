@@ -3,6 +3,7 @@
 #include "occt_kernel.h"
 
 #include <BOPAlgo_CellsBuilder.hxx>
+#include <BOPAlgo_GlueEnum.hxx>
 #include <BRepAdaptor_CompCurve.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
@@ -166,7 +167,9 @@
 #include <gp_Pnt2d.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
+#include <memory>
 #include <stdexcept>
+#include <unordered_set>
 
 #include <algorithm>
 #include <cmath>
@@ -175,6 +178,7 @@
 #include <fstream>
 #include <iomanip>
 #include <set>
+#include <unordered_set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -285,34 +289,25 @@ static TopoDS_Shape validateFilletResult(const TopoDS_Shape& shape, const char* 
     throw std::runtime_error(std::string(op) + ": produced an invalid solid");
 }
 
-/// Build evolution data by tracking Modified/Generated/Deleted faces.
-static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,
-                                    const TopoDS_Shape& inputShape,
-                                    const std::vector<int>& inputFaceHashes, int hashUpperBound) {
-    EvolutionData evo;
-    evo.resultId = resultId;
-
+/// Append the Modified/Generated/Deleted history of `inputShape`'s faces to
+/// `evo`, for the faces whose hash is in `tracked`.
+static void appendEvolution(EvolutionData& evo, BRepBuilderAPI_MakeShape& maker,
+                            const TopoDS_Shape& inputShape,
+                            const std::unordered_set<int>& tracked, int hashUpperBound) {
+    // Every hash is a remainder by this bound, and a zero divisor traps.
+    if (hashUpperBound <= 0) {
+        throw std::runtime_error("hashUpperBound must be positive");
+    }
     auto hashShape = [&](const TopoDS_Shape& s) -> int {
         return static_cast<int>(TopTools_ShapeMapHasher{}(s) % static_cast<size_t>(hashUpperBound));
     };
 
-    // For each input face, check if it was modified, generated, or deleted
     for (TopExp_Explorer ex(inputShape, TopAbs_FACE); ex.More(); ex.Next()) {
         const auto& face = ex.Current();
         int faceHash = hashShape(face);
-
-        // Check if this face hash is in the input list
-        bool tracked = false;
-        for (int h : inputFaceHashes) {
-            if (h == faceHash) {
-                tracked = true;
-                break;
-            }
-        }
-        if (!tracked)
+        if (tracked.count(faceHash) == 0)
             continue;
 
-        // Modified faces
         auto modifiedList = maker.Modified(face);
         if (!modifiedList.IsEmpty()) {
             evo.modified.push_back(faceHash);
@@ -322,7 +317,6 @@ static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t re
             }
         }
 
-        // Generated faces
         auto generatedList = maker.Generated(face);
         if (!generatedList.IsEmpty()) {
             evo.generated.push_back(faceHash);
@@ -332,12 +326,20 @@ static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t re
             }
         }
 
-        // Deleted faces
         if (maker.IsDeleted(face)) {
             evo.deleted.push_back(faceHash);
         }
     }
+}
 
+/// Build evolution data by tracking Modified/Generated/Deleted faces.
+static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,
+                                    const TopoDS_Shape& inputShape,
+                                    const std::vector<int>& inputFaceHashes, int hashUpperBound) {
+    EvolutionData evo;
+    evo.resultId = resultId;
+    std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
+    appendEvolution(evo, maker, inputShape, tracked, hashUpperBound);
     return evo;
 }
 
@@ -646,6 +648,56 @@ uint32_t OcctKernel::cutAll(uint32_t shapeId, std::vector<uint32_t> toolIds) {
         return store(cutter.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("cutAll: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::booleanOp(int opCode, std::vector<uint32_t> argIds, std::vector<uint32_t> toolIds, int glue, double fuzzyValue, double simplifyAngularTolerance, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        if (argIds.empty() || toolIds.empty()) {
+            throw std::runtime_error("booleanOp: needs at least one argument and one tool");
+        }
+        if (!inputFaceHashes.empty() && hashUpperBound <= 0) {
+            throw std::runtime_error("booleanOp: hashUpperBound must be positive with face hashes");
+        }
+        std::unique_ptr<BRepAlgoAPI_BooleanOperation> op;
+        switch (opCode) {
+        case 0: op = std::make_unique<BRepAlgoAPI_Fuse>(); break;
+        case 1: op = std::make_unique<BRepAlgoAPI_Cut>(); break;
+        case 2: op = std::make_unique<BRepAlgoAPI_Common>(); break;
+        default: throw std::runtime_error("booleanOp: opCode must be 0 (fuse), 1 (cut) or 2 (common)");
+        }
+        NCollection_List<TopoDS_Shape> args;
+        for (uint32_t id : argIds) args.Append(get(id));
+        NCollection_List<TopoDS_Shape> tools;
+        for (uint32_t id : toolIds) tools.Append(get(id));
+        op->SetArguments(args);
+        op->SetTools(tools);
+        switch (glue) {
+        case 0: break;
+        case 1: op->SetGlue(BOPAlgo_GlueShift); break;
+        case 2: op->SetGlue(BOPAlgo_GlueFull); break;
+        default: throw std::runtime_error("booleanOp: glue must be 0 (off), 1 (shift) or 2 (full)");
+        }
+        if (fuzzyValue > 0.0) op->SetFuzzyValue(fuzzyValue);
+        op->SetRunParallel(true);
+        op->SetUseOBB(allFinite(args) && allFinite(tools));
+        op->Build();
+        if (!op->IsDone() || op->HasErrors()) {
+            throw std::runtime_error("booleanOp: operation failed");
+        }
+        if (simplifyAngularTolerance > 0.0) {
+            op->SimplifyResult(Standard_True, Standard_True, simplifyAngularTolerance);
+        }
+        EvolutionData evo;
+        evo.resultId = store(op->Shape());
+        if (!inputFaceHashes.empty()) {
+            std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
+            for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, tracked, hashUpperBound);
+            for (const TopoDS_Shape& s : tools) appendEvolution(evo, *op, s, tracked, hashUpperBound);
+        }
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("booleanOp: ") + e.what());
     }
 }
 

@@ -527,106 +527,63 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
     }
 
     if needs_evolution {
-        let _ = writeln!(
-            buf,
-            "/// Build evolution data by tracking Modified/Generated/Deleted faces."
-        );
-        let _ = writeln!(
-            buf,
-            "static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,"
-        );
-        let _ = writeln!(
-            buf,
-            "                                    const TopoDS_Shape& inputShape,"
-        );
-        let _ = writeln!(
-            buf,
-            "                                    const std::vector<int>& inputFaceHashes, int hashUpperBound) {{"
-        );
-        let _ = writeln!(buf, "    EvolutionData evo;");
-        let _ = writeln!(buf, "    evo.resultId = resultId;");
-        let _ = writeln!(buf);
-        let _ = writeln!(
-            buf,
-            "    auto hashShape = [&](const TopoDS_Shape& s) -> int {{"
-        );
-        let _ = writeln!(
-            buf,
-            "        return static_cast<int>(TopTools_ShapeMapHasher{{}}(s) % static_cast<size_t>(hashUpperBound));"
-        );
-        let _ = writeln!(buf, "    }};");
-        let _ = writeln!(buf);
-        let _ = writeln!(
-            buf,
-            "    // For each input face, check if it was modified, generated, or deleted"
-        );
-        let _ = writeln!(
-            buf,
-            "    for (TopExp_Explorer ex(inputShape, TopAbs_FACE); ex.More(); ex.Next()) {{"
-        );
-        let _ = writeln!(buf, "        const auto& face = ex.Current();");
-        let _ = writeln!(buf, "        int faceHash = hashShape(face);");
-        let _ = writeln!(buf);
-        let _ = writeln!(
-            buf,
-            "        // Check if this face hash is in the input list"
-        );
-        let _ = writeln!(buf, "        bool tracked = false;");
-        let _ = writeln!(buf, "        for (int h : inputFaceHashes) {{");
-        let _ = writeln!(buf, "            if (h == faceHash) {{");
-        let _ = writeln!(buf, "                tracked = true;");
-        let _ = writeln!(buf, "                break;");
-        let _ = writeln!(buf, "            }}");
-        let _ = writeln!(buf, "        }}");
-        let _ = writeln!(buf, "        if (!tracked)");
-        let _ = writeln!(buf, "            continue;");
-        let _ = writeln!(buf);
-        let _ = writeln!(buf, "        // Modified faces");
-        let _ = writeln!(buf, "        auto modifiedList = maker.Modified(face);");
-        let _ = writeln!(buf, "        if (!modifiedList.IsEmpty()) {{");
-        let _ = writeln!(buf, "            evo.modified.push_back(faceHash);");
-        let _ = writeln!(
-            buf,
-            "            evo.modified.push_back(static_cast<int>(modifiedList.Size()));"
-        );
-        let _ = writeln!(
-            buf,
-            "            for (auto it = modifiedList.begin(); it != modifiedList.end(); ++it) {{"
-        );
-        let _ = writeln!(
-            buf,
-            "                evo.modified.push_back(hashShape(*it));"
-        );
-        let _ = writeln!(buf, "            }}");
-        let _ = writeln!(buf, "        }}");
-        let _ = writeln!(buf);
-        let _ = writeln!(buf, "        // Generated faces");
-        let _ = writeln!(buf, "        auto generatedList = maker.Generated(face);");
-        let _ = writeln!(buf, "        if (!generatedList.IsEmpty()) {{");
-        let _ = writeln!(buf, "            evo.generated.push_back(faceHash);");
-        let _ = writeln!(
-            buf,
-            "            evo.generated.push_back(static_cast<int>(generatedList.Size()));"
-        );
-        let _ = writeln!(
-            buf,
-            "            for (auto it = generatedList.begin(); it != generatedList.end(); ++it) {{"
-        );
-        let _ = writeln!(
-            buf,
-            "                evo.generated.push_back(hashShape(*it));"
-        );
-        let _ = writeln!(buf, "            }}");
-        let _ = writeln!(buf, "        }}");
-        let _ = writeln!(buf);
-        let _ = writeln!(buf, "        // Deleted faces");
-        let _ = writeln!(buf, "        if (maker.IsDeleted(face)) {{");
-        let _ = writeln!(buf, "            evo.deleted.push_back(faceHash);");
-        let _ = writeln!(buf, "        }}");
-        let _ = writeln!(buf, "    }}");
-        let _ = writeln!(buf);
-        let _ = writeln!(buf, "    return evo;");
-        let _ = writeln!(buf, "}}");
+        for line in [
+            "/// Append the Modified/Generated/Deleted history of `inputShape`'s faces to",
+            "/// `evo`, for the faces whose hash is in `tracked`.",
+            "static void appendEvolution(EvolutionData& evo, BRepBuilderAPI_MakeShape& maker,",
+            "                            const TopoDS_Shape& inputShape,",
+            "                            const std::unordered_set<int>& tracked, int hashUpperBound) {",
+            "    // Every hash is a remainder by this bound, and a zero divisor traps.",
+            "    if (hashUpperBound <= 0) {",
+            "        throw std::runtime_error(\"hashUpperBound must be positive\");",
+            "    }",
+            "    auto hashShape = [&](const TopoDS_Shape& s) -> int {",
+            "        return static_cast<int>(TopTools_ShapeMapHasher{}(s) % static_cast<size_t>(hashUpperBound));",
+            "    };",
+            "",
+            "    for (TopExp_Explorer ex(inputShape, TopAbs_FACE); ex.More(); ex.Next()) {",
+            "        const auto& face = ex.Current();",
+            "        int faceHash = hashShape(face);",
+            "        if (tracked.count(faceHash) == 0)",
+            "            continue;",
+            "",
+            "        auto modifiedList = maker.Modified(face);",
+            "        if (!modifiedList.IsEmpty()) {",
+            "            evo.modified.push_back(faceHash);",
+            "            evo.modified.push_back(static_cast<int>(modifiedList.Size()));",
+            "            for (auto it = modifiedList.begin(); it != modifiedList.end(); ++it) {",
+            "                evo.modified.push_back(hashShape(*it));",
+            "            }",
+            "        }",
+            "",
+            "        auto generatedList = maker.Generated(face);",
+            "        if (!generatedList.IsEmpty()) {",
+            "            evo.generated.push_back(faceHash);",
+            "            evo.generated.push_back(static_cast<int>(generatedList.Size()));",
+            "            for (auto it = generatedList.begin(); it != generatedList.end(); ++it) {",
+            "                evo.generated.push_back(hashShape(*it));",
+            "            }",
+            "        }",
+            "",
+            "        if (maker.IsDeleted(face)) {",
+            "            evo.deleted.push_back(faceHash);",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "/// Build evolution data by tracking Modified/Generated/Deleted faces.",
+            "static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,",
+            "                                    const TopoDS_Shape& inputShape,",
+            "                                    const std::vector<int>& inputFaceHashes, int hashUpperBound) {",
+            "    EvolutionData evo;",
+            "    evo.resultId = resultId;",
+            "    std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());",
+            "    appendEvolution(evo, maker, inputShape, tracked, hashUpperBound);",
+            "    return evo;",
+            "}",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
         let _ = writeln!(buf);
     }
 }
@@ -660,6 +617,7 @@ pub fn emit_kernel(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf, "#include <fstream>");
     let _ = writeln!(buf, "#include <iomanip>");
     let _ = writeln!(buf, "#include <set>");
+    let _ = writeln!(buf, "#include <unordered_set>");
     let _ = writeln!(buf, "#include <sstream>");
     let _ = writeln!(buf, "#include <stdexcept>");
     let _ = writeln!(buf, "#include <string>");
