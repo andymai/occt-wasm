@@ -429,11 +429,10 @@ TopoDS_Shape current = get(baseId);
 for (size_t i = 0; i < opCodes.size(); i++) {
     const auto& tool = get(toolIds[i]);
     bool isLast = (i == opCodes.size() - 1);
-    Message_ProgressRange progress;
     switch (opCodes[i]) {
-    case 0: { BRepAlgoAPI_Fuse op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: fuse step failed\"); current = op.Shape(); break; }
-    case 1: { BRepAlgoAPI_Cut op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: cut step failed\"); current = op.Shape(); break; }
-    case 2: { BRepAlgoAPI_Common op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: intersect step failed\"); current = op.Shape(); break; }
+    case 0: { BRepAlgoAPI_Fuse op; buildBoolean(op, current, tool); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: fuse step failed\"); current = op.Shape(); break; }
+    case 1: { BRepAlgoAPI_Cut op; buildBoolean(op, current, tool); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: cut step failed\"); current = op.Shape(); break; }
+    case 2: { BRepAlgoAPI_Common op; buildBoolean(op, current, tool); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error(\"booleanPipeline: intersect step failed\"); current = op.Shape(); break; }
     default: throw std::runtime_error(\"booleanPipeline: unknown opCode\");
     }
     if (isLast) {
@@ -445,7 +444,7 @@ for (size_t i = 0; i < opCodes.size(); i++) {
 return store(current);",
         includes: &[
             "BRepAlgoAPI_Fuse.hxx", "BRepAlgoAPI_Cut.hxx", "BRepAlgoAPI_Common.hxx",
-            "ShapeUpgrade_UnifySameDomain.hxx", "Message_ProgressRange.hxx",
+            "ShapeUpgrade_UnifySameDomain.hxx",
         ],
         category: "booleans",
         return_type: ReturnType::ShapeId,
@@ -4627,8 +4626,8 @@ return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);"
         setup_code: "\
 const auto& shapeA = get(a);
 const auto& shapeB = get(b);
-BRepAlgoAPI_Fuse op(shapeA, shapeB);
-op.Build();
+BRepAlgoAPI_Fuse op;
+buildBoolean(op, shapeA, shapeB);
 if (!op.IsDone() || op.HasErrors()) {
     throw std::runtime_error(\"fuseWithHistory: operation failed\");
 }
@@ -4659,8 +4658,8 @@ return evo;",
         setup_code: "\
 const auto& shapeA = get(a);
 const auto& shapeB = get(b);
-BRepAlgoAPI_Cut op(shapeA, shapeB);
-op.Build();
+BRepAlgoAPI_Cut op;
+buildBoolean(op, shapeA, shapeB);
 if (!op.IsDone() || op.HasErrors()) {
     throw std::runtime_error(\"cutWithHistory: operation failed\");
 }
@@ -4784,8 +4783,8 @@ return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);"
         setup_code: "\
 const auto& shapeA = get(a);
 const auto& shapeB = get(b);
-BRepAlgoAPI_Common op(shapeA, shapeB);
-op.Build();
+BRepAlgoAPI_Common op;
+buildBoolean(op, shapeA, shapeB);
 if (!op.IsDone() || op.HasErrors()) {
     throw std::runtime_error(\"intersectWithHistory: operation failed\");
 }

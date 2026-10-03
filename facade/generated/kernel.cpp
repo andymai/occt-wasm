@@ -6,6 +6,7 @@
 #include <BRepAdaptor_CompCurve.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <BRepAlgoAPI_BooleanOperation.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Defeaturing.hxx>
@@ -193,6 +194,24 @@ static GeomAbs_JoinType solidJoinType(int joinType, const char* op) {
         throw std::runtime_error(std::string(op) +
                                  ": joinType must be Arc (0) or Intersection (1)");
     }
+}
+
+/// Run a two-operand boolean, building it exactly once.
+///
+/// The two-shape `BRepAlgoAPI_*` constructors already call `Build()`, and
+/// `Build()` starts by clearing the previous result, so constructing with the
+/// shapes and then calling `Build()` computes the whole boolean twice. OBB
+/// matches `fuseAll`/`cutAll`: a tighter interference pre-check.
+static void buildBoolean(BRepAlgoAPI_BooleanOperation& op, const TopoDS_Shape& a,
+                         const TopoDS_Shape& b) {
+    NCollection_List<TopoDS_Shape> args;
+    args.Append(a);
+    NCollection_List<TopoDS_Shape> tools;
+    tools.Append(b);
+    op.SetArguments(args);
+    op.SetTools(tools);
+    op.SetUseOBB(true);
+    op.Build();
 }
 
 /// Unwrap a singleton compound: if `shape` is a Compound holding exactly one
@@ -439,8 +458,8 @@ uint32_t OcctKernel::makeRectangle(double width, double height) {
 
 uint32_t OcctKernel::fuse(uint32_t a, uint32_t b) {
     try {
-        BRepAlgoAPI_Fuse op(get(a), get(b));
-        op.Build();
+        BRepAlgoAPI_Fuse op;
+        buildBoolean(op, get(a), get(b));
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("fuse: boolean operation failed");
         }
@@ -452,8 +471,8 @@ uint32_t OcctKernel::fuse(uint32_t a, uint32_t b) {
 
 uint32_t OcctKernel::cut(uint32_t a, uint32_t b) {
     try {
-        BRepAlgoAPI_Cut op(get(a), get(b));
-        op.Build();
+        BRepAlgoAPI_Cut op;
+        buildBoolean(op, get(a), get(b));
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("cut: boolean operation failed");
         }
@@ -465,8 +484,8 @@ uint32_t OcctKernel::cut(uint32_t a, uint32_t b) {
 
 uint32_t OcctKernel::common(uint32_t a, uint32_t b) {
     try {
-        BRepAlgoAPI_Common op(get(a), get(b));
-        op.Build();
+        BRepAlgoAPI_Common op;
+        buildBoolean(op, get(a), get(b));
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("common: boolean operation failed");
         }
@@ -478,8 +497,8 @@ uint32_t OcctKernel::common(uint32_t a, uint32_t b) {
 
 uint32_t OcctKernel::section(uint32_t a, uint32_t b) {
     try {
-        BRepAlgoAPI_Section op(get(a), get(b));
-        op.Build();
+        BRepAlgoAPI_Section op;
+        buildBoolean(op, get(a), get(b));
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("section: boolean operation failed");
         }
@@ -612,11 +631,10 @@ uint32_t OcctKernel::booleanPipeline(uint32_t baseId, std::vector<int> opCodes, 
         for (size_t i = 0; i < opCodes.size(); i++) {
             const auto& tool = get(toolIds[i]);
             bool isLast = (i == opCodes.size() - 1);
-            Message_ProgressRange progress;
             switch (opCodes[i]) {
-            case 0: { BRepAlgoAPI_Fuse op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error("booleanPipeline: fuse step failed"); current = op.Shape(); break; }
-            case 1: { BRepAlgoAPI_Cut op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error("booleanPipeline: cut step failed"); current = op.Shape(); break; }
-            case 2: { BRepAlgoAPI_Common op(current, tool, progress); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error("booleanPipeline: intersect step failed"); current = op.Shape(); break; }
+            case 0: { BRepAlgoAPI_Fuse op; buildBoolean(op, current, tool); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error("booleanPipeline: fuse step failed"); current = op.Shape(); break; }
+            case 1: { BRepAlgoAPI_Cut op; buildBoolean(op, current, tool); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error("booleanPipeline: cut step failed"); current = op.Shape(); break; }
+            case 2: { BRepAlgoAPI_Common op; buildBoolean(op, current, tool); if (!op.IsDone() || op.HasErrors()) throw std::runtime_error("booleanPipeline: intersect step failed"); current = op.Shape(); break; }
             default: throw std::runtime_error("booleanPipeline: unknown opCode");
             }
             if (isLast) {
@@ -3663,8 +3681,8 @@ EvolutionData OcctKernel::fuseWithHistory(uint32_t a, uint32_t b, std::vector<in
     try {
         const auto& shapeA = get(a);
         const auto& shapeB = get(b);
-        BRepAlgoAPI_Fuse op(shapeA, shapeB);
-        op.Build();
+        BRepAlgoAPI_Fuse op;
+        buildBoolean(op, shapeA, shapeB);
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("fuseWithHistory: operation failed");
         }
@@ -3688,8 +3706,8 @@ EvolutionData OcctKernel::cutWithHistory(uint32_t a, uint32_t b, std::vector<int
     try {
         const auto& shapeA = get(a);
         const auto& shapeB = get(b);
-        BRepAlgoAPI_Cut op(shapeA, shapeB);
-        op.Build();
+        BRepAlgoAPI_Cut op;
+        buildBoolean(op, shapeA, shapeB);
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("cutWithHistory: operation failed");
         }
@@ -3770,8 +3788,8 @@ EvolutionData OcctKernel::intersectWithHistory(uint32_t a, uint32_t b, std::vect
     try {
         const auto& shapeA = get(a);
         const auto& shapeB = get(b);
-        BRepAlgoAPI_Common op(shapeA, shapeB);
-        op.Build();
+        BRepAlgoAPI_Common op;
+        buildBoolean(op, shapeA, shapeB);
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("intersectWithHistory: operation failed");
         }
