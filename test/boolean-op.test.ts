@@ -70,15 +70,17 @@ describe("booleanOp", () => {
         const t1 = kernel.translate(kernel.makeBox(4, 20, 20), 4, -5, -5);
         const t2 = kernel.translate(kernel.makeBox(4, 20, 20), 20, -5, -5);
         const fromBase = faceHashes(base);
+        const fromT1 = faceHashes(t1);
         const fromT2 = faceHashes(t2);
         const evo = kernel.booleanOp(mod.BooleanOp.Cut, [base], [t1, t2], {
-            inputFaceHashes: [...fromBase, ...faceHashes(t1), ...fromT2],
+            inputFaceHashes: [...fromBase, ...fromT1, ...fromT2],
             hashUpperBound: BOUND,
         });
         const modified: number[] = Array.from(evo.modified);
         // The base's long faces are split by both slots, and each slot's
         // walls leave faces inside the base.
         expect(modified.some((h) => fromBase.includes(h))).toBe(true);
+        expect(modified.some((h) => fromT1.includes(h))).toBe(true);
         expect(modified.some((h) => fromT2.includes(h))).toBe(true);
     });
 
@@ -98,6 +100,36 @@ describe("booleanOp", () => {
         expect(kernel.getSubShapes(plain, "face").length).toBe(10);
         expect(kernel.getSubShapes(simple, "face").length).toBe(6);
         expect(kernel.getVolume(simple)).toBeCloseTo(2000, 6);
+    });
+
+    it("reports history that points at the simplified result's faces", () => {
+        const a = kernel.makeBox(10, 10, 10);
+        const b = kernel.translate(kernel.makeBox(10, 10, 10), 10, 0, 0);
+        const evo = kernel.booleanOp(mod.BooleanOp.Fuse, [a], [b], {
+            simplifyAngularTolerance: 1e-3,
+            inputFaceHashes: [...faceHashes(a), ...faceHashes(b)],
+            hashUpperBound: BOUND,
+        });
+        const resultFaces = new Set(faceHashes(evo.result));
+        expect(resultFaces.size).toBe(6);
+        // `modified` is [input, count, ...outputs] runs; every output is a
+        // face of the simplified solid.
+        const raw: number[] = Array.from(evo.modified);
+        const outputs: number[] = [];
+        for (let i = 0; i + 1 < raw.length; ) {
+            const count = raw[i + 1] ?? 0;
+            outputs.push(...raw.slice(i + 2, i + 2 + count));
+            i += 2 + count;
+        }
+        expect(outputs.length).toBeGreaterThan(0);
+        expect(outputs.every((h) => resultFaces.has(h))).toBe(true);
+    });
+
+    it("rejects face hashes without a positive bound", () => {
+        const [a, b] = overlappingCubes();
+        expect(() =>
+            kernel.booleanOp(mod.BooleanOp.Fuse, [a], [b], { inputFaceHashes: faceHashes(a) }),
+        ).toThrow(/hashUpperBound/);
     });
 
     it("glues operands that share a face", () => {

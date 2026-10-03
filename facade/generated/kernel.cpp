@@ -294,6 +294,10 @@ static TopoDS_Shape validateFilletResult(const TopoDS_Shape& shape, const char* 
 static void appendEvolution(EvolutionData& evo, BRepBuilderAPI_MakeShape& maker,
                             const TopoDS_Shape& inputShape,
                             const std::unordered_set<int>& tracked, int hashUpperBound) {
+    // Every hash is a remainder by this bound, and a zero divisor traps.
+    if (hashUpperBound <= 0) {
+        throw std::runtime_error("hashUpperBound must be positive");
+    }
     auto hashShape = [&](const TopoDS_Shape& s) -> int {
         return static_cast<int>(TopTools_ShapeMapHasher{}(s) % static_cast<size_t>(hashUpperBound));
     };
