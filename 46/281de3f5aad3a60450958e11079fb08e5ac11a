@@ -1,0 +1,19 @@
+test/gtrsf-triangulation.test.ts
+  s_bf3ece01e79893::t_70d28f97882af2 68-76,86-89,98-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "46281de3f5aad3a60450958e11079fb08e5ac11a",
+  "prompts": {},
+  "sessions": {
+    "s_bf3ece01e79893": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a7e2b386-6e11-4281-bc6c-eb451959cc2a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
