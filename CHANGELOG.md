@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.6.1](https://github.com/andymai/occt-wasm/compare/v5.6.0...v5.6.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **facade:** share geometry when dropping the generalTransform mesh ([#389](https://github.com/andymai/occt-wasm/issues/389)) ([ea1ac78](https://github.com/andymai/occt-wasm/commit/ea1ac78533a3d409e00295e8a3e6dafe2b5efab7))
+* **generalTransform:** drop cached triangulation to avoid double-applied TopLoc ([#387](https://github.com/andymai/occt-wasm/issues/387)) ([155a6d1](https://github.com/andymai/occt-wasm/commit/155a6d199255bd0997d11f05153d78513c161acf))
+
 ## [5.6.0](https://github.com/andymai/occt-wasm/compare/v5.5.1...v5.6.0) (2026-10-03)
 
 
