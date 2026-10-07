@@ -1272,20 +1272,17 @@ gp_GTrsf gt;
 gt.SetValue(1, 1, matrix[0]); gt.SetValue(1, 2, matrix[1]); gt.SetValue(1, 3, matrix[2]); gt.SetValue(1, 4, matrix[3]);
 gt.SetValue(2, 1, matrix[4]); gt.SetValue(2, 2, matrix[5]); gt.SetValue(2, 3, matrix[6]); gt.SetValue(2, 4, matrix[7]);
 gt.SetValue(3, 1, matrix[8]); gt.SetValue(3, 2, matrix[9]); gt.SetValue(3, 3, matrix[10]); gt.SetValue(3, 4, matrix[11]);
-// Drop the cached triangulation before a general (non-conformal) transform.
-// BRepBuilderAPI_GTransform rebuilds geometry for a gp_GTrsf and carries the
-// shape's cached Poly_Triangulation over; a face positioned via a TopLoc_Location
-// (e.g. an extruded prism's top cap, tz = extrude height) then has that location
-// applied twice when the cached mesh is read back, pushing the cap to 2x its
-// offset. Copying geometry without the mesh makes the result re-tessellate from
-// the correct geometry.
-BRepBuilderAPI_Copy copier(get(id), true, false);
+// BRepTools_GTrsfModification bakes a face's location into the cached mesh nodes and
+// BRepTools_Modifier re-applies it to the rebuilt face, so a located face's mesh (e.g. a
+// prism's top cap) lands at twice its offset. Drop the mesh so the result re-tessellates.
+// Geometry can stay shared: the GTrsf modification copies it before transforming.
+BRepBuilderAPI_Copy copier(get(id), false, false);
 BRepBuilderAPI_GTransform maker(copier.Shape(), gt, true);
 if (!maker.IsDone()) {
     throw std::runtime_error(\"generalTransform: transform failed\");
 }
 return store(maker.Shape());",
-        includes: &["gp_GTrsf.hxx", "BRepBuilderAPI_GTransform.hxx"],
+        includes: &["gp_GTrsf.hxx", "BRepBuilderAPI_Copy.hxx", "BRepBuilderAPI_GTransform.hxx"],
         category: "transforms",
         return_type: ReturnType::ShapeId,
     },
