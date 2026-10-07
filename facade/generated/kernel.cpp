@@ -1341,7 +1341,15 @@ uint32_t OcctKernel::generalTransform(uint32_t id, std::vector<double> matrix) {
         gt.SetValue(1, 1, matrix[0]); gt.SetValue(1, 2, matrix[1]); gt.SetValue(1, 3, matrix[2]); gt.SetValue(1, 4, matrix[3]);
         gt.SetValue(2, 1, matrix[4]); gt.SetValue(2, 2, matrix[5]); gt.SetValue(2, 3, matrix[6]); gt.SetValue(2, 4, matrix[7]);
         gt.SetValue(3, 1, matrix[8]); gt.SetValue(3, 2, matrix[9]); gt.SetValue(3, 3, matrix[10]); gt.SetValue(3, 4, matrix[11]);
-        BRepBuilderAPI_GTransform maker(get(id), gt, true);
+        // Drop the cached triangulation before a general (non-conformal) transform.
+        // BRepBuilderAPI_GTransform rebuilds geometry for a gp_GTrsf and carries the
+        // shape's cached Poly_Triangulation over; a face positioned via a TopLoc_Location
+        // (e.g. an extruded prism's top cap, tz = extrude height) then has that location
+        // applied twice when the cached mesh is read back, pushing the cap to 2x its
+        // offset. Copying geometry without the mesh makes the result re-tessellate from
+        // the correct geometry.
+        BRepBuilderAPI_Copy copier(get(id), true, false);
+        BRepBuilderAPI_GTransform maker(copier.Shape(), gt, true);
         if (!maker.IsDone()) {
             throw std::runtime_error("generalTransform: transform failed");
         }
