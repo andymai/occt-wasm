@@ -65,6 +65,15 @@ function rotZ(deg: number): number[] {
     return [c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0];
 }
 
+// The first box catches a stale mesh carried through the transform; the second checks the
+// mesh a consumer gets once the result is meshed.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function meshBoxes(shape: number): any[] {
+    const cached = kernel.getBoundingBox(shape, true);
+    kernel.meshShape(shape, 0.1, 0.1);
+    return [cached, kernel.getBoundingBox(shape, true)];
+}
+
 describe("generalTransform on a pre-meshed shape", () => {
     it.each([3, 5, 10])("keeps a rotated prism's meshed top cap at z=h (h=%d)", (h) => {
         const prism = makePrism(10, h);
@@ -72,11 +81,12 @@ describe("generalTransform on a pre-meshed shape", () => {
         const out = generalTransform(prism, rotZ(60));
 
         const exact = kernel.getBoundingBox(out, false);
-        const mesh = kernel.getBoundingBox(out, true);
         expect(exact.zmin).toBeCloseTo(0, 3);
         expect(exact.zmax).toBeCloseTo(h, 3);
-        expect(mesh.zmin).toBeCloseTo(0, 3);
-        expect(mesh.zmax).toBeCloseTo(h, 3);
+        for (const mesh of meshBoxes(out)) {
+            expect(mesh.zmin).toBeCloseTo(0, 3);
+            expect(mesh.zmax).toBeCloseTo(h, 3);
+        }
     });
 
     it("keeps the meshed top cap on the exact geometry under a non-uniform scale", () => {
@@ -85,10 +95,11 @@ describe("generalTransform on a pre-meshed shape", () => {
         kernel.meshShape(prism, 0.1, 0.1);
         const out = generalTransform(prism, [2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0]);
 
-        const mesh = kernel.getBoundingBox(out, true);
-        expect(mesh.xmax).toBeCloseTo(20, 3);
-        expect(mesh.ymax).toBeCloseTo(10, 3);
-        expect(mesh.zmax).toBeCloseTo(h * 0.5, 3);
+        for (const mesh of meshBoxes(out)) {
+            expect(mesh.xmax).toBeCloseTo(20, 3);
+            expect(mesh.ymax).toBeCloseTo(10, 3);
+            expect(mesh.zmax).toBeCloseTo(h * 0.5, 3);
+        }
     });
 
     it("leaves an un-meshed prism unaffected", () => {
