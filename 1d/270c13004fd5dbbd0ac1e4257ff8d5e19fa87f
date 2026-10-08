@@ -1,0 +1,21 @@
+examples/step-viewer/index.html
+  s_6349bb9853595d::t_8a22559bc761bb 79-80
+examples/three-js/index.html
+  s_6349bb9853595d::t_8a22559bc761bb 52-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1d270c13004fd5dbbd0ac1e4257ff8d5e19fa87f",
+  "prompts": {},
+  "sessions": {
+    "s_6349bb9853595d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d367ce37-268b-4cab-9767-4faa45d60e99",
+        "model": "unknown"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
