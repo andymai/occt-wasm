@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.2](https://github.com/andymai/occt-wasm/compare/v5.6.1...v5.6.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **crate:** make STEP and STL I/O work in the WASI kernel ([#394](https://github.com/andymai/occt-wasm/issues/394)) ([b3c3ab5](https://github.com/andymai/occt-wasm/commit/b3c3ab5832fffd46b76f55ee529552f12d3a0b97))
+
 ## [5.6.1](https://github.com/andymai/occt-wasm/compare/v5.6.0...v5.6.1) (2026-10-07)
 
 
