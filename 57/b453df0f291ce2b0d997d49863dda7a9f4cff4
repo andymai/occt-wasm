@@ -1,0 +1,23 @@
+.github/workflows/crate-test.yml
+  s_c1bc7b26c1d189::t_285f55651eff13 44-46
+crate/tests/integration.rs
+  s_c1bc7b26c1d189::t_cc5ccd898e0f24 12,14-22,25,33-45,47-62,66-68,78-145,150-154
+  s_c1bc7b26c1d189::t_11bb88d83cdaa8 63-65,146-149
+  s_c1bc7b26c1d189::t_4bdba2760557bb 155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "57b453df0f291ce2b0d997d49863dda7a9f4cff4",
+  "prompts": {},
+  "sessions": {
+    "s_c1bc7b26c1d189": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee70f65a-f174-4110-95ae-de394d34eb5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
