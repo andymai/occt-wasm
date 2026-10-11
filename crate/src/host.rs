@@ -45,7 +45,8 @@ impl ResourceLimiter for HostState {
     }
 
     fn memory_grow_failed(&mut self, error: wasmtime::Error) -> wasmtime::Result<()> {
-        Err(error)
+        self.limiter.memory_grow_failed(error)?;
+        Err(wasmtime::format_err!("linear memory could not grow"))
     }
 
     fn table_growing(

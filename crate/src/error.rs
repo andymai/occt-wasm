@@ -33,7 +33,7 @@ pub enum OcctError {
     /// through, so after one the kernel's state is undefined: drop it and
     /// instantiate a new one.
     #[error("WASM runtime error: {0}")]
-    Runtime(wasmtime::Error),
+    Runtime(#[source] wasmtime::Error),
 
     /// A memory access or data conversion error.
     #[error("memory error: {0}")]
