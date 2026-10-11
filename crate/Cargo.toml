@@ -17,14 +17,5 @@ wasmtime = "48.0.4"
 brotli = "9"
 thiserror = "2"
 
-[features]
-default = []
-async = ["wasmtime/async", "dep:tokio"]
-
-[dependencies.tokio]
-version = "1"
-features = ["rt"]
-optional = true
-
 [lints]
 workspace = true

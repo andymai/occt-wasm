@@ -853,7 +853,6 @@ version = "4.1.0"
 dependencies = [
  "brotli",
  "thiserror 2.0.21",
- "tokio",
  "wasmtime",
 ]
 
@@ -1221,15 +1220,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.3",
-]
-
-[[package]]
-name = "tokio"
-version = "1.53.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed"
-dependencies = [
- "pin-project-lite",
 ]
 
 [[package]]

@@ -75,18 +75,54 @@ See the [API docs](https://docs.rs/occt-wasm) for the complete list.
 
 ## Performance
 
-First `OcctKernel::new()` decompresses ~4.7 MB of brotli and JIT-compiles the WASM module. Expect ~100–500 ms depending on the host. Subsequent calls run at native wasmtime speed — typically within ~2x of native OCCT for compute-heavy operations, and dominated by the wasmtime boundary crossing for tiny operations.
+`OcctKernel::new()` decompresses ~4.7 MB of brotli and compiles the ~22 MB module, which takes a few seconds. Calls after that run at wasmtime speed: typically within ~2x of native OCCT for compute-heavy operations, and dominated by the wasmtime boundary crossing for tiny operations.
 
-Re-use one `OcctKernel` per worker thread; creation is the slow part, individual calls are cheap.
+## Reusing a compiled module
 
-## Features
+Compile once with `OcctKernel::compile`, then create kernels from the module with `OcctKernel::from_module`, which takes about a millisecond. Each kernel gets its own memory.
 
-- `async` — opt-in tokio-based async runtime support.
+To skip compiling in later processes, serialize the module and deserialize it on an engine built from the same `OcctKernel::engine_config()`:
 
-```toml
-[dependencies]
-occt-wasm = { version = "3", features = ["async"] }
+```rust,no_run
+use occt_wasm::OcctKernel;
+use occt_wasm::wasmtime::{Engine, Module};
+
+let engine = Engine::new(&OcctKernel::engine_config())?;
+std::fs::write("occt.cwasm", OcctKernel::compile(&engine)?.serialize()?)?;
+
+// Later, in another process. wasmtime trusts these bytes as compiled code,
+// so only load a file your own program wrote.
+let module = unsafe { Module::deserialize_file(&engine, "occt.cwasm")? };
+let mut kernel = OcctKernel::from_module(&module)?;
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+The crate re-exports `wasmtime`, so the engine and module come from the version the kernel links against.
+
+## Memory limits
+
+`OcctKernel::from_module_with_limiter` takes any `wasmtime::ResourceLimiter`. A refused memory growth stops the call that needed it with `OcctError::MemoryLimit`:
+
+```rust,no_run
+use occt_wasm::{OcctError, OcctKernel};
+use occt_wasm::wasmtime::{Engine, StoreLimitsBuilder};
+
+let engine = Engine::new(&OcctKernel::engine_config())?;
+let module = OcctKernel::compile(&engine)?;
+let limits = StoreLimitsBuilder::new().memory_size(512 << 20).build();
+let mut kernel = OcctKernel::from_module_with_limiter(&module, limits)?;
+
+match kernel.import_step(&std::fs::read_to_string("part.step")?) {
+    Ok(shape) => { /* ... */ }
+    Err(OcctError::MemoryLimit { requested, .. }) => {
+        eprintln!("part.step needs more than 512 MiB ({requested} bytes requested)");
+    }
+    Err(e) => return Err(e.into()),
+}
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+The module starts with 128 MiB of linear memory, so a smaller cap fails instantiation. After a `MemoryLimit` or `Runtime` error the kernel's state is undefined: drop it and create a new one from the same module.
 
 ## Errors
 
@@ -102,8 +138,10 @@ match kernel.fuse(a, b) {
     Err(OcctError::Operation { operation, message }) => {
         eprintln!("OCCT op {operation} failed: {message}");
     }
-    Err(OcctError::Runtime(e)) => eprintln!("WASM runtime error: {e}"),
-    Err(OcctError::Memory(msg)) => eprintln!("memory error: {msg}"),
+    Err(OcctError::MemoryLimit { requested, .. }) => {
+        eprintln!("memory limit hit asking for {requested} bytes");
+    }
+    Err(e) => eprintln!("{e}"),
 }
 # Ok::<(), OcctError>(())
 ```
