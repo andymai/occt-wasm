@@ -1,0 +1,55 @@
+test/xcaf-references.test.ts
+  s_c1bc7b26c1d189::t_eed996f9d88288 340-357
+test/xcaf.test.ts
+  s_c1bc7b26c1d189::t_4aa5fa1859983a 137-153
+facade/src/kernel.cpp
+  s_c1bc7b26c1d189::t_5729aaf2b8ff4e 13,33,150-208,212-232,236-240
+  s_c1bc7b26c1d189::t_b9f2cf0f3ae888 209-211,233-235
+  s_c1bc7b26c1d189::t_66c9ccb3fc40a4 241
+xtask/src/codegen/types.rs
+  s_c1bc7b26c1d189::t_d267f33108bc24 211-219
+facade/include/occt_kernel.h
+  s_c1bc7b26c1d189::t_5729aaf2b8ff4e 4,10,23-28,321-322,450
+ts/src/types.ts
+  s_c1bc7b26c1d189::t_077e0367ec8bb5 616
+ts/src/raw-types.ts
+  s_c1bc7b26c1d189::t_077e0367ec8bb5 290,292,294-295,409,411
+xtask/src/codegen/run.rs
+  s_c1bc7b26c1d189::t_65fc74a994afa6 79
+xtask/src/codegen/config.rs
+  s_c1bc7b26c1d189::t_65fc74a994afa6 4584-4585
+  s_c1bc7b26c1d189::t_46222aead053d7 4591,4606-4637,6123-6149,6152,6168-6174,6183
+crate/src/kernel_generated.rs
+  s_c1bc7b26c1d189::t_d267f33108bc24 214-215,258,462-463,527,3595,3598,3601,3603,3606-3608,3611-3613,3615,3617,4570,4575,4578,4581,4583
+README.md
+  s_c1bc7b26c1d189::t_46d17d63b56e5c 288
+ts/src/xcaf-document.ts
+  s_c1bc7b26c1d189::t_3265e4568993f1 86,89,105,116,125,291-292,295,302-303,306
+  s_c1bc7b26c1d189::t_6ebef91a2ab4a4 111-114,120-123
+crate/tests/integration.rs
+  s_c1bc7b26c1d189::t_eed996f9d88288 274-285,511-523
+  s_c1bc7b26c1d189::t_b4369f30e17dcc 524
+ts/src/index.ts
+  s_c1bc7b26c1d189::t_077e0367ec8bb5 1465,1470
+  s_c1bc7b26c1d189::t_3265e4568993f1 2168,2170,2174,2178
+facade/generated/bindings.cpp
+  s_c1bc7b26c1d189::t_4706103eb3a74b 298-305,308,361-365
+facade/generated/kernel.cpp
+  s_c1bc7b26c1d189::t_bf99db4d19cafc 3665-3690,3714-3732,4856,4860,4876-4882,4884
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "efa8abdbbe690b987c76290196c57e4f7d6f7ce7",
+  "prompts": {},
+  "sessions": {
+    "s_c1bc7b26c1d189": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee70f65a-f174-4110-95ae-de394d34eb5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
