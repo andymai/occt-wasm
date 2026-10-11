@@ -260,9 +260,9 @@ pub(crate) struct GeneratedFuncs {
 
 impl GeneratedFuncs {
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn resolve(
+    pub(crate) fn resolve<T: 'static>(
         instance: &wasmtime::Instance,
-        mut store: &mut wasmtime::Store<()>,
+        mut store: &mut wasmtime::Store<T>,
     ) -> OcctResult<Self> {
         Ok(Self {
             fn_make_box: instance.get_typed_func(&mut store, "occt_make_box")?,

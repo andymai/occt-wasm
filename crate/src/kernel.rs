@@ -3,9 +3,12 @@
 //! Manages the wasmtime `Engine`, `Store`, and `Instance`, and provides
 //! helper methods for memory transfer across the WASM boundary.
 
-use wasmtime::{Engine, Instance, Linker, Memory, Module, Store, TypedFunc};
+use wasmtime::{
+    Engine, Instance, Linker, Memory, Module, ResourceLimiter, Store, StoreLimits, TypedFunc,
+};
 
 use crate::error::{OcctError, OcctResult};
+use crate::host::HostState;
 use crate::kernel_generated::GeneratedFuncs;
 use crate::types::{
     BoundingBox, EdgeData, EvolutionData, LabelInfo, Mesh, MeshBatch, NurbsCurveData,
@@ -15,7 +18,7 @@ use crate::types::{
 /// Brotli-compressed WASM binary, embedded at compile time.
 ///
 /// The uncompressed binary is ~21 MB; brotli brings it to ~4 MB.
-/// This is decompressed once during `OcctKernel::new()`.
+/// [`OcctKernel::compile()`] decompresses it.
 static WASM_BINARY: &[u8] = include_bytes!("occt-wasm.wasm.br");
 
 /// The OCCT CAD kernel, backed by a sandboxed WASM module.
@@ -35,7 +38,7 @@ static WASM_BINARY: &[u8] = include_bytes!("occt-wasm.wasm.br");
 /// assert!((volume - 6000.0).abs() < 1.0);
 /// ```
 pub struct OcctKernel {
-    pub(crate) store: Store<()>,
+    pub(crate) store: Store<HostState>,
     pub(crate) instance: Instance,
     pub(crate) memory: Memory,
 
@@ -141,28 +144,101 @@ pub struct OcctKernel {
 impl OcctKernel {
     /// Create a new OCCT kernel instance.
     ///
-    /// Decompresses the embedded WASM binary, compiles it with `wasmtime`,
-    /// and initializes the OCCT runtime. This takes ~100-500ms depending
-    /// on the platform.
-    #[allow(clippy::too_many_lines)]
+    /// Decompresses and compiles the embedded WASM binary, then initializes
+    /// the OCCT runtime. Compiling is most of that cost; to pay it once for
+    /// many kernels, or once across processes, see [`OcctKernel::compile()`].
     pub fn new() -> OcctResult<Self> {
+        let engine = Engine::new(&Self::engine_config())?;
+        Self::from_module(&Self::compile(&engine)?)
+    }
+
+    /// The `wasmtime` features the embedded module needs.
+    ///
+    /// Build the [`Engine`] passed to [`OcctKernel::compile()`] from this,
+    /// adding any settings of your own, such as a compilation cache.
+    #[must_use]
+    pub fn engine_config() -> wasmtime::Config {
         let mut config = wasmtime::Config::new();
         config.wasm_simd(true);
         config.wasm_tail_call(true);
         // The WASM binary uses wasm-opt --experimental-new-eh to convert
         // Emscripten's legacy exceptions to the new (exnref) encoding.
         config.wasm_exceptions(true);
+        config
+    }
 
-        let engine = Engine::new(&config)?;
-        let wasm_bytes = decompress_wasm()?;
-        let module = Module::new(&engine, &wasm_bytes)?;
-        let mut store = Store::new(&engine, ());
-        let mut linker = Linker::new(&engine);
+    /// Decompress the embedded WASM binary and compile it for `engine`.
+    ///
+    /// One [`Module`] creates any number of kernels through
+    /// [`OcctKernel::from_module()`], each with its own memory. To skip
+    /// compiling in later processes, save it with [`Module::serialize`] and
+    /// load it back with [`Module::deserialize`] on an engine built from the
+    /// same [`OcctKernel::engine_config()`].
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use occt_wasm::OcctKernel;
+    /// use occt_wasm::wasmtime::Engine;
+    ///
+    /// let engine = Engine::new(&OcctKernel::engine_config())?;
+    /// let module = OcctKernel::compile(&engine)?;
+    /// let mut a = OcctKernel::from_module(&module)?;
+    /// let mut b = OcctKernel::from_module(&module)?;
+    /// # Ok::<(), occt_wasm::OcctError>(())
+    /// ```
+    pub fn compile(engine: &Engine) -> OcctResult<Module> {
+        Ok(Module::new(engine, decompress_wasm()?)?)
+    }
+
+    /// Instantiate a kernel from a module made by [`OcctKernel::compile()`].
+    pub fn from_module(module: &Module) -> OcctResult<Self> {
+        Self::from_module_with_limiter(module, StoreLimits::default())
+    }
+
+    /// Instantiate a kernel whose memory and table growth `limiter` approves.
+    ///
+    /// [`StoreLimitsBuilder`](wasmtime::StoreLimitsBuilder) covers the usual
+    /// case, a cap on linear memory. The module starts with 128 MiB, so a
+    /// smaller cap fails here.
+    ///
+    /// A refused memory growth traps the call that needed it, which returns
+    /// [`OcctError::MemoryLimit`]. After that error the kernel's state is
+    /// undefined: drop it, and instantiate a new one from the same module.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use occt_wasm::{OcctError, OcctKernel};
+    /// use occt_wasm::wasmtime::{Engine, StoreLimitsBuilder};
+    ///
+    /// let engine = Engine::new(&OcctKernel::engine_config())?;
+    /// let module = OcctKernel::compile(&engine)?;
+    /// let limits = StoreLimitsBuilder::new().memory_size(512 << 20).build();
+    /// let mut kernel = OcctKernel::from_module_with_limiter(&module, limits)?;
+    /// # let step = String::new();
+    /// match kernel.import_step(&step) {
+    ///     Err(OcctError::MemoryLimit { requested, .. }) => {
+    ///         eprintln!("needs more than 512 MiB (asked for {requested} bytes)");
+    ///     }
+    ///     other => { other?; }
+    /// }
+    /// # Ok::<(), occt_wasm::OcctError>(())
+    /// ```
+    #[allow(clippy::too_many_lines)]
+    pub fn from_module_with_limiter(
+        module: &Module,
+        limiter: impl ResourceLimiter + Sync + 'static,
+    ) -> OcctResult<Self> {
+        let engine = module.engine();
+        let mut store = Store::new(engine, HostState::new(Box::new(limiter)));
+        store.limiter(|state| state);
+        let mut linker = Linker::new(engine);
         crate::host::define_imports(&mut linker)?;
         // An import a future build adds instantiates as a trap instead of
         // failing `new()`; it only matters if it is ever called.
-        linker.define_unknown_imports_as_traps(&module)?;
-        let instance = linker.instantiate(&mut store, &module)?;
+        linker.define_unknown_imports_as_traps(module)?;
+        let instance = linker.instantiate(&mut store, module)?;
 
         let memory = instance
             .get_memory(&mut store, "memory")

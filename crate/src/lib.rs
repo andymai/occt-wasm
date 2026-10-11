@@ -37,9 +37,14 @@
 //! # Architecture
 //!
 //! The WASM binary is brotli-compressed and embedded via `include_bytes!`.
-//! On first call to [`OcctKernel::new()`], it is decompressed and compiled
-//! by wasmtime. Shape data lives in an arena inside the WASM sandbox,
-//! referenced by opaque [`ShapeHandle`] values.
+//! [`OcctKernel::new()`] decompresses and compiles it with wasmtime on every
+//! call; [`OcctKernel::compile()`] and [`OcctKernel::from_module()`] split
+//! that so one compiled module serves many kernels. Shape data lives in an
+//! arena inside the WASM sandbox, referenced by opaque [`ShapeHandle`] values.
+//! [`OcctKernel::from_module_with_limiter()`] caps how far that memory grows.
+//!
+//! The crate re-exports [`wasmtime`], so engines, modules and store limits
+//! you build come from the same version the kernel links against.
 
 #![doc(html_root_url = "https://docs.rs/occt-wasm/3.0.1")]
 // Generated code does cross-boundary integer casting (u32 <-> i32 for WASM ABI)
@@ -62,3 +67,9 @@ pub mod types;
 pub use error::{OcctError, OcctResult};
 pub use kernel::OcctKernel;
 pub use types::*;
+pub use wasmtime;
+
+/// Compiles the README's examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;

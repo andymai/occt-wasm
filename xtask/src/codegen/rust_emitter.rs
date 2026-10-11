@@ -623,9 +623,9 @@ pub fn emit_rust_host(methods: &[&MethodSpec]) -> String {
     // Init function to resolve all typed funcs
     let _ = writeln!(buf, "impl GeneratedFuncs {{");
     let _ = writeln!(buf, "    #[allow(clippy::too_many_lines)]");
-    let _ = writeln!(buf, "    pub(crate) fn resolve(");
+    let _ = writeln!(buf, "    pub(crate) fn resolve<T: 'static>(");
     let _ = writeln!(buf, "        instance: &wasmtime::Instance,");
-    let _ = writeln!(buf, "        mut store: &mut wasmtime::Store<()>,");
+    let _ = writeln!(buf, "        mut store: &mut wasmtime::Store<T>,");
     let _ = writeln!(buf, "    ) -> OcctResult<Self> {{");
     let _ = writeln!(buf, "        Ok(Self {{");
     emit_func_lookups(&mut buf, methods);
