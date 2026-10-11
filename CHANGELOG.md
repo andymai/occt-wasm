@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.7.0](https://github.com/andymai/occt-wasm/compare/v5.6.2...v5.7.0) (2026-10-11)
+
+
+### Features
+
+* **crate:** build kernels from a compiled module, under a memory limit ([#396](https://github.com/andymai/occt-wasm/issues/396)) ([02dfbc7](https://github.com/andymai/occt-wasm/commit/02dfbc745afffcdd05433a5da9869ffbea464598))
+* **facade:** export binary BREP and glTF as bytes ([#397](https://github.com/andymai/occt-wasm/issues/397)) ([8dc2d1b](https://github.com/andymai/occt-wasm/commit/8dc2d1b310a3794a8070d9b4b77c314978e28765))
+
 ## [5.6.2](https://github.com/andymai/occt-wasm/compare/v5.6.1...v5.6.2) (2026-10-11)
 
 
