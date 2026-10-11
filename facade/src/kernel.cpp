@@ -1,14 +1,19 @@
 #include "occt_kernel.h"
 
+#include <BRepBuilderAPI_MakeShapeOnMesh.hxx>
 #include <BRepGProp.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <GProp_GProps.hxx>
+#include <Message_ProgressRange.hxx>
 #include <NCollection_Vec3.hxx>
 #include <OSD.hxx>
+#include <Poly_Triangle.hxx>
 #include <Poly_Triangulation.hxx>
+#include <RWStl_Reader.hxx>
+#include <Standard_ReadLineBuffer.hxx>
 #include <TopAbs_Orientation.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
@@ -22,6 +27,9 @@
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Pnt2d.hxx>
+#include <gp_XYZ.hxx>
+#include <istream>
+#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -62,6 +70,79 @@ TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId) {
         throw std::runtime_error("invalid label ID: " + std::to_string(labelId));
     }
     return it->second;
+}
+
+// --- STL import ---
+
+namespace {
+
+// The reader RWStl::ReadFile uses, which OCCT keeps private. RWStl's exported
+// stream readers are no substitute: they pick ASCII by a "solid" prefix alone,
+// which misreads binary files whose 80-byte header starts the same way, and
+// they stop after the first solid of a multi-domain file.
+class StlMeshReader : public RWStl_Reader {
+  public:
+    int AddNode(const gp_XYZ& point) override {
+        nodes_.push_back(point);
+        return static_cast<int>(nodes_.size());
+    }
+
+    void AddTriangle(int n1, int n2, int n3) override {
+        triangles_.emplace_back(n1, n2, n3);
+    }
+
+    Handle(Poly_Triangulation) triangulation() const {
+        if (triangles_.empty()) {
+            return {};
+        }
+        Handle(Poly_Triangulation) mesh = new Poly_Triangulation(
+            static_cast<int>(nodes_.size()), static_cast<int>(triangles_.size()), false);
+        for (size_t i = 0; i < nodes_.size(); ++i) {
+            mesh->SetNode(static_cast<int>(i) + 1, nodes_[i]);
+        }
+        for (size_t i = 0; i < triangles_.size(); ++i) {
+            mesh->SetTriangle(static_cast<int>(i) + 1, triangles_[i]);
+        }
+        return mesh;
+    }
+
+  private:
+    std::vector<gp_XYZ> nodes_;
+    std::vector<Poly_Triangle> triangles_;
+};
+
+// 80-byte header + 4-byte facet count + one 50-byte facet.
+constexpr size_t kStlMinBinarySize = 134;
+
+} // namespace
+
+TopoDS_Shape readStl(const std::string& data) {
+    std::istringstream stream(data, std::ios::binary);
+    StlMeshReader reader;
+    // RWStl_Reader::Read without the file open: the same format probe, then
+    // one pass per concatenated solid, all merged into a single mesh.
+    const bool ascii = data.size() < kStlMinBinarySize || reader.IsAscii(stream, true);
+    const std::streampos end(static_cast<std::streamoff>(data.size()));
+    Standard_ReadLineBuffer buffer(1024);
+    while (stream.good()) {
+        const bool ok = ascii ? reader.ReadAscii(stream, buffer, end, Message_ProgressRange())
+                              : reader.ReadBinary(stream, Message_ProgressRange());
+        if (!ok) {
+            break;
+        }
+        stream >> std::ws;
+    }
+
+    Handle(Poly_Triangulation) mesh = reader.triangulation();
+    if (mesh.IsNull()) {
+        return {};
+    }
+    BRepBuilderAPI_MakeShapeOnMesh converter(mesh);
+    converter.Build();
+    if (!converter.IsDone()) {
+        return {};
+    }
+    return converter.Shape();
 }
 
 int OcctKernel::registerLabel(XCAFDocRecord& record, const TDF_Label& label) {

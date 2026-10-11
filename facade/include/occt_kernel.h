@@ -15,6 +15,9 @@
 const Handle(TDocStd_Application) & getXCAFApp();
 TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId);
 
+// STL bytes to a face soup, as StlAPI_Reader reads a file; a null shape on failure.
+TopoDS_Shape readStl(const std::string& data);
+
 /// Mesh data returned from tessellation.
 struct MeshData {
     float* positions = nullptr;

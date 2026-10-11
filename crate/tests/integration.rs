@@ -155,7 +155,6 @@ fn tessellate_box() {
 }
 
 #[test]
-#[ignore = "exports write a temp file under /tmp, and the standalone WASI build has no filesystem"]
 fn step_roundtrip() {
     let Some(mut kernel) = try_kernel() else {
         return;
@@ -173,7 +172,6 @@ fn step_roundtrip() {
 }
 
 #[test]
-#[ignore = "exports write a temp file under /tmp, and the standalone WASI build has no filesystem"]
 fn stl_binary_roundtrip() {
     let Some(mut kernel) = try_kernel() else {
         return;
@@ -401,7 +399,6 @@ fn xcaf_document_assembly() {
 }
 
 #[test]
-#[ignore = "exports write a temp file under /tmp, and the standalone WASI build has no filesystem"]
 fn xcaf_step_roundtrip() {
     let Some(mut kernel) = try_kernel() else {
         return;

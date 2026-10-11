@@ -3536,19 +3536,9 @@ uint32_t OcctKernel::removeDegenerateEdges(uint32_t id) {
 uint32_t OcctKernel::importStep(const std::string& data) {
     try {
         STEPControl_Reader reader;
-        
-        // Write data to Emscripten's virtual filesystem
-        // STEPControl_Reader needs a file path — write to virtual FS
-        {
-            FILE* f = fopen("/tmp/import.step", "w");
-            if (!f) {
-                throw std::runtime_error("importStep: cannot create temp file");
-            }
-            fwrite(data.c_str(), 1, data.size(), f);
-            fclose(f);
-        }
-        
-        IFSelect_ReturnStatus status = reader.ReadFile("/tmp/import.step");
+        // Streams, not files: the standalone WASI build the crate embeds has no filesystem.
+        std::istringstream iss(data);
+        IFSelect_ReturnStatus status = reader.ReadStream("import.step", iss);
         if (status != IFSelect_RetDone) {
             throw std::runtime_error("importStep: failed to read STEP data");
         }
@@ -3584,35 +3574,11 @@ std::string OcctKernel::exportStep(uint32_t id) {
             throw std::runtime_error("exportStep: transfer failed");
         }
         
-        // Write to temp file then read back
-        const char* tmpPath = "/tmp/export.step";
-        status = writer.Write(tmpPath);
-        if (status != IFSelect_RetDone) {
+        std::ostringstream oss;
+        if (writer.WriteStream(oss) != IFSelect_RetDone) {
             throw std::runtime_error("exportStep: write failed");
         }
-        
-        // Read file content
-        FILE* f = fopen(tmpPath, "r");
-        if (!f) {
-            throw std::runtime_error("exportStep: cannot read temp file");
-        }
-        fseek(f, 0, SEEK_END);
-        long size = ftell(f);
-        // ftell returns -1 on error; a negative length cast to std::string's size_type
-        // is huge and throws bad_alloc, so fail cleanly here instead.
-        if (size < 0) {
-            fclose(f);
-            throw std::runtime_error("exportStep: cannot determine temp file size");
-        }
-        fseek(f, 0, SEEK_SET);
-        std::string result(static_cast<size_t>(size), '\0');
-        size_t nread = fread(&result[0], 1, static_cast<size_t>(size), f);
-        fclose(f);
-        if (nread != static_cast<size_t>(size)) {
-            throw std::runtime_error("exportStep: short read from temp file");
-        }
-        
-        return result;
+        return oss.str();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("exportStep: ") + e.what());
     }
@@ -3628,32 +3594,11 @@ std::string OcctKernel::exportStl(uint32_t id, double linearDeflection, bool asc
         StlAPI_Writer writer;
         writer.ASCIIMode() = ascii;
         
-        const char* tmpPath = "/tmp/export.stl";
-        if (!writer.Write(shape, tmpPath)) {
+        std::ostringstream oss(std::ios::binary);
+        if (!writer.Write(shape, oss)) {
             throw std::runtime_error("exportStl: write failed");
         }
-        
-        FILE* f = fopen(tmpPath, "rb");
-        if (!f) {
-            throw std::runtime_error("exportStl: cannot read temp file");
-        }
-        fseek(f, 0, SEEK_END);
-        long size = ftell(f);
-        // ftell returns -1 on error; a negative length cast to std::string's size_type
-        // is huge and throws bad_alloc, so fail cleanly here instead.
-        if (size < 0) {
-            fclose(f);
-            throw std::runtime_error("exportStl: cannot determine temp file size");
-        }
-        fseek(f, 0, SEEK_SET);
-        std::string result(static_cast<size_t>(size), '\0');
-        size_t nread = fread(&result[0], 1, static_cast<size_t>(size), f);
-        fclose(f);
-        if (nread != static_cast<size_t>(size)) {
-            throw std::runtime_error("exportStl: short read from temp file");
-        }
-        
-        return result;
+        return oss.str();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("exportStl: ") + e.what());
     }
@@ -3661,21 +3606,15 @@ std::string OcctKernel::exportStl(uint32_t id, double linearDeflection, bool asc
 
 uint32_t OcctKernel::importStl(const std::string& data) {
     try {
-        // If data is non-empty, write it to the virtual FS.
-        // If empty, assume the caller already wrote to /tmp/import.stl via FS API.
-        if (!data.empty()) {
-            FILE* f = fopen("/tmp/import.stl", "wb");
-            if (!f) {
-                throw std::runtime_error("importStl: cannot create temp file");
-            }
-            fwrite(data.c_str(), 1, data.size(), f);
-            fclose(f);
-        }
-        
+        // Empty data means the caller already wrote /tmp/import.stl through the Embind FS.
         TopoDS_Shape shape;
-        StlAPI_Reader reader;
-        if (!reader.Read(shape, "/tmp/import.stl")) {
-            throw std::runtime_error("importStl: failed to read STL data");
+        if (data.empty()) {
+            StlAPI_Reader reader;
+            if (!reader.Read(shape, "/tmp/import.stl")) {
+                throw std::runtime_error("importStl: failed to read STL data");
+            }
+        } else {
+            shape = readStl(data);
         }
         
         if (shape.IsNull()) {
@@ -4829,16 +4768,11 @@ std::string OcctKernel::xcafExportSTEP(uint32_t docId) {
             throw std::runtime_error("xcafExportSTEP: transfer failed");
         }
         
-        std::string tmpPath = "/tmp/xcaf_export.step";
-        if (writer.Write(tmpPath.c_str()) != IFSelect_RetDone) {
+        std::ostringstream oss;
+        if (writer.WriteStream(oss) != IFSelect_RetDone) {
             throw std::runtime_error("xcafExportSTEP: write failed");
         }
-        
-        std::ifstream ifs(tmpPath);
-        std::string content((std::istreambuf_iterator<char>(ifs)),
-                            std::istreambuf_iterator<char>());
-        std::remove(tmpPath.c_str());
-        return content;
+        return oss.str();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafExportSTEP: ") + e.what());
     }
@@ -4846,12 +4780,6 @@ std::string OcctKernel::xcafExportSTEP(uint32_t docId) {
 
 uint32_t OcctKernel::xcafImportSTEP(const std::string& stepData) {
     try {
-        std::string tmpPath = "/tmp/xcaf_import.step";
-        {
-            std::ofstream ofs(tmpPath);
-            ofs << stepData;
-        }
-        
         Handle(TDocStd_Application) app = getXCAFApp();
         Handle(TDocStd_Document) doc;
         app->NewDocument("BinXCAF", doc);
@@ -4861,12 +4789,11 @@ uint32_t OcctKernel::xcafImportSTEP(const std::string& stepData) {
         reader.SetNameMode(Standard_True);
         reader.SetLayerMode(Standard_True);
         
-        if (reader.ReadFile(tmpPath.c_str()) != IFSelect_RetDone) {
-            std::remove(tmpPath.c_str());
+        std::istringstream iss(stepData);
+        if (reader.ReadStream("xcaf_import.step", iss) != IFSelect_RetDone) {
             getXCAFApp()->Close(doc);
             throw std::runtime_error("xcafImportSTEP: read failed");
         }
-        std::remove(tmpPath.c_str());
         
         if (!reader.Transfer(doc)) {
             getXCAFApp()->Close(doc);
