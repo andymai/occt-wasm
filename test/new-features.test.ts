@@ -409,6 +409,22 @@ describe("binary STL through the wrapper", () => {
         }
         expectBoxBounds(kernel3.importStl(bytes));
     });
+
+    it("importStl reads binary STL whose header starts with 'solid'", () => {
+        // A "solid" prefix alone would route these bytes to the ASCII parser.
+        const bytes = new Uint8Array(kernel3.exportStl(kernel3.makeBox(10, 20, 30), 0.1));
+        bytes.set(new TextEncoder().encode("solid written by another tool"));
+        expectBoxBounds(kernel3.importStl(bytes));
+    });
+
+    it("importStl keeps every solid of a multi-solid ASCII file", () => {
+        const box = kernel3.makeBox(10, 20, 30);
+        const shifted = kernel3.translate(box, 100, 0, 0);
+        const text = kernel3.exportStl(box, 0.1, true) + kernel3.exportStl(shifted, 0.1, true);
+        const shape = kernel3.importStl(text);
+        expect(kernel3.getSubShapes(shape, "face")).toHaveLength(24);
+        expect(kernel3.getBoundingBox(shape).xmax).toBeCloseTo(110, 3);
+    });
 });
 
 describe("OcctKernel wires decoding into its lifecycle", () => {
