@@ -9,15 +9,20 @@
 
 #![allow(clippy::unwrap_used, clippy::panic)]
 
-use occt_wasm::{DocumentHandle, OcctKernel, ShapeHandle};
+use std::sync::OnceLock;
 
-/// Try to create a kernel. Returns None if the embedded WASM is a placeholder
-/// or if running in debug mode (WASM compilation is ~100x slower in debug).
-fn try_kernel() -> Option<OcctKernel> {
-    let required = std::env::var_os("OCCT_WASM_REQUIRE_KERNEL").is_some();
+use occt_wasm::wasmtime::{Engine, Module, StoreLimitsBuilder};
+use occt_wasm::{DocumentHandle, OcctError, OcctKernel, ShapeHandle};
+
+/// The embedded module, compiled once for the whole test binary: compiling
+/// takes seconds and over a gigabyte per copy, instantiating about a
+/// millisecond. Returns None if the embedded WASM is a placeholder or if
+/// running in debug mode (WASM compilation is ~100x slower in debug).
+fn shared_module() -> Option<&'static Module> {
+    static MODULE: OnceLock<Result<Module, String>> = OnceLock::new();
     if cfg!(debug_assertions) {
         assert!(
-            !required,
+            !kernel_required(),
             "OCCT_WASM_REQUIRE_KERNEL needs a release build: `cargo test --release`"
         );
         eprintln!(
@@ -25,25 +30,42 @@ fn try_kernel() -> Option<OcctKernel> {
         );
         return None;
     }
-    match OcctKernel::new() {
+    let compiled = MODULE.get_or_init(|| {
+        let engine = Engine::new(&OcctKernel::engine_config()).map_err(|e| e.to_string())?;
+        OcctKernel::compile(&engine).map_err(|e| e.to_string())
+    });
+    match compiled {
+        Ok(module) => Some(module),
+        Err(msg) => skip_placeholder(msg),
+    }
+}
+
+/// Try to create a kernel from [`shared_module`], with the same skip rules.
+fn try_kernel() -> Option<OcctKernel> {
+    match OcctKernel::from_module(shared_module()?) {
         Ok(k) => Some(k),
-        Err(e) => {
-            let msg = e.to_string();
-            // Placeholder WASM is too small to be a real module
-            if !required
-                && (msg.contains("not enough bytes")
-                    || msg.contains("unknown import")
-                    || msg.contains("occt_init")
-                    || msg.contains("no memory export"))
-            {
-                eprintln!(
-                    "Skipping test: WASM binary is a placeholder. Run `cargo xtask build-wasi` first."
-                );
-                None
-            } else {
-                panic!("Unexpected kernel init error: {e:?}");
-            }
-        }
+        Err(e) => skip_placeholder(&e.to_string()),
+    }
+}
+
+fn kernel_required() -> bool {
+    std::env::var_os("OCCT_WASM_REQUIRE_KERNEL").is_some()
+}
+
+fn skip_placeholder<T>(msg: &str) -> Option<T> {
+    // Placeholder WASM is too small to be a real module
+    if !kernel_required()
+        && (msg.contains("not enough bytes")
+            || msg.contains("unknown import")
+            || msg.contains("occt_init")
+            || msg.contains("no memory export"))
+    {
+        eprintln!(
+            "Skipping test: WASM binary is a placeholder. Run `cargo xtask build-wasi` first."
+        );
+        None
+    } else {
+        panic!("Unexpected kernel init error: {msg}");
     }
 }
 
@@ -51,6 +73,84 @@ fn try_kernel() -> Option<OcctKernel> {
 fn kernel_init_and_drop() {
     let Some(_kernel) = try_kernel() else { return };
     // Kernel initializes and drops cleanly
+}
+
+#[test]
+fn new_compiles_its_own_module() {
+    if shared_module().is_none() {
+        return;
+    }
+    let mut kernel = OcctKernel::new().unwrap();
+    let shape = kernel.make_box(1.0, 2.0, 3.0).unwrap();
+    assert!((kernel.get_volume(shape).unwrap() - 6.0).abs() < 1e-9);
+}
+
+#[test]
+fn one_module_serves_independent_kernels() {
+    let Some(module) = shared_module() else {
+        return;
+    };
+    let mut a = OcctKernel::from_module(module).unwrap();
+    let mut b = OcctKernel::from_module(module).unwrap();
+    let in_a = a.make_box(1.0, 2.0, 3.0).unwrap();
+    let in_b = b.make_box(2.0, 2.0, 2.0).unwrap();
+    // Each kernel has its own memory, so the same arena slot holds different shapes.
+    assert_eq!(in_a, in_b);
+    a.release(in_a).unwrap();
+    assert!((b.get_volume(in_b).unwrap() - 8.0).abs() < 1e-9);
+}
+
+#[test]
+#[allow(unsafe_code)]
+fn serialized_module_instantiates() {
+    let Some(module) = shared_module() else {
+        return;
+    };
+    let bytes = module.serialize().unwrap();
+    let engine = Engine::new(&OcctKernel::engine_config()).unwrap();
+    // SAFETY: the bytes come from `Module::serialize` in this process, on an
+    // engine with the same configuration.
+    let restored = unsafe { Module::deserialize(&engine, &bytes) }.unwrap();
+    let mut kernel = OcctKernel::from_module(&restored).unwrap();
+    let shape = kernel.make_box(1.0, 2.0, 3.0).unwrap();
+    assert!((kernel.get_volume(shape).unwrap() - 6.0).abs() < 1e-9);
+}
+
+#[test]
+fn memory_limit_below_initial_memory_fails_instantiation() {
+    let Some(module) = shared_module() else {
+        return;
+    };
+    let limits = StoreLimitsBuilder::new().memory_size(64 << 20).build();
+    match OcctKernel::from_module_with_limiter(module, limits) {
+        Err(OcctError::MemoryLimit { current, requested }) => {
+            assert_eq!(current, 0);
+            assert_eq!(requested, 128 << 20);
+        }
+        Err(e) => panic!("expected a memory limit error, got {e:?}"),
+        Ok(_) => panic!("a 64 MiB cap should not fit the module's 128 MiB of initial memory"),
+    }
+}
+
+#[test]
+fn memory_limit_stops_the_call_that_exceeds_it() {
+    let Some(module) = shared_module() else {
+        return;
+    };
+    let cap = 160 << 20;
+    let limits = StoreLimitsBuilder::new().memory_size(cap).build();
+    let mut kernel = OcctKernel::from_module_with_limiter(module, limits).unwrap();
+    let sphere = kernel.make_sphere(10.0).unwrap();
+    match kernel.tessellate(sphere, 0.0005, 0.01) {
+        Err(OcctError::MemoryLimit { current, requested }) => {
+            assert!(
+                current <= cap && requested > cap,
+                "{current} -> {requested}"
+            );
+        }
+        Err(e) => panic!("expected a memory limit error, got {e:?}"),
+        Ok(mesh) => panic!("{} triangles fit under the cap", mesh.indices.len() / 3),
+    }
 }
 
 #[test]

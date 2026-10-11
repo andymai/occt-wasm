@@ -41,3 +41,6 @@ jobs:
         env:
           OCCT_WASM_REQUIRE_KERNEL: "1"
         run: cargo test --release -p occt-wasm --test integration -- --test-threads=4
+
+      - name: cargo test --doc
+        run: cargo test --release -p occt-wasm --doc
