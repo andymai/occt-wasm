@@ -1,0 +1,25 @@
+crate/src/lib.rs
+  s_c1bc7b26c1d189::t_8c692ffe966d7d 49
+crate/Cargo.toml
+  s_c1bc7b26c1d189::t_8c692ffe966d7d 3
+crate/README.md
+  s_c1bc7b26c1d189::t_8c692ffe966d7d 13
+Cargo.lock
+  s_c1bc7b26c1d189::t_13fb55e034db75 666,668,852
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "11f1518d2c745e92f05239460dcded308c087d0f",
+  "prompts": {},
+  "sessions": {
+    "s_c1bc7b26c1d189": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee70f65a-f174-4110-95ae-de394d34eb5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
