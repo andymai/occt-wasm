@@ -1,0 +1,49 @@
+facade/generated/kernel.cpp
+  s_c1bc7b26c1d189::t_50a2ccdd94d677 3539-3541,3577-3578,3581,3597-3598,3601,3609,3611-3617,4771-4772,4775,4792-4793
+facade/src/kernel.cpp
+  s_9055ce29a5e7bf::t_00e18f3425c9ac 30-32
+  s_9055ce29a5e7bf::t_f53c2577b6ea7d 75-145
+  s_9055ce29a5e7bf::t_864ad8f74a4674 3,10,13,15-16
+  s_71f59575c9f5e7::t_1fbce5a21ffcf3 146-147
+xtask/src/codegen/config.rs
+  s_9055ce29a5e7bf::t_ac386bb3630cff 4498,4500-4506
+  s_9055ce29a5e7bf::t_e8dfb8b90b77ea 4482-4483,4486
+  s_9055ce29a5e7bf::t_a4cba4add73dd2 6059-6060
+  s_9055ce29a5e7bf::t_50f01e7dbecc37 6031-6032,6035
+  s_9055ce29a5e7bf::t_c88bd76ecb6fa6 4410-4412
+  s_9055ce29a5e7bf::t_93f6e40e54615b 4452-4453,4456
+facade/include/occt_kernel.h
+  s_9055ce29a5e7bf::t_4b95bc6656081b 18-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c24a70c150e661f23a83abdadc75ef49d1c80f54",
+  "prompts": {},
+  "sessions": {
+    "s_71f59575c9f5e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6e06bfac-8879-4e72-82c3-b1b5802c2b58",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    },
+    "s_9055ce29a5e7bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2c51a80c-ba04-4789-b7bd-96c8c6445bc8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    },
+    "s_c1bc7b26c1d189": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee70f65a-f174-4110-95ae-de394d34eb5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
