@@ -168,6 +168,12 @@ impl OcctKernel {
             .get_memory(&mut store, "memory")
             .ok_or_else(|| OcctError::Memory("no memory export".to_owned()))?;
 
+        // A WASI reactor runs its C++ static constructors in `_initialize`, which
+        // the host must call before any other export. Skipping it leaves globals
+        // such as `std::cout` unconstructed, and OCCT's STEP code traps without them.
+        let initialize: TypedFunc<(), ()> = instance.get_typed_func(&mut store, "_initialize")?;
+        initialize.call(&mut store, ())?;
+
         // Call occt_init
         let init: TypedFunc<(), i32> = instance.get_typed_func(&mut store, "occt_init")?;
         let result = init.call(&mut store, ())?;
