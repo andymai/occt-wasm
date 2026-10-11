@@ -1,0 +1,21 @@
+crate/src/host.rs
+  s_c1bc7b26c1d189::t_8c1a7396a1004f 48-49
+crate/src/error.rs
+  s_c1bc7b26c1d189::t_8c1a7396a1004f 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "44d2fb59d7c70ab81014254c91f4119daff4a528",
+  "prompts": {},
+  "sessions": {
+    "s_c1bc7b26c1d189": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee70f65a-f174-4110-95ae-de394d34eb5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
