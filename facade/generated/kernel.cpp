@@ -3662,6 +3662,32 @@ uint32_t OcctKernel::fromBREP(const std::string& data) {
     }
 }
 
+std::string OcctKernel::toBREPBinary(uint32_t id) {
+    try {
+        std::ostringstream oss(std::ios::binary);
+        BinTools::Write(get(id), oss, true, false, BinTools_FormatVersion_CURRENT);
+        return oss.str();
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("toBREPBinary: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::fromBREPBinary(const std::string& data) {
+    try {
+        std::istringstream iss(data, std::ios::binary);
+        TopoDS_Shape shape;
+        BinTools::Read(shape, iss);
+        if (shape.IsNull()) {
+            throw std::runtime_error("fromBREPBinary: failed to read shape");
+        }
+        return store(shape);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("fromBREPBinary: ") + e.what());
+    }
+}
+
+// === vfs ===
+
 std::string OcctKernel::exportBrepBinary(uint32_t id) {
     try {
         std::string path = "/tmp/export.brep.bin";
@@ -3682,6 +3708,25 @@ uint32_t OcctKernel::importBrepBinary(const std::string& path) {
         return store(shape);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("importBrepBinary: ") + e.what());
+    }
+}
+
+std::string OcctKernel::xcafExportGLTF(uint32_t docId, double linDeflection, double angDeflection) {
+    try {
+        std::string glb = xcafExportGLB(docId, linDeflection, angDeflection);
+        std::string tmpPath = "/tmp/xcaf_export.glb";
+        FILE* f = fopen(tmpPath.c_str(), "wb");
+        if (!f) {
+            throw std::runtime_error("xcafExportGLTF: cannot create temp file");
+        }
+        size_t written = fwrite(glb.data(), 1, glb.size(), f);
+        fclose(f);
+        if (written != glb.size()) {
+            throw std::runtime_error("xcafExportGLTF: short write to temp file");
+        }
+        return tmpPath;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("xcafExportGLTF: ") + e.what());
     }
 }
 
@@ -4808,11 +4853,11 @@ uint32_t OcctKernel::xcafImportSTEP(const std::string& stepData) {
     }
 }
 
-std::string OcctKernel::xcafExportGLTF(uint32_t docId, double linDeflection, double angDeflection) {
+std::string OcctKernel::xcafExportGLB(uint32_t docId, double linDeflection, double angDeflection) {
     try {
         auto it = xcafDocs_.find(docId);
         if (it == xcafDocs_.end())
-            throw std::runtime_error("xcafExportGLTF: invalid document ID");
+            throw std::runtime_error("xcafExportGLB: invalid document ID");
         
         // Tessellate all shapes in the document
         Handle(XCAFDoc_ShapeTool) shapeTool =
@@ -4827,21 +4872,16 @@ std::string OcctKernel::xcafExportGLTF(uint32_t docId, double linDeflection, dou
             }
         }
         
-        // Write glTF binary (.glb) via Handle-allocated writer
-        std::string tmpPath = "/tmp/xcaf_export.glb";
         NCollection_IndexedDataMap<TCollection_AsciiString, TCollection_AsciiString> fileInfo;
-        
-        Handle(RWGltf_CafWriter) writer =
-            new RWGltf_CafWriter(TCollection_AsciiString(tmpPath.c_str()), Standard_True);
-        writer->SetTransformationFormat(RWGltf_WriterTrsfFormat_Compact);
-        if (!writer->Perform(it->second.doc, fileInfo, Message_ProgressRange())) {
-            throw std::runtime_error("xcafExportGLTF: write failed");
-        }
-        
-        // Return file path — JS reads binary via Module.FS.readFile()
-        return tmpPath;
+        return writeToMemory(".glb", [&](const TCollection_AsciiString& url) {
+            Handle(RWGltf_CafWriter) writer = new RWGltf_CafWriter(url, Standard_True);
+            writer->SetTransformationFormat(RWGltf_WriterTrsfFormat_Compact);
+            if (!writer->Perform(it->second.doc, fileInfo, Message_ProgressRange())) {
+                throw std::runtime_error("xcafExportGLB: write failed");
+            }
+        });
     } catch (const Standard_Failure& e) {
-        throw std::runtime_error(std::string("xcafExportGLTF: ") + e.what());
+        throw std::runtime_error(std::string("xcafExportGLB: ") + e.what());
     }
 }
 

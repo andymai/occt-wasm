@@ -295,8 +295,17 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("importStlBinary", &OcctKernel::importStlBinary)
         .function("toBREP", &OcctKernel::toBREP)
         .function("fromBREP", &OcctKernel::fromBREP)
+        .function("toBREPBinary", +[](OcctKernel& kernel, uint32_t id) {
+            const std::string bytes = kernel.toBREPBinary(id);
+            return val::global("Uint8Array").new_(typed_memory_view(
+                bytes.size(), reinterpret_cast<const uint8_t*>(bytes.data())));
+        })
+        .function("fromBREPBinary", &OcctKernel::fromBREPBinary)
+
+        // vfs
         .function("exportBrepBinary", &OcctKernel::exportBrepBinary)
         .function("importBrepBinary", &OcctKernel::importBrepBinary)
+        .function("xcafExportGLTF", &OcctKernel::xcafExportGLTF)
 
         // evolution
         .function("translateWithHistory", &OcctKernel::translateWithHistory)
@@ -349,7 +358,11 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("xcafAddSubShape", &OcctKernel::xcafAddSubShape)
         .function("xcafExportSTEP", &OcctKernel::xcafExportSTEP)
         .function("xcafImportSTEP", &OcctKernel::xcafImportSTEP)
-        .function("xcafExportGLTF", &OcctKernel::xcafExportGLTF)
+        .function("xcafExportGLB", +[](OcctKernel& kernel, uint32_t docId, double linDeflection, double angDeflection) {
+            const std::string bytes = kernel.xcafExportGLB(docId, linDeflection, angDeflection);
+            return val::global("Uint8Array").new_(typed_memory_view(
+                bytes.size(), reinterpret_cast<const uint8_t*>(bytes.data())));
+        })
 
         // marshal
         .function("allocBytes", &OcctKernel::allocBytes)

@@ -134,6 +134,23 @@ describe("XCAF", () => {
         kernel.xcafClose(docId);
     });
 
+    it("xcafExportGLB returns the .glb bytes without touching the FS", () => {
+        const docId = kernel.xcafNewDocument();
+        const box = kernel.makeBox(10, 20, 30);
+        const tag = kernel.xcafAddShape(docId, box);
+        kernel.xcafSetColor(docId, tag, 0.2, 0.6, 0.9);
+
+        const glb: Uint8Array = kernel.xcafExportGLB(docId, 0.1, 0.5);
+        const view = new DataView(glb.buffer, glb.byteOffset, glb.byteLength);
+        expect(new TextDecoder().decode(glb.subarray(0, 4))).toBe("glTF");
+        expect(view.getUint32(4, true)).toBe(2);
+        expect(view.getUint32(8, true)).toBe(glb.byteLength);
+        expect(Module.FS.analyzePath("/tmp/xcaf_export.glb").exists).toBe(false);
+
+        kernel.release(box);
+        kernel.xcafClose(docId);
+    });
+
     it("assembly with colored components exports STEP with color data", () => {
         const docId = kernel.xcafNewDocument();
         const box = kernel.makeBox(10, 20, 30);

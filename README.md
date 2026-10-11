@@ -285,7 +285,7 @@ doc.addChild(housing, gear, {
 
 // Export
 const step = doc.exportSTEP(); // preserves colors/names
-const glb = doc.exportGLTF(); // no need to pass FS manually
+const glb = doc.exportGLTF(); // binary glTF (.glb) bytes
 doc.close();
 
 // Import with preserved metadata

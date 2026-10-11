@@ -10,6 +10,7 @@
 #include <Message_ProgressRange.hxx>
 #include <NCollection_Vec3.hxx>
 #include <OSD.hxx>
+#include <OSD_FileSystem.hxx>
 #include <Poly_Triangle.hxx>
 #include <Poly_Triangulation.hxx>
 #include <RWStl_Reader.hxx>
@@ -29,6 +30,7 @@
 #include <gp_Pnt2d.hxx>
 #include <gp_XYZ.hxx>
 #include <istream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -143,6 +145,98 @@ TopoDS_Shape readStl(const std::string& data) {
         return {};
     }
     return converter.Shape();
+}
+
+// --- In-memory files ---
+
+namespace {
+
+// Serves "mem://" URLs from memory, for OCCT writers that insist on a file
+// name: the standalone WASI build has no filesystem. Writers may open a URL
+// again for reading (the glTF writer copies its temporary .bin into the .glb).
+class MemoryFileSystem : public OSD_FileSystem {
+  public:
+    static constexpr const char* kPrefix = "mem://";
+
+    bool IsSupportedPath(const TCollection_AsciiString& url) const override {
+        return url.StartsWith(kPrefix);
+    }
+
+    bool IsOpenIStream(const std::shared_ptr<std::istream>& stream) const override {
+        return stream != nullptr;
+    }
+
+    bool IsOpenOStream(const std::shared_ptr<std::ostream>& stream) const override {
+        return stream != nullptr;
+    }
+
+    std::shared_ptr<std::istream> OpenIStream(const TCollection_AsciiString& url,
+                                              const std::ios_base::openmode mode,
+                                              const int64_t offset,
+                                              const std::shared_ptr<std::istream>&) override {
+        auto file = files_.find(url.ToCString());
+        if (file == files_.end()) {
+            return nullptr;
+        }
+        auto stream = std::make_shared<std::istringstream>(file->second->str(), mode);
+        if (offset >= 0) {
+            stream->seekg(offset);
+        }
+        return stream;
+    }
+
+    std::shared_ptr<std::ostream> OpenOStream(const TCollection_AsciiString& url,
+                                              const std::ios_base::openmode mode) override {
+        auto stream = std::make_shared<std::ostringstream>(mode);
+        files_[url.ToCString()] = stream;
+        return stream;
+    }
+
+    std::shared_ptr<std::streambuf> OpenStreamBuffer(const TCollection_AsciiString&,
+                                                     const std::ios_base::openmode, const int64_t,
+                                                     int64_t*) override {
+        return nullptr;
+    }
+
+    std::string take(const std::string& url) const {
+        auto file = files_.find(url);
+        if (file == files_.end()) {
+            throw std::runtime_error("nothing was written to " + url);
+        }
+        return file->second->str();
+    }
+
+    void clear() {
+        files_.clear();
+    }
+
+  private:
+    std::map<std::string, std::shared_ptr<std::ostringstream>> files_;
+};
+
+MemoryFileSystem& memoryFileSystem() {
+    static const Handle(MemoryFileSystem) fs = [] {
+        Handle(MemoryFileSystem) created = new MemoryFileSystem();
+        OSD_FileSystem::AddDefaultProtocol(created, true);
+        return created;
+    }();
+    return *fs;
+}
+
+} // namespace
+
+std::string writeToMemory(const char* extension,
+                          const std::function<void(const TCollection_AsciiString& url)>& write) {
+    MemoryFileSystem& fs = memoryFileSystem();
+    struct Clear {
+        MemoryFileSystem& fs;
+        ~Clear() {
+            fs.clear();
+        }
+    } clear{fs};
+    const std::string url = std::string(MemoryFileSystem::kPrefix) + "export" + extension;
+    write(TCollection_AsciiString(url.c_str()));
+    return fs.take(url);
 }
 
 int OcctKernel::registerLabel(XCAFDocRecord& record, const TDF_Label& label) {

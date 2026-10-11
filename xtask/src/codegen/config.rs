@@ -4581,14 +4581,14 @@ return store(shape);",
         params: &[FacadeParam::ShapeId("id")],
         occt_class: "",
         ctor_args: "",
-        // Binary BREP is true binary (unlike the ASCII text format), so it goes
-        // through the virtual FS — JS reads the bytes via Module.FS.readFile().
+        // Hands the bytes over through Emscripten's virtual FS, so it is
+        // Embind-only ("vfs"); toBREPBinary returns them directly.
         setup_code: "\
 std::string path = \"/tmp/export.brep.bin\";
 BinTools::Write(get(id), path.c_str());
 return path;",
         includes: &["BinTools.hxx"],
-        category: "io",
+        category: "vfs",
         return_type: ReturnType::String,
     },
     MethodSpec {
@@ -4602,6 +4602,38 @@ TopoDS_Shape shape;
 BinTools::Read(shape, path.c_str());
 if (shape.IsNull()) {
     throw std::runtime_error(\"importBrepBinary: failed to read shape\");
+}
+return store(shape);",
+        includes: &["BinTools.hxx"],
+        category: "vfs",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "toBREPBinary",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::ostringstream oss(std::ios::binary);
+BinTools::Write(get(id), oss, true, false, BinTools_FormatVersion_CURRENT);
+return oss.str();",
+        includes: &["BinTools.hxx"],
+        category: "io",
+        return_type: ReturnType::Bytes,
+    },
+    MethodSpec {
+        name: "fromBREPBinary",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::Bytes("data")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::istringstream iss(data, std::ios::binary);
+TopoDS_Shape shape;
+BinTools::Read(shape, iss);
+if (shape.IsNull()) {
+    throw std::runtime_error(\"fromBREPBinary: failed to read shape\");
 }
 return store(shape);",
         includes: &["BinTools.hxx"],
@@ -6088,9 +6120,36 @@ return id;",
         occt_class: "",
         ctor_args: "",
         setup_code: "\
+std::string glb = xcafExportGLB(docId, linDeflection, angDeflection);
+std::string tmpPath = \"/tmp/xcaf_export.glb\";
+FILE* f = fopen(tmpPath.c_str(), \"wb\");
+if (!f) {
+    throw std::runtime_error(\"xcafExportGLTF: cannot create temp file\");
+}
+size_t written = fwrite(glb.data(), 1, glb.size(), f);
+fclose(f);
+if (written != glb.size()) {
+    throw std::runtime_error(\"xcafExportGLTF: short write to temp file\");
+}
+return tmpPath;",
+        includes: &[],
+        category: "vfs",
+        return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "xcafExportGLB",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::DocId("docId"),
+            FacadeParam::Double("linDeflection"),
+            FacadeParam::Double("angDeflection"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
 auto it = xcafDocs_.find(docId);
 if (it == xcafDocs_.end())
-    throw std::runtime_error(\"xcafExportGLTF: invalid document ID\");
+    throw std::runtime_error(\"xcafExportGLB: invalid document ID\");
 
 // Tessellate all shapes in the document
 Handle(XCAFDoc_ShapeTool) shapeTool =
@@ -6105,19 +6164,14 @@ for (int i = 1; i <= labels.Length(); ++i) {
     }
 }
 
-// Write glTF binary (.glb) via Handle-allocated writer
-std::string tmpPath = \"/tmp/xcaf_export.glb\";
 NCollection_IndexedDataMap<TCollection_AsciiString, TCollection_AsciiString> fileInfo;
-
-Handle(RWGltf_CafWriter) writer =
-    new RWGltf_CafWriter(TCollection_AsciiString(tmpPath.c_str()), Standard_True);
-writer->SetTransformationFormat(RWGltf_WriterTrsfFormat_Compact);
-if (!writer->Perform(it->second.doc, fileInfo, Message_ProgressRange())) {
-    throw std::runtime_error(\"xcafExportGLTF: write failed\");
-}
-
-// Return file path — JS reads binary via Module.FS.readFile()
-return tmpPath;",
+return writeToMemory(\".glb\", [&](const TCollection_AsciiString& url) {
+    Handle(RWGltf_CafWriter) writer = new RWGltf_CafWriter(url, Standard_True);
+    writer->SetTransformationFormat(RWGltf_WriterTrsfFormat_Compact);
+    if (!writer->Perform(it->second.doc, fileInfo, Message_ProgressRange())) {
+        throw std::runtime_error(\"xcafExportGLB: write failed\");
+    }
+});",
         includes: &[
             "XCAFDoc_ShapeTool.hxx", "XCAFDoc_DocumentTool.hxx",
             "TDF_Label.hxx", "NCollection_Sequence.hxx",
@@ -6126,7 +6180,7 @@ return tmpPath;",
             "Message_ProgressRange.hxx",
         ],
         category: "xcaf",
-        return_type: ReturnType::String,
+        return_type: ReturnType::Bytes,
     },
     // --- Bulk array marshalling (Embind-only heap transfer) ---
     // These let the JS wrapper move large arrays across the WASM boundary in a

@@ -337,3 +337,21 @@ describe("a part that takes children becomes an assembly", () => {
         imported.close();
     });
 });
+
+describe("XCAFDocument.exportGLTF", () => {
+    it("returns .glb bytes, and ignores an Emscripten FS passed the old way", () => {
+        const { doc } = buildAssembly();
+        const glb: Uint8Array = doc.exportGLTF({ linearDeflection: 0.5 });
+        expect(new TextDecoder().decode(glb.subarray(0, 4))).toBe("glTF");
+
+        const unused = () => {
+            throw new Error("exportGLTF touched the FS");
+        };
+        const legacy: Uint8Array = doc.exportGLTF(
+            { readFile: unused, writeFile: unused, unlink: unused },
+            { linearDeflection: 0.5 },
+        );
+        expect(legacy).toEqual(glb);
+        doc.close();
+    });
+});

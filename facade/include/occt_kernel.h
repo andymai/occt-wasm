@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <TCollection_AsciiString.hxx>
 #include <TDF_Label.hxx>
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
@@ -17,6 +19,12 @@ TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId);
 
 // STL bytes to a face soup, as StlAPI_Reader reads a file; a null shape on failure.
 TopoDS_Shape readStl(const std::string& data);
+
+// For OCCT writers that only take a file name: runs `write` on a "mem://" URL
+// ending in `extension`, which OCCT's file system keeps in memory, and returns
+// the bytes written there.
+std::string writeToMemory(const char* extension,
+                          const std::function<void(const TCollection_AsciiString& url)>& write);
 
 /// Mesh data returned from tessellation.
 struct MeshData {
@@ -310,6 +318,8 @@ class OcctKernel {
     uint32_t fromBREP(const std::string& data);
     std::string exportBrepBinary(uint32_t id);
     uint32_t importBrepBinary(const std::string& path);
+    std::string toBREPBinary(uint32_t id);
+    uint32_t fromBREPBinary(const std::string& data);
 
     // --- Query / Measure ---
     BBoxData getBoundingBox(uint32_t id, bool useTriangulation);
@@ -437,6 +447,7 @@ class OcctKernel {
     std::string xcafExportSTEP(uint32_t docId);
     uint32_t xcafImportSTEP(const std::string& stepData);
     std::string xcafExportGLTF(uint32_t docId, double linDeflection, double angDeflection);
+    std::string xcafExportGLB(uint32_t docId, double linDeflection, double angDeflection);
 
     // --- Surface-based edge/face ---
     uint32_t makeFaceOnSurface(uint32_t faceId, uint32_t wireId);

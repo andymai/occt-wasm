@@ -287,8 +287,12 @@ export interface OcctRawKernel {
     exportStlBinary(id: number, linearDeflection: number): Uint8Array;
     toBREP(id: number): string;
     fromBREP(data: string): number;
+    /** @deprecated Writes /tmp/export.brep.bin and returns its path; use `toBREPBinary`. */
     exportBrepBinary(id: number): string;
+    /** @deprecated Reads a path from the Emscripten FS; use `fromBREPBinary`. */
     importBrepBinary(path: string): number;
+    toBREPBinary(id: number): Uint8Array;
+    fromBREPBinary(data: Uint8Array): number;
 
     // Query
     getBoundingBox(id: number, useTriangulation: boolean): BoundingBox;
@@ -402,7 +406,9 @@ export interface OcctRawKernel {
     xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
     xcafImportSTEP(stepData: string): number;
+    /** @deprecated Writes /tmp/xcaf_export.glb and returns its path; use `xcafExportGLB`. */
     xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;
+    xcafExportGLB(docId: number, linDefl: number, angDefl: number): Uint8Array;
 
     // Bulk array marshalling — move large arrays in one HEAP copy instead of
     // N per-element push_back() boundary crossings.

@@ -272,6 +272,18 @@ fn step_roundtrip() {
 }
 
 #[test]
+fn brep_binary_roundtrip() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let shape = kernel.make_box(10.0, 20.0, 30.0).unwrap();
+    let bytes = kernel.to_brep_binary(shape).unwrap();
+    let restored = kernel.from_brep_binary(&bytes).unwrap();
+    assert!((kernel.get_volume(restored).unwrap() - 6000.0).abs() < 1e-6);
+    assert!(kernel.from_brep_binary(b"not a brep").is_err());
+}
+
+#[test]
 fn stl_binary_roundtrip() {
     let Some(mut kernel) = try_kernel() else {
         return;
@@ -495,6 +507,20 @@ fn xcaf_document_assembly() {
     assert_eq!(location.len(), 12);
     assert!((location[3] - 10.0).abs() < 1e-9);
     assert!((location[11] - 5.0).abs() < 1e-9);
+    kernel.xcaf_close(doc).unwrap();
+}
+
+#[test]
+fn xcaf_export_glb() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let (doc, _, _) = housing_with_gear(&mut kernel);
+    let glb = kernel.xcaf_export_glb(doc, 0.5, 0.5).unwrap();
+    assert_eq!(&glb[..4], b"glTF");
+    assert_eq!(u32::from_le_bytes(glb[4..8].try_into().unwrap()), 2);
+    let length = u32::from_le_bytes(glb[8..12].try_into().unwrap()) as usize;
+    assert_eq!(length, glb.len());
     kernel.xcaf_close(doc).unwrap();
 }
 

@@ -83,10 +83,10 @@ export interface RawXCAFKernel {
     xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
     xcafImportSTEP(stepData: string): number;
-    xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;
+    xcafExportGLB(docId: number, linDefl: number, angDefl: number): Uint8Array;
 }
 
-/** Emscripten FS interface needed for binary glTF export. */
+/** @deprecated glTF export no longer goes through the Emscripten FS. */
 export interface EmscriptenFS {
     readFile(path: string): Uint8Array;
     writeFile(path: string, data: Uint8Array): void;
@@ -100,25 +100,29 @@ function tag(n: number): LabelTag {
 export class XCAFDocument {
     readonly #raw: RawXCAFKernel;
     readonly #docId: number;
-    readonly #fs: EmscriptenFS | undefined;
     #closed = false;
 
-    private constructor(raw: RawXCAFKernel, docId: number, fs?: EmscriptenFS) {
+    private constructor(raw: RawXCAFKernel, docId: number) {
         this.#raw = raw;
         this.#docId = docId;
-        this.#fs = fs;
     }
 
     /** Create a new empty XCAF document. */
-    static create(raw: RawXCAFKernel, fs?: EmscriptenFS): XCAFDocument {
+    static create(raw: RawXCAFKernel): XCAFDocument;
+    /** @deprecated glTF export no longer needs the Emscripten FS: call `create(raw)`. */
+    static create(raw: RawXCAFKernel, fs: EmscriptenFS | undefined): XCAFDocument;
+    static create(raw: RawXCAFKernel): XCAFDocument {
         const docId = wrap("xcafNewDocument", () => raw.xcafNewDocument());
-        return new XCAFDocument(raw, docId, fs);
+        return new XCAFDocument(raw, docId);
     }
 
     /** Import a STEP file into a new XCAF document (preserves colors/names/assemblies). */
-    static fromSTEP(raw: RawXCAFKernel, stepData: string, fs?: EmscriptenFS): XCAFDocument {
+    static fromSTEP(raw: RawXCAFKernel, stepData: string): XCAFDocument;
+    /** @deprecated glTF export no longer needs the Emscripten FS: call `fromSTEP(raw, stepData)`. */
+    static fromSTEP(raw: RawXCAFKernel, stepData: string, fs: EmscriptenFS | undefined): XCAFDocument;
+    static fromSTEP(raw: RawXCAFKernel, stepData: string): XCAFDocument {
         const docId = wrap("xcafImportSTEP", () => raw.xcafImportSTEP(stepData));
-        return new XCAFDocument(raw, docId, fs);
+        return new XCAFDocument(raw, docId);
     }
 
     /**
@@ -284,49 +288,22 @@ export class XCAFDocument {
     /**
      * Export as glTF binary (.glb). Returns raw bytes as Uint8Array.
      *
-     * When the document was created via `OcctKernel.createXCAFDocument()`,
-     * the Emscripten FS is injected automatically. Otherwise, pass it
-     * explicitly or via the options object.
+     * An `fs` in the options is ignored; the export no longer goes through
+     * the Emscripten FS.
      */
     exportGLTF(options?: GLTFExportOptions & { fs?: EmscriptenFS }): Uint8Array;
-    /** @deprecated Pass `fs` via options instead: `exportGLTF({ fs })` */
+    /** @deprecated The Emscripten FS is no longer needed: call `exportGLTF(options)`. */
     exportGLTF(fs: EmscriptenFS, options?: GLTFExportOptions): Uint8Array;
     exportGLTF(
         fsOrOptions?: EmscriptenFS | (GLTFExportOptions & { fs?: EmscriptenFS }),
         maybeOptions?: GLTFExportOptions,
     ): Uint8Array {
         this.#ensureOpen();
-
-        // Resolve overloads: exportGLTF(fs, opts) vs exportGLTF(opts)
-        let fs: EmscriptenFS | undefined;
-        let options: GLTFExportOptions | undefined;
-        if (fsOrOptions && typeof fsOrOptions === "object" && "readFile" in fsOrOptions && "unlink" in fsOrOptions) {
-            // Legacy: exportGLTF(fs, options?)
-            fs = fsOrOptions as EmscriptenFS;
-            options = maybeOptions;
-        } else {
-            // New: exportGLTF(options?)
-            const opts = fsOrOptions as (GLTFExportOptions & { fs?: EmscriptenFS }) | undefined;
-            fs = opts?.fs;
-            options = opts;
-        }
-
-        fs ??= this.#fs;
-        if (!fs) {
-            throw new OcctError(
-                "xcafExportGLTF",
-                "No Emscripten FS available. Either create the document via OcctKernel.createXCAFDocument(), or pass { fs } in options.",
-            );
-        }
-
+        const legacy = fsOrOptions !== undefined && "readFile" in fsOrOptions && "unlink" in fsOrOptions;
+        const options = legacy ? maybeOptions : (fsOrOptions as GLTFExportOptions | undefined);
         const linDefl = options?.linearDeflection ?? 0.1;
         const angDefl = options?.angularDeflection ?? 0.5;
-        const glbPath = wrap("xcafExportGLTF", () =>
-            this.#raw.xcafExportGLTF(this.#docId, linDefl, angDefl),
-        );
-        const data = fs.readFile(glbPath);
-        fs.unlink(glbPath);
-        return data;
+        return wrap("xcafExportGLB", () => this.#raw.xcafExportGLB(this.#docId, linDefl, angDefl));
     }
 
     /** Close the document and free OCCT resources. */

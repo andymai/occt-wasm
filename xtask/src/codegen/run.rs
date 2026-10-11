@@ -73,13 +73,10 @@ pub fn run() -> Result<()> {
     eprintln!("  Wrote {}", kernel_path.display());
     eprintln!("  Wrote {}", bindings_path.display());
 
-    // The "marshal" helpers (allocBytes/freeBytes/vector*FromHeap) exist only to
-    // speed up the Embind/JS boundary. The crate marshals via wasmtime linear
-    // memory directly, so exclude them from the WASI C-ABI and Rust host API.
     let host_methods: Vec<&_> = generable
         .iter()
         .copied()
-        .filter(|m| m.category != "marshal")
+        .filter(|m| !m.embind_only())
         .collect();
 
     // Emit WASI C-ABI exports

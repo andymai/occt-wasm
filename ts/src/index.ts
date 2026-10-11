@@ -1462,25 +1462,12 @@ export class OcctKernel {
 
     /** Serialize a shape to binary BREP (smaller/faster than the text format). */
     toBREPBinary(shape: ShapeHandle): Uint8Array {
-        return wrap("toBREPBinary", () => {
-            const path = this.#raw.exportBrepBinary(shape);
-            const bytes = this.#module.FS.readFile(path);
-            this.#module.FS.unlink(path);
-            return bytes;
-        });
+        return wrap("toBREPBinary", () => this.#raw.toBREPBinary(shape));
     }
 
     /** Load a shape from binary BREP produced by {@link toBREPBinary}. */
     fromBREPBinary(data: Uint8Array): ShapeHandle {
-        return wrap("fromBREPBinary", () => {
-            const path = "/tmp/occt-import.brep.bin";
-            this.#module.FS.writeFile(path, data);
-            try {
-                return handle(this.#raw.importBrepBinary(path));
-            } finally {
-                this.#module.FS.unlink(path);
-            }
-        });
+        return wrap("fromBREPBinary", () => handle(this.#raw.fromBREPBinary(data)));
     }
 
     cacheStep(stepData: string | ArrayBuffer): string {
@@ -2178,20 +2165,17 @@ export class OcctKernel {
     // XCAF Document Factories
     // =======================================================================
 
-    /**
-     * Create a new XCAF document with the Emscripten FS pre-injected.
-     * This allows `doc.exportGLTF()` to work without passing FS explicitly.
-     */
+    /** Create a new empty XCAF document. */
     createXCAFDocument(): XCAFDocumentImpl {
-        return XCAFDocumentImpl.create(this.#raw, this.#module.FS);
+        return XCAFDocumentImpl.create(this.#raw);
     }
 
     /**
-     * Import a STEP file into a new XCAF document with the Emscripten FS pre-injected.
+     * Import a STEP file into a new XCAF document.
      * Preserves colors, names, and assembly structure from the STEP file.
      */
     importXCAFFromSTEP(stepData: string): XCAFDocumentImpl {
-        return XCAFDocumentImpl.fromSTEP(this.#raw, stepData, this.#module.FS);
+        return XCAFDocumentImpl.fromSTEP(this.#raw, stepData);
     }
 
     // =======================================================================

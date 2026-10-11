@@ -208,6 +208,15 @@ pub struct MethodSpec {
 }
 
 impl MethodSpec {
+    /// Methods excluded from the WASI C-ABI and the Rust crate. The "marshal"
+    /// helpers (`allocBytes`, `freeBytes`, `vector*FromHeap`) only speed up the
+    /// Embind/JS boundary; the crate marshals through wasmtime linear memory
+    /// directly. The "vfs" methods hand data over through Emscripten's virtual
+    /// filesystem, which the standalone WASI build does not have.
+    pub fn embind_only(&self) -> bool {
+        matches!(self.category, "marshal" | "vfs")
+    }
+
     /// Whether this method can be reached from the wasmtime host binding.
     ///
     /// `Skip` methods are hand-written, and anything wider than

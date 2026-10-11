@@ -211,8 +211,8 @@ pub(crate) struct GeneratedFuncs {
     fn_import_stl_binary: TypedFunc<(i32, i32), u32>,
     fn_to_brep: TypedFunc<(u32,), i32>,
     fn_from_brep: TypedFunc<(i32, i32), u32>,
-    fn_export_brep_binary: TypedFunc<(u32,), i32>,
-    fn_import_brep_binary: TypedFunc<(i32, i32), u32>,
+    fn_to_brep_binary: TypedFunc<(u32,), i32>,
+    fn_from_brep_binary: TypedFunc<(i32, i32), u32>,
     fn_translate_with_history: TypedFunc<(u32, f64, f64, f64, i32, i32, i32), i32>,
     fn_fuse_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
     fn_cut_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
@@ -255,7 +255,7 @@ pub(crate) struct GeneratedFuncs {
     fn_xcaf_add_sub_shape: TypedFunc<(u32, i32, u32), i32>,
     fn_xcaf_export_step: TypedFunc<(u32,), i32>,
     fn_xcaf_import_step: TypedFunc<(i32, i32), u32>,
-    fn_xcaf_export_gltf: TypedFunc<(u32, f64, f64), i32>,
+    fn_xcaf_export_glb: TypedFunc<(u32, f64, f64), i32>,
 }
 
 impl GeneratedFuncs {
@@ -459,10 +459,8 @@ impl GeneratedFuncs {
             fn_import_stl_binary: instance.get_typed_func(&mut store, "occt_import_stl_binary")?,
             fn_to_brep: instance.get_typed_func(&mut store, "occt_to_brep")?,
             fn_from_brep: instance.get_typed_func(&mut store, "occt_from_brep")?,
-            fn_export_brep_binary: instance
-                .get_typed_func(&mut store, "occt_export_brep_binary")?,
-            fn_import_brep_binary: instance
-                .get_typed_func(&mut store, "occt_import_brep_binary")?,
+            fn_to_brep_binary: instance.get_typed_func(&mut store, "occt_to_brep_binary")?,
+            fn_from_brep_binary: instance.get_typed_func(&mut store, "occt_from_brep_binary")?,
             fn_translate_with_history: instance
                 .get_typed_func(&mut store, "occt_translate_with_history")?,
             fn_fuse_with_history: instance.get_typed_func(&mut store, "occt_fuse_with_history")?,
@@ -526,7 +524,7 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_xcaf_add_sub_shape")?,
             fn_xcaf_export_step: instance.get_typed_func(&mut store, "occt_xcaf_export_step")?,
             fn_xcaf_import_step: instance.get_typed_func(&mut store, "occt_xcaf_import_step")?,
-            fn_xcaf_export_gltf: instance.get_typed_func(&mut store, "occt_xcaf_export_gltf")?,
+            fn_xcaf_export_glb: instance.get_typed_func(&mut store, "occt_xcaf_export_glb")?,
         })
     }
 }
@@ -3594,29 +3592,29 @@ impl crate::kernel::OcctKernel {
         Ok(ShapeHandle(result))
     }
 
-    pub fn export_brep_binary(&mut self, id: ShapeHandle) -> OcctResult<String> {
+    pub fn to_brep_binary(&mut self, id: ShapeHandle) -> OcctResult<Vec<u8>> {
         let len = self
             .generated
-            .fn_export_brep_binary
+            .fn_to_brep_binary
             .call(&mut self.store, (id.0,))?;
         if len < 0 {
-            return Err(self.read_last_error("export_brep_binary"));
+            return Err(self.read_last_error("to_brep_binary"));
         }
-        self.read_string_result()
+        self.read_bytes_result()
     }
 
-    pub fn import_brep_binary(&mut self, path: &str) -> OcctResult<ShapeHandle> {
-        let path_ptr = self.write_bytes(path.as_bytes())?;
-        let path_len = path.len() as u32;
+    pub fn from_brep_binary(&mut self, data: &[u8]) -> OcctResult<ShapeHandle> {
+        let data_ptr = self.write_bytes(data)?;
+        let data_len = data.len() as u32;
         let result = self
             .generated
-            .fn_import_brep_binary
-            .call(&mut self.store, (path_ptr as i32, path_len as i32));
-        self.free_bytes(path_ptr)?;
+            .fn_from_brep_binary
+            .call(&mut self.store, (data_ptr as i32, data_len as i32));
+        self.free_bytes(data_ptr)?;
         let result = result?;
-        self.check_error("import_brep_binary")?;
+        self.check_error("from_brep_binary")?;
         if result == 0 {
-            return Err(self.read_last_error("import_brep_binary"));
+            return Err(self.read_last_error("from_brep_binary"));
         }
         Ok(ShapeHandle(result))
     }
@@ -4569,19 +4567,19 @@ impl crate::kernel::OcctKernel {
         Ok(DocumentHandle(result))
     }
 
-    pub fn xcaf_export_gltf(
+    pub fn xcaf_export_glb(
         &mut self,
         doc_id: DocumentHandle,
         lin_deflection: f64,
         ang_deflection: f64,
-    ) -> OcctResult<String> {
+    ) -> OcctResult<Vec<u8>> {
         let len = self
             .generated
-            .fn_xcaf_export_gltf
+            .fn_xcaf_export_glb
             .call(&mut self.store, (doc_id.0, lin_deflection, ang_deflection))?;
         if len < 0 {
-            return Err(self.read_last_error("xcaf_export_gltf"));
+            return Err(self.read_last_error("xcaf_export_glb"));
         }
-        self.read_string_result()
+        self.read_bytes_result()
     }
 }
