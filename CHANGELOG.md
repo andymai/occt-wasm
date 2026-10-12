@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.1](https://github.com/andymai/occt-wasm/compare/v5.7.0...v5.7.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **facade:** restore the WASM stack and free exceptions when a call throws ([#401](https://github.com/andymai/occt-wasm/issues/401)) ([1d87e84](https://github.com/andymai/occt-wasm/commit/1d87e84c71cb1d4e9bf3ef1490890e7e2174416a)), closes [#400](https://github.com/andymai/occt-wasm/issues/400)
+
 ## [5.7.0](https://github.com/andymai/occt-wasm/compare/v5.6.2...v5.7.0) (2026-10-11)
 
 
