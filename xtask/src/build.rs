@@ -222,8 +222,9 @@ fn link_wasm(
     let obj_strs: Vec<String> = objects.iter().map(|p| p.display().to_string()).collect();
     let output = dist_dir.join("occt-wasm.js");
     let output_str = output.display().to_string();
-    let post_js = root.join("facade/js/symbol_dispose.js");
-    let post_js_str = post_js.display().to_string();
+    let js_dir = root.join("facade/js");
+    let pre_js = js_dir.join("exception_boundary.js").display().to_string();
+    let post_js = js_dir.join("symbol_dispose.js").display().to_string();
 
     let opt_level = if release && size {
         "-Oz"
@@ -249,10 +250,13 @@ fn link_wasm(
         "-sWASM_BIGINT".into(),
         "-sMODULARIZE=1".into(),
         "-sEXPORT_NAME=createOcctWasm".into(),
-        "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"HEAP32\",\"HEAPF32\",\"HEAPU32\"]".into(),
+        // The pre-js resets the stack with stackSave/stackRestore and frees
+        // exceptions with the helpers; exporting them is what links them in.
+        "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"HEAP32\",\"HEAPF32\",\"HEAPU32\",\"stackSave\",\"stackRestore\"]".into(),
         "-sEXPORT_EXCEPTION_HANDLING_HELPERS=1".into(),
         "--no-entry".into(),
-        format!("--post-js={post_js_str}"),
+        format!("--pre-js={pre_js}"),
+        format!("--post-js={post_js}"),
     ];
 
     // Debug builds trap in the prologue of any function that would overrun the

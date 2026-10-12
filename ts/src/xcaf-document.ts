@@ -14,11 +14,6 @@
  * const glb = doc.exportGLTF(Module);
  * doc.close();
  * ```
- *
- * Prefer `kernel.createXCAFDocument()` over the static factories. Constructing
- * from a bare raw kernel works, but only a live {@link OcctKernel} registers the
- * module's exception decoder — without one, a failure here reports the
- * undecoded `[object WebAssembly.Exception]` and downgrades to `KERNEL_ERROR`.
  */
 
 import type {

@@ -51,23 +51,6 @@ afterAll(() => {
   kernel.delete();
 });
 
-/**
- * Decode the `WebAssembly.Exception` a raw facade call throws.
- *
- * Under -fwasm-exceptions a C++ throw reaches JS as a `WebAssembly.Exception`,
- * which is not an `Error` — it stringifies to "[object WebAssembly.Exception]"
- * and the OCCT diagnostic is lost. Emscripten's helper recovers [type, what()].
- * Anything that is not a C++ throw falls back to its own string form, so an
- * unrelated failure cannot masquerade as the one we are pinning.
- */
-function whatOf(e: unknown): string {
-  try {
-    const [, message] = Module.getExceptionMessage(e);
-    return message ?? "";
-  } catch {
-    return String(e);
-  }
-}
 
 /** Fillet or chamfer `solidId` on the first `count` edges. */
 function edgeOp(op: "fillet" | "chamfer", solidId: number, count: number, value: number): number {
@@ -140,6 +123,6 @@ describe("fillet/chamfer results stay solids", () => {
     // satisfied by a getSubShapes failure or an unfilletable edge, and would
     // stop guarding the input contract it is here to protect.
     expect(thrown, "fillet accepted a compound").toBeDefined();
-    expect(whatOf(thrown)).toContain("TopoDS::Solid");
+    expect((thrown as Error).message).toContain("TopoDS::Solid");
   });
 });

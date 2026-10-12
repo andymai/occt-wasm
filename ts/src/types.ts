@@ -649,46 +649,13 @@ function classifyError(operation: string, message: string): OcctErrorCode {
     return OcctErrorCode.Unknown;
 }
 
-type ExceptionDecoder = (e: unknown) => [type: string, message: string] | null | undefined;
-
 /**
- * Every live kernel's decoder. Decoding a `WebAssembly.Exception` needs the
- * throwing Emscripten module's memory and exception tag, and kernels over
- * separate modules can coexist — so decoders accumulate rather than replace,
- * and each is tried in turn. A foreign module can't return a wrong message:
- * `WebAssembly.Exception.getArg` rejects a tag it doesn't own.
- */
-const exceptionDecoders = new Set<ExceptionDecoder>();
-
-/**
- * Register a module-backed decoder used to recover C++ `what()` strings from
- * thrown `WebAssembly.Exception` objects. Returns a function that unregisters
- * it, which the kernel calls on disposal so the module isn't retained.
- */
-export function addExceptionDecoder(decoder: ExceptionDecoder): () => void {
-    exceptionDecoders.add(decoder);
-    return () => {
-        exceptionDecoders.delete(decoder);
-    };
-}
-
-/**
- * Best-effort message extraction for a thrown value. Under `-fwasm-exceptions`
- * a C++ throw crosses the Embind boundary as a `WebAssembly.Exception` rather
- * than an `Error`, and stringifies to a useless `[object WebAssembly.Exception]`.
+ * The facade's C++ throws reach JS as plain `Error`s carrying `what()`: the
+ * module's exception boundary (`facade/js/exception_boundary.js`) converts and
+ * frees each one before it leaves the Embind invoker.
  */
 function messageOf(e: unknown): string {
-    if (e instanceof Error) return e.message;
-    for (const decoder of exceptionDecoders) {
-        try {
-            const decoded = decoder(e);
-            if (decoded?.[1]) return decoded[1];
-        } catch {
-            // Wrong module, or no helper — decoding is diagnostics-only, so
-            // exhausting every decoder just falls back to stringification.
-        }
-    }
-    return String(e);
+    return e instanceof Error ? e.message : String(e);
 }
 
 /** {@link wrap} for an async operation: a rejection is classified and

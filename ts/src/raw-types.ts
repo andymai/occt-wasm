@@ -37,7 +37,8 @@ export interface OcctWasmModule {
     FS: EmscriptenFS;
     /**
      * Emscripten helper exported by `-sEXPORT_EXCEPTION_HANDLING_HELPERS=1`.
-     * Decodes a thrown `WebAssembly.Exception` into `[type, what()]`.
+     * Decodes a `WebAssembly.Exception` into `[type, what()]`. Embind methods
+     * already throw a decoded `Error`, so they never hand one to a caller.
      */
     getExceptionMessage?(e: unknown): [type: string, message: string];
 }
@@ -134,6 +135,10 @@ export interface EmbindVectorI32 {
  * unless you specifically need to hand the raw kernel to a third-party
  * adapter — calling raw methods bypasses `OcctError` wrapping and the branded
  * handle types.
+ *
+ * A failing method throws a plain `Error` whose message is the C++ `what()`,
+ * after restoring the WASM stack and freeing the C++ exception and the
+ * arguments' heap copies, so a caller may catch it and keep using the kernel.
  */
 export interface OcctRawKernel {
     // Arena
