@@ -13,7 +13,7 @@ keywords = ["cad", "opencascade", "wasm", "brep", "geometry"]
 categories = ["graphics", "science", "wasm"]
 
 [dependencies]
-wasmtime = "48.0.4"
+wasmtime = "48.0.6"
 brotli = "9"
 thiserror = "2"
 
