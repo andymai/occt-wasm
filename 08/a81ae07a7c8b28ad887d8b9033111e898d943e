@@ -1,0 +1,23 @@
+crate/Cargo.toml
+  s_7a8c7c6e164d7a::t_501941c74b6f4a 3
+crate/src/lib.rs
+  s_7a8c7c6e164d7a::t_501941c74b6f4a 49
+Cargo.lock
+  s_7a8c7c6e164d7a::t_8a53b565c48c1d 852
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "08a81ae07a7c8b28ad887d8b9033111e898d943e",
+  "prompts": {},
+  "sessions": {
+    "s_7a8c7c6e164d7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ca186d9d-0fef-412d-be17-31417ceabc46",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
