@@ -92,6 +92,9 @@ export interface WireframeOptions {
 }
 
 /** Options for WASM module initialization. */
+/** Emscripten module factory: the default export of the generated `occt-wasm.js` glue. */
+export type OcctModuleFactory = (options: Record<string, unknown>) => Promise<unknown>;
+
 export interface InitOptions {
     /**
      * Location of the WASM binary. Accepts:
@@ -103,6 +106,23 @@ export interface InitOptions {
      * using `import.meta.url`.
      */
     wasm?: string | URL | ArrayBuffer | Uint8Array | undefined;
+
+    /**
+     * The Emscripten module factory, i.e. the default export of `occt-wasm.js`.
+     *
+     * By default `init()` imports `./occt-wasm.js` next to its own module. Pass
+     * the factory when that relative import cannot resolve, as in a bundled
+     * Web Worker that loads the glue from a URL. `wasm` still applies.
+     * Not forwarded by `OcctWorker.spawn()`, since a function cannot cross
+     * `postMessage`.
+     *
+     * @example
+     * ```ts
+     * const { default: createModule } = await import(/* webpackIgnore: true *\/ "/occt/occt-wasm.js");
+     * const kernel = await OcctKernel.init({ createModule, wasm: "/occt/occt-wasm.wasm" });
+     * ```
+     */
+    createModule?: OcctModuleFactory | undefined;
 
     /** @deprecated Use `wasm` instead. Browser URL to the .wasm file. */
     wasmUrl?: string | undefined;

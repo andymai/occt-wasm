@@ -43,6 +43,7 @@ export {
     type Mesh,
     type MeshBatchData,
     type NurbsCurveData,
+    type OcctModuleFactory,
     type ShapeQueryResult,
     type PointClassification,
     type ProjectionData,
@@ -145,6 +146,12 @@ function handle(id: number): ShapeHandle {
     return id as ShapeHandle;
 }
 
+async function importModuleFactory(): Promise<unknown> {
+    // @ts-expect-error -- occt-wasm.js is generated at build time, no .d.ts
+    const imported = await import("./occt-wasm.js");
+    return imported.default;
+}
+
 // The facade's join codes order Intersection before Tangent, unlike the enum.
 // brepjs sends those raw codes directly, so the wrapper translates.
 const RAW_JOIN_CODE: Record<JoinType, number> = {
@@ -226,9 +233,7 @@ export class OcctKernel {
      * ```
      */
     static async init(options?: InitOptions): Promise<OcctKernel> {
-        // @ts-expect-error -- occt-wasm.js is generated at build time, no .d.ts
-        const imported = await import("./occt-wasm.js");
-        const createModule = imported.default as (
+        const createModule = (options?.createModule ?? (await importModuleFactory())) as (
             opts: Record<string, unknown>,
         ) => Promise<OcctWasmModule>;
 

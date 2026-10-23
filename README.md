@@ -138,6 +138,12 @@ await OcctKernel.init({ wasm: "/assets/occt-wasm.wasm" });
 const binary = await fetch("/occt-wasm.wasm").then((r) => r.arrayBuffer());
 await OcctKernel.init({ wasm: binary });
 await OcctKernel.init({ wasm: new Uint8Array(binary) });
+
+// ...or pass the Emscripten glue you loaded yourself, for hosts where init()'s
+// own import of ./occt-wasm.js cannot resolve (e.g. a bundled Web Worker):
+const glueUrl: string = "/occt/occt-wasm.js";
+const { default: createModule } = await import(/* webpackIgnore: true */ glueUrl);
+await OcctKernel.init({ createModule, wasm: "/occt/occt-wasm.wasm" });
 ```
 
 ## Error Handling
