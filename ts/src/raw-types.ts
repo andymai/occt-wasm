@@ -216,6 +216,7 @@ export interface OcctRawKernel {
     makeArcEdge(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, x3: number, y3: number, z3: number): number;
     makeEllipseEdge(cx: number, cy: number, cz: number, nx: number, ny: number, nz: number, majorRadius: number, minorRadius: number): number;
     makeEllipseArc(cx: number, cy: number, cz: number, nx: number, ny: number, nz: number, majorRadius: number, minorRadius: number, startAngle: number, endAngle: number): number;
+    makeEllipseArcOriented(cx: number, cy: number, cz: number, nx: number, ny: number, nz: number, xx: number, xy: number, xz: number, majorRadius: number, minorRadius: number, startAngle: number, endAngle: number): number;
     makeBezierEdge(flatPoints: EmbindVectorF64): number;
     makeBSplineEdge(poles: EmbindVectorF64, weights: EmbindVectorF64, knots: EmbindVectorF64, multiplicities: EmbindVectorI32, degree: number, periodic: boolean): number;
     makeTangentArc(x1: number, y1: number, z1: number, tx: number, ty: number, tz: number, x2: number, y2: number, z2: number): number;

@@ -132,22 +132,39 @@ fn emit_fillet_like(buf: &mut String, spec: &MethodSpec) {
         })
         .collect();
 
-    if let Some(vec_name) = vec_param {
-        let scalar_args = scalar_params.join(", ");
-        let _ = writeln!(buf, "        for (uint32_t eid : {vec_name}) {{");
-        let _ = writeln!(
-            buf,
-            "            maker.Add({scalar_args}, TopoDS::Edge(get(eid)));"
-        );
-        let _ = writeln!(buf, "        }}");
-    }
+    let solid_param = spec.params.iter().find_map(|p| {
+        if let FacadeParam::ShapeId(n) = p {
+            Some(*n)
+        } else {
+            None
+        }
+    });
+
+    let failure = vec_param.map_or_else(
+        || format!("std::string(\"{name}: operation failed\")"),
+        |vec_name| {
+            let scalar_args = scalar_params.join(", ");
+            let _ = writeln!(buf, "        std::vector<TopoDS_Edge> edges;");
+            let _ = writeln!(buf, "        edges.reserve({vec_name}.size());");
+            let _ = writeln!(buf, "        for (uint32_t eid : {vec_name}) {{");
+            let _ = writeln!(buf, "            edges.push_back(TopoDS::Edge(get(eid)));");
+            let _ = writeln!(buf, "            maker.Add({scalar_args}, edges.back());");
+            let _ = writeln!(buf, "        }}");
+            match (cls, solid_param, scalar_params.first()) {
+                ("BRepFilletAPI_MakeFillet", _, _) => {
+                    format!("filletFailure(maker, {vec_name}, edges, \"{name}\")")
+                }
+                ("BRepFilletAPI_MakeChamfer", Some(solid), Some(distance)) => format!(
+                    "chamferFailure(get({solid}), {distance}, {vec_name}, edges, \"{name}\")"
+                ),
+                _ => format!("std::string(\"{name}: operation failed\")"),
+            }
+        },
+    );
 
     let _ = writeln!(buf, "        maker.Build();");
     let _ = writeln!(buf, "        if (!maker.IsDone()) {{");
-    let _ = writeln!(
-        buf,
-        "            throw std::runtime_error(\"{name}: operation failed\");"
-    );
+    let _ = writeln!(buf, "            throw std::runtime_error({failure});");
     let _ = writeln!(buf, "        }}");
     let _ = writeln!(
         buf,
@@ -288,6 +305,12 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
         includes.insert("GeomAbs_JoinType.hxx".to_owned());
     }
 
+    if needs_faulty_edges(methods) {
+        includes.insert("BRepFilletAPI_MakeFillet.hxx".to_owned());
+        includes.insert("ChFi3d_ChBuilder.hxx".to_owned());
+        includes.insert("TopoDS_Edge.hxx".to_owned());
+    }
+
     if needs_build_boolean(methods) {
         includes.insert("BRepAlgoAPI_BooleanOperation.hxx".to_owned());
         includes.insert("NCollection_List.hxx".to_owned());
@@ -347,6 +370,17 @@ fn needs_unwrap_singleton_solid(methods: &[&MethodSpec]) -> bool {
     })
 }
 
+/// Do any methods need the `filletFailure` / `chamferFailure` helpers?
+///
+/// The `FilletLike` template calls them, as does any `CustomBody` spec that names them.
+fn needs_faulty_edges(methods: &[&MethodSpec]) -> bool {
+    methods.iter().any(|m| {
+        matches!(m.kind, MethodKind::FilletLike)
+            || m.setup_code.contains("filletFailure(")
+            || m.setup_code.contains("chamferFailure(")
+    })
+}
+
 /// Do any methods need the `buildBoolean` helper?
 ///
 /// Every `BooleanOp` method calls it, plus any `CustomBody` spec that names it.
@@ -384,8 +418,15 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
     let needs_join = needs_solid_join_type(methods);
     let needs_boolean = needs_build_boolean(methods);
     let needs_finite = needs_finite_check(methods);
+    let needs_faulty = needs_faulty_edges(methods);
 
-    if needs_evolution || needs_unwrap || needs_join || needs_boolean || needs_finite {
+    if needs_evolution
+        || needs_unwrap
+        || needs_join
+        || needs_boolean
+        || needs_finite
+        || needs_faulty
+    {
         let _ = writeln!(buf, "// === helper functions ===");
         let _ = writeln!(buf);
     }
@@ -463,6 +504,70 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
             "    op.SetTools(tools);",
             "    op.SetUseOBB(allFinite(args) && allFinite(tools));",
             "    op.Build();",
+            "}",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
+        let _ = writeln!(buf);
+    }
+
+    if needs_faulty {
+        for line in [
+            "/// `<op>: operation failed`, plus the caller's ids of the edges that lie on a",
+            "/// contour OCCT could not build: ` [faulty edges: 3,7]`. brepjs parses this",
+            "/// suffix to point at the failing edges, so keep its shape.",
+            "template <typename ContourOf>",
+            "static std::string localOperationFailure(const char* op,",
+            "                                         const std::vector<uint32_t>& edgeIds,",
+            "                                         const std::vector<TopoDS_Edge>& edges,",
+            "                                         const std::vector<int>& faultyContours,",
+            "                                         ContourOf contourOf) {",
+            "    std::string listed;",
+            "    for (size_t i = 0; i < edges.size() && i < edgeIds.size(); ++i) {",
+            "        const int contour = contourOf(edges[i]);",
+            "        if (std::find(faultyContours.begin(), faultyContours.end(), contour) ==",
+            "            faultyContours.end()) {",
+            "            continue;",
+            "        }",
+            "        if (!listed.empty()) listed += \",\";",
+            "        listed += std::to_string(edgeIds[i]);",
+            "    }",
+            "    std::string message = std::string(op) + \": operation failed\";",
+            "    if (!listed.empty()) message += \" [faulty edges: \" + listed + \"]\";",
+            "    return message;",
+            "}",
+            "",
+            "static std::string filletFailure(const BRepFilletAPI_MakeFillet& maker,",
+            "                                 const std::vector<uint32_t>& edgeIds,",
+            "                                 const std::vector<TopoDS_Edge>& edges, const char* op) {",
+            "    std::vector<int> faulty;",
+            "    for (int i = 1; i <= maker.NbFaultyContours(); ++i) {",
+            "        faulty.push_back(maker.FaultyContour(i));",
+            "    }",
+            "    return localOperationFailure(op, edgeIds, edges, faulty,",
+            "                                 [&](const TopoDS_Edge& e) { return maker.Contour(e); });",
+            "}",
+            "",
+            "/// `BRepFilletAPI_MakeChamfer` keeps its `ChFi3d` builder private, so a chamfer",
+            "/// that failed is rebuilt with `ChFi3d_ChBuilder` to read which contours failed.",
+            "/// Only the failure path pays for the second build.",
+            "static std::string chamferFailure(const TopoDS_Shape& solid, double distance,",
+            "                                  const std::vector<uint32_t>& edgeIds,",
+            "                                  const std::vector<TopoDS_Edge>& edges, const char* op) {",
+            "    try {",
+            "        ChFi3d_ChBuilder builder(solid);",
+            "        for (const TopoDS_Edge& edge : edges) builder.Add(distance, edge);",
+            "        builder.Compute();",
+            "        std::vector<int> faulty;",
+            "        for (int i = 1; i <= builder.NbFaultyContours(); ++i) {",
+            "            faulty.push_back(builder.FaultyContour(i));",
+            "        }",
+            "        return localOperationFailure(",
+            "            op, edgeIds, edges, faulty,",
+            "            [&](const TopoDS_Edge& e) { return builder.Contains(e); });",
+            "    } catch (const Standard_Failure&) {",
+            "        return std::string(op) + \": operation failed\";",
+            "    }",
             "}",
         ] {
             let _ = writeln!(buf, "{line}");
@@ -1009,8 +1114,23 @@ mod tests {
         let output = emit_kernel(&methods);
 
         assert!(output.contains("for (uint32_t eid : edgeIds)"));
-        assert!(output.contains("maker.Add(radius, TopoDS::Edge(get(eid)))"));
+        assert!(output.contains("edges.push_back(TopoDS::Edge(get(eid)));"));
+        assert!(output.contains("maker.Add(radius, edges.back())"));
         assert!(output.contains("#include <TopoDS.hxx>"));
+    }
+
+    #[test]
+    fn kernel_fillet_like_names_faulty_edges() {
+        let methods: Vec<&MethodSpec> = vec![&FILLET];
+        let output = emit_kernel(&methods);
+
+        assert!(output.contains(
+            "throw std::runtime_error(filletFailure(maker, edgeIds, edges, \"fillet\"));"
+        ));
+        assert!(output.contains("static std::string filletFailure("));
+        assert!(output.contains("static std::string chamferFailure("));
+        assert!(output.contains("[faulty edges: "));
+        assert!(output.contains("#include <ChFi3d_ChBuilder.hxx>"));
     }
 
     #[test]

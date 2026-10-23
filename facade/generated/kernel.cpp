@@ -61,6 +61,7 @@
 #include <BRep_Tool.hxx>
 #include <BinTools.hxx>
 #include <Bnd_Box.hxx>
+#include <ChFi3d_ChBuilder.hxx>
 #include <GCPnts_AbscissaPoint.hxx>
 #include <GCPnts_TangentialDeflection.hxx>
 #include <GC_MakeArcOfCircle.hxx>
@@ -243,6 +244,63 @@ static void buildBoolean(BRepAlgoAPI_BooleanOperation& op, const TopoDS_Shape& a
     op.SetTools(tools);
     op.SetUseOBB(allFinite(args) && allFinite(tools));
     op.Build();
+}
+
+/// `<op>: operation failed`, plus the caller's ids of the edges that lie on a
+/// contour OCCT could not build: ` [faulty edges: 3,7]`. brepjs parses this
+/// suffix to point at the failing edges, so keep its shape.
+template <typename ContourOf>
+static std::string localOperationFailure(const char* op,
+                                         const std::vector<uint32_t>& edgeIds,
+                                         const std::vector<TopoDS_Edge>& edges,
+                                         const std::vector<int>& faultyContours,
+                                         ContourOf contourOf) {
+    std::string listed;
+    for (size_t i = 0; i < edges.size() && i < edgeIds.size(); ++i) {
+        const int contour = contourOf(edges[i]);
+        if (std::find(faultyContours.begin(), faultyContours.end(), contour) ==
+            faultyContours.end()) {
+            continue;
+        }
+        if (!listed.empty()) listed += ",";
+        listed += std::to_string(edgeIds[i]);
+    }
+    std::string message = std::string(op) + ": operation failed";
+    if (!listed.empty()) message += " [faulty edges: " + listed + "]";
+    return message;
+}
+
+static std::string filletFailure(const BRepFilletAPI_MakeFillet& maker,
+                                 const std::vector<uint32_t>& edgeIds,
+                                 const std::vector<TopoDS_Edge>& edges, const char* op) {
+    std::vector<int> faulty;
+    for (int i = 1; i <= maker.NbFaultyContours(); ++i) {
+        faulty.push_back(maker.FaultyContour(i));
+    }
+    return localOperationFailure(op, edgeIds, edges, faulty,
+                                 [&](const TopoDS_Edge& e) { return maker.Contour(e); });
+}
+
+/// `BRepFilletAPI_MakeChamfer` keeps its `ChFi3d` builder private, so a chamfer
+/// that failed is rebuilt with `ChFi3d_ChBuilder` to read which contours failed.
+/// Only the failure path pays for the second build.
+static std::string chamferFailure(const TopoDS_Shape& solid, double distance,
+                                  const std::vector<uint32_t>& edgeIds,
+                                  const std::vector<TopoDS_Edge>& edges, const char* op) {
+    try {
+        ChFi3d_ChBuilder builder(solid);
+        for (const TopoDS_Edge& edge : edges) builder.Add(distance, edge);
+        builder.Compute();
+        std::vector<int> faulty;
+        for (int i = 1; i <= builder.NbFaultyContours(); ++i) {
+            faulty.push_back(builder.FaultyContour(i));
+        }
+        return localOperationFailure(
+            op, edgeIds, edges, faulty,
+            [&](const TopoDS_Edge& e) { return builder.Contains(e); });
+    } catch (const Standard_Failure&) {
+        return std::string(op) + ": operation failed";
+    }
 }
 
 /// Unwrap a singleton compound: if `shape` is a Compound holding exactly one
@@ -782,12 +840,15 @@ uint32_t OcctKernel::revolve(uint32_t shapeId, double px, double py, double pz, 
 uint32_t OcctKernel::fillet(uint32_t solidId, std::vector<uint32_t> edgeIds, double radius) {
     try {
         BRepFilletAPI_MakeFillet maker(TopoDS::Solid(get(solidId)));
+        std::vector<TopoDS_Edge> edges;
+        edges.reserve(edgeIds.size());
         for (uint32_t eid : edgeIds) {
-            maker.Add(radius, TopoDS::Edge(get(eid)));
+            edges.push_back(TopoDS::Edge(get(eid)));
+            maker.Add(radius, edges.back());
         }
         maker.Build();
         if (!maker.IsDone()) {
-            throw std::runtime_error("fillet: operation failed");
+            throw std::runtime_error(filletFailure(maker, edgeIds, edges, "fillet"));
         }
         return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "fillet", true));
     } catch (const Standard_Failure& e) {
@@ -798,12 +859,15 @@ uint32_t OcctKernel::fillet(uint32_t solidId, std::vector<uint32_t> edgeIds, dou
 uint32_t OcctKernel::chamfer(uint32_t solidId, std::vector<uint32_t> edgeIds, double distance) {
     try {
         BRepFilletAPI_MakeChamfer maker(TopoDS::Solid(get(solidId)));
+        std::vector<TopoDS_Edge> edges;
+        edges.reserve(edgeIds.size());
         for (uint32_t eid : edgeIds) {
-            maker.Add(distance, TopoDS::Edge(get(eid)));
+            edges.push_back(TopoDS::Edge(get(eid)));
+            maker.Add(distance, edges.back());
         }
         maker.Build();
         if (!maker.IsDone()) {
-            throw std::runtime_error("chamfer: operation failed");
+            throw std::runtime_error(chamferFailure(get(solidId), distance, edgeIds, edges, "chamfer"));
         }
         return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamfer", true));
     } catch (const Standard_Failure& e) {
@@ -1766,6 +1830,27 @@ uint32_t OcctKernel::makeEllipseArc(double cx, double cy, double cz, double nx, 
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeEllipseArc: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeEllipseArcOriented(double cx, double cy, double cz, double nx, double ny, double nz, double xx, double xy, double xz, double majorRadius, double minorRadius, double startAngle, double endAngle) {
+    try {
+        gp_Dir normal(nx, ny, nz);
+        gp_Dir xDir(xx, xy, xz);
+        if (normal.IsParallel(xDir, Precision::Angular())) {
+            throw std::runtime_error("makeEllipseArcOriented: xDir is parallel to the normal");
+        }
+        gp_Ax2 axis(gp_Pnt(cx, cy, cz), normal, xDir);
+        gp_Elips ellipse(axis, majorRadius, minorRadius);
+        Handle(Geom_TrimmedCurve) arc =
+            new Geom_TrimmedCurve(new Geom_Ellipse(ellipse), startAngle, endAngle);
+        BRepBuilderAPI_MakeEdge maker(arc);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("makeEllipseArcOriented: construction failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeEllipseArcOriented: ") + e.what());
     }
 }
 
@@ -3796,12 +3881,15 @@ EvolutionData OcctKernel::filletWithHistory(uint32_t solidId, std::vector<uint32
     try {
         const auto& solid = get(solidId);
         BRepFilletAPI_MakeFillet maker(solid);
+        std::vector<TopoDS_Edge> edges;
+        edges.reserve(edgeIds.size());
         for (uint32_t eid : edgeIds) {
-            maker.Add(radius, TopoDS::Edge(get(eid)));
+            edges.push_back(TopoDS::Edge(get(eid)));
+            maker.Add(radius, edges.back());
         }
         maker.Build();
         if (!maker.IsDone()) {
-            throw std::runtime_error("filletWithHistory: operation failed");
+            throw std::runtime_error(filletFailure(maker, edgeIds, edges, "filletWithHistory"));
         }
         BatchScope result(*this, 1);
         uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletWithHistory", false));
@@ -3877,12 +3965,15 @@ EvolutionData OcctKernel::chamferWithHistory(uint32_t solidId, std::vector<uint3
     try {
         const auto& solid = get(solidId);
         BRepFilletAPI_MakeChamfer maker(solid);
+        std::vector<TopoDS_Edge> edges;
+        edges.reserve(edgeIds.size());
         for (uint32_t eid : edgeIds) {
-            maker.Add(distance, TopoDS::Edge(get(eid)));
+            edges.push_back(TopoDS::Edge(get(eid)));
+            maker.Add(distance, edges.back());
         }
         maker.Build();
         if (!maker.IsDone()) {
-            throw std::runtime_error("chamferWithHistory: operation failed");
+            throw std::runtime_error(chamferFailure(solid, distance, edgeIds, edges, "chamferWithHistory"));
         }
         BatchScope result(*this, 1);
         uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferWithHistory", false));

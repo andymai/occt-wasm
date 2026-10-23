@@ -763,7 +763,24 @@ export class OcctKernel {
         );
     }
 
-    makeEllipseArc(center: Vec3, normal: Vec3, majorRadius: number, minorRadius: number, startAngle: number, endAngle: number): ShapeHandle {
+    /**
+     * Create an elliptical arc edge. The major axis runs along `xDir`, projected
+     * into the plane normal to `normal`; without `xDir`, OCCT picks it from the
+     * normal alone.
+     * @throws OcctError if `xDir` is parallel to `normal`
+     */
+    makeEllipseArc(center: Vec3, normal: Vec3, majorRadius: number, minorRadius: number, startAngle: number, endAngle: number, xDir?: Vec3): ShapeHandle {
+        if (xDir) {
+            return wrap("makeEllipseArc", () =>
+                handle(this.#raw.makeEllipseArcOriented(
+                    center.x, center.y, center.z,
+                    normal.x, normal.y, normal.z,
+                    xDir.x, xDir.y, xDir.z,
+                    majorRadius, minorRadius,
+                    startAngle, endAngle,
+                )),
+            );
+        }
         return wrap("makeEllipseArc", () =>
             handle(this.#raw.makeEllipseArc(
                 center.x, center.y, center.z,

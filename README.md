@@ -188,6 +188,21 @@ Available error codes:
 | `KernelError`        | OCCT `Standard_Failure` (unclassified)          |
 | `Unknown`            | Error from outside the kernel                   |
 
+A fillet or chamfer that OCCT cannot build also sets `faultyEdges` to the edges, as passed in, whose contour failed. The raw message carries the same list as a ` [faulty edges: 3,7]` suffix.
+
+```typescript check kernel,a
+import { OcctError } from "occt-wasm";
+
+const edges = kernel.getSubShapes(a, "edge");
+try {
+  kernel.fillet(a, edges, 3);
+} catch (e) {
+  if (e instanceof OcctError && e.faultyEdges) {
+    // retry without e.faultyEdges, or with a smaller radius on them
+  }
+}
+```
+
 > **`OcctWorker` is the exception.** Comlink serializes a thrown error down to
 > `{ message, name, stack }`, so an error crossing the worker boundary arrives
 > as a plain `Error`: the message survives intact, but `code`, `operation`, and
