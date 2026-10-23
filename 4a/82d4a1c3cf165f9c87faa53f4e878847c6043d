@@ -1,0 +1,29 @@
+README.md
+  s_1d8adac4958d10::t_93cd639381e1a5 141-146
+ts/src/types.ts
+  s_1d8adac4958d10::t_7698de8ab01e85 95-97
+  s_1d8adac4958d10::t_261be471b4d7b9 110-126
+ts/src/index.ts
+  s_1d8adac4958d10::t_1af2cd55a2e44c 149-152
+  s_1d8adac4958d10::t_6811ac878f9d59 46
+  s_1d8adac4958d10::t_bf50387ad8d366 236
+  s_1d8adac4958d10::t_64c2a947f74515 153-154
+test/init-create-module.test.ts
+  s_1d8adac4958d10::t_67ee720cded5d2 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4a82d4a1c3cf165f9c87faa53f4e878847c6043d",
+  "prompts": {},
+  "sessions": {
+    "s_1d8adac4958d10": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "92aa0090-597a-4c37-ba0b-030b8f5e0deb",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
