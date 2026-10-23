@@ -230,6 +230,9 @@ class OcctKernel {
     uint32_t makeEllipseArc(double cx, double cy, double cz, double nx, double ny, double nz,
                             double majorRadius, double minorRadius, double startAngle,
                             double endAngle);
+    uint32_t makeEllipseArcOriented(double cx, double cy, double cz, double nx, double ny,
+                                    double nz, double xx, double xy, double xz, double majorRadius,
+                                    double minorRadius, double startAngle, double endAngle);
     uint32_t makeBezierEdge(std::vector<double> flatPoints);
     uint32_t makeBSplineEdge(std::vector<double> poles, std::vector<double> weights,
                              std::vector<double> knots, std::vector<int> multiplicities, int degree,

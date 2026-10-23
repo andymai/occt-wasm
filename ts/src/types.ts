@@ -621,13 +621,26 @@ export class OcctError extends Error {
     readonly operation: string;
     /** Structured error code for programmatic handling. */
     readonly code: OcctErrorCode;
+    /**
+     * For a fillet or chamfer OCCT could not build: the edges, as passed in,
+     * that lie on a contour that failed. `undefined` when the kernel did not
+     * report any.
+     */
+    readonly faultyEdges: readonly ShapeHandle[] | undefined;
 
     constructor(operation: string, message: string, code?: OcctErrorCode) {
         super(`${operation}: ${message}`);
         this.name = "OcctError";
         this.operation = operation;
         this.code = code ?? classifyError(operation, message);
+        this.faultyEdges = parseFaultyEdges(message);
     }
+}
+
+/** Reads the facade's ` [faulty edges: 3,7]` suffix on a failed fillet/chamfer. */
+function parseFaultyEdges(message: string): ShapeHandle[] | undefined {
+    const match = /\[faulty edges: (\d+(?:,\d+)*)\]/.exec(message);
+    return match?.[1]?.split(",").map((id) => Number(id) as ShapeHandle);
 }
 
 /** Operation categories used to infer error codes from context. */

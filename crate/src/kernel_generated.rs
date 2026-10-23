@@ -96,6 +96,24 @@ pub(crate) struct GeneratedFuncs {
     fn_make_bezier_edge: TypedFunc<(i32, i32), u32>,
     fn_make_b_spline_edge: TypedFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), u32>,
     fn_make_ellipse_arc: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
+    fn_make_ellipse_arc_oriented: TypedFunc<
+        (
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+        ),
+        u32,
+    >,
     fn_make_helix_wire: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_helix_wire_handed: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64, i32), u32>,
     fn_make_non_planar_face: TypedFunc<(u32,), u32>,
@@ -342,6 +360,8 @@ impl GeneratedFuncs {
             fn_make_b_spline_edge: instance
                 .get_typed_func(&mut store, "occt_make_b_spline_edge")?,
             fn_make_ellipse_arc: instance.get_typed_func(&mut store, "occt_make_ellipse_arc")?,
+            fn_make_ellipse_arc_oriented: instance
+                .get_typed_func(&mut store, "occt_make_ellipse_arc_oriented")?,
             fn_make_helix_wire: instance.get_typed_func(&mut store, "occt_make_helix_wire")?,
             fn_make_helix_wire_handed: instance
                 .get_typed_func(&mut store, "occt_make_helix_wire_handed")?,
@@ -2063,6 +2083,47 @@ impl crate::kernel::OcctKernel {
         self.check_error("make_ellipse_arc")?;
         if result == 0 {
             return Err(self.read_last_error("make_ellipse_arc"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn make_ellipse_arc_oriented(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        cz: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+        xx: f64,
+        xy: f64,
+        xz: f64,
+        major_radius: f64,
+        minor_radius: f64,
+        start_angle: f64,
+        end_angle: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self.generated.fn_make_ellipse_arc_oriented.call(
+            &mut self.store,
+            (
+                cx,
+                cy,
+                cz,
+                nx,
+                ny,
+                nz,
+                xx,
+                xy,
+                xz,
+                major_radius,
+                minor_radius,
+                start_angle,
+                end_angle,
+            ),
+        )?;
+        self.check_error("make_ellipse_arc_oriented")?;
+        if result == 0 {
+            return Err(self.read_last_error("make_ellipse_arc_oriented"));
         }
         Ok(ShapeHandle(result))
     }

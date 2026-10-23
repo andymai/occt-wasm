@@ -1845,6 +1845,40 @@ return store(maker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "makeEllipseArcOriented",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("cx"), FacadeParam::Double("cy"), FacadeParam::Double("cz"),
+            FacadeParam::Double("nx"), FacadeParam::Double("ny"), FacadeParam::Double("nz"),
+            FacadeParam::Double("xx"), FacadeParam::Double("xy"), FacadeParam::Double("xz"),
+            FacadeParam::Double("majorRadius"), FacadeParam::Double("minorRadius"),
+            FacadeParam::Double("startAngle"), FacadeParam::Double("endAngle"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Dir normal(nx, ny, nz);
+gp_Dir xDir(xx, xy, xz);
+if (normal.IsParallel(xDir, Precision::Angular())) {
+    throw std::runtime_error(\"makeEllipseArcOriented: xDir is parallel to the normal\");
+}
+gp_Ax2 axis(gp_Pnt(cx, cy, cz), normal, xDir);
+gp_Elips ellipse(axis, majorRadius, minorRadius);
+Handle(Geom_TrimmedCurve) arc =
+    new Geom_TrimmedCurve(new Geom_Ellipse(ellipse), startAngle, endAngle);
+BRepBuilderAPI_MakeEdge maker(arc);
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"makeEllipseArcOriented: construction failed\");
+}
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_MakeEdge.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx",
+            "gp_Elips.hxx", "Geom_TrimmedCurve.hxx", "Geom_Ellipse.hxx", "Precision.hxx",
+        ],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "makeHelixWire",
         kind: MethodKind::CustomBody,
         params: &[
@@ -4736,12 +4770,15 @@ return evo;",
         setup_code: "\
 const auto& solid = get(solidId);
 BRepFilletAPI_MakeFillet maker(solid);
+std::vector<TopoDS_Edge> edges;
+edges.reserve(edgeIds.size());
 for (uint32_t eid : edgeIds) {
-    maker.Add(radius, TopoDS::Edge(get(eid)));
+    edges.push_back(TopoDS::Edge(get(eid)));
+    maker.Add(radius, edges.back());
 }
 maker.Build();
 if (!maker.IsDone()) {
-    throw std::runtime_error(\"filletWithHistory: operation failed\");
+    throw std::runtime_error(filletFailure(maker, edgeIds, edges, \"filletWithHistory\"));
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletWithHistory\", false));
@@ -4860,12 +4897,15 @@ return evo;",
         setup_code: "\
 const auto& solid = get(solidId);
 BRepFilletAPI_MakeChamfer maker(solid);
+std::vector<TopoDS_Edge> edges;
+edges.reserve(edgeIds.size());
 for (uint32_t eid : edgeIds) {
-    maker.Add(distance, TopoDS::Edge(get(eid)));
+    edges.push_back(TopoDS::Edge(get(eid)));
+    maker.Add(distance, edges.back());
 }
 maker.Build();
 if (!maker.IsDone()) {
-    throw std::runtime_error(\"chamferWithHistory: operation failed\");
+    throw std::runtime_error(chamferFailure(solid, distance, edgeIds, edges, \"chamferWithHistory\"));
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferWithHistory\", false));

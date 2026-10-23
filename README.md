@@ -186,6 +186,21 @@ Available error codes:
 | `HealingFailed`      | Shape repair failed                             |
 | `DocumentClosed`     | Operation on a closed XCAF document             |
 | `KernelError`        | OCCT `Standard_Failure` (unclassified)          |
+
+A fillet or chamfer that OCCT cannot build also sets `faultyEdges` to the edges, as passed in, whose contour failed. The raw message carries the same list as a ` [faulty edges: 3,7]` suffix.
+
+```typescript check kernel,a
+import { OcctError } from "occt-wasm";
+
+const edges = kernel.getSubShapes(a, "edge");
+try {
+  kernel.fillet(a, edges, 3);
+} catch (e) {
+  if (e instanceof OcctError && e.faultyEdges) {
+    // retry without e.faultyEdges, or with a smaller radius on them
+  }
+}
+```
 | `Unknown`            | Error from outside the kernel                   |
 
 > **`OcctWorker` is the exception.** Comlink serializes a thrown error down to
