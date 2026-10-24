@@ -65,6 +65,26 @@ function edgeOp(op: "fillet" | "chamfer", solidId: number, count: number, value:
   }
 }
 
+/** Fillet or chamfer the edges of `solidId` whose bounding box passes `keep`. */
+function edgeOpWhere(
+  op: "fillet" | "chamfer",
+  solidId: number,
+  keep: (bb: { zmin: number; zmax: number }) => boolean,
+  value: number,
+): number {
+  const edges = kernel.getSubShapes(solidId, "edge");
+  const vec = new Module.VectorUint32();
+  for (let i = 0; i < edges.size(); i++) {
+    if (keep(kernel.getBoundingBox(edges.get(i), false))) vec.push_back(edges.get(i));
+  }
+  edges.delete();
+  try {
+    return kernel[op](solidId, vec, value);
+  } finally {
+    vec.delete();
+  }
+}
+
 describe("fillet/chamfer results stay solids", () => {
   it("returns a solid, not the compound OCCT wraps it in", () => {
     const box = kernel.makeBox(20, 20, 20);
@@ -104,6 +124,21 @@ describe("fillet/chamfer results stay solids", () => {
     expect(kernel.getShapeType(chamfered)).toBe("solid");
     expect(kernel.isValid(filleted)).toBe(true);
     expect(kernel.isValid(chamfered)).toBe(true);
+  });
+
+  it("rejects a repair that leaves no solid", () => {
+    // A 40 x 30 x 20 block with its vertical edges rounded at 5 and its top rim
+    // chamfered at 1. Every edge takes a 1.5 fillet. At 2 the result is open, and
+    // ShapeFix_Shape turned it into a compound that checked valid but held no
+    // solid, with a volume larger than the block's.
+    const block = kernel.makeBox(40, 30, 20);
+    const rounded = edgeOpWhere("fillet", block, (bb) => bb.zmax - bb.zmin > 1, 5);
+    const rimmed = edgeOpWhere("chamfer", rounded, (bb) => bb.zmin > 20 - 1e-3, 1);
+
+    expect(kernel.getShapeType(edgeOpWhere("fillet", rimmed, () => true, 1.5))).toBe("solid");
+    expect(() => edgeOpWhere("fillet", rimmed, () => true, 2)).toThrow(
+      "fillet: produced an invalid solid",
+    );
   });
 
   it("still rejects a compound passed in", () => {

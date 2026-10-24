@@ -335,14 +335,23 @@ static TopoDS_Shape unwrapSingletonSolid(const TopoDS_Shape& shape) {
 /// The check is topology-only (`BRepCheck_Analyzer`'s GeomControls = false):
 /// the failure mode is an open (non-watertight) shell, which is a topological
 /// defect, and skipping the geometric controls keeps the per-fillet cost small.
+///
+/// The result must also still hold a solid. Past the size a body can take,
+/// `ShapeFix_Shape` can turn the open result into a compound that checks
+/// valid but holds no solid, with a volume larger than the input's.
+static bool isSolidResult(const TopoDS_Shape& shape) {
+    return BRepCheck_Analyzer(shape, false).IsValid() &&
+           TopExp_Explorer(shape, TopAbs_SOLID).More();
+}
+
 static TopoDS_Shape validateFilletResult(const TopoDS_Shape& shape, const char* op,
                                          bool repair) {
-    if (shape.IsNull() || BRepCheck_Analyzer(shape, false).IsValid()) return shape;
+    if (shape.IsNull() || isSolidResult(shape)) return shape;
     if (repair) {
         ShapeFix_Shape fixer(shape);
         fixer.Perform();
         TopoDS_Shape fixed = fixer.Shape();
-        if (!fixed.IsNull() && BRepCheck_Analyzer(fixed, false).IsValid()) return fixed;
+        if (!fixed.IsNull() && isSolidResult(fixed)) return fixed;
     }
     throw std::runtime_error(std::string(op) + ": produced an invalid solid");
 }
