@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.8.0](https://github.com/andymai/occt-wasm/compare/v5.7.1...v5.8.0) (2026-10-23)
+
+
+### Features
+
+* **facade:** name the faulty edges of a failed fillet or chamfer ([#416](https://github.com/andymai/occt-wasm/issues/416)) ([6971483](https://github.com/andymai/occt-wasm/commit/697148335125db69e93b7b96981c56b7627523eb))
+* **ts:** accept the Emscripten module factory in OcctKernel.init ([#414](https://github.com/andymai/occt-wasm/issues/414)) ([852e37a](https://github.com/andymai/occt-wasm/commit/852e37ac9fa747bbc487ac0803e1dd8cbbcab1e8))
+
 ## [5.7.1](https://github.com/andymai/occt-wasm/compare/v5.7.0...v5.7.1) (2026-10-12)
 
 
