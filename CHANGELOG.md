@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.8.1](https://github.com/andymai/occt-wasm/compare/v5.8.0...v5.8.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **facade:** reject a fillet or chamfer repair that leaves no solid ([#420](https://github.com/andymai/occt-wasm/issues/420)) ([60037cf](https://github.com/andymai/occt-wasm/commit/60037cf0f818a127a0d87e4c80d794efa36add12))
+
 ## [5.8.0](https://github.com/andymai/occt-wasm/compare/v5.7.1...v5.8.0) (2026-10-23)
 
 
