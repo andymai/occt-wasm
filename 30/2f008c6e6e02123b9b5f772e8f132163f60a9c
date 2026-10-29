@@ -1,0 +1,53 @@
+README.md
+  s_d4ab5fb2066c9b::t_542284725184bb 310,413
+ts/src/xcaf-document.ts
+  s_d4ab5fb2066c9b::t_542284725184bb 82
+  s_d4ab5fb2066c9b::t_76ea30e7fa9770 284-285,290,292,294
+facade/src/kernel.cpp
+  s_d4ab5fb2066c9b::t_64b6a9168b4f0a 889
+  s_d4ab5fb2066c9b::t_5519224f5fd126 902,908
+  s_d4ab5fb2066c9b::t_2030fc3223bb2c 849-860
+  s_d4ab5fb2066c9b::t_8831ff73fe7302 776-778,784-810
+  s_d4ab5fb2066c9b::t_ad46f07e1ac1e6 874-879,882-883,892
+ts/src/raw-types.ts
+  s_d4ab5fb2066c9b::t_542284725184bb 317-321,456
+ts/src/types.ts
+  s_d4ab5fb2066c9b::t_4a1c96a70def3f 93-99,108,112-113
+  s_d4ab5fb2066c9b::t_542284725184bb 109-111
+crate/src/kernel_generated.rs
+  s_d4ab5fb2066c9b::t_542284725184bb 249,304,513-514,591-592,3879-3913,5141-5175
+facade/include/occt_kernel.h
+  s_d4ab5fb2066c9b::t_d8e5524d7fc3f9 39-45,49-56
+  s_d4ab5fb2066c9b::t_93dbe664433776 10
+  s_d4ab5fb2066c9b::t_542284725184bb 364-365,516-517
+test/step-export-options.test.ts
+  s_d4ab5fb2066c9b::t_542284725184bb 2-3,182-291
+  s_d4ab5fb2066c9b::t_740418d30bdbfd 292
+ts/src/index.ts
+  s_d4ab5fb2066c9b::t_435e9edd861b8d 62
+  s_d4ab5fb2066c9b::t_188b0e424c55d5 1587-1588,1592,1594-1597
+xtask/src/codegen/config.rs
+  s_d4ab5fb2066c9b::t_542284725184bb 4655,4671-4694,6445,6462-6487
+crate/tests/integration.rs
+  s_d4ab5fb2066c9b::t_e4e824dbbd004c 898-962
+facade/generated/bindings.cpp
+  s_d4ab5fb2066c9b::t_d16cbaa728decb 294,371
+facade/generated/kernel.cpp
+  s_d4ab5fb2066c9b::t_60d57f712de2c4 4017,4025-4027,4033-4041,5374,5385-5387,5393-5405
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "302f008c6e6e02123b9b5f772e8f132163f60a9c",
+  "prompts": {},
+  "sessions": {
+    "s_d4ab5fb2066c9b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dea4dc74-85ec-4988-b4fe-8c3f4de95054",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
