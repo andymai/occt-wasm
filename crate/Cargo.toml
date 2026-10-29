@@ -13,7 +13,35 @@ keywords = ["cad", "opencascade", "wasm", "brep", "geometry"]
 categories = ["graphics", "science", "wasm"]
 
 [dependencies]
-wasmtime = "48.0.6"
+# Every default feature except `cache`, which pulls in zstd. A consumer that
+# wants wasmtime's compilation cache enables it on its own wasmtime dependency.
+wasmtime = { version = "48.0.6", default-features = false, features = [
+    "anyhow",
+    "async",
+    "backtrace",
+    "gc",
+    "gc-copying",
+    "gc-drc",
+    "gc-null",
+    "wat",
+    "profiling",
+    "parallel-compilation",
+    "cranelift",
+    "pooling-allocator",
+    "demangle",
+    "addr2line",
+    "coredump",
+    "debug-builtins",
+    "runtime",
+    "component-model",
+    "component-model-async",
+    "threads",
+    "stack-switching",
+    "std",
+    "debug",
+    "compile-time-builtins",
+    "wit-parser",
+] }
 brotli = "9"
 thiserror = "2"
 

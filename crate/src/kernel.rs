@@ -155,7 +155,9 @@ impl OcctKernel {
     /// The `wasmtime` features the embedded module needs.
     ///
     /// Build the [`Engine`] passed to [`OcctKernel::compile()`] from this,
-    /// adding any settings of your own, such as a compilation cache.
+    /// adding any settings of your own. wasmtime's compilation cache sits
+    /// behind its `cache` feature, which this crate leaves off; to use it,
+    /// enable `cache` on your own `wasmtime` dependency of the same version.
     #[must_use]
     pub fn engine_config() -> wasmtime::Config {
         let mut config = wasmtime::Config::new();
