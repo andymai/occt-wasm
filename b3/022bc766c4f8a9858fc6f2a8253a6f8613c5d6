@@ -1,0 +1,46 @@
+crate/tests/integration.rs
+  s_d4ab5fb2066c9b::t_0650a70037f029 807-866
+  s_d4ab5fb2066c9b::t_9d4c42ea8b0d9c 806
+README.md
+  s_d4ab5fb2066c9b::t_0650a70037f029 405,417
+facade/include/occt_kernel.h
+  s_d4ab5fb2066c9b::t_0650a70037f029 214-216,433-437
+ts/src/types.ts
+  s_d4ab5fb2066c9b::t_0650a70037f029 80-85
+xtask/src/codegen/config.rs
+  s_d4ab5fb2066c9b::t_0650a70037f029 967-1035,5176-5245,5248
+  s_d4ab5fb2066c9b::t_f66b0649bed54d 5246-5247
+ts/src/worker.ts
+  s_d4ab5fb2066c9b::t_0650a70037f029 20,62
+test/draft-faces.test.ts
+  s_d4ab5fb2066c9b::t_ad35bcb7c0118d 1-130,139,141,143-144
+  s_d4ab5fb2066c9b::t_6f8ed7c09e1984 131-138,140,142
+ts/src/raw-types.ts
+  s_d4ab5fb2066c9b::t_0650a70037f029 204,206-215,392-398
+crate/src/kernel_generated.rs
+  s_d4ab5fb2066c9b::t_0650a70037f029 63-81,352,1414-1465
+  s_d4ab5fb2066c9b::t_f3d2bbc2ae12c0 1466-1469
+ts/src/index.ts
+  s_d4ab5fb2066c9b::t_0650a70037f029 47,111,196-201,642-676,2271-2297
+  s_d4ab5fb2066c9b::t_5c9c7b8b6cd400 2298-2299
+facade/generated/bindings.cpp
+  s_d4ab5fb2066c9b::t_50f1c0b4f23b89 146,327
+facade/generated/kernel.cpp
+  s_d4ab5fb2066c9b::t_ecb3bb28810b6b 156,1224-1271,4284-4335
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b3022bc766c4f8a9858fc6f2a8253a6f8613c5d6",
+  "prompts": {},
+  "sessions": {
+    "s_d4ab5fb2066c9b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dea4dc74-85ec-4988-b4fe-8c3f4de95054",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
