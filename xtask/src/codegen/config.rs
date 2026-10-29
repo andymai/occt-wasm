@@ -713,6 +713,115 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamfer
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
+    // Per-edge radii in one BRepFilletAPI_MakeFillet: edge i gets a constant radius
+    // when startRadii[i] == endRadii[i], else a radius running linearly from
+    // startRadii[i] to endRadii[i] along its contour (FreeCAD Part::Fillet's model).
+    MethodSpec {
+        name: "filletRadii",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("startRadii"),
+            FacadeParam::VectorDouble("endRadii"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (edgeIds.empty()) {
+    throw std::runtime_error(\"filletRadii: no edges given\");
+}
+if (startRadii.size() != edgeIds.size() || endRadii.size() != edgeIds.size()) {
+    throw std::runtime_error(\"filletRadii: startRadii and endRadii need one entry per edge\");
+}
+BRepFilletAPI_MakeFillet maker(get(solidId));
+std::vector<TopoDS_Edge> edges;
+edges.reserve(edgeIds.size());
+for (size_t i = 0; i < edgeIds.size(); ++i) {
+    edges.push_back(TopoDS::Edge(get(edgeIds[i])));
+    addFilletEdge(maker, edges.back(), startRadii[i], endRadii[i], \"filletRadii\");
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(filletFailure(maker, edgeIds, edges, \"filletRadii\"));
+}
+return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletRadii\", true));",
+        includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    // Per-edge two-distance chamfer in one BRepFilletAPI_MakeChamfer: distances1[i]
+    // is set back on edge i's reference face, distances2[i] on its other face; equal
+    // distances give the symmetric chamfer `chamfer` builds. referenceFaceIds is
+    // empty (every edge uses its first adjacent face, chamferAsymmetric's default)
+    // or has one entry per edge, where 0 also selects that default.
+    MethodSpec {
+        name: "chamferDistances",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("distances1"),
+            FacadeParam::VectorDouble("distances2"),
+            FacadeParam::VectorShapeIds("referenceFaceIds"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+const std::vector<ChamferEdge> specs =
+    chamferEdges(solid, edgeIds, referenceFaceIds, distances1, distances2, false,
+                 \"chamferDistances\", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+BRepFilletAPI_MakeChamfer maker(solid);
+for (const ChamferEdge& edge : specs) {
+    addChamferEdge(maker, edge);
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistances\"));
+}
+return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistances\", true));",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    // Per-edge distance-angle chamfer: distances[i] on edge i's reference face and
+    // anglesDeg[i] (degrees, as chamferDistAngle takes) from that face.
+    // referenceFaceIds works as in chamferDistances.
+    MethodSpec {
+        name: "chamferDistAngles",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("distances"),
+            FacadeParam::VectorDouble("anglesDeg"),
+            FacadeParam::VectorShapeIds("referenceFaceIds"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::vector<double> anglesRad(anglesDeg.size());
+for (size_t i = 0; i < anglesDeg.size(); ++i) {
+    anglesRad[i] = anglesDeg[i] * M_PI / 180.0;
+}
+const auto& solid = get(solidId);
+const std::vector<ChamferEdge> specs =
+    chamferEdges(solid, edgeIds, referenceFaceIds, distances, anglesRad, true,
+                 \"chamferDistAngles\", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+BRepFilletAPI_MakeChamfer maker(solid);
+for (const ChamferEdge& edge : specs) {
+    addChamferEdge(maker, edge);
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistAngles\"));
+}
+return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistAngles\", true));",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
     MethodSpec {
         name: "shell",
         kind: MethodKind::CustomBody,
@@ -4910,6 +5019,84 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferWithHistory\", false));
+EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+result.take();
+return evo;",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "filletRadiiWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("startRadii"),
+            FacadeParam::VectorDouble("endRadii"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (edgeIds.empty()) {
+    throw std::runtime_error(\"filletRadiiWithHistory: no edges given\");
+}
+if (startRadii.size() != edgeIds.size() || endRadii.size() != edgeIds.size()) {
+    throw std::runtime_error(\"filletRadiiWithHistory: startRadii and endRadii need one entry per edge\");
+}
+const auto& solid = get(solidId);
+BRepFilletAPI_MakeFillet maker(solid);
+std::vector<TopoDS_Edge> edges;
+edges.reserve(edgeIds.size());
+for (size_t i = 0; i < edgeIds.size(); ++i) {
+    edges.push_back(TopoDS::Edge(get(edgeIds[i])));
+    addFilletEdge(maker, edges.back(), startRadii[i], endRadii[i], \"filletRadiiWithHistory\");
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(filletFailure(maker, edgeIds, edges, \"filletRadiiWithHistory\"));
+}
+BatchScope result(*this, 1);
+uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletRadiiWithHistory\", false));
+EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+result.take();
+return evo;",
+        includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "chamferDistancesWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("distances1"),
+            FacadeParam::VectorDouble("distances2"),
+            FacadeParam::VectorShapeIds("referenceFaceIds"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+const std::vector<ChamferEdge> specs =
+    chamferEdges(solid, edgeIds, referenceFaceIds, distances1, distances2, false,
+                 \"chamferDistancesWithHistory\", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+BRepFilletAPI_MakeChamfer maker(solid);
+for (const ChamferEdge& edge : specs) {
+    addChamferEdge(maker, edge);
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(
+        chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistancesWithHistory\"));
+}
+BatchScope result(*this, 1);
+uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistancesWithHistory\", false));
 EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",

@@ -281,15 +281,120 @@ static std::string filletFailure(const BRepFilletAPI_MakeFillet& maker,
                                  [&](const TopoDS_Edge& e) { return maker.Contour(e); });
 }
 
+/// Add `edge` to a fillet: a constant radius when `start == end`, otherwise a
+/// radius running linearly from `start` to `end` along the edge's contour.
+static void addFilletEdge(BRepFilletAPI_MakeFillet& maker, const TopoDS_Edge& edge,
+                          double start, double end, const char* op) {
+    if (!(start > 0.0 && end > 0.0 && std::isfinite(start) && std::isfinite(end))) {
+        throw std::runtime_error(std::string(op) + ": every radius must be positive and finite");
+    }
+    if (start == end) {
+        maker.Add(start, edge);
+    } else {
+        maker.Add(start, end, edge);
+    }
+}
+
+/// One edge of a chamfer: `distance` is set back on `face`, and the other side
+/// takes `second`, a distance or (when `byAngle`) an angle in radians.
+struct ChamferEdge {
+    TopoDS_Edge edge;
+    TopoDS_Face face;
+    double distance;
+    double second;
+    bool byAngle;
+};
+
+/// Equal distances add the symmetric chamfer `chamfer` builds. Works on both
+/// `BRepFilletAPI_MakeChamfer` and `ChFi3d_ChBuilder`, which share these calls.
+template <typename Builder>
+static void addChamferEdge(Builder& builder, const ChamferEdge& c) {
+    if (c.byAngle) {
+        builder.AddDA(c.distance, c.second, c.edge, c.face);
+    } else if (c.distance == c.second) {
+        builder.Add(c.distance, c.edge);
+    } else {
+        builder.Add(c.distance, c.second, c.edge, c.face);
+    }
+}
+
+/// Check per-edge chamfer arrays and resolve each edge's reference face: the
+/// given one (it must be adjacent to the edge), or for an empty list or a 0
+/// entry the edge's first adjacent face, the face `chamferAsymmetric` defaults to.
+template <typename Resolve>
+static std::vector<ChamferEdge> chamferEdges(const TopoDS_Shape& solid,
+                                             const std::vector<uint32_t>& edgeIds,
+                                             const std::vector<uint32_t>& referenceFaceIds,
+                                             const std::vector<double>& distances,
+                                             const std::vector<double>& seconds, bool byAngle,
+                                             const char* op, Resolve resolve) {
+    if (edgeIds.empty()) {
+        throw std::runtime_error(std::string(op) + ": no edges given");
+    }
+    if (distances.size() != edgeIds.size() || seconds.size() != edgeIds.size() ||
+        (!referenceFaceIds.empty() && referenceFaceIds.size() != edgeIds.size())) {
+        throw std::runtime_error(std::string(op) +
+                                 ": per-edge arrays need one entry per edge "
+                                 "(referenceFaceIds may be empty)");
+    }
+    NCollection_IndexedDataMap<TopoDS_Shape, NCollection_List<TopoDS_Shape>,
+                               TopTools_ShapeMapHasher>
+        edgeFaces;
+    TopExp::MapShapesAndAncestors(solid, TopAbs_EDGE, TopAbs_FACE, edgeFaces);
+    std::vector<ChamferEdge> result;
+    result.reserve(edgeIds.size());
+    for (size_t i = 0; i < edgeIds.size(); ++i) {
+        const double distance = distances[i];
+        const double second = seconds[i];
+        if (!(distance > 0.0 && std::isfinite(distance)) ||
+            (!byAngle && !(second > 0.0 && std::isfinite(second)))) {
+            throw std::runtime_error(std::string(op) +
+                                     ": every distance must be positive and finite");
+        }
+        if (byAngle && !(second > 0.0 && second < M_PI / 2)) {
+            throw std::runtime_error(std::string(op) +
+                                     ": every angle must lie strictly between 0 and 90 degrees");
+        }
+        const TopoDS_Edge edge = TopoDS::Edge(resolve(edgeIds[i]));
+        const int index = edgeFaces.FindIndex(edge);
+        if (index == 0) {
+            throw std::runtime_error(std::string(op) + ": edge " + std::to_string(edgeIds[i]) +
+                                     " is not on the solid");
+        }
+        const NCollection_List<TopoDS_Shape>& adjacent = edgeFaces(index);
+        const uint32_t faceId = referenceFaceIds.empty() ? 0 : referenceFaceIds[i];
+        TopoDS_Face face;
+        if (faceId == 0) {
+            face = TopoDS::Face(adjacent.First());
+        } else {
+            face = TopoDS::Face(resolve(faceId));
+            bool isAdjacent = false;
+            for (const TopoDS_Shape& candidate : adjacent) {
+                isAdjacent = isAdjacent || candidate.IsSame(face);
+            }
+            if (!isAdjacent) {
+                throw std::runtime_error(std::string(op) + ": reference face " +
+                                         std::to_string(faceId) + " is not adjacent to edge " +
+                                         std::to_string(edgeIds[i]));
+            }
+        }
+        result.push_back({edge, face, distance, second, byAngle});
+    }
+    return result;
+}
+
 /// `BRepFilletAPI_MakeChamfer` keeps its `ChFi3d` builder private, so a chamfer
 /// that failed is rebuilt with `ChFi3d_ChBuilder` to read which contours failed.
 /// Only the failure path pays for the second build.
-static std::string chamferFailure(const TopoDS_Shape& solid, double distance,
-                                  const std::vector<uint32_t>& edgeIds,
-                                  const std::vector<TopoDS_Edge>& edges, const char* op) {
+static std::string chamferEdgesFailure(const TopoDS_Shape& solid,
+                                       const std::vector<uint32_t>& edgeIds,
+                                       const std::vector<ChamferEdge>& specs, const char* op) {
+    std::vector<TopoDS_Edge> edges;
+    edges.reserve(specs.size());
+    for (const ChamferEdge& spec : specs) edges.push_back(spec.edge);
     try {
         ChFi3d_ChBuilder builder(solid);
-        for (const TopoDS_Edge& edge : edges) builder.Add(distance, edge);
+        for (const ChamferEdge& spec : specs) addChamferEdge(builder, spec);
         builder.Compute();
         std::vector<int> faulty;
         for (int i = 1; i <= builder.NbFaultyContours(); ++i) {
@@ -301,6 +406,17 @@ static std::string chamferFailure(const TopoDS_Shape& solid, double distance,
     } catch (const Standard_Failure&) {
         return std::string(op) + ": operation failed";
     }
+}
+
+static std::string chamferFailure(const TopoDS_Shape& solid, double distance,
+                                  const std::vector<uint32_t>& edgeIds,
+                                  const std::vector<TopoDS_Edge>& edges, const char* op) {
+    std::vector<ChamferEdge> specs;
+    specs.reserve(edges.size());
+    for (const TopoDS_Edge& edge : edges) {
+        specs.push_back({edge, TopoDS_Face(), distance, distance, false});
+    }
+    return chamferEdgesFailure(solid, edgeIds, specs, op);
 }
 
 /// Unwrap a singleton compound: if `shape` is a Compound holding exactly one
@@ -949,6 +1065,75 @@ uint32_t OcctKernel::chamferAsymmetric(uint32_t solidId, uint32_t edgeId, double
         return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferAsymmetric", true));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferAsymmetric: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::filletRadii(uint32_t solidId, std::vector<uint32_t> edgeIds, std::vector<double> startRadii, std::vector<double> endRadii) {
+    try {
+        if (edgeIds.empty()) {
+            throw std::runtime_error("filletRadii: no edges given");
+        }
+        if (startRadii.size() != edgeIds.size() || endRadii.size() != edgeIds.size()) {
+            throw std::runtime_error("filletRadii: startRadii and endRadii need one entry per edge");
+        }
+        BRepFilletAPI_MakeFillet maker(get(solidId));
+        std::vector<TopoDS_Edge> edges;
+        edges.reserve(edgeIds.size());
+        for (size_t i = 0; i < edgeIds.size(); ++i) {
+            edges.push_back(TopoDS::Edge(get(edgeIds[i])));
+            addFilletEdge(maker, edges.back(), startRadii[i], endRadii[i], "filletRadii");
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error(filletFailure(maker, edgeIds, edges, "filletRadii"));
+        }
+        return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletRadii", true));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("filletRadii: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::chamferDistances(uint32_t solidId, std::vector<uint32_t> edgeIds, std::vector<double> distances1, std::vector<double> distances2, std::vector<uint32_t> referenceFaceIds) {
+    try {
+        const auto& solid = get(solidId);
+        const std::vector<ChamferEdge> specs =
+            chamferEdges(solid, edgeIds, referenceFaceIds, distances1, distances2, false,
+                         "chamferDistances", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+        BRepFilletAPI_MakeChamfer maker(solid);
+        for (const ChamferEdge& edge : specs) {
+            addChamferEdge(maker, edge);
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, "chamferDistances"));
+        }
+        return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferDistances", true));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("chamferDistances: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::chamferDistAngles(uint32_t solidId, std::vector<uint32_t> edgeIds, std::vector<double> distances, std::vector<double> anglesDeg, std::vector<uint32_t> referenceFaceIds) {
+    try {
+        std::vector<double> anglesRad(anglesDeg.size());
+        for (size_t i = 0; i < anglesDeg.size(); ++i) {
+            anglesRad[i] = anglesDeg[i] * M_PI / 180.0;
+        }
+        const auto& solid = get(solidId);
+        const std::vector<ChamferEdge> specs =
+            chamferEdges(solid, edgeIds, referenceFaceIds, distances, anglesRad, true,
+                         "chamferDistAngles", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+        BRepFilletAPI_MakeChamfer maker(solid);
+        for (const ChamferEdge& edge : specs) {
+            addChamferEdge(maker, edge);
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, "chamferDistAngles"));
+        }
+        return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferDistAngles", true));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("chamferDistAngles: ") + e.what());
     }
 }
 
@@ -3992,6 +4177,61 @@ EvolutionData OcctKernel::chamferWithHistory(uint32_t solidId, std::vector<uint3
         return evo;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::filletRadiiWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds, std::vector<double> startRadii, std::vector<double> endRadii, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        if (edgeIds.empty()) {
+            throw std::runtime_error("filletRadiiWithHistory: no edges given");
+        }
+        if (startRadii.size() != edgeIds.size() || endRadii.size() != edgeIds.size()) {
+            throw std::runtime_error("filletRadiiWithHistory: startRadii and endRadii need one entry per edge");
+        }
+        const auto& solid = get(solidId);
+        BRepFilletAPI_MakeFillet maker(solid);
+        std::vector<TopoDS_Edge> edges;
+        edges.reserve(edgeIds.size());
+        for (size_t i = 0; i < edgeIds.size(); ++i) {
+            edges.push_back(TopoDS::Edge(get(edgeIds[i])));
+            addFilletEdge(maker, edges.back(), startRadii[i], endRadii[i], "filletRadiiWithHistory");
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error(filletFailure(maker, edgeIds, edges, "filletRadiiWithHistory"));
+        }
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "filletRadiiWithHistory", false));
+        EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("filletRadiiWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::chamferDistancesWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds, std::vector<double> distances1, std::vector<double> distances2, std::vector<uint32_t> referenceFaceIds, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        const auto& solid = get(solidId);
+        const std::vector<ChamferEdge> specs =
+            chamferEdges(solid, edgeIds, referenceFaceIds, distances1, distances2, false,
+                         "chamferDistancesWithHistory", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+        BRepFilletAPI_MakeChamfer maker(solid);
+        for (const ChamferEdge& edge : specs) {
+            addChamferEdge(maker, edge);
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error(
+                chamferEdgesFailure(solid, edgeIds, specs, "chamferDistancesWithHistory"));
+        }
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferDistancesWithHistory", false));
+        EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("chamferDistancesWithHistory: ") + e.what());
     }
 }
 

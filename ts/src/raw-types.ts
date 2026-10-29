@@ -188,6 +188,15 @@ export interface OcctRawKernel {
     chamfer(solidId: number, edgeIds: EmbindVectorU32, distance: number): number;
     chamferDistAngle(solidId: number, edgeIds: EmbindVectorU32, distance: number, angleDeg: number): number;
     chamferAsymmetric(solidId: number, edgeId: number, distance1: number, distance2: number, referenceFaceId: number): number;
+    /** Per-edge radii in one fillet: constant where start === end, else linear from start to end. */
+    filletRadii(solidId: number, edgeIds: EmbindVectorU32, startRadii: EmbindVectorF64, endRadii: EmbindVectorF64): number;
+    /**
+     * Per-edge two-distance chamfer; equal distances are symmetric. `referenceFaceIds` is empty
+     * or one face per edge (0 selects the edge's first adjacent face); distance1 is set back on it.
+     */
+    chamferDistances(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
+    /** Per-edge distance-angle chamfer (angles in degrees); reference faces as in `chamferDistances`. */
+    chamferDistAngles(solidId: number, edgeIds: EmbindVectorU32, distances: EmbindVectorF64, anglesDeg: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
     shell(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number): number;
     offset(solidId: number, distance: number, tolerance: number): number;
     shellWithJoin(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, joinType: number): number;
@@ -367,6 +376,8 @@ export interface OcctRawKernel {
     scaleWithHistory(id: number, cx: number, cy: number, cz: number, factor: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     intersectWithHistory(a: number, b: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     chamferWithHistory(solidId: number, edgeIds: EmbindVectorU32, distance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    filletRadiiWithHistory(solidId: number, edgeIds: EmbindVectorU32, startRadii: EmbindVectorF64, endRadii: EmbindVectorF64, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    chamferDistancesWithHistory(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     shellWithHistory(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     offsetWithHistory(solidId: number, distance: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     shellWithHistoryAndJoin(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number, joinType: number): RawEvolutionData;

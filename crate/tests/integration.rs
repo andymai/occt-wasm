@@ -728,6 +728,81 @@ fn join_type_rejects_tangent() {
     assert!(kernel.offset_with_join(solid, -2.0, 1e-6, ARC).is_ok());
 }
 
+/// The four edges of a 10 mm cube that run along Z.
+fn vertical_edges(kernel: &mut OcctKernel, solid: ShapeHandle) -> Vec<ShapeHandle> {
+    let edges = kernel.get_sub_shapes(solid, "edge").unwrap();
+    edges
+        .into_iter()
+        .filter(|&edge| {
+            let bb = kernel.get_bounding_box(edge, false).unwrap();
+            (bb.max.z - bb.min.z) > 1.0
+        })
+        .collect()
+}
+
+#[test]
+fn fillet_radii_gives_each_edge_its_own_radius() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let cube = kernel.make_box(10.0, 10.0, 10.0).unwrap();
+    let edges = vertical_edges(&mut kernel, cube);
+    assert_eq!(edges.len(), 4);
+    let loss = |r: f64| (1.0 - std::f64::consts::FRAC_PI_4) * r * r * 10.0;
+
+    let rounded = kernel
+        .fillet_radii(cube, &edges, &[1.0, 1.0, 3.0, 3.0], &[1.0, 1.0, 3.0, 3.0])
+        .unwrap();
+    let volume = kernel.get_volume(rounded).unwrap();
+    let removed: f64 = [1.0, 1.0, 3.0, 3.0].into_iter().map(loss).sum();
+    let expected = 1000.0 - removed;
+    assert!(
+        (volume - expected).abs() < 1e-6,
+        "volume {volume}, expected {expected}"
+    );
+
+    let history = kernel
+        .fillet_radii_with_history(cube, &edges, &[1.0; 4], &[3.0; 4], &[], 1 << 20)
+        .unwrap();
+    let radius_one: f64 = [1.0; 4].into_iter().map(loss).sum();
+    assert!(kernel.get_volume(history.result()).unwrap() < 1000.0 - radius_one);
+}
+
+#[test]
+fn chamfer_distances_and_angles_per_edge() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let cube = kernel.make_box(10.0, 10.0, 10.0).unwrap();
+    let edges = vertical_edges(&mut kernel, cube);
+
+    let symmetric = kernel
+        .chamfer_distances(
+            cube,
+            &edges,
+            &[1.0, 1.0, 2.0, 2.0],
+            &[1.0, 1.0, 2.0, 2.0],
+            &[],
+        )
+        .unwrap();
+    assert!((kernel.get_volume(symmetric).unwrap() - 950.0).abs() < 1e-6);
+
+    let asymmetric = kernel
+        .chamfer_distances(cube, &edges, &[1.0; 4], &[3.0; 4], &[])
+        .unwrap();
+    assert!((kernel.get_volume(asymmetric).unwrap() - 940.0).abs() < 1e-6);
+
+    let angled = kernel
+        .chamfer_dist_angles(cube, &edges, &[1.0; 4], &[45.0; 4], &[])
+        .unwrap();
+    assert!((kernel.get_volume(angled).unwrap() - 980.0).abs() < 1e-6);
+
+    let err = kernel
+        .chamfer_distances(cube, &edges, &[1.0; 4], &[1.0; 3], &[])
+        .unwrap_err();
+    assert!(err.to_string().contains("one entry per edge"), "{err}");
+}
+
 #[test]
 fn freeform_bounds_and_volume_are_exact() {
     let Some(mut kernel) = try_kernel() else {

@@ -195,6 +195,14 @@ class OcctKernel {
                               double angleDeg);
     uint32_t chamferAsymmetric(uint32_t solidId, uint32_t edgeId, double distance1,
                                double distance2, uint32_t referenceFaceId);
+    uint32_t filletRadii(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                         std::vector<double> startRadii, std::vector<double> endRadii);
+    uint32_t chamferDistances(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                              std::vector<double> distances1, std::vector<double> distances2,
+                              std::vector<uint32_t> referenceFaceIds);
+    uint32_t chamferDistAngles(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                               std::vector<double> distances, std::vector<double> anglesDeg,
+                               std::vector<uint32_t> referenceFaceIds);
     uint32_t shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness,
                    double tolerance);
     uint32_t offset(uint32_t solidId, double distance, double tolerance);
@@ -410,6 +418,15 @@ class OcctKernel {
     EvolutionData chamferWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds,
                                      double distance, std::vector<int> inputFaceHashes,
                                      int hashUpperBound);
+    EvolutionData filletRadiiWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                                         std::vector<double> startRadii,
+                                         std::vector<double> endRadii,
+                                         std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData chamferDistancesWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                                              std::vector<double> distances1,
+                                              std::vector<double> distances2,
+                                              std::vector<uint32_t> referenceFaceIds,
+                                              std::vector<int> inputFaceHashes, int hashUpperBound);
     EvolutionData shellWithHistory(uint32_t solidId, std::vector<uint32_t> faceIds,
                                    double thickness, double tolerance,
                                    std::vector<int> inputFaceHashes, int hashUpperBound);

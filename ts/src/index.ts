@@ -29,11 +29,13 @@ export {
     type BooleanOpOptions,
     type BoundingBox,
     type BoundingBoxOptions,
+    type ChamferDistance,
     type Color3,
     type CurveKind,
     type CurvatureData,
     type EdgeData,
     type EvolutionData,
+    type FilletRadius,
     type GLTFExportOptions,
     type InitOptions,
     type LabelInfo,
@@ -96,10 +98,12 @@ import {
 import type {
     AlignAnchor,
     BoundingBox,
+    ChamferDistance,
     CurveKind,
     CurvatureData,
     EdgeData,
     EvolutionData,
+    FilletRadius,
     InitOptions,
     Mesh,
     MeshBatchData,
@@ -159,6 +163,33 @@ const RAW_JOIN_CODE: Record<JoinType, number> = {
     [JoinType.Intersection]: 1,
     [JoinType.Tangent]: 2,
 };
+
+/** One value per item: a per-item list is copied (the kernel checks its length), a single value repeated. */
+function perItem<T>(count: number, value: T | readonly T[]): T[] {
+    return Array.isArray(value) ? [...(value as readonly T[])] : new Array<T>(count).fill(value as T);
+}
+
+/** The raw start/end radius arrays `filletRadii` takes. */
+function filletRadiusArrays(count: number, radius: FilletRadius | readonly FilletRadius[]): { start: number[]; end: number[] } {
+    const radii = perItem(count, radius);
+    return {
+        start: radii.map((r) => (typeof r === "number" ? r : r.start)),
+        end: radii.map((r) => (typeof r === "number" ? r : r.end)),
+    };
+}
+
+/** The raw distance and reference-face arrays `chamferDistances` takes; face 0 selects the default. */
+function chamferArrays(
+    count: number,
+    distance: ChamferDistance | readonly ChamferDistance[],
+): { distances1: number[]; distances2: number[]; faces: number[] } {
+    const specs = perItem(count, distance);
+    return {
+        distances1: specs.map((d) => (typeof d === "number" ? d : d.distance1)),
+        distances2: specs.map((d) => (typeof d === "number" ? d : d.distance2)),
+        faces: specs.map((d) => (typeof d === "number" ? 0 : (d.referenceFace ?? 0))),
+    };
+}
 
 // Allowed values for the closed string-union enums returned by the kernel,
 // derived from the single source of truth in types.ts so they can't drift.
@@ -457,23 +488,87 @@ export class OcctKernel {
         );
     }
 
-    /** Apply a constant-radius fillet to edges of a solid (BRepFilletAPI_MakeFillet).
-     * @throws OcctError */
-    fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: number): ShapeHandle {
+    /**
+     * Fillet edges of a solid in one BRepFilletAPI_MakeFillet operation.
+     *
+     * @param radius - One radius for every edge, or one per edge (an array as
+     *     long as `edges`). Each is a constant radius or a `{ start, end }` pair
+     *     that varies linearly along the edge's contour.
+     * @throws OcctError, naming the edges of any contour that could not be built
+     */
+    fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: FilletRadius | readonly FilletRadius[]): ShapeHandle {
         return wrap("fillet", () => {
-            return this.#withU32(edges, (vec) => handle(this.#raw.fillet(solid, vec, radius)));
+            if (typeof radius === "number") {
+                return this.#withU32(edges, (vec) => handle(this.#raw.fillet(solid, vec, radius)));
+            }
+            const { start, end } = filletRadiusArrays(edges.length, radius);
+            return this.#withU32(edges, (edgeVec) =>
+                this.#withF64(start, (startVec) =>
+                    this.#withF64(end, (endVec) => handle(this.#raw.filletRadii(solid, edgeVec, startVec, endVec))),
+                ),
+            );
         });
     }
 
-    chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: number): ShapeHandle {
+    /**
+     * Chamfer edges of a solid in one BRepFilletAPI_MakeChamfer operation.
+     *
+     * @param distance - One setback for every edge, or one per edge (an array
+     *     as long as `edges`). Each is a symmetric distance or an asymmetric
+     *     `{ distance1, distance2, referenceFace? }`; see {@link ChamferDistance}.
+     * @throws OcctError, naming the edges of any contour that could not be built
+     */
+    chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: ChamferDistance | readonly ChamferDistance[]): ShapeHandle {
         return wrap("chamfer", () => {
-            return this.#withU32(edges, (vec) => handle(this.#raw.chamfer(solid, vec, distance)));
+            if (typeof distance === "number") {
+                return this.#withU32(edges, (vec) => handle(this.#raw.chamfer(solid, vec, distance)));
+            }
+            const { distances1, distances2, faces } = chamferArrays(edges.length, distance);
+            return this.#withU32(edges, (edgeVec) =>
+                this.#withF64(distances1, (d1) =>
+                    this.#withF64(distances2, (d2) =>
+                        this.#withU32(faces, (faceVec) =>
+                            handle(this.#raw.chamferDistances(solid, edgeVec, d1, d2, faceVec)),
+                        ),
+                    ),
+                ),
+            );
         });
     }
 
-    chamferDistAngle(solid: ShapeHandle, edges: ShapeHandle[], distance: number, angleDeg: number): ShapeHandle {
+    /**
+     * Chamfer edges by a setback `distance` on a reference face and an angle
+     * from that face, in one operation.
+     *
+     * @param distance - One distance, or one per edge.
+     * @param angleDeg - One angle in degrees (strictly between 0 and 90), or one per edge.
+     * @param referenceFaces - One face per edge, each adjacent to its edge.
+     *     Omitted, every edge uses its first adjacent face.
+     * @throws OcctError
+     */
+    chamferDistAngle(
+        solid: ShapeHandle,
+        edges: ShapeHandle[],
+        distance: number | readonly number[],
+        angleDeg: number | readonly number[],
+        referenceFaces?: readonly ShapeHandle[],
+    ): ShapeHandle {
         return wrap("chamferDistAngle", () => {
-            return this.#withU32(edges, (vec) => handle(this.#raw.chamferDistAngle(solid, vec, distance, angleDeg)));
+            if (typeof distance === "number" && typeof angleDeg === "number" && referenceFaces === undefined) {
+                return this.#withU32(edges, (vec) => handle(this.#raw.chamferDistAngle(solid, vec, distance, angleDeg)));
+            }
+            const distances = perItem(edges.length, distance);
+            const angles = perItem(edges.length, angleDeg);
+            const faces = referenceFaces ? [...referenceFaces] : [];
+            return this.#withU32(edges, (edgeVec) =>
+                this.#withF64(distances, (d) =>
+                    this.#withF64(angles, (a) =>
+                        this.#withU32(faces, (faceVec) =>
+                            handle(this.#raw.chamferDistAngles(solid, edgeVec, d, a, faceVec)),
+                        ),
+                    ),
+                ),
+            );
         });
     }
 
@@ -1508,13 +1603,16 @@ export class OcctKernel {
     /**
      * Compute the axis-aligned bounding box of a shape.
      *
-     * By default the box is precise: `BRepBndLib::AddOptimal` finds each
-     * surface's true extrema, so the bounds are the same whether or not the
-     * shape has been tessellated. (Loose bounds were the source of the uniform
-     * 1.2 mm shift versus brepjs in occt-wasm 2.0.) That extremum search is
-     * what costs time on BSpline geometry with no mesh: a filleted box takes
-     * ~5 ms precise versus ~0.06 ms loose. On analytic shapes both take a few
-     * microseconds.
+     * By default the box is precise: it reaches each surface's true extrema,
+     * so the bounds are the same whether or not the shape has been
+     * tessellated. (Loose bounds were the source of the uniform 1.2 mm shift
+     * versus brepjs in occt-wasm 2.0.) On BSpline and Bezier faces, where
+     * `BRepBndLib::AddOptimal`'s sampled search can stop short of an extreme,
+     * each extreme is pinned down by subdividing the face's control net until
+     * its convex hull can no longer exceed the best point found. That
+     * extremum search is what costs time on curved geometry with no mesh: a
+     * filleted box takes a few milliseconds precise versus ~0.06 ms loose. On
+     * planar shapes both take a few microseconds.
      *
      * `{ precise: false }` switches to `BRepBndLib::Add`: analytic extents,
      * BSpline control hulls, plus the shape tolerance. The result always
@@ -2025,14 +2123,31 @@ export class OcctKernel {
         });
     }
 
-    filletWithHistory(solid: ShapeHandle, edges: ShapeHandle[], radius: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+    /** {@link OcctKernel.fillet} with face history. `radius` works as it does there. */
+    filletWithHistory(
+        solid: ShapeHandle,
+        edges: ShapeHandle[],
+        radius: FilletRadius | readonly FilletRadius[],
+        inputFaceHashes: number[],
+        hashUpperBound: number,
+    ): EvolutionData {
         return wrap("filletWithHistory", () =>
             this.#withU32(edges, (edgeVec) =>
-                this.#withI32(inputFaceHashes, (hashes) =>
-                    this.#extractEvolution(
-                        this.#raw.filletWithHistory(solid, edgeVec, radius, hashes, hashUpperBound),
-                    ),
-                ),
+                this.#withI32(inputFaceHashes, (hashes) => {
+                    if (typeof radius === "number") {
+                        return this.#extractEvolution(
+                            this.#raw.filletWithHistory(solid, edgeVec, radius, hashes, hashUpperBound),
+                        );
+                    }
+                    const { start, end } = filletRadiusArrays(edges.length, radius);
+                    return this.#withF64(start, (startVec) =>
+                        this.#withF64(end, (endVec) =>
+                            this.#extractEvolution(
+                                this.#raw.filletRadiiWithHistory(solid, edgeVec, startVec, endVec, hashes, hashUpperBound),
+                            ),
+                        ),
+                    );
+                }),
             ),
         );
     }
@@ -2083,14 +2198,33 @@ export class OcctKernel {
         });
     }
 
-    chamferWithHistory(solid: ShapeHandle, edges: ShapeHandle[], distance: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+    /** {@link OcctKernel.chamfer} with face history. `distance` works as it does there. */
+    chamferWithHistory(
+        solid: ShapeHandle,
+        edges: ShapeHandle[],
+        distance: ChamferDistance | readonly ChamferDistance[],
+        inputFaceHashes: number[],
+        hashUpperBound: number,
+    ): EvolutionData {
         return wrap("chamferWithHistory", () =>
             this.#withU32(edges, (edgeVec) =>
-                this.#withI32(inputFaceHashes, (hashes) =>
-                    this.#extractEvolution(
-                        this.#raw.chamferWithHistory(solid, edgeVec, distance, hashes, hashUpperBound),
-                    ),
-                ),
+                this.#withI32(inputFaceHashes, (hashes) => {
+                    if (typeof distance === "number") {
+                        return this.#extractEvolution(
+                            this.#raw.chamferWithHistory(solid, edgeVec, distance, hashes, hashUpperBound),
+                        );
+                    }
+                    const { distances1, distances2, faces } = chamferArrays(edges.length, distance);
+                    return this.#withF64(distances1, (d1) =>
+                        this.#withF64(distances2, (d2) =>
+                            this.#withU32(faces, (faceVec) =>
+                                this.#extractEvolution(
+                                    this.#raw.chamferDistancesWithHistory(solid, edgeVec, d1, d2, faceVec, hashes, hashUpperBound),
+                                ),
+                            ),
+                        ),
+                    );
+                }),
             ),
         );
     }

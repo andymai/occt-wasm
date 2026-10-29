@@ -57,6 +57,26 @@ export interface Vec3 {
     z: number;
 }
 
+/**
+ * A fillet radius for one edge: a constant radius, or one that runs linearly
+ * from `start` to `end` along the edge's contour (from its first vertex to its
+ * last).
+ */
+export type FilletRadius = number | { readonly start: number; readonly end: number };
+
+/**
+ * A chamfer for one edge: one setback on both faces, or `distance1` on
+ * `referenceFace` and `distance2` on the edge's other face. Without a
+ * `referenceFace`, the edge's first adjacent face takes `distance1`.
+ */
+export type ChamferDistance =
+    | number
+    | {
+          readonly distance1: number;
+          readonly distance2: number;
+          readonly referenceFace?: ShapeHandle | undefined;
+      };
+
 /** Options controlling BRepMesh tessellation quality. */
 export interface TessellateOptions {
     /** Maximum chord deviation from the true surface. Default: 0.1 */
