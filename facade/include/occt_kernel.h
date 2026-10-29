@@ -13,12 +13,26 @@
 #include <TDocStd_Document.hxx>
 #include <TopoDS_Shape.hxx>
 
+class Bnd_Box;
+class GProp_GProps;
+
 // XCAF helpers (defined in kernel.cpp, used by generated xcaf methods)
 const Handle(TDocStd_Application) & getXCAFApp();
 TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId);
 
 // STL bytes to a face soup, as StlAPI_Reader reads a file; a null shape on failure.
 TopoDS_Shape readStl(const std::string& data);
+
+// Mass properties that stay accurate on freeform faces. BRepGProp's default
+// fixed-order Gauss quadrature can be off by percent on BSpline geometry, so
+// those faces integrate adaptively; elementary faces keep the exact fast path.
+void volumeProperties(const TopoDS_Shape& shape, GProp_GProps& props);
+void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props);
+
+// Surface-tight bounds. BRepBndLib::AddOptimal can stop short of a BSpline
+// surface's extreme (its sampling skips the cell that holds it), so each
+// BSpline/Bezier face's extremes are certified against its control net.
+void addPreciseBounds(const TopoDS_Shape& shape, Bnd_Box& box, bool useTriangulation);
 
 // For OCCT writers that only take a file name: runs `write` on a "mem://" URL
 // ending in `extension`, which OCCT's file system keeps in memory, and returns

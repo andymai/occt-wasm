@@ -727,3 +727,28 @@ fn join_type_rejects_tangent() {
     // The store survives the rejection.
     assert!(kernel.offset_with_join(solid, -2.0, 1e-6, ARC).is_ok());
 }
+
+#[test]
+fn freeform_bounds_and_volume_are_exact() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let ellipsoid = kernel.make_ellipsoid(3.0, 4.0, 5.0).unwrap();
+    let bb = kernel.get_bounding_box(ellipsoid, false).unwrap();
+    for (got, want) in [
+        (bb.min.x, -3.0),
+        (bb.min.y, -4.0),
+        (bb.min.z, -5.0),
+        (bb.max.x, 3.0),
+        (bb.max.y, 4.0),
+        (bb.max.z, 5.0),
+    ] {
+        assert!((got - want).abs() < 1e-6, "bound {got}, expected {want}");
+    }
+    let volume = kernel.get_volume(ellipsoid).unwrap();
+    let expected = 4.0 / 3.0 * std::f64::consts::PI * 60.0;
+    assert!(
+        ((volume - expected) / expected).abs() < 1e-6,
+        "volume {volume}"
+    );
+}

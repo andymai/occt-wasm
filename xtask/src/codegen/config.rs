@@ -2603,14 +2603,14 @@ return result.take();",
         params: &[FacadeParam::ShapeId("id"), FacadeParam::Bool("useTriangulation")],
         occt_class: "",
         ctor_args: "",
-        // AddOptimal gives surface-precise bounds independent of tessellation
-        // state (Add falls back to BSpline pole hulls without triangulation,
-        // overshooting curved geometry by ~0.27*r). useShapeTolerance=false
-        // matches brepjs's call surface.
+        // Surface-precise bounds independent of tessellation state: OCCT's
+        // AddOptimal, with each BSpline/Bezier face's extremes certified against
+        // its control net (addPreciseBounds in kernel.cpp). useShapeTolerance is
+        // off, matching brepjs's call surface.
         setup_code: "\
 const auto& shape = get(id);
 Bnd_Box box;
-BRepBndLib::AddOptimal(shape, box, useTriangulation, false);
+addPreciseBounds(shape, box, useTriangulation);
 if (box.IsVoid()) {
     throw std::runtime_error(\"getBoundingBox: shape has no geometry\");
 }
@@ -2654,7 +2654,7 @@ return result;",
         setup_code: "\
 const auto& shape = get(id);
 GProp_GProps props;
-BRepGProp::VolumeProperties(shape, props);
+volumeProperties(shape, props);
 return props.Mass();",
         includes: &["BRepGProp.hxx", "GProp_GProps.hxx"],
         category: "query",
@@ -2669,7 +2669,7 @@ return props.Mass();",
         setup_code: "\
 const auto& shape = get(id);
 GProp_GProps props;
-BRepGProp::SurfaceProperties(shape, props);
+surfaceProperties(shape, props);
 return props.Mass();",
         includes: &["BRepGProp.hxx", "GProp_GProps.hxx"],
         category: "query",
@@ -2699,7 +2699,7 @@ return props.Mass();",
         setup_code: "\
 const auto& shape = get(id);
 GProp_GProps props;
-BRepGProp::VolumeProperties(shape, props);
+volumeProperties(shape, props);
 gp_Pnt com = props.CentreOfMass();
 return {com.X(), com.Y(), com.Z()};",
         includes: &["BRepGProp.hxx", "GProp_GProps.hxx", "gp_Pnt.hxx"],
@@ -2717,7 +2717,7 @@ return {com.X(), com.Y(), com.Z()};",
         setup_code: "\
 const auto& shape = get(id);
 GProp_GProps props;
-BRepGProp::VolumeProperties(shape, props);
+volumeProperties(shape, props);
 gp_Mat m = props.MatrixOfInertia();
 return {m(1, 1), m(1, 2), m(1, 3),
         m(2, 1), m(2, 2), m(2, 3),
@@ -2761,7 +2761,7 @@ return state == TopAbs_IN || state == TopAbs_ON;",
         setup_code: "\
 const auto& face = get(faceId);
 GProp_GProps props;
-BRepGProp::SurfaceProperties(face, props);
+surfaceProperties(face, props);
 gp_Pnt com = props.CentreOfMass();
 return {com.X(), com.Y(), com.Z()};",
         includes: &["BRepGProp.hxx", "GProp_GProps.hxx", "gp_Pnt.hxx"],
@@ -3680,15 +3680,16 @@ result.reserve(ids.size() * 14);
 // makes queryBatch agree with them.
 for (size_t i = 0; i < ids.size(); i++) {
     const auto& shape = get(ids[i]);
-    { GProp_GProps props; BRepGProp::VolumeProperties(shape, props); result.push_back(props.Mass()); }
-    { GProp_GProps props; BRepGProp::SurfaceProperties(shape, props); result.push_back(props.Mass()); }
+    GProp_GProps volume;
+    volumeProperties(shape, volume);
+    result.push_back(volume.Mass());
+    { GProp_GProps props; surfaceProperties(shape, props); result.push_back(props.Mass()); }
     { Bnd_Box box; BRepBndLib::Add(shape, box, false);
       if (box.IsVoid()) { for (int j = 0; j < 6; j++) result.push_back(0.0); }
       else { double xmin,ymin,zmin,xmax,ymax,zmax; box.Get(xmin,ymin,zmin,xmax,ymax,zmax);
              result.push_back(xmin); result.push_back(ymin); result.push_back(zmin);
              result.push_back(xmax); result.push_back(ymax); result.push_back(zmax); } }
-    { GProp_GProps props; BRepGProp::VolumeProperties(shape, props);
-      gp_Pnt com = props.CentreOfMass();
+    { gp_Pnt com = volume.CentreOfMass();
       result.push_back(com.X()); result.push_back(com.Y()); result.push_back(com.Z()); }
     result.push_back(static_cast<double>(shape.ShapeType()));
     { BRepCheck_Analyzer checker(shape); result.push_back(checker.IsValid() ? 1.0 : 0.0); }

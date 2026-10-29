@@ -1541,6 +1541,15 @@ export class OcctKernel {
         );
     }
 
+    /**
+     * Volume of a solid (or the signed volume a closed shell encloses).
+     *
+     * Planar and other elementary faces are integrated exactly; BSpline and
+     * Bezier faces, and faces trimmed by BSpline curves, adaptively to a
+     * relative error near 1e-7. {@link OcctKernel.getSurfaceArea},
+     * {@link OcctKernel.getCenterOfMass} and {@link OcctKernel.getInertia}
+     * integrate the same way.
+     */
     getVolume(shape: ShapeHandle): number {
         return wrap("getVolume", () => this.#raw.getVolume(shape));
     }

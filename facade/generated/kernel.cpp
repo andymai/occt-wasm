@@ -2409,7 +2409,7 @@ BBoxData OcctKernel::getBoundingBox(uint32_t id, bool useTriangulation) {
     try {
         const auto& shape = get(id);
         Bnd_Box box;
-        BRepBndLib::AddOptimal(shape, box, useTriangulation, false);
+        addPreciseBounds(shape, box, useTriangulation);
         if (box.IsVoid()) {
             throw std::runtime_error("getBoundingBox: shape has no geometry");
         }
@@ -2441,7 +2441,7 @@ double OcctKernel::getVolume(uint32_t id) {
     try {
         const auto& shape = get(id);
         GProp_GProps props;
-        BRepGProp::VolumeProperties(shape, props);
+        volumeProperties(shape, props);
         return props.Mass();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("getVolume: ") + e.what());
@@ -2452,7 +2452,7 @@ double OcctKernel::getSurfaceArea(uint32_t id) {
     try {
         const auto& shape = get(id);
         GProp_GProps props;
-        BRepGProp::SurfaceProperties(shape, props);
+        surfaceProperties(shape, props);
         return props.Mass();
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("getSurfaceArea: ") + e.what());
@@ -2474,7 +2474,7 @@ std::vector<double> OcctKernel::getCenterOfMass(uint32_t id) {
     try {
         const auto& shape = get(id);
         GProp_GProps props;
-        BRepGProp::VolumeProperties(shape, props);
+        volumeProperties(shape, props);
         gp_Pnt com = props.CentreOfMass();
         return {com.X(), com.Y(), com.Z()};
     } catch (const Standard_Failure& e) {
@@ -2486,7 +2486,7 @@ std::vector<double> OcctKernel::getInertia(uint32_t id) {
     try {
         const auto& shape = get(id);
         GProp_GProps props;
-        BRepGProp::VolumeProperties(shape, props);
+        volumeProperties(shape, props);
         gp_Mat m = props.MatrixOfInertia();
         return {m(1, 1), m(1, 2), m(1, 3),
                 m(2, 1), m(2, 2), m(2, 3),
@@ -2512,7 +2512,7 @@ std::vector<double> OcctKernel::getSurfaceCenterOfMass(uint32_t faceId) {
     try {
         const auto& face = get(faceId);
         GProp_GProps props;
-        BRepGProp::SurfaceProperties(face, props);
+        surfaceProperties(face, props);
         gp_Pnt com = props.CentreOfMass();
         return {com.X(), com.Y(), com.Z()};
     } catch (const Standard_Failure& e) {
@@ -2730,15 +2730,16 @@ std::vector<double> OcctKernel::queryBatch(std::vector<uint32_t> ids) {
         // makes queryBatch agree with them.
         for (size_t i = 0; i < ids.size(); i++) {
             const auto& shape = get(ids[i]);
-            { GProp_GProps props; BRepGProp::VolumeProperties(shape, props); result.push_back(props.Mass()); }
-            { GProp_GProps props; BRepGProp::SurfaceProperties(shape, props); result.push_back(props.Mass()); }
+            GProp_GProps volume;
+            volumeProperties(shape, volume);
+            result.push_back(volume.Mass());
+            { GProp_GProps props; surfaceProperties(shape, props); result.push_back(props.Mass()); }
             { Bnd_Box box; BRepBndLib::Add(shape, box, false);
               if (box.IsVoid()) { for (int j = 0; j < 6; j++) result.push_back(0.0); }
               else { double xmin,ymin,zmin,xmax,ymax,zmax; box.Get(xmin,ymin,zmin,xmax,ymax,zmax);
                      result.push_back(xmin); result.push_back(ymin); result.push_back(zmin);
                      result.push_back(xmax); result.push_back(ymax); result.push_back(zmax); } }
-            { GProp_GProps props; BRepGProp::VolumeProperties(shape, props);
-              gp_Pnt com = props.CentreOfMass();
+            { gp_Pnt com = volume.CentreOfMass();
               result.push_back(com.X()); result.push_back(com.Y()); result.push_back(com.Z()); }
             result.push_back(static_cast<double>(shape.ShapeType()));
             { BRepCheck_Analyzer checker(shape); result.push_back(checker.IsValid() ? 1.0 : 0.0); }
