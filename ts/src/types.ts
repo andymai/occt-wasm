@@ -90,6 +90,13 @@ export interface NeutralPlane {
 /** Length unit a STEP file is written in. Shapes are always modeled in millimeters. */
 export type LengthUnit = "mm" | "cm" | "m" | "km" | "inch" | "ft" | "mi" | "mil" | "um" | "uin";
 
+/**
+ * STEP application protocol a file is written under: AP203 (configuration
+ * controlled 3D design), AP214 (automotive design), or AP242 (managed
+ * model-based 3D engineering).
+ */
+export type StepSchema = "AP203" | "AP214" | "AP242";
+
 /** Options for STEP export. */
 export interface StepExportOptions {
     /**
@@ -98,6 +105,12 @@ export interface StepExportOptions {
      * and imports back as 25.4 mm.
      */
     unit?: LengthUnit | undefined;
+    /**
+     * Application protocol the file is written under (default `"AP214"`). The
+     * header's FILE_SCHEMA names it, and the product and application-context
+     * entities follow it.
+     */
+    schema?: StepSchema | undefined;
 }
 
 /** Options controlling BRepMesh tessellation quality. */

@@ -4652,7 +4652,7 @@ return store(reader.OneShape());",
         // writeStep (kernel.cpp) seeds the DirectFaces shape-processing flags a
         // prior XCAF export clears; see stepShapeProcessFlags there.
         setup_code: "\
-return writeStep(get(id), UnitsMethods_LengthUnit_Millimeter, \"exportStep\");",
+return writeStep(get(id), StepWriteOptions{}, \"exportStep\");",
         includes: &[],
         category: "io",
         return_type: ReturnType::String,
@@ -4668,7 +4668,30 @@ return writeStep(get(id), UnitsMethods_LengthUnit_Millimeter, \"exportStep\");",
         occt_class: "",
         ctor_args: "",
         setup_code: "\
-return writeStep(get(id), stepLengthUnit(unit, \"exportStepWithUnit\"), \"exportStepWithUnit\");",
+StepWriteOptions options;
+options.unit = stepLengthUnit(unit, \"exportStepWithUnit\");
+return writeStep(get(id), options, \"exportStepWithUnit\");",
+        includes: &[],
+        category: "io",
+        return_type: ReturnType::String,
+    },
+    // exportStep with the file's length unit and application protocol ("AP203",
+    // "AP214" or "AP242") chosen per call, both case-insensitive; an empty string
+    // keeps the default (millimeters, AP214). Like the unit, the protocol never
+    // touches the global write.step.schema static.
+    MethodSpec {
+        name: "exportStepWithOptions",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::String("unit"),
+            FacadeParam::String("schema"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+return writeStep(get(id), stepWriteOptions(unit, schema, \"exportStepWithOptions\"),
+                 \"exportStepWithOptions\");",
         includes: &[],
         category: "io",
         return_type: ReturnType::String,
@@ -6419,7 +6442,7 @@ return facadeId;",
 auto it = xcafDocs_.find(docId);
 if (it == xcafDocs_.end())
     throw std::runtime_error(\"xcafExportSTEP: invalid document ID\");
-return writeStep(it->second.doc, UnitsMethods_LengthUnit_Millimeter, \"xcafExportSTEP\");",
+return writeStep(it->second.doc, StepWriteOptions{}, \"xcafExportSTEP\");",
         includes: &[],
         category: "xcaf",
         return_type: ReturnType::String,
@@ -6436,8 +6459,32 @@ return writeStep(it->second.doc, UnitsMethods_LengthUnit_Millimeter, \"xcafExpor
 auto it = xcafDocs_.find(docId);
 if (it == xcafDocs_.end())
     throw std::runtime_error(\"xcafExportSTEPWithUnit: invalid document ID\");
-return writeStep(it->second.doc, stepLengthUnit(unit, \"xcafExportSTEPWithUnit\"),
-                 \"xcafExportSTEPWithUnit\");",
+StepWriteOptions options;
+options.unit = stepLengthUnit(unit, \"xcafExportSTEPWithUnit\");
+return writeStep(it->second.doc, options, \"xcafExportSTEPWithUnit\");",
+        includes: &[],
+        category: "xcaf",
+        return_type: ReturnType::String,
+    },
+    // xcafExportSTEP with the file's length unit and application protocol
+    // chosen per call, as in exportStepWithOptions.
+    MethodSpec {
+        name: "xcafExportSTEPWithOptions",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::DocId("docId"),
+            FacadeParam::String("unit"),
+            FacadeParam::String("schema"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafExportSTEPWithOptions: invalid document ID\");
+return writeStep(it->second.doc,
+                 stepWriteOptions(unit, schema, \"xcafExportSTEPWithOptions\"),
+                 \"xcafExportSTEPWithOptions\");",
         includes: &[],
         category: "xcaf",
         return_type: ReturnType::String,

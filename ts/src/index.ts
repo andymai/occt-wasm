@@ -59,6 +59,7 @@ export {
     type SweepFullOptions,
     type SweepOrientedOptions,
     type StepExportOptions,
+    type StepSchema,
     type SweepToleranceOptions,
     type TessellateOptions,
     type UVBounds,
@@ -1583,12 +1584,17 @@ export class OcctKernel {
      * Export a shape as STEP text.
      *
      * @param options - `unit` picks the length unit the file is written in
-     *     (default millimeters); the geometry is scaled to match.
+     *     (default millimeters); the geometry is scaled to match. `schema`
+     *     picks the application protocol (default AP214).
      */
     exportStep(shape: ShapeHandle, options?: StepExportOptions): string {
         const unit = options?.unit;
+        const schema = options?.schema;
         return wrap("exportStep", () =>
-            unit === undefined ? this.#raw.exportStep(shape) : this.#raw.exportStepWithUnit(shape, unit));
+            unit === undefined && schema === undefined
+                ? this.#raw.exportStep(shape)
+                : this.#raw.exportStepWithOptions(shape, unit ?? "", schema ?? ""),
+        );
     }
 
     /**

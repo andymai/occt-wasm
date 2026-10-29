@@ -773,12 +773,41 @@ void addPreciseBounds(const TopoDS_Shape& shape, Bnd_Box& box, bool useTriangula
 
 // --- STEP export ---
 
-UnitsMethods_LengthUnit stepLengthUnit(const std::string& name, const char* op) {
+namespace {
+
+std::string lowercase(const std::string& name) {
     std::string key;
     key.reserve(name.size());
     for (char c : name) {
         key += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
+    return key;
+}
+
+// AP214 is the IS edition, OCCT's default. AP242 is the only edition OCCT
+// writes (DIS); "ap214is" and "ap242dis" are OCCT's own names for them.
+DESTEP_Parameters::WriteMode_StepSchema stepSchema(const std::string& name, const char* op) {
+    const std::string key = lowercase(name);
+    static const std::pair<const char*, DESTEP_Parameters::WriteMode_StepSchema> kSchemas[] = {
+        {"ap203", DESTEP_Parameters::WriteMode_StepSchema_AP203},
+        {"ap214", DESTEP_Parameters::WriteMode_StepSchema_AP214IS},
+        {"ap214is", DESTEP_Parameters::WriteMode_StepSchema_AP214IS},
+        {"ap242", DESTEP_Parameters::WriteMode_StepSchema_AP242DIS},
+        {"ap242dis", DESTEP_Parameters::WriteMode_StepSchema_AP242DIS},
+    };
+    for (const auto& schema : kSchemas) {
+        if (key == schema.first) {
+            return schema.second;
+        }
+    }
+    throw std::runtime_error(std::string(op) + ": unknown STEP schema '" + name +
+                             "' (expected AP203, AP214 or AP242)");
+}
+
+} // namespace
+
+UnitsMethods_LengthUnit stepLengthUnit(const std::string& name, const char* op) {
+    const std::string key = lowercase(name);
     static const std::pair<const char*, UnitsMethods_LengthUnit> kUnits[] = {
         {"mm", UnitsMethods_LengthUnit_Millimeter},
         {"millimeter", UnitsMethods_LengthUnit_Millimeter},
@@ -817,6 +846,18 @@ UnitsMethods_LengthUnit stepLengthUnit(const std::string& name, const char* op) 
                              "' (expected mm, cm, m, km, inch, ft, mi, mil, um or uin)");
 }
 
+StepWriteOptions stepWriteOptions(const std::string& unit, const std::string& schema,
+                                  const char* op) {
+    StepWriteOptions options;
+    if (!unit.empty()) {
+        options.unit = stepLengthUnit(unit, op);
+    }
+    if (!schema.empty()) {
+        options.schema = stepSchema(schema, op);
+    }
+    return options;
+}
+
 namespace {
 
 // DirectFaces rewrites elementary surfaces STEP cannot carry as stored, such as
@@ -830,22 +871,25 @@ ShapeProcess::OperationsFlags stepShapeProcessFlags() {
     return flags;
 }
 
-// Per-call writer parameters, so the unit never touches the process-wide
-// "write.step.unit" static. Geometry stays in millimeters (the cascade unit);
-// the writer scales it into `unit`.
-DESTEP_Parameters stepParameters(UnitsMethods_LengthUnit unit) {
+// Per-call writer parameters, so neither the unit nor the schema touches the
+// process-wide "write.step.unit" and "write.step.schema" statics: each writer
+// gets a fresh model that carries them, and the header's FILE_SCHEMA is read
+// from it. Geometry stays in millimeters (the cascade unit); the writer scales
+// it into the unit.
+DESTEP_Parameters stepParameters(const StepWriteOptions& options) {
     DESTEP_Parameters params;
     params.InitFromStatic();
-    params.WriteUnit = unit;
+    params.WriteUnit = options.unit;
+    params.WriteSchema = options.schema;
     return params;
 }
 
 } // namespace
 
-std::string writeStep(const TopoDS_Shape& shape, UnitsMethods_LengthUnit unit, const char* op) {
+std::string writeStep(const TopoDS_Shape& shape, const StepWriteOptions& options, const char* op) {
     STEPControl_Writer writer;
     writer.SetShapeProcessFlags(stepShapeProcessFlags());
-    if (writer.Transfer(shape, STEPControl_AsIs, stepParameters(unit)) != IFSelect_RetDone) {
+    if (writer.Transfer(shape, STEPControl_AsIs, stepParameters(options)) != IFSelect_RetDone) {
         throw std::runtime_error(std::string(op) + ": transfer failed");
     }
     std::ostringstream oss;
@@ -855,13 +899,13 @@ std::string writeStep(const TopoDS_Shape& shape, UnitsMethods_LengthUnit unit, c
     return oss.str();
 }
 
-std::string writeStep(const Handle(TDocStd_Document) & doc, UnitsMethods_LengthUnit unit,
+std::string writeStep(const Handle(TDocStd_Document) & doc, const StepWriteOptions& options,
                       const char* op) {
     STEPCAFControl_Writer writer;
     writer.SetColorMode(true);
     writer.SetNameMode(true);
     writer.SetShapeProcessFlags(stepShapeProcessFlags());
-    if (!writer.Transfer(doc, stepParameters(unit), STEPControl_AsIs)) {
+    if (!writer.Transfer(doc, stepParameters(options), STEPControl_AsIs)) {
         throw std::runtime_error(std::string(op) + ": transfer failed");
     }
     std::ostringstream oss;

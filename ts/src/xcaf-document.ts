@@ -79,6 +79,7 @@ export interface RawXCAFKernel {
     xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
     xcafExportSTEPWithUnit(docId: number, unit: string): string;
+    xcafExportSTEPWithOptions(docId: number, unit: string, schema: string): string;
     xcafImportSTEP(stepData: string): number;
     xcafExportGLB(docId: number, linDefl: number, angDefl: number): Uint8Array;
 }
@@ -280,15 +281,17 @@ export class XCAFDocument {
      * Export as STEP with colors and names preserved.
      *
      * @param options - `unit` picks the length unit the file is written in
-     *     (default millimeters); the geometry is scaled to match.
+     *     (default millimeters); the geometry is scaled to match. `schema`
+     *     picks the application protocol (default AP214).
      */
     exportSTEP(options?: StepExportOptions): string {
         this.#ensureOpen();
         const unit = options?.unit;
+        const schema = options?.schema;
         return wrap("xcafExportSTEP", () =>
-            unit === undefined
+            unit === undefined && schema === undefined
                 ? this.#raw.xcafExportSTEP(this.#docId)
-                : this.#raw.xcafExportSTEPWithUnit(this.#docId, unit),
+                : this.#raw.xcafExportSTEPWithOptions(this.#docId, unit ?? "", schema ?? ""),
         );
     }
 

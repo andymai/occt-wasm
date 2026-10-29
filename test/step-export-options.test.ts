@@ -1,5 +1,6 @@
 /**
- * STEP export: sRGB colors, UTF-8 names, and the file's length unit.
+ * STEP export: sRGB colors, UTF-8 names, the file's length unit, and its
+ * application protocol.
  *
  * `#808080` is 128/255 = 0.50196 in sRGB. Taken as linear RGB it was written
  * as COLOUR_RGB 0.7366, and a name passed as UTF-8 was decoded byte by byte.
@@ -176,5 +177,116 @@ describe("STEP length unit", () => {
         const box = kernel.makeBox(10, 10, 10);
         expect(raw.exportStepWithUnit(box, "Millimeter")).toMatch(/\.MILLI\./);
         expect(() => raw.exportStepWithUnit(box, "furlong")).toThrow(/unknown length unit 'furlong'/);
+    });
+});
+
+describe("STEP application protocol", () => {
+    const FILE_SCHEMAS = {
+        AP203: "CONFIG_CONTROL_DESIGN",
+        AP214: "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+        AP242: "AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF {1 0 10303 442 1 1 4 }",
+    } as const;
+    const SCHEMAS = Object.keys(FILE_SCHEMAS) as (keyof typeof FILE_SCHEMAS)[];
+
+    /** The schema names in the header's FILE_SCHEMA, in order. */
+    function fileSchema(step: string): string[] {
+        const match = /FILE_SCHEMA\s*\(\s*\((.*?)\)\s*\)\s*;/s.exec(step);
+        expect(match, "no FILE_SCHEMA in the header").not.toBeNull();
+        return [...(match?.[1] ?? "").matchAll(/'([^']*)'/g)].map((m) => m[1]);
+    }
+
+    const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
+
+    it.each(SCHEMAS)("writes a shape under %s and imports it back", (schema) => {
+        const box = kernel.makeBox(10, 20, 30);
+        const step: string = kernel.exportStep(box, { schema });
+        expect(fileSchema(step)[0]).toBe(FILE_SCHEMAS[schema]);
+        expect(kernel.getVolume(kernel.importStep(step))).toBeCloseTo(6000, 6);
+    });
+
+    it.each(SCHEMAS)("writes an XCAF document under %s, keeping its name", (schema) => {
+        const step: string = withDoc(kernel.createXCAFDocument(), (doc) => {
+            doc.addShape(kernel.makeBox(10, 10, 10), { name: "plate", color: [1, 0, 0] });
+            return doc.exportSTEP({ schema });
+        });
+        expect(fileSchema(step)[0]).toBe(FILE_SCHEMAS[schema]);
+        const names = withDoc(kernel.importXCAFFromSTEP(step), (imported) =>
+            allLabels(imported).map((l) => imported.getLabelInfo(l).name),
+        );
+        expect(names).toContain("plate");
+    });
+
+    it("writes AP214 by default", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        expect(fileSchema(kernel.exportStep(box))).toEqual([FILE_SCHEMAS.AP214]);
+        const step: string = withDoc(kernel.createXCAFDocument(), (doc) => {
+            doc.addShape(box);
+            return doc.exportSTEP({ unit: "inch" });
+        });
+        expect(fileSchema(step)).toEqual([FILE_SCHEMAS.AP214]);
+    });
+
+    it("combines a schema with a length unit", () => {
+        const INCH = 25.4;
+        const box = kernel.makeBox(INCH, 2 * INCH, 3 * INCH);
+        const step: string = kernel.exportStep(box, { unit: "inch", schema: "AP242" });
+        expect(fileSchema(step)[0]).toBe(FILE_SCHEMAS.AP242);
+        expect(step).toMatch(/CONVERSION_BASED_UNIT\('INCH'/);
+        expect(kernel.getVolume(kernel.importStep(step))).toBeCloseTo(6 * INCH ** 3, 6);
+    });
+
+    it("leaves later default exports in AP214 and millimeters", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        kernel.exportStep(box, { unit: "inch", schema: "AP203" });
+        withDoc(kernel.createXCAFDocument(), (doc) => {
+            doc.addShape(box);
+            doc.exportSTEP({ unit: "m", schema: "AP242" });
+        });
+
+        const step: string = kernel.exportStep(box);
+        expect(fileSchema(step)).toEqual([FILE_SCHEMAS.AP214]);
+        expect(step).toMatch(/SI_UNIT\(\s*\.MILLI\.\s*,\s*\.METRE\.\s*\)/);
+        const xcafStep: string = withDoc(kernel.createXCAFDocument(), (doc) => {
+            doc.addShape(box);
+            return doc.exportSTEP();
+        });
+        expect(fileSchema(xcafStep)).toEqual([FILE_SCHEMAS.AP214]);
+        expect(xcafStep).toMatch(/SI_UNIT\(\s*\.MILLI\.\s*,\s*\.METRE\.\s*\)/);
+    });
+
+    it.each(SCHEMAS)("keeps a cone's lateral face under %s", (schema) => {
+        // The cone's ConicalSurface is only writable after DirectFaces, which an
+        // XCAF export clears from the shared STEP actor unless the writer resets it.
+        const cone = kernel.makeCone(8, 0, 24);
+        const xcafStep: string = withDoc(kernel.createXCAFDocument(), (doc) => {
+            doc.addShape(cone);
+            return doc.exportSTEP({ schema });
+        });
+        expect(count(xcafStep, /CONICAL_SURFACE/g)).toBe(1);
+        expect(count(xcafStep, /ADVANCED_FACE/g)).toBe(2);
+        const step: string = kernel.exportStep(cone, { schema });
+        expect(count(step, /CONICAL_SURFACE/g)).toBe(1);
+        expect(count(step, /ADVANCED_FACE/g)).toBe(2);
+    });
+
+    it("takes protocol names case-insensitively, with empty strings as the defaults", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        expect(fileSchema(raw.exportStepWithOptions(box, "", "ap203"))[0]).toBe(FILE_SCHEMAS.AP203);
+        expect(fileSchema(raw.exportStepWithOptions(box, "", "Ap242Dis"))[0]).toBe(FILE_SCHEMAS.AP242);
+        expect(fileSchema(raw.exportStepWithOptions(box, "", "AP214IS"))[0]).toBe(FILE_SCHEMAS.AP214);
+        const step: string = raw.exportStepWithOptions(box, "", "");
+        expect(fileSchema(step)).toEqual([FILE_SCHEMAS.AP214]);
+        expect(step).toMatch(/SI_UNIT\(\s*\.MILLI\.\s*,\s*\.METRE\.\s*\)/);
+    });
+
+    it("rejects an unknown protocol", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        expect(() => raw.exportStepWithOptions(box, "mm", "AP209")).toThrow(/unknown STEP schema 'AP209'/);
+        expect(() => kernel.exportStep(box, { schema: "AP242e3" })).toThrow(/unknown STEP schema 'AP242e3'/);
+        withDoc(kernel.createXCAFDocument(), (doc) => {
+            doc.addShape(box);
+            expect(() => doc.exportSTEP({ schema: "STEP" })).toThrow(/unknown STEP schema 'STEP'/);
+        });
+        expect(() => raw.exportStepWithOptions(box, "furlong", "AP214")).toThrow(/unknown length unit 'furlong'/);
     });
 });
