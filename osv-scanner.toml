@@ -1,0 +1,12 @@
+# Advisories the OSV scan of Cargo.lock skips, each with why and until when.
+
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+ignoreUntil = 2027-01-27
+reason = """
+block-buffer 0.10.4 reaches the crate only through sha2 0.10 in cranelift, and
+the fix exists only in block-buffer 0.12.1. Every cranelift through wasmtime
+50.0.1 still requires sha2 ^0.10.2, so no upgrade removes it. The bug needs a
+panic inside a block-buffer callback to be caught and the buffer reused; sha2
+and cranelift do neither. Recheck when wasmtime moves to sha2 0.11.
+"""
