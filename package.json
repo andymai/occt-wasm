@@ -27,8 +27,8 @@
     "husky": "^9",
     "opencascade.js": "^1.1.1",
     "three": "0.186.1",
-    "vite": "^8.3.4",
-    "vitest": "^5.0.4",
-    "webpack": "^5.111.1"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "webpack": "^5.112.0"
   }
 }
