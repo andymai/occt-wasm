@@ -135,11 +135,15 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("chamfer", &OcctKernel::chamfer)
         .function("chamferDistAngle", &OcctKernel::chamferDistAngle)
         .function("chamferAsymmetric", &OcctKernel::chamferAsymmetric)
+        .function("filletRadii", &OcctKernel::filletRadii)
+        .function("chamferDistances", &OcctKernel::chamferDistances)
+        .function("chamferDistAngles", &OcctKernel::chamferDistAngles)
         .function("shell", &OcctKernel::shell)
         .function("offset", &OcctKernel::offset)
         .function("shellWithJoin", &OcctKernel::shellWithJoin)
         .function("offsetWithJoin", &OcctKernel::offsetWithJoin)
         .function("draft", &OcctKernel::draft)
+        .function("draftFaces", &OcctKernel::draftFaces)
         .function("thicken", &OcctKernel::thicken)
         .function("defeature", &OcctKernel::defeature)
         .function("reverseShape", &OcctKernel::reverseShape)
@@ -286,6 +290,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // io
         .function("importStep", &OcctKernel::importStep)
         .function("exportStep", &OcctKernel::exportStep)
+        .function("exportStepWithUnit", &OcctKernel::exportStepWithUnit)
         .function("exportStl", &OcctKernel::exportStl)
         .function("importStl", &OcctKernel::importStl)
         .function("exportStlBinary", +[](OcctKernel& kernel, uint32_t id, double linearDeflection) {
@@ -318,6 +323,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("scaleWithHistory", &OcctKernel::scaleWithHistory)
         .function("intersectWithHistory", &OcctKernel::intersectWithHistory)
         .function("chamferWithHistory", &OcctKernel::chamferWithHistory)
+        .function("filletRadiiWithHistory", &OcctKernel::filletRadiiWithHistory)
+        .function("chamferDistancesWithHistory", &OcctKernel::chamferDistancesWithHistory)
+        .function("draftFacesWithHistory", &OcctKernel::draftFacesWithHistory)
         .function("shellWithHistory", &OcctKernel::shellWithHistory)
         .function("offsetWithHistory", &OcctKernel::offsetWithHistory)
         .function("shellWithHistoryAndJoin", &OcctKernel::shellWithHistoryAndJoin)
@@ -358,6 +366,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("xcafGetSubShapeLabels", &OcctKernel::xcafGetSubShapeLabels)
         .function("xcafAddSubShape", &OcctKernel::xcafAddSubShape)
         .function("xcafExportSTEP", &OcctKernel::xcafExportSTEP)
+        .function("xcafExportSTEPWithUnit", &OcctKernel::xcafExportSTEPWithUnit)
         .function("xcafImportSTEP", &OcctKernel::xcafImportSTEP)
         .function("xcafExportGLB", +[](OcctKernel& kernel, uint32_t docId, double linDeflection, double angDeflection) {
             const std::string bytes = kernel.xcafExportGLB(docId, linDeflection, angDeflection);

@@ -12,6 +12,10 @@
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
 #include <TopoDS_Shape.hxx>
+#include <UnitsMethods_LengthUnit.hxx>
+
+class Bnd_Box;
+class GProp_GProps;
 
 // XCAF helpers (defined in kernel.cpp, used by generated xcaf methods)
 const Handle(TDocStd_Application) & getXCAFApp();
@@ -19,6 +23,25 @@ TDF_Label lookupLabel(const std::map<int, TDF_Label>& registry, int labelId);
 
 // STL bytes to a face soup, as StlAPI_Reader reads a file; a null shape on failure.
 TopoDS_Shape readStl(const std::string& data);
+
+// Mass properties that stay accurate on freeform faces. BRepGProp's default
+// fixed-order Gauss quadrature can be off by percent on BSpline geometry, so
+// those faces integrate adaptively; elementary faces keep the exact fast path.
+void volumeProperties(const TopoDS_Shape& shape, GProp_GProps& props);
+void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props);
+
+// Surface-tight bounds. BRepBndLib::AddOptimal can stop short of a BSpline
+// surface's extreme (its sampling skips the cell that holds it), so each
+// BSpline/Bezier face's extremes are certified against its control net.
+void addPreciseBounds(const TopoDS_Shape& shape, Bnd_Box& box, bool useTriangulation);
+
+// A length unit name for STEP export ("mm", "inch", ...), case-insensitive.
+UnitsMethods_LengthUnit stepLengthUnit(const std::string& name, const char* op);
+
+// STEP text for a shape or an XCAF document, with lengths written in `unit`.
+std::string writeStep(const TopoDS_Shape& shape, UnitsMethods_LengthUnit unit, const char* op);
+std::string writeStep(const Handle(TDocStd_Document) & doc, UnitsMethods_LengthUnit unit,
+                      const char* op);
 
 // For OCCT writers that only take a file name: runs `write` on a "mem://" URL
 // ending in `extension`, which OCCT's file system keeps in memory, and returns
@@ -181,6 +204,14 @@ class OcctKernel {
                               double angleDeg);
     uint32_t chamferAsymmetric(uint32_t solidId, uint32_t edgeId, double distance1,
                                double distance2, uint32_t referenceFaceId);
+    uint32_t filletRadii(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                         std::vector<double> startRadii, std::vector<double> endRadii);
+    uint32_t chamferDistances(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                              std::vector<double> distances1, std::vector<double> distances2,
+                              std::vector<uint32_t> referenceFaceIds);
+    uint32_t chamferDistAngles(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                               std::vector<double> distances, std::vector<double> anglesDeg,
+                               std::vector<uint32_t> referenceFaceIds);
     uint32_t shell(uint32_t solidId, std::vector<uint32_t> faceIds, double thickness,
                    double tolerance);
     uint32_t offset(uint32_t solidId, double distance, double tolerance);
@@ -189,6 +220,9 @@ class OcctKernel {
     uint32_t offsetWithJoin(uint32_t solidId, double distance, double tolerance, int joinType);
     uint32_t draft(uint32_t shapeId, uint32_t faceId, double angleRad, double dx, double dy,
                    double dz);
+    uint32_t draftFaces(uint32_t shapeId, std::vector<uint32_t> faceIds,
+                        std::vector<double> anglesRad, double dx, double dy, double dz, double px,
+                        double py, double pz, double nx, double ny, double nz);
 
     // --- Sweep operations ---
     uint32_t pipe(uint32_t profileId, uint32_t spineId);
@@ -313,6 +347,7 @@ class OcctKernel {
     // --- I/O ---
     uint32_t importStep(const std::string& data);
     std::string exportStep(uint32_t id);
+    std::string exportStepWithUnit(uint32_t id, const std::string& unit);
     uint32_t importStl(const std::string& data);
     std::string exportStl(uint32_t id, double linearDeflection, bool ascii);
     std::string exportStlBinary(uint32_t id, double linearDeflection);
@@ -396,6 +431,20 @@ class OcctKernel {
     EvolutionData chamferWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds,
                                      double distance, std::vector<int> inputFaceHashes,
                                      int hashUpperBound);
+    EvolutionData filletRadiiWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                                         std::vector<double> startRadii,
+                                         std::vector<double> endRadii,
+                                         std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData chamferDistancesWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                                              std::vector<double> distances1,
+                                              std::vector<double> distances2,
+                                              std::vector<uint32_t> referenceFaceIds,
+                                              std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData draftFacesWithHistory(uint32_t shapeId, std::vector<uint32_t> faceIds,
+                                        std::vector<double> anglesRad, double dx, double dy,
+                                        double dz, double px, double py, double pz, double nx,
+                                        double ny, double nz, std::vector<int> inputFaceHashes,
+                                        int hashUpperBound);
     EvolutionData shellWithHistory(uint32_t solidId, std::vector<uint32_t> faceIds,
                                    double thickness, double tolerance,
                                    std::vector<int> inputFaceHashes, int hashUpperBound);
@@ -448,6 +497,7 @@ class OcctKernel {
     std::vector<int> xcafGetSubShapeLabels(uint32_t docId, int labelId);
     int xcafAddSubShape(uint32_t docId, int labelId, uint32_t shapeId);
     std::string xcafExportSTEP(uint32_t docId);
+    std::string xcafExportSTEPWithUnit(uint32_t docId, const std::string& unit);
     uint32_t xcafImportSTEP(const std::string& stepData);
     std::string xcafExportGLTF(uint32_t docId, double linDeflection, double angDeflection);
     std::string xcafExportGLB(uint32_t docId, double linDeflection, double angDeflection);

@@ -57,6 +57,49 @@ export interface Vec3 {
     z: number;
 }
 
+/**
+ * A fillet radius for one edge: a constant radius, or one that runs linearly
+ * from `start` at the edge's first vertex (its first curve parameter) to `end`
+ * at its last.
+ */
+export type FilletRadius = number | { readonly start: number; readonly end: number };
+
+/**
+ * A chamfer for one edge: one setback on both faces, or `distance1` on
+ * `referenceFace` and `distance2` on the edge's other face. Without a
+ * `referenceFace`, the edge's first adjacent face takes `distance1`.
+ * Tangent-continuous edges are chamfered as one contour, so edges of such a
+ * chain must ask for the same setback on each side: `{ distance1: 1,
+ * distance2: 3 }` from the top face matches `{ distance1: 3, distance2: 1 }`
+ * from the side face.
+ */
+export type ChamferDistance =
+    | number
+    | {
+          readonly distance1: number;
+          readonly distance2: number;
+          readonly referenceFace?: ShapeHandle | undefined;
+      };
+
+/** Plane the drafted faces pivot about: they keep their section in it. */
+export interface NeutralPlane {
+    origin: Vec3;
+    normal: Vec3;
+}
+
+/** Length unit a STEP file is written in. Shapes are always modeled in millimeters. */
+export type LengthUnit = "mm" | "cm" | "m" | "km" | "inch" | "ft" | "mi" | "mil" | "um" | "uin";
+
+/** Options for STEP export. */
+export interface StepExportOptions {
+    /**
+     * Unit the file's lengths are written in (default `"mm"`). The geometry is
+     * scaled on the way out, so a 25.4 mm edge reads as 1 in an `"inch"` file
+     * and imports back as 25.4 mm.
+     */
+    unit?: LengthUnit | undefined;
+}
+
 /** Options controlling BRepMesh tessellation quality. */
 export interface TessellateOptions {
     /** Maximum chord deviation from the true surface. Default: 0.1 */
@@ -132,7 +175,11 @@ export interface InitOptions {
 
 // --- XCAF types ---
 
-/** RGB color triple, each channel in the range 0..1. */
+/**
+ * RGB color with sRGB components in [0, 1], the space CSS and hex colors use
+ * (`#808080` is `[128 / 255, 128 / 255, 128 / 255]`). A STEP file carries
+ * these values as they are; glTF output gets the linear factors glTF expects.
+ */
 export type Color3 = [number, number, number];
 
 /**
@@ -187,9 +234,12 @@ export interface LabelInfo {
     labelId: number;
     /** Display name (empty string if unset). */
     name: string;
-    /** Whether a color has been explicitly set on this label. */
+    /**
+     * Whether the label carries a color: one set with `setColor`, or the
+     * surface (else curve) color a STEP import assigns.
+     */
     hasColor: boolean;
-    /** RGB color (meaningful only when hasColor is true). */
+    /** sRGB color (meaningful only when hasColor is true). */
     color: Color3;
     /** True if this label is an assembly (has child components). */
     isAssembly: boolean;

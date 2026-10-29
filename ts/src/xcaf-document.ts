@@ -25,6 +25,7 @@ import type {
     AddShapeOptions,
     AddChildOptions,
     GLTFExportOptions,
+    StepExportOptions,
 } from "./types.js";
 import { OcctError, OcctErrorCode, wrap } from "./types.js";
 
@@ -77,6 +78,7 @@ export interface RawXCAFKernel {
     ): { size(): number; get(i: number): number; delete(): void };
     xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
+    xcafExportSTEPWithUnit(docId: number, unit: string): string;
     xcafImportSTEP(stepData: string): number;
     xcafExportGLB(docId: number, linDefl: number, angDefl: number): Uint8Array;
 }
@@ -274,10 +276,20 @@ export class XCAFDocument {
         return tag(t);
     }
 
-    /** Export as STEP with colors and names preserved. */
-    exportSTEP(): string {
+    /**
+     * Export as STEP with colors and names preserved.
+     *
+     * @param options - `unit` picks the length unit the file is written in
+     *     (default millimeters); the geometry is scaled to match.
+     */
+    exportSTEP(options?: StepExportOptions): string {
         this.#ensureOpen();
-        return wrap("xcafExportSTEP", () => this.#raw.xcafExportSTEP(this.#docId));
+        const unit = options?.unit;
+        return wrap("xcafExportSTEP", () =>
+            unit === undefined
+                ? this.#raw.xcafExportSTEP(this.#docId)
+                : this.#raw.xcafExportSTEPWithUnit(this.#docId, unit),
+        );
     }
 
     /**

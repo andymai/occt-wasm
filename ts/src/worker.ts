@@ -17,7 +17,7 @@
 
 import * as Comlink from "comlink";
 import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, WireframeOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
-import type { BooleanOp, BooleanOpOptions, EvolutionData, JoinType, TransitionMode } from "./types.js";
+import type { BooleanOp, BooleanOpOptions, ChamferDistance, EvolutionData, FilletRadius, JoinType, NeutralPlane, StepExportOptions, TransitionMode } from "./types.js";
 
 /**
  * Async proxy to an OcctKernel running in a Web Worker.
@@ -55,11 +55,11 @@ export interface OcctWorkerProxy {
     // Modeling
     extrude(shape: ShapeHandle, dx: number, dy: number, dz: number): Promise<ShapeHandle>;
     revolve(shape: ShapeHandle, axis: { point: Vec3; direction: Vec3 }, angleRad: number): Promise<ShapeHandle>;
-    fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: number): Promise<ShapeHandle>;
-    chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: number): Promise<ShapeHandle>;
+    fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: FilletRadius | readonly FilletRadius[]): Promise<ShapeHandle>;
+    chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: ChamferDistance | readonly ChamferDistance[]): Promise<ShapeHandle>;
     shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number, tolerance: number, joinType?: JoinType.Arc | JoinType.Intersection): Promise<ShapeHandle>;
     offset(solid: ShapeHandle, distance: number, tolerance: number, joinType?: JoinType.Arc | JoinType.Intersection): Promise<ShapeHandle>;
-    draft(shape: ShapeHandle, face: ShapeHandle, angleRad: number, direction: Vec3): Promise<ShapeHandle>;
+    draft(shape: ShapeHandle, faces: ShapeHandle | readonly ShapeHandle[], angleRad: number | readonly number[], direction: Vec3, neutralPlane?: NeutralPlane): Promise<ShapeHandle>;
 
     // Sweeps
     pipe(profile: ShapeHandle, spine: ShapeHandle): Promise<ShapeHandle>;
@@ -113,7 +113,7 @@ export interface OcctWorkerProxy {
 
     // I/O
     importStep(data: string | ArrayBuffer): Promise<ShapeHandle>;
-    exportStep(shape: ShapeHandle): Promise<string>;
+    exportStep(shape: ShapeHandle, options?: StepExportOptions): Promise<string>;
     importStl(data: string | ArrayBuffer | Uint8Array): Promise<ShapeHandle>;
     exportStl(shape: ShapeHandle, linearDeflection?: number, ascii?: false): Promise<Uint8Array>;
     exportStl(shape: ShapeHandle, linearDeflection: number | undefined, ascii: true): Promise<string>;
@@ -235,7 +235,7 @@ export class OcctWorker {
     cut(a: ShapeHandle, b: ShapeHandle) { return this.#proxy.cut(a, b); }
     common(a: ShapeHandle, b: ShapeHandle) { return this.#proxy.common(a, b); }
     extrude(shape: ShapeHandle, dx: number, dy: number, dz: number) { return this.#proxy.extrude(shape, dx, dy, dz); }
-    fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: number) { return this.#proxy.fillet(solid, edges, radius); }
+    fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: FilletRadius | readonly FilletRadius[]) { return this.#proxy.fillet(solid, edges, radius); }
     tessellate(shape: ShapeHandle, options?: TessellateOptions) { return this.#proxy.tessellate(shape, options); }
     meshShape(shape: ShapeHandle, options?: TessellateOptions) { return this.#proxy.meshShape(shape, options); }
     meshBatch(shapes: ShapeHandle[], options?: TessellateOptions) { return this.#proxy.meshBatch(shapes, options); }
@@ -243,7 +243,7 @@ export class OcctWorker {
     translate(shape: ShapeHandle, dx: number, dy: number, dz: number) { return this.#proxy.translate(shape, dx, dy, dz); }
     rotate(shape: ShapeHandle, axis: { point: Vec3; direction: Vec3 }, angleRad: number) { return this.#proxy.rotate(shape, axis, angleRad); }
     importStep(data: string | ArrayBuffer) { return this.#proxy.importStep(data); }
-    exportStep(shape: ShapeHandle) { return this.#proxy.exportStep(shape); }
+    exportStep(shape: ShapeHandle, options?: StepExportOptions) { return this.#proxy.exportStep(shape, options); }
     cacheStep(data: string | ArrayBuffer) { return this.#proxy.cacheStep(data); }
     loadCached(brep: string) { return this.#proxy.loadCached(brep); }
     getBoundingBox(shape: ShapeHandle, options?: boolean | BoundingBoxOptions) { return this.#proxy.getBoundingBox(shape, options as BoundingBoxOptions | undefined); }

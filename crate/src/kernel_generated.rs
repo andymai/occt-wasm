@@ -52,11 +52,33 @@ pub(crate) struct GeneratedFuncs {
     fn_chamfer: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_chamfer_dist_angle: TypedFunc<(u32, i32, i32, f64, f64), u32>,
     fn_chamfer_asymmetric: TypedFunc<(u32, u32, f64, f64, u32), u32>,
+    fn_fillet_radii: TypedFunc<(u32, i32, i32, i32, i32, i32, i32), u32>,
+    fn_chamfer_distances: TypedFunc<(u32, i32, i32, i32, i32, i32, i32, i32, i32), u32>,
+    fn_chamfer_dist_angles: TypedFunc<(u32, i32, i32, i32, i32, i32, i32, i32, i32), u32>,
     fn_shell: TypedFunc<(u32, i32, i32, f64, f64), u32>,
     fn_offset: TypedFunc<(u32, f64, f64), u32>,
     fn_shell_with_join: TypedFunc<(u32, i32, i32, f64, f64, i32), u32>,
     fn_offset_with_join: TypedFunc<(u32, f64, f64, i32), u32>,
     fn_draft: TypedFunc<(u32, u32, f64, f64, f64, f64), u32>,
+    fn_draft_faces: TypedFunc<
+        (
+            u32,
+            i32,
+            i32,
+            i32,
+            i32,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+        ),
+        u32,
+    >,
     fn_thicken: TypedFunc<(u32, f64, f64), u32>,
     fn_defeature: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_reverse_shape: TypedFunc<(u32,), u32>,
@@ -223,6 +245,7 @@ pub(crate) struct GeneratedFuncs {
     fn_remove_degenerate_edges: TypedFunc<(u32,), u32>,
     fn_import_step: TypedFunc<(i32, i32), u32>,
     fn_export_step: TypedFunc<(u32,), i32>,
+    fn_export_step_with_unit: TypedFunc<(u32, i32, i32), i32>,
     fn_export_stl: TypedFunc<(u32, f64, i32), i32>,
     fn_import_stl: TypedFunc<(i32, i32), u32>,
     fn_export_stl_binary: TypedFunc<(u32, f64), i32>,
@@ -240,6 +263,10 @@ pub(crate) struct GeneratedFuncs {
     fn_scale_with_history: TypedFunc<(u32, f64, f64, f64, f64, i32, i32, i32), i32>,
     fn_intersect_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
     fn_chamfer_with_history: TypedFunc<(u32, i32, i32, f64, i32, i32, i32), i32>,
+    fn_fillet_radii_with_history:
+        TypedFunc<(u32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>,
+    fn_chamfer_distances_with_history:
+        TypedFunc<(u32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>,
     fn_shell_with_history: TypedFunc<(u32, i32, i32, f64, f64, i32, i32, i32), i32>,
     fn_offset_with_history: TypedFunc<(u32, f64, f64, i32, i32, i32), i32>,
     fn_shell_with_history_and_join: TypedFunc<(u32, i32, i32, f64, f64, i32, i32, i32, i32), i32>,
@@ -272,6 +299,7 @@ pub(crate) struct GeneratedFuncs {
     fn_xcaf_get_sub_shape_labels: TypedFunc<(u32, i32), i32>,
     fn_xcaf_add_sub_shape: TypedFunc<(u32, i32, u32), i32>,
     fn_xcaf_export_step: TypedFunc<(u32,), i32>,
+    fn_xcaf_export_step_with_unit: TypedFunc<(u32, i32, i32), i32>,
     fn_xcaf_import_step: TypedFunc<(i32, i32), u32>,
     fn_xcaf_export_glb: TypedFunc<(u32, f64, f64), i32>,
 }
@@ -314,11 +342,16 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_chamfer_dist_angle")?,
             fn_chamfer_asymmetric: instance
                 .get_typed_func(&mut store, "occt_chamfer_asymmetric")?,
+            fn_fillet_radii: instance.get_typed_func(&mut store, "occt_fillet_radii")?,
+            fn_chamfer_distances: instance.get_typed_func(&mut store, "occt_chamfer_distances")?,
+            fn_chamfer_dist_angles: instance
+                .get_typed_func(&mut store, "occt_chamfer_dist_angles")?,
             fn_shell: instance.get_typed_func(&mut store, "occt_shell")?,
             fn_offset: instance.get_typed_func(&mut store, "occt_offset")?,
             fn_shell_with_join: instance.get_typed_func(&mut store, "occt_shell_with_join")?,
             fn_offset_with_join: instance.get_typed_func(&mut store, "occt_offset_with_join")?,
             fn_draft: instance.get_typed_func(&mut store, "occt_draft")?,
+            fn_draft_faces: instance.get_typed_func(&mut store, "occt_draft_faces")?,
             fn_thicken: instance.get_typed_func(&mut store, "occt_thicken")?,
             fn_defeature: instance.get_typed_func(&mut store, "occt_defeature")?,
             fn_reverse_shape: instance.get_typed_func(&mut store, "occt_reverse_shape")?,
@@ -473,6 +506,8 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_remove_degenerate_edges")?,
             fn_import_step: instance.get_typed_func(&mut store, "occt_import_step")?,
             fn_export_step: instance.get_typed_func(&mut store, "occt_export_step")?,
+            fn_export_step_with_unit: instance
+                .get_typed_func(&mut store, "occt_export_step_with_unit")?,
             fn_export_stl: instance.get_typed_func(&mut store, "occt_export_stl")?,
             fn_import_stl: instance.get_typed_func(&mut store, "occt_import_stl")?,
             fn_export_stl_binary: instance.get_typed_func(&mut store, "occt_export_stl_binary")?,
@@ -497,6 +532,10 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_intersect_with_history")?,
             fn_chamfer_with_history: instance
                 .get_typed_func(&mut store, "occt_chamfer_with_history")?,
+            fn_fillet_radii_with_history: instance
+                .get_typed_func(&mut store, "occt_fillet_radii_with_history")?,
+            fn_chamfer_distances_with_history: instance
+                .get_typed_func(&mut store, "occt_chamfer_distances_with_history")?,
             fn_shell_with_history: instance
                 .get_typed_func(&mut store, "occt_shell_with_history")?,
             fn_offset_with_history: instance
@@ -543,6 +582,8 @@ impl GeneratedFuncs {
             fn_xcaf_add_sub_shape: instance
                 .get_typed_func(&mut store, "occt_xcaf_add_sub_shape")?,
             fn_xcaf_export_step: instance.get_typed_func(&mut store, "occt_xcaf_export_step")?,
+            fn_xcaf_export_step_with_unit: instance
+                .get_typed_func(&mut store, "occt_xcaf_export_step_with_unit")?,
             fn_xcaf_import_step: instance.get_typed_func(&mut store, "occt_xcaf_import_step")?,
             fn_xcaf_export_glb: instance.get_typed_func(&mut store, "occt_xcaf_export_glb")?,
         })
@@ -1069,6 +1110,198 @@ impl crate::kernel::OcctKernel {
         Ok(ShapeHandle(result))
     }
 
+    pub fn fillet_radii(
+        &mut self,
+        solid_id: ShapeHandle,
+        edge_ids: &[ShapeHandle],
+        start_radii: &[f64],
+        end_radii: &[f64],
+    ) -> OcctResult<ShapeHandle> {
+        let edge_ids_bytes: Vec<u8> = edge_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let edge_ids_ptr = self.write_bytes(&edge_ids_bytes)?;
+        let edge_ids_len = edge_ids.len() as u32;
+        let start_radii_bytes: Vec<u8> = start_radii.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let start_radii_ptr = match self.write_bytes(&start_radii_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                return Err(e);
+            }
+        };
+        let start_radii_len = start_radii.len() as u32;
+        let end_radii_bytes: Vec<u8> = end_radii.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let end_radii_ptr = match self.write_bytes(&end_radii_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(start_radii_ptr);
+                return Err(e);
+            }
+        };
+        let end_radii_len = end_radii.len() as u32;
+        let result = self.generated.fn_fillet_radii.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                edge_ids_ptr as i32,
+                edge_ids_len as i32,
+                start_radii_ptr as i32,
+                start_radii_len as i32,
+                end_radii_ptr as i32,
+                end_radii_len as i32,
+            ),
+        );
+        self.free_bytes(edge_ids_ptr)?;
+        self.free_bytes(start_radii_ptr)?;
+        self.free_bytes(end_radii_ptr)?;
+        let result = result?;
+        self.check_error("fillet_radii")?;
+        if result == 0 {
+            return Err(self.read_last_error("fillet_radii"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn chamfer_distances(
+        &mut self,
+        solid_id: ShapeHandle,
+        edge_ids: &[ShapeHandle],
+        distances1: &[f64],
+        distances2: &[f64],
+        reference_face_ids: &[ShapeHandle],
+    ) -> OcctResult<ShapeHandle> {
+        let edge_ids_bytes: Vec<u8> = edge_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let edge_ids_ptr = self.write_bytes(&edge_ids_bytes)?;
+        let edge_ids_len = edge_ids.len() as u32;
+        let distances1_bytes: Vec<u8> = distances1.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let distances1_ptr = match self.write_bytes(&distances1_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                return Err(e);
+            }
+        };
+        let distances1_len = distances1.len() as u32;
+        let distances2_bytes: Vec<u8> = distances2.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let distances2_ptr = match self.write_bytes(&distances2_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(distances1_ptr);
+                return Err(e);
+            }
+        };
+        let distances2_len = distances2.len() as u32;
+        let reference_face_ids_bytes: Vec<u8> = reference_face_ids
+            .iter()
+            .flat_map(|h| h.0.to_le_bytes())
+            .collect();
+        let reference_face_ids_ptr = match self.write_bytes(&reference_face_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(distances1_ptr);
+                let _ = self.free_bytes(distances2_ptr);
+                return Err(e);
+            }
+        };
+        let reference_face_ids_len = reference_face_ids.len() as u32;
+        let result = self.generated.fn_chamfer_distances.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                edge_ids_ptr as i32,
+                edge_ids_len as i32,
+                distances1_ptr as i32,
+                distances1_len as i32,
+                distances2_ptr as i32,
+                distances2_len as i32,
+                reference_face_ids_ptr as i32,
+                reference_face_ids_len as i32,
+            ),
+        );
+        self.free_bytes(edge_ids_ptr)?;
+        self.free_bytes(distances1_ptr)?;
+        self.free_bytes(distances2_ptr)?;
+        self.free_bytes(reference_face_ids_ptr)?;
+        let result = result?;
+        self.check_error("chamfer_distances")?;
+        if result == 0 {
+            return Err(self.read_last_error("chamfer_distances"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn chamfer_dist_angles(
+        &mut self,
+        solid_id: ShapeHandle,
+        edge_ids: &[ShapeHandle],
+        distances: &[f64],
+        angles_deg: &[f64],
+        reference_face_ids: &[ShapeHandle],
+    ) -> OcctResult<ShapeHandle> {
+        let edge_ids_bytes: Vec<u8> = edge_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let edge_ids_ptr = self.write_bytes(&edge_ids_bytes)?;
+        let edge_ids_len = edge_ids.len() as u32;
+        let distances_bytes: Vec<u8> = distances.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let distances_ptr = match self.write_bytes(&distances_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                return Err(e);
+            }
+        };
+        let distances_len = distances.len() as u32;
+        let angles_deg_bytes: Vec<u8> = angles_deg.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let angles_deg_ptr = match self.write_bytes(&angles_deg_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(distances_ptr);
+                return Err(e);
+            }
+        };
+        let angles_deg_len = angles_deg.len() as u32;
+        let reference_face_ids_bytes: Vec<u8> = reference_face_ids
+            .iter()
+            .flat_map(|h| h.0.to_le_bytes())
+            .collect();
+        let reference_face_ids_ptr = match self.write_bytes(&reference_face_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(distances_ptr);
+                let _ = self.free_bytes(angles_deg_ptr);
+                return Err(e);
+            }
+        };
+        let reference_face_ids_len = reference_face_ids.len() as u32;
+        let result = self.generated.fn_chamfer_dist_angles.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                edge_ids_ptr as i32,
+                edge_ids_len as i32,
+                distances_ptr as i32,
+                distances_len as i32,
+                angles_deg_ptr as i32,
+                angles_deg_len as i32,
+                reference_face_ids_ptr as i32,
+                reference_face_ids_len as i32,
+            ),
+        );
+        self.free_bytes(edge_ids_ptr)?;
+        self.free_bytes(distances_ptr)?;
+        self.free_bytes(angles_deg_ptr)?;
+        self.free_bytes(reference_face_ids_ptr)?;
+        let result = result?;
+        self.check_error("chamfer_dist_angles")?;
+        if result == 0 {
+            return Err(self.read_last_error("chamfer_dist_angles"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
     pub fn shell(
         &mut self,
         solid_id: ShapeHandle,
@@ -1180,6 +1413,62 @@ impl crate::kernel::OcctKernel {
         self.check_error("draft")?;
         if result == 0 {
             return Err(self.read_last_error("draft"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn draft_faces(
+        &mut self,
+        shape_id: ShapeHandle,
+        face_ids: &[ShapeHandle],
+        angles_rad: &[f64],
+        dx: f64,
+        dy: f64,
+        dz: f64,
+        px: f64,
+        py: f64,
+        pz: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let face_ids_bytes: Vec<u8> = face_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let face_ids_ptr = self.write_bytes(&face_ids_bytes)?;
+        let face_ids_len = face_ids.len() as u32;
+        let angles_rad_bytes: Vec<u8> = angles_rad.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let angles_rad_ptr = match self.write_bytes(&angles_rad_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(face_ids_ptr);
+                return Err(e);
+            }
+        };
+        let angles_rad_len = angles_rad.len() as u32;
+        let result = self.generated.fn_draft_faces.call(
+            &mut self.store,
+            (
+                shape_id.0,
+                face_ids_ptr as i32,
+                face_ids_len as i32,
+                angles_rad_ptr as i32,
+                angles_rad_len as i32,
+                dx,
+                dy,
+                dz,
+                px,
+                py,
+                pz,
+                nx,
+                ny,
+                nz,
+            ),
+        );
+        self.free_bytes(face_ids_ptr)?;
+        self.free_bytes(angles_rad_ptr)?;
+        let result = result?;
+        self.check_error("draft_faces")?;
+        if result == 0 {
+            return Err(self.read_last_error("draft_faces"));
         }
         Ok(ShapeHandle(result))
     }
@@ -3566,6 +3855,21 @@ impl crate::kernel::OcctKernel {
         self.read_string_result()
     }
 
+    pub fn export_step_with_unit(&mut self, id: ShapeHandle, unit: &str) -> OcctResult<String> {
+        let unit_ptr = self.write_bytes(unit.as_bytes())?;
+        let unit_len = unit.len() as u32;
+        let len = self
+            .generated
+            .fn_export_step_with_unit
+            .call(&mut self.store, (id.0, unit_ptr as i32, unit_len as i32));
+        self.free_bytes(unit_ptr)?;
+        let len = len?;
+        if len < 0 {
+            return Err(self.read_last_error("export_step_with_unit"));
+        }
+        self.read_string_result()
+    }
+
     pub fn export_stl(
         &mut self,
         id: ShapeHandle,
@@ -4013,6 +4317,167 @@ impl crate::kernel::OcctKernel {
         let status = status?;
         if status < 0 {
             return Err(self.read_last_error("chamfer_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn fillet_radii_with_history(
+        &mut self,
+        solid_id: ShapeHandle,
+        edge_ids: &[ShapeHandle],
+        start_radii: &[f64],
+        end_radii: &[f64],
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let edge_ids_bytes: Vec<u8> = edge_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let edge_ids_ptr = self.write_bytes(&edge_ids_bytes)?;
+        let edge_ids_len = edge_ids.len() as u32;
+        let start_radii_bytes: Vec<u8> = start_radii.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let start_radii_ptr = match self.write_bytes(&start_radii_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                return Err(e);
+            }
+        };
+        let start_radii_len = start_radii.len() as u32;
+        let end_radii_bytes: Vec<u8> = end_radii.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let end_radii_ptr = match self.write_bytes(&end_radii_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(start_radii_ptr);
+                return Err(e);
+            }
+        };
+        let end_radii_len = end_radii.len() as u32;
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(start_radii_ptr);
+                let _ = self.free_bytes(end_radii_ptr);
+                return Err(e);
+            }
+        };
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_fillet_radii_with_history.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                edge_ids_ptr as i32,
+                edge_ids_len as i32,
+                start_radii_ptr as i32,
+                start_radii_len as i32,
+                end_radii_ptr as i32,
+                end_radii_len as i32,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(edge_ids_ptr)?;
+        self.free_bytes(start_radii_ptr)?;
+        self.free_bytes(end_radii_ptr)?;
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("fillet_radii_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn chamfer_distances_with_history(
+        &mut self,
+        solid_id: ShapeHandle,
+        edge_ids: &[ShapeHandle],
+        distances1: &[f64],
+        distances2: &[f64],
+        reference_face_ids: &[ShapeHandle],
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let edge_ids_bytes: Vec<u8> = edge_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let edge_ids_ptr = self.write_bytes(&edge_ids_bytes)?;
+        let edge_ids_len = edge_ids.len() as u32;
+        let distances1_bytes: Vec<u8> = distances1.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let distances1_ptr = match self.write_bytes(&distances1_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                return Err(e);
+            }
+        };
+        let distances1_len = distances1.len() as u32;
+        let distances2_bytes: Vec<u8> = distances2.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let distances2_ptr = match self.write_bytes(&distances2_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(distances1_ptr);
+                return Err(e);
+            }
+        };
+        let distances2_len = distances2.len() as u32;
+        let reference_face_ids_bytes: Vec<u8> = reference_face_ids
+            .iter()
+            .flat_map(|h| h.0.to_le_bytes())
+            .collect();
+        let reference_face_ids_ptr = match self.write_bytes(&reference_face_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(distances1_ptr);
+                let _ = self.free_bytes(distances2_ptr);
+                return Err(e);
+            }
+        };
+        let reference_face_ids_len = reference_face_ids.len() as u32;
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(edge_ids_ptr);
+                let _ = self.free_bytes(distances1_ptr);
+                let _ = self.free_bytes(distances2_ptr);
+                let _ = self.free_bytes(reference_face_ids_ptr);
+                return Err(e);
+            }
+        };
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_chamfer_distances_with_history.call(
+            &mut self.store,
+            (
+                solid_id.0,
+                edge_ids_ptr as i32,
+                edge_ids_len as i32,
+                distances1_ptr as i32,
+                distances1_len as i32,
+                distances2_ptr as i32,
+                distances2_len as i32,
+                reference_face_ids_ptr as i32,
+                reference_face_ids_len as i32,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(edge_ids_ptr)?;
+        self.free_bytes(distances1_ptr)?;
+        self.free_bytes(distances2_ptr)?;
+        self.free_bytes(reference_face_ids_ptr)?;
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("chamfer_distances_with_history"));
         }
         self.read_evolution_result()
     }
@@ -4611,6 +5076,25 @@ impl crate::kernel::OcctKernel {
             .call(&mut self.store, (doc_id.0,))?;
         if len < 0 {
             return Err(self.read_last_error("xcaf_export_step"));
+        }
+        self.read_string_result()
+    }
+
+    pub fn xcaf_export_step_with_unit(
+        &mut self,
+        doc_id: DocumentHandle,
+        unit: &str,
+    ) -> OcctResult<String> {
+        let unit_ptr = self.write_bytes(unit.as_bytes())?;
+        let unit_len = unit.len() as u32;
+        let len = self.generated.fn_xcaf_export_step_with_unit.call(
+            &mut self.store,
+            (doc_id.0, unit_ptr as i32, unit_len as i32),
+        );
+        self.free_bytes(unit_ptr)?;
+        let len = len?;
+        if len < 0 {
+            return Err(self.read_last_error("xcaf_export_step_with_unit"));
         }
         self.read_string_result()
     }

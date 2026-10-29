@@ -713,6 +713,121 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamfer
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
+    // Per-edge radii in one BRepFilletAPI_MakeFillet: edge i gets a constant radius
+    // when startRadii[i] == endRadii[i], else a radius running linearly from
+    // startRadii[i] at its first vertex to endRadii[i] at its last (FreeCAD
+    // Part::Fillet's model). Tangent-continuous edges share one radius law, so
+    // radii must agree where two given edges meet; see addFilletRadii.
+    MethodSpec {
+        name: "filletRadii",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("startRadii"),
+            FacadeParam::VectorDouble("endRadii"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (edgeIds.empty()) {
+    throw std::runtime_error(\"filletRadii: no edges given\");
+}
+if (startRadii.size() != edgeIds.size() || endRadii.size() != edgeIds.size()) {
+    throw std::runtime_error(\"filletRadii: startRadii and endRadii need one entry per edge\");
+}
+BRepFilletAPI_MakeFillet maker(get(solidId));
+std::vector<TopoDS_Edge> edges;
+edges.reserve(edgeIds.size());
+for (uint32_t eid : edgeIds) {
+    edges.push_back(TopoDS::Edge(get(eid)));
+}
+addFilletRadii(maker, edgeIds, edges, startRadii, endRadii, \"filletRadii\");
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(filletFailure(maker, edgeIds, edges, \"filletRadii\"));
+}
+return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletRadii\", true));",
+        includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    // Per-edge two-distance chamfer in one BRepFilletAPI_MakeChamfer: distances1[i]
+    // is set back on edge i's reference face, distances2[i] on its other face; equal
+    // distances give the symmetric chamfer `chamfer` builds. referenceFaceIds is
+    // empty (every edge uses its first adjacent face, chamferAsymmetric's default)
+    // or has one entry per edge, where 0 also selects that default. OCCT gives a
+    // contour of tangent-continuous edges one chamfer, so edges of one contour
+    // must ask for the same setbacks, matched face to face (checkChamferContours).
+    MethodSpec {
+        name: "chamferDistances",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("distances1"),
+            FacadeParam::VectorDouble("distances2"),
+            FacadeParam::VectorShapeIds("referenceFaceIds"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+const std::vector<ChamferEdge> specs =
+    chamferEdges(solid, edgeIds, referenceFaceIds, distances1, distances2, false,
+                 \"chamferDistances\", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+BRepFilletAPI_MakeChamfer maker(solid);
+for (const ChamferEdge& edge : specs) {
+    addChamferEdge(maker, edge);
+}
+checkChamferContours(maker, edgeIds, specs, \"chamferDistances\");
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistances\"));
+}
+return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistances\", true));",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    // Per-edge distance-angle chamfer: distances[i] on edge i's reference face and
+    // anglesDeg[i] (degrees, as chamferDistAngle takes) from that face.
+    // referenceFaceIds works as in chamferDistances.
+    MethodSpec {
+        name: "chamferDistAngles",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("distances"),
+            FacadeParam::VectorDouble("anglesDeg"),
+            FacadeParam::VectorShapeIds("referenceFaceIds"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::vector<double> anglesRad(anglesDeg.size());
+for (size_t i = 0; i < anglesDeg.size(); ++i) {
+    anglesRad[i] = anglesDeg[i] * M_PI / 180.0;
+}
+const auto& solid = get(solidId);
+const std::vector<ChamferEdge> specs =
+    chamferEdges(solid, edgeIds, referenceFaceIds, distances, anglesRad, true,
+                 \"chamferDistAngles\", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+BRepFilletAPI_MakeChamfer maker(solid);
+for (const ChamferEdge& edge : specs) {
+    addChamferEdge(maker, edge);
+}
+checkChamferContours(maker, edgeIds, specs, \"chamferDistAngles\");
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistAngles\"));
+}
+return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistAngles\", true));",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
     MethodSpec {
         name: "shell",
         kind: MethodKind::CustomBody,
@@ -852,6 +967,75 @@ if (!maker.IsDone()) {
 }
 return store(maker.Shape());",
         includes: &["BRepOffsetAPI_DraftAngle.hxx", "TopoDS.hxx", "gp_Dir.hxx", "gp_Pln.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
+    // Draft several faces in one BRepOffsetAPI_DraftAngle: face i tilts by
+    // anglesRad[i] about its intersection with the neutral plane through
+    // (px, py, pz) with normal (nx, ny, nz); (dx, dy, dz) is the pull direction.
+    // A positive angle removes material on the pull side, as in OCCT.
+    MethodSpec {
+        name: "draftFaces",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::VectorDouble("anglesRad"),
+            FacadeParam::Double("dx"),
+            FacadeParam::Double("dy"),
+            FacadeParam::Double("dz"),
+            FacadeParam::Double("px"),
+            FacadeParam::Double("py"),
+            FacadeParam::Double("pz"),
+            FacadeParam::Double("nx"),
+            FacadeParam::Double("ny"),
+            FacadeParam::Double("nz"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (faceIds.empty()) {
+    throw std::runtime_error(\"draftFaces: no faces given\");
+}
+if (anglesRad.size() != faceIds.size()) {
+    throw std::runtime_error(\"draftFaces: anglesRad needs one entry per face\");
+}
+// gp_Dir's own zero-length check is compiled out of OCCT release builds.
+if (gp_Vec(dx, dy, dz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"draftFaces: the pull direction is zero\");
+}
+if (gp_Vec(nx, ny, nz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"draftFaces: the neutral plane normal is zero\");
+}
+const auto& shape = get(shapeId);
+NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> shapeFaces;
+TopExp::MapShapes(shape, TopAbs_FACE, shapeFaces);
+const gp_Dir pull(dx, dy, dz);
+const gp_Pln neutralPlane(gp_Pnt(px, py, pz), gp_Dir(nx, ny, nz));
+BRepOffsetAPI_DraftAngle maker(shape);
+for (size_t i = 0; i < faceIds.size(); ++i) {
+    const TopoDS_Shape& face = get(faceIds[i]);
+    // DraftAngle silently skips a face that is not on the shape, such as one
+    // taken from the shape before an earlier draft.
+    if (!shapeFaces.Contains(face)) {
+        throw std::runtime_error(\"draftFaces: face \" + std::to_string(faceIds[i]) +
+                                 \" is not on the shape\");
+    }
+    if (!std::isfinite(anglesRad[i]) || std::abs(anglesRad[i]) >= M_PI / 2) {
+        throw std::runtime_error(\"draftFaces: draft angles must lie strictly between -90 and 90 degrees\");
+    }
+    maker.Add(TopoDS::Face(face), pull, anglesRad[i], neutralPlane);
+    if (!maker.AddDone()) {
+        throw std::runtime_error(\"draftFaces: face \" + std::to_string(faceIds[i]) +
+                                 \" cannot be drafted\");
+    }
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"draftFaces: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_DraftAngle.hxx", "NCollection_IndexedMap.hxx", "TopExp.hxx", "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx", "gp.hxx", "gp_Dir.hxx", "gp_Pln.hxx", "gp_Pnt.hxx", "gp_Vec.hxx"],
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
@@ -2603,14 +2787,14 @@ return result.take();",
         params: &[FacadeParam::ShapeId("id"), FacadeParam::Bool("useTriangulation")],
         occt_class: "",
         ctor_args: "",
-        // AddOptimal gives surface-precise bounds independent of tessellation
-        // state (Add falls back to BSpline pole hulls without triangulation,
-        // overshooting curved geometry by ~0.27*r). useShapeTolerance=false
-        // matches brepjs's call surface.
+        // Surface-precise bounds independent of tessellation state: OCCT's
+        // AddOptimal, with each BSpline/Bezier face's extremes certified against
+        // its control net (addPreciseBounds in kernel.cpp). useShapeTolerance is
+        // off, matching brepjs's call surface.
         setup_code: "\
 const auto& shape = get(id);
 Bnd_Box box;
-BRepBndLib::AddOptimal(shape, box, useTriangulation, false);
+addPreciseBounds(shape, box, useTriangulation);
 if (box.IsVoid()) {
     throw std::runtime_error(\"getBoundingBox: shape has no geometry\");
 }
@@ -2654,7 +2838,7 @@ return result;",
         setup_code: "\
 const auto& shape = get(id);
 GProp_GProps props;
-BRepGProp::VolumeProperties(shape, props);
+volumeProperties(shape, props);
 return props.Mass();",
         includes: &["BRepGProp.hxx", "GProp_GProps.hxx"],
         category: "query",
@@ -2669,7 +2853,7 @@ return props.Mass();",
         setup_code: "\
 const auto& shape = get(id);
 GProp_GProps props;
-BRepGProp::SurfaceProperties(shape, props);
+surfaceProperties(shape, props);
 return props.Mass();",
         includes: &["BRepGProp.hxx", "GProp_GProps.hxx"],
         category: "query",
@@ -2699,7 +2883,7 @@ return props.Mass();",
         setup_code: "\
 const auto& shape = get(id);
 GProp_GProps props;
-BRepGProp::VolumeProperties(shape, props);
+volumeProperties(shape, props);
 gp_Pnt com = props.CentreOfMass();
 return {com.X(), com.Y(), com.Z()};",
         includes: &["BRepGProp.hxx", "GProp_GProps.hxx", "gp_Pnt.hxx"],
@@ -2717,7 +2901,7 @@ return {com.X(), com.Y(), com.Z()};",
         setup_code: "\
 const auto& shape = get(id);
 GProp_GProps props;
-BRepGProp::VolumeProperties(shape, props);
+volumeProperties(shape, props);
 gp_Mat m = props.MatrixOfInertia();
 return {m(1, 1), m(1, 2), m(1, 3),
         m(2, 1), m(2, 2), m(2, 3),
@@ -2761,7 +2945,7 @@ return state == TopAbs_IN || state == TopAbs_ON;",
         setup_code: "\
 const auto& face = get(faceId);
 GProp_GProps props;
-BRepGProp::SurfaceProperties(face, props);
+surfaceProperties(face, props);
 gp_Pnt com = props.CentreOfMass();
 return {com.X(), com.Y(), com.Z()};",
         includes: &["BRepGProp.hxx", "GProp_GProps.hxx", "gp_Pnt.hxx"],
@@ -3680,15 +3864,16 @@ result.reserve(ids.size() * 14);
 // makes queryBatch agree with them.
 for (size_t i = 0; i < ids.size(); i++) {
     const auto& shape = get(ids[i]);
-    { GProp_GProps props; BRepGProp::VolumeProperties(shape, props); result.push_back(props.Mass()); }
-    { GProp_GProps props; BRepGProp::SurfaceProperties(shape, props); result.push_back(props.Mass()); }
+    GProp_GProps volume;
+    volumeProperties(shape, volume);
+    result.push_back(volume.Mass());
+    { GProp_GProps props; surfaceProperties(shape, props); result.push_back(props.Mass()); }
     { Bnd_Box box; BRepBndLib::Add(shape, box, false);
       if (box.IsVoid()) { for (int j = 0; j < 6; j++) result.push_back(0.0); }
       else { double xmin,ymin,zmin,xmax,ymax,zmax; box.Get(xmin,ymin,zmin,xmax,ymax,zmax);
              result.push_back(xmin); result.push_back(ymin); result.push_back(zmin);
              result.push_back(xmax); result.push_back(ymax); result.push_back(zmax); } }
-    { GProp_GProps props; BRepGProp::VolumeProperties(shape, props);
-      gp_Pnt com = props.CentreOfMass();
+    { gp_Pnt com = volume.CentreOfMass();
       result.push_back(com.X()); result.push_back(com.Y()); result.push_back(com.Z()); }
     result.push_back(static_cast<double>(shape.ShapeType()));
     { BRepCheck_Analyzer checker(shape); result.push_back(checker.IsValid() ? 1.0 : 0.0); }
@@ -4464,34 +4649,27 @@ return store(reader.OneShape());",
         params: &[FacadeParam::ShapeId("id")],
         occt_class: "",
         ctor_args: "",
+        // writeStep (kernel.cpp) seeds the DirectFaces shape-processing flags a
+        // prior XCAF export clears; see stepShapeProcessFlags there.
         setup_code: "\
-const auto& shape = get(id);
-
-STEPControl_Writer writer;
-// The STEP write actor only fixes non-conformant elementary surfaces (e.g. a
-// cone whose stored ConicalSurface has a negative semi-angle) when the
-// DirectFaces shape-processing op runs. That op lives on the shared OCCT \"STEP\"
-// controller actor, whose flags any prior XCAF/STEPCAF export silently clears --
-// after which writer.Transfer() runs no processing and drops conical faces. Set
-// the flags explicitly so single-shape STEP export is independent of that state.
-ShapeProcess::OperationsFlags spFlags;
-spFlags.set(ShapeProcess::Operation::DirectFaces);
-spFlags.set(ShapeProcess::Operation::SplitCommonVertex);
-writer.SetShapeProcessFlags(spFlags);
-IFSelect_ReturnStatus status = writer.Transfer(shape, STEPControl_AsIs);
-if (status != IFSelect_RetDone) {
-    throw std::runtime_error(\"exportStep: transfer failed\");
-}
-
-std::ostringstream oss;
-if (writer.WriteStream(oss) != IFSelect_RetDone) {
-    throw std::runtime_error(\"exportStep: write failed\");
-}
-return oss.str();",
-        includes: &[
-            "IFSelect_ReturnStatus.hxx", "STEPControl_Writer.hxx",
-            "STEPControl_StepModelType.hxx", "ShapeProcess.hxx",
-        ],
+return writeStep(get(id), UnitsMethods_LengthUnit_Millimeter, \"exportStep\");",
+        includes: &[],
+        category: "io",
+        return_type: ReturnType::String,
+    },
+    // exportStep with the file's length unit chosen per call (\"mm\", \"inch\", ...;
+    // see stepLengthUnit in kernel.cpp). Shapes stay in millimeters; OCCT scales
+    // them into the unit as it writes, without touching the global
+    // write.step.unit static.
+    MethodSpec {
+        name: "exportStepWithUnit",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("id"), FacadeParam::String("unit")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+return writeStep(get(id), stepLengthUnit(unit, \"exportStepWithUnit\"), \"exportStepWithUnit\");",
+        includes: &[],
         category: "io",
         return_type: ReturnType::String,
     },
@@ -4913,6 +5091,158 @@ EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hash
 result.take();
 return evo;",
         includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "filletRadiiWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("startRadii"),
+            FacadeParam::VectorDouble("endRadii"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (edgeIds.empty()) {
+    throw std::runtime_error(\"filletRadiiWithHistory: no edges given\");
+}
+if (startRadii.size() != edgeIds.size() || endRadii.size() != edgeIds.size()) {
+    throw std::runtime_error(\"filletRadiiWithHistory: startRadii and endRadii need one entry per edge\");
+}
+const auto& solid = get(solidId);
+BRepFilletAPI_MakeFillet maker(solid);
+std::vector<TopoDS_Edge> edges;
+edges.reserve(edgeIds.size());
+for (uint32_t eid : edgeIds) {
+    edges.push_back(TopoDS::Edge(get(eid)));
+}
+addFilletRadii(maker, edgeIds, edges, startRadii, endRadii, \"filletRadiiWithHistory\");
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(filletFailure(maker, edgeIds, edges, \"filletRadiiWithHistory\"));
+}
+BatchScope result(*this, 1);
+uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletRadiiWithHistory\", false));
+EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+result.take();
+return evo;",
+        includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "chamferDistancesWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("distances1"),
+            FacadeParam::VectorDouble("distances2"),
+            FacadeParam::VectorShapeIds("referenceFaceIds"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+const auto& solid = get(solidId);
+const std::vector<ChamferEdge> specs =
+    chamferEdges(solid, edgeIds, referenceFaceIds, distances1, distances2, false,
+                 \"chamferDistancesWithHistory\", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+BRepFilletAPI_MakeChamfer maker(solid);
+for (const ChamferEdge& edge : specs) {
+    addChamferEdge(maker, edge);
+}
+checkChamferContours(maker, edgeIds, specs, \"chamferDistancesWithHistory\");
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(
+        chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistancesWithHistory\"));
+}
+BatchScope result(*this, 1);
+uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistancesWithHistory\", false));
+EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+result.take();
+return evo;",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    // draftFaces with face history. At 17 WASI scalars it is over wasmtime's
+    // ceiling, so it ships in the npm build only.
+    MethodSpec {
+        name: "draftFacesWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::VectorDouble("anglesRad"),
+            FacadeParam::Double("dx"),
+            FacadeParam::Double("dy"),
+            FacadeParam::Double("dz"),
+            FacadeParam::Double("px"),
+            FacadeParam::Double("py"),
+            FacadeParam::Double("pz"),
+            FacadeParam::Double("nx"),
+            FacadeParam::Double("ny"),
+            FacadeParam::Double("nz"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (faceIds.empty()) {
+    throw std::runtime_error(\"draftFacesWithHistory: no faces given\");
+}
+if (anglesRad.size() != faceIds.size()) {
+    throw std::runtime_error(\"draftFacesWithHistory: anglesRad needs one entry per face\");
+}
+// gp_Dir's own zero-length check is compiled out of OCCT release builds.
+if (gp_Vec(dx, dy, dz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"draftFacesWithHistory: the pull direction is zero\");
+}
+if (gp_Vec(nx, ny, nz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"draftFacesWithHistory: the neutral plane normal is zero\");
+}
+const auto& shape = get(shapeId);
+NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> shapeFaces;
+TopExp::MapShapes(shape, TopAbs_FACE, shapeFaces);
+const gp_Dir pull(dx, dy, dz);
+const gp_Pln neutralPlane(gp_Pnt(px, py, pz), gp_Dir(nx, ny, nz));
+BRepOffsetAPI_DraftAngle maker(shape);
+for (size_t i = 0; i < faceIds.size(); ++i) {
+    const TopoDS_Shape& face = get(faceIds[i]);
+    // DraftAngle silently skips a face that is not on the shape, such as one
+    // taken from the shape before an earlier draft.
+    if (!shapeFaces.Contains(face)) {
+        throw std::runtime_error(\"draftFacesWithHistory: face \" + std::to_string(faceIds[i]) +
+                                 \" is not on the shape\");
+    }
+    if (!std::isfinite(anglesRad[i]) || std::abs(anglesRad[i]) >= M_PI / 2) {
+        throw std::runtime_error(\"draftFacesWithHistory: draft angles must lie strictly between -90 and 90 degrees\");
+    }
+    maker.Add(TopoDS::Face(face), pull, anglesRad[i], neutralPlane);
+    if (!maker.AddDone()) {
+        throw std::runtime_error(\"draftFacesWithHistory: face \" + std::to_string(faceIds[i]) +
+                                 \" cannot be drafted\");
+    }
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"draftFacesWithHistory: operation failed\");
+}
+BatchScope result(*this, 1);
+uint32_t resultId = result.add(maker.Shape());
+EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+result.take();
+return evo;",
+        includes: &["BRepOffsetAPI_DraftAngle.hxx", "NCollection_IndexedMap.hxx", "TopExp.hxx", "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx", "gp.hxx", "gp_Dir.hxx", "gp_Pln.hxx", "gp_Pnt.hxx", "gp_Vec.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
         return_type: ReturnType::EvolutionData,
     },
@@ -5811,7 +6141,9 @@ Handle(XCAFDoc_ColorTool) colorTool =
     XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
 TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
 
-Quantity_Color color(r, g, b, Quantity_TOC_RGB);
+// Components are sRGB, as CSS and hex colors are; OCCT stores linear RGB and
+// converts back to sRGB for STEP's COLOUR_RGB.
+Quantity_Color color(r, g, b, Quantity_TOC_sRGB);
 colorTool->SetColor(label, color, XCAFDoc_ColorGen);",
         includes: &[
             "XCAFDoc_ColorTool.hxx", "XCAFDoc_DocumentTool.hxx",
@@ -5836,7 +6168,9 @@ if (it == xcafDocs_.end())
     throw std::runtime_error(\"xcafSetName: invalid document ID\");
 
 TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
-TDataStd_Name::Set(label, TCollection_ExtendedString(name.c_str()));",
+// Embind and the crate hand over UTF-8; without the multibyte flag each byte
+// would become its own character.
+TDataStd_Name::Set(label, TCollection_ExtendedString(name.c_str(), true));",
         includes: &[
             "TDF_Label.hxx", "TDataStd_Name.hxx",
             "TCollection_ExtendedString.hxx",
@@ -5869,16 +6203,20 @@ Handle(XCAFDoc_ColorTool) colorTool =
 Handle(TDataStd_Name) nameAttr;
 if (label.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
     TCollection_ExtendedString ext = nameAttr->Get();
+    // With no replacement character, the conversion yields UTF-8.
     info.name = TCollection_AsciiString(ext).ToCString();
 }
 
 // Color
 Quantity_Color color;
-if (colorTool->GetColor(label, XCAFDoc_ColorGen, color)) {
+// xcafSetColor sets the generic color; STEP import stores a style as the
+// surface (or, for wireframes, curve) color instead.
+if (colorTool->GetColor(label, XCAFDoc_ColorGen, color) ||
+    colorTool->GetColor(label, XCAFDoc_ColorSurf, color) ||
+    colorTool->GetColor(label, XCAFDoc_ColorCurv, color)) {
     info.hasColor = true;
-    info.r = color.Red();
-    info.g = color.Green();
-    info.b = color.Blue();
+    // sRGB, matching what xcafSetColor takes.
+    color.Values(info.r, info.g, info.b, Quantity_TOC_sRGB);
 }
 
 // Assembly/component flags
@@ -6081,34 +6419,26 @@ return facadeId;",
 auto it = xcafDocs_.find(docId);
 if (it == xcafDocs_.end())
     throw std::runtime_error(\"xcafExportSTEP: invalid document ID\");
-
-STEPCAFControl_Writer writer;
-writer.SetColorMode(Standard_True);
-writer.SetNameMode(Standard_True);
-// STEPCAFControl_Writer does not seed the write actor's shape-processing flags,
-// so non-conformant elementary surfaces (notably cones, whose stored
-// ConicalSurface carries a negative semi-angle) are never fixed and their
-// lateral faces are dropped from the output. Enable DirectFaces explicitly to
-// match the plain exportStep path. (This also re-seeds the shared controller
-// actor, leaving subsequent exportStep calls in a healthy state.)
-ShapeProcess::OperationsFlags spFlags;
-spFlags.set(ShapeProcess::Operation::DirectFaces);
-spFlags.set(ShapeProcess::Operation::SplitCommonVertex);
-writer.SetShapeProcessFlags(spFlags);
-
-if (!writer.Transfer(it->second.doc, STEPControl_AsIs)) {
-    throw std::runtime_error(\"xcafExportSTEP: transfer failed\");
-}
-
-std::ostringstream oss;
-if (writer.WriteStream(oss) != IFSelect_RetDone) {
-    throw std::runtime_error(\"xcafExportSTEP: write failed\");
-}
-return oss.str();",
-        includes: &[
-            "STEPCAFControl_Writer.hxx", "STEPControl_StepModelType.hxx",
-            "Standard_Failure.hxx", "ShapeProcess.hxx",
-        ],
+return writeStep(it->second.doc, UnitsMethods_LengthUnit_Millimeter, \"xcafExportSTEP\");",
+        includes: &[],
+        category: "xcaf",
+        return_type: ReturnType::String,
+    },
+    // xcafExportSTEP with the file's length unit chosen per call, as in
+    // exportStepWithUnit.
+    MethodSpec {
+        name: "xcafExportSTEPWithUnit",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::DocId("docId"), FacadeParam::String("unit")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+auto it = xcafDocs_.find(docId);
+if (it == xcafDocs_.end())
+    throw std::runtime_error(\"xcafExportSTEPWithUnit: invalid document ID\");
+return writeStep(it->second.doc, stepLengthUnit(unit, \"xcafExportSTEPWithUnit\"),
+                 \"xcafExportSTEPWithUnit\");",
+        includes: &[],
         category: "xcaf",
         return_type: ReturnType::String,
     },

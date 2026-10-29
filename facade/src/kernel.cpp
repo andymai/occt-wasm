@@ -1,19 +1,46 @@
 #include "occt_kernel.h"
 
+#include <BRepAdaptor_Curve2d.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_MakeShapeOnMesh.hxx>
 #include <BRepGProp.hxx>
+#include <BRepGProp_Domain.hxx>
+#include <BRepGProp_Face.hxx>
+#include <BRepGProp_MeshProps.hxx>
+#include <BRepGProp_Sinert.hxx>
+#include <BRepGProp_Vinert.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
+#include <BRepTools.hxx>
+#include <BRepTopAdaptor_FClass2d.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
+#include <Bnd_Box.hxx>
+#include <DESTEP_Parameters.hxx>
+#include <ElCLib.hxx>
 #include <GProp_GProps.hxx>
+#include <GeomAbs_CurveType.hxx>
+#include <GeomAbs_SurfaceType.hxx>
+#include <GeomConvert_BSplineSurfaceToBezierSurface.hxx>
+#include <Geom_BSplineSurface.hxx>
+#include <Geom_BezierSurface.hxx>
+#include <IFSelect_ReturnStatus.hxx>
 #include <Message_ProgressRange.hxx>
+#include <NCollection_Array1.hxx>
+#include <NCollection_Array2.hxx>
 #include <NCollection_Vec3.hxx>
 #include <OSD.hxx>
 #include <OSD_FileSystem.hxx>
 #include <Poly_Triangle.hxx>
 #include <Poly_Triangulation.hxx>
+#include <Precision.hxx>
 #include <RWStl_Reader.hxx>
+#include <STEPCAFControl_Writer.hxx>
+#include <STEPControl_StepModelType.hxx>
+#include <STEPControl_Writer.hxx>
+#include <ShapeProcess.hxx>
+#include <Standard_Failure.hxx>
 #include <Standard_ReadLineBuffer.hxx>
 #include <TopAbs_Orientation.hxx>
 #include <TopExp_Explorer.hxx>
@@ -21,9 +48,14 @@
 #include <TopTools_ShapeMapHasher.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Compound.hxx>
+#include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Iterator.hxx>
+#include <TopoDS_Vertex.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
+#include <algorithm>
+#include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
@@ -33,6 +65,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 // --- XCAF helpers (used by generated xcaf methods) ---
@@ -237,6 +270,605 @@ std::string writeToMemory(const char* extension,
     const std::string url = std::string(MemoryFileSystem::kPrefix) + "export" + extension;
     write(TCollection_AsciiString(url.c_str()));
     return fs.take(url);
+}
+
+// --- Accurate measurement ---
+
+namespace {
+
+// Faces OCCT's fixed-order Gauss quadrature integrates exactly enough: an
+// elementary surface bounded by conic pcurves. Anything else (BSpline/Bezier
+// surfaces, or a plane trimmed by a BSpline curve) can be off by percent.
+bool isElementarySurface(GeomAbs_SurfaceType type) {
+    switch (type) {
+    case GeomAbs_Plane:
+    case GeomAbs_Cylinder:
+    case GeomAbs_Cone:
+    case GeomAbs_Sphere:
+    case GeomAbs_Torus:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool isConic2d(GeomAbs_CurveType type) {
+    switch (type) {
+    case GeomAbs_Line:
+    case GeomAbs_Circle:
+    case GeomAbs_Ellipse:
+    case GeomAbs_Hyperbola:
+    case GeomAbs_Parabola:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool needsAdaptiveIntegration(const TopoDS_Face& face) {
+    if (!isElementarySurface(BRepAdaptor_Surface(face, false).GetType())) {
+        return true;
+    }
+    for (TopExp_Explorer ex(face, TopAbs_EDGE); ex.More(); ex.Next()) {
+        const TopoDS_Edge& edge = TopoDS::Edge(ex.Current());
+        if (!isConic2d(BRepAdaptor_Curve2d(edge, face).GetType())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool hasSurface(const TopoDS_Face& face) {
+    TopLoc_Location location;
+    return !BRep_Tool::Surface(face, location).IsNull();
+}
+
+bool hasFreeformFace(const TopoDS_Shape& shape) {
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        const TopoDS_Face& face = TopoDS::Face(ex.Current());
+        if (hasSurface(face) && needsAdaptiveIntegration(face)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+gp_Pnt vertexCentroid(const TopoDS_Shape& shape) {
+    gp_XYZ sum(0, 0, 0);
+    int count = 0;
+    for (TopExp_Explorer ex(shape, TopAbs_VERTEX); ex.More(); ex.Next(), ++count) {
+        sum += BRep_Tool::Pnt(TopoDS::Vertex(ex.Current())).XYZ();
+    }
+    return gp_Pnt(count > 0 ? sum / count : sum);
+}
+
+// Relative error target for the adaptive pass. Measured on BSpline solids
+// (a GTransform-scaled cylinder and sphere, a cut through one), it lands
+// within ~2e-7 of the exact volume.
+constexpr double kAdaptiveEps = 1e-8;
+
+// BRepGProp's own face loop, choosing per face between its fixed-order Gauss
+// quadrature (exact and fast on elementary faces) and its adaptive one.
+// `Integrator` is BRepGProp_Vinert (volume) or BRepGProp_Sinert (area);
+// `orientedOnly` skips INTERNAL/EXTERNAL faces, as the volume loop does.
+template <typename Integrator>
+void integrateFaces(const TopoDS_Shape& shape, GProp_GProps& props,
+                    BRepGProp_MeshProps::BRepGProp_MeshObjType meshType, bool orientedOnly) {
+    gp_Pnt systemOrigin(0, 0, 0);
+    systemOrigin.Transform(shape.Location());
+    props = GProp_GProps(systemOrigin);
+
+    const gp_Pnt origin = vertexCentroid(shape);
+    Integrator integrator;
+    integrator.SetLocation(origin);
+    BRepGProp_MeshProps meshProps(meshType);
+    meshProps.SetLocation(origin);
+    BRepGProp_Face faceIntegrand;
+    BRepGProp_Domain domain;
+
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        const TopoDS_Face& face = TopoDS::Face(ex.Current());
+        const TopAbs_Orientation orientation = face.Orientation();
+        if (orientedOnly && orientation != TopAbs_FORWARD && orientation != TopAbs_REVERSED) {
+            continue;
+        }
+        if (!hasSurface(face)) {
+            TopLoc_Location location;
+            const Handle(Poly_Triangulation)& mesh = BRep_Tool::Triangulation(face, location);
+            if (!mesh.IsNull() && mesh->NbTriangles() > 0) {
+                meshProps.Perform(mesh, location, orientation);
+                props.Add(meshProps);
+            }
+            continue;
+        }
+        faceIntegrand.Load(face);
+        const bool naturalBounds = face.NbChildren() == 0;
+        if (!naturalBounds) {
+            domain.Init(face);
+        }
+        if (needsAdaptiveIntegration(face)) {
+            if (naturalBounds) {
+                integrator.Perform(faceIntegrand, kAdaptiveEps);
+            } else {
+                integrator.Perform(faceIntegrand, domain, kAdaptiveEps);
+            }
+        } else if (naturalBounds) {
+            integrator.Perform(faceIntegrand);
+        } else {
+            integrator.Perform(faceIntegrand, domain);
+        }
+        props.Add(integrator);
+    }
+}
+
+} // namespace
+
+void volumeProperties(const TopoDS_Shape& shape, GProp_GProps& props) {
+    if (!hasFreeformFace(shape)) {
+        BRepGProp::VolumeProperties(shape, props);
+        return;
+    }
+    integrateFaces<BRepGProp_Vinert>(shape, props, BRepGProp_MeshProps::Vinert, true);
+}
+
+void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props) {
+    if (!hasFreeformFace(shape)) {
+        BRepGProp::SurfaceProperties(shape, props);
+        return;
+    }
+    integrateFaces<BRepGProp_Sinert>(shape, props, BRepGProp_MeshProps::Sinert, false);
+}
+
+namespace {
+
+// A rational Bezier patch in homogeneous form: pole (i, j) is stored at
+// 4 * (i * nv + j) as (w*x, w*y, w*z, w). [u0, u1] x [v0, v1] is the part of
+// the face's surface parameter space it covers.
+struct HullPatch {
+    int nu = 0;
+    int nv = 0;
+    std::vector<double> poles;
+    double u0 = 0, u1 = 0, v0 = 0, v1 = 0;
+    int depth = 0;
+
+    double* pole(int i, int j) {
+        return &poles[4 * static_cast<size_t>(i * nv + j)];
+    }
+    const double* pole(int i, int j) const {
+        return &poles[4 * static_cast<size_t>(i * nv + j)];
+    }
+    double coord(int i, int j, int axis) const {
+        const double* p = pole(i, j);
+        return p[axis] / p[3];
+    }
+};
+
+HullPatch hullPatch(const Geom_BezierSurface& surface, double u0, double u1, double v0, double v1) {
+    HullPatch patch;
+    patch.nu = surface.NbUPoles();
+    patch.nv = surface.NbVPoles();
+    patch.poles.resize(4 * static_cast<size_t>(patch.nu * patch.nv));
+    patch.u0 = u0;
+    patch.u1 = u1;
+    patch.v0 = v0;
+    patch.v1 = v1;
+    for (int i = 0; i < patch.nu; ++i) {
+        for (int j = 0; j < patch.nv; ++j) {
+            const gp_Pnt p = surface.Pole(i + 1, j + 1);
+            const double w = surface.Weight(i + 1, j + 1);
+            double* h = patch.pole(i, j);
+            h[0] = p.X() * w;
+            h[1] = p.Y() * w;
+            h[2] = p.Z() * w;
+            h[3] = w;
+        }
+    }
+    return patch;
+}
+
+// De Casteljau split at the parameter midpoint, along u or along v.
+void splitPatch(const HullPatch& patch, bool alongU, HullPatch& low, HullPatch& high) {
+    low = patch;
+    high = patch;
+    low.depth = high.depth = patch.depth + 1;
+    const int n = alongU ? patch.nu : patch.nv;
+    const int rows = alongU ? patch.nv : patch.nu;
+    std::vector<double> work(4 * static_cast<size_t>(n));
+    for (int r = 0; r < rows; ++r) {
+        auto at = [&](HullPatch& p, int k) { return alongU ? p.pole(k, r) : p.pole(r, k); };
+        for (int k = 0; k < n; ++k) {
+            const double* src = alongU ? patch.pole(k, r) : patch.pole(r, k);
+            std::copy(src, src + 4, &work[4 * static_cast<size_t>(k)]);
+        }
+        std::copy(&work[0], &work[4], at(low, 0));
+        std::copy(&work[4 * static_cast<size_t>(n - 1)], &work[4 * static_cast<size_t>(n)],
+                  at(high, n - 1));
+        for (int level = 1; level < n; ++level) {
+            for (int k = 0; k < n - level; ++k) {
+                for (int c = 0; c < 4; ++c) {
+                    work[4 * k + c] = 0.5 * (work[4 * k + c] + work[4 * (k + 1) + c]);
+                }
+            }
+            std::copy(&work[0], &work[4], at(low, level));
+            const int last = n - 1 - level;
+            std::copy(&work[4 * static_cast<size_t>(last)],
+                      &work[4 * static_cast<size_t>(last + 1)], at(high, last));
+        }
+    }
+    if (alongU) {
+        const double mid = 0.5 * (patch.u0 + patch.u1);
+        low.u1 = mid;
+        high.u0 = mid;
+    } else {
+        const double mid = 0.5 * (patch.v0 + patch.v1);
+        low.v1 = mid;
+        high.v0 = mid;
+    }
+}
+
+// Extremes 0..2 are the x/y/z minima, 3..5 the maxima, each with the surface
+// parameters of the point that attains it.
+struct SurfaceExtremes {
+    double value[6];
+    double u[6];
+    double v[6];
+    bool converged[6];
+};
+
+void takeCorners(const HullPatch& patch, SurfaceExtremes& ext) {
+    const int is[2] = {0, patch.nu - 1};
+    const int js[2] = {0, patch.nv - 1};
+    for (int a = 0; a < 2; ++a) {
+        for (int b = 0; b < 2; ++b) {
+            for (int axis = 0; axis < 3; ++axis) {
+                const double c = patch.coord(is[a], js[b], axis);
+                const double u = a == 0 ? patch.u0 : patch.u1;
+                const double v = b == 0 ? patch.v0 : patch.v1;
+                if (c < ext.value[axis]) {
+                    ext.value[axis] = c;
+                    ext.u[axis] = u;
+                    ext.v[axis] = v;
+                }
+                if (c > ext.value[axis + 3]) {
+                    ext.value[axis + 3] = c;
+                    ext.u[axis + 3] = u;
+                    ext.v[axis + 3] = v;
+                }
+            }
+        }
+    }
+}
+
+// How far the control net bends along u (or v) in the coordinates still being
+// searched: the larger second difference picks the direction worth splitting.
+double bend(const HullPatch& patch, bool alongU, const bool open[6]) {
+    const int n = alongU ? patch.nu : patch.nv;
+    const int rows = alongU ? patch.nv : patch.nu;
+    double worst = 0;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (!open[axis] && !open[axis + 3]) {
+            continue;
+        }
+        for (int r = 0; r < rows; ++r) {
+            for (int k = 1; k + 1 < n; ++k) {
+                auto c = [&](int i) {
+                    return alongU ? patch.coord(i, r, axis) : patch.coord(r, i, axis);
+                };
+                worst = std::max(worst, std::abs(c(k - 1) - 2 * c(k) + c(k + 1)));
+            }
+        }
+    }
+    return worst;
+}
+
+// Splits per face before an unfinished direction falls back to OCCT's bounds.
+constexpr int kHullSplitBudget = 20000;
+constexpr int kHullMaxDepth = 64;
+
+// The extremes of a BSpline or Bezier face's surface over the face's UV box,
+// each certified by the convex hull of the control net: a patch whose hull
+// cannot beat the best point found so far is dropped, and the rest are split.
+// Returns false for any other surface.
+bool surfaceExtremes(const TopoDS_Face& face, SurfaceExtremes& ext) {
+    BRepAdaptor_Surface surface(face, false);
+    if (surface.GetType() != GeomAbs_BSplineSurface && surface.GetType() != GeomAbs_BezierSurface) {
+        return false;
+    }
+    double u0 = 0, u1 = 0, v0 = 0, v1 = 0;
+    BRepTools::UVBounds(face, u0, u1, v0, v1);
+
+    // A periodic direction is searched over one whole period, a superset of
+    // the face's range there; its witnesses are mapped back into the face's
+    // range before they are classified.
+    double uPeriod = 0;
+    double vPeriod = 0;
+    std::vector<HullPatch> stack;
+    try {
+        if (surface.GetType() == GeomAbs_BSplineSurface) {
+            Handle(Geom_BSplineSurface) bspline =
+                Handle(Geom_BSplineSurface)::DownCast(surface.BSpline()->Copy());
+            // GeomConvert_BSplineSurfaceToBezierSurface keeps only the first span
+            // of a periodic surface asked for its whole period.
+            if (bspline->IsUPeriodic()) {
+                uPeriod = bspline->UPeriod();
+                bspline->SetUNotPeriodic();
+            }
+            if (bspline->IsVPeriodic()) {
+                vPeriod = bspline->VPeriod();
+                bspline->SetVNotPeriodic();
+            }
+            double su0 = 0, su1 = 0, sv0 = 0, sv1 = 0;
+            bspline->Bounds(su0, su1, sv0, sv1);
+            const double cu0 = uPeriod > 0 ? su0 : std::max(u0, su0);
+            const double cu1 = uPeriod > 0 ? su1 : std::min(u1, su1);
+            const double cv0 = vPeriod > 0 ? sv0 : std::max(v0, sv0);
+            const double cv1 = vPeriod > 0 ? sv1 : std::min(v1, sv1);
+            if (!(cu1 - cu0 > Precision::PConfusion()) || !(cv1 - cv0 > Precision::PConfusion())) {
+                return false;
+            }
+            GeomConvert_BSplineSurfaceToBezierSurface converter(bspline, cu0, cu1, cv0, cv1,
+                                                                Precision::PConfusion());
+            const int nu = converter.NbUPatches();
+            const int nv = converter.NbVPatches();
+            NCollection_Array2<Handle(Geom_BezierSurface)> patches(1, nu, 1, nv);
+            converter.Patches(patches);
+            NCollection_Array1<double> uKnots(1, nu + 1);
+            NCollection_Array1<double> vKnots(1, nv + 1);
+            converter.UKnots(uKnots);
+            converter.VKnots(vKnots);
+            for (int i = 1; i <= nu; ++i) {
+                for (int j = 1; j <= nv; ++j) {
+                    stack.push_back(hullPatch(*patches(i, j), uKnots(i), uKnots(i + 1), vKnots(j),
+                                              vKnots(j + 1)));
+                }
+            }
+        } else if (surface.GetType() == GeomAbs_BezierSurface) {
+            const double cu0 = std::max(u0, 0.0);
+            const double cu1 = std::min(u1, 1.0);
+            const double cv0 = std::max(v0, 0.0);
+            const double cv1 = std::min(v1, 1.0);
+            if (!(cu1 - cu0 > Precision::PConfusion()) || !(cv1 - cv0 > Precision::PConfusion())) {
+                return false;
+            }
+            Handle(Geom_BezierSurface) bezier =
+                Handle(Geom_BezierSurface)::DownCast(surface.Bezier()->Copy());
+            bezier->Segment(cu0, cu1, cv0, cv1);
+            stack.push_back(hullPatch(*bezier, cu0, cu1, cv0, cv1));
+        } else {
+            return false;
+        }
+    } catch (const Standard_Failure&) {
+        return false;
+    }
+
+    for (int d = 0; d < 6; ++d) {
+        ext.value[d] = d < 3 ? RealLast() : -RealLast();
+        ext.u[d] = u0;
+        ext.v[d] = v0;
+        ext.converged[d] = true;
+    }
+    Bnd_Box hull;
+    for (const HullPatch& patch : stack) {
+        takeCorners(patch, ext);
+        for (int i = 0; i < patch.nu; ++i) {
+            for (int j = 0; j < patch.nv; ++j) {
+                hull.Add(gp_Pnt(patch.coord(i, j, 0), patch.coord(i, j, 1), patch.coord(i, j, 2)));
+            }
+        }
+    }
+    const double tol = std::max(Precision::Confusion(), 1e-10 * std::sqrt(hull.SquareExtent()));
+
+    int splits = 0;
+    while (!stack.empty()) {
+        HullPatch patch = std::move(stack.back());
+        stack.pop_back();
+        bool open[6];
+        bool anyOpen = false;
+        for (int axis = 0; axis < 3; ++axis) {
+            double lo = RealLast();
+            double hi = -RealLast();
+            for (int i = 0; i < patch.nu; ++i) {
+                for (int j = 0; j < patch.nv; ++j) {
+                    const double c = patch.coord(i, j, axis);
+                    lo = std::min(lo, c);
+                    hi = std::max(hi, c);
+                }
+            }
+            open[axis] = lo < ext.value[axis] - tol;
+            open[axis + 3] = hi > ext.value[axis + 3] + tol;
+            anyOpen = anyOpen || open[axis] || open[axis + 3];
+        }
+        if (!anyOpen) {
+            continue;
+        }
+        if (patch.depth >= kHullMaxDepth || splits >= kHullSplitBudget) {
+            for (int d = 0; d < 6; ++d) {
+                ext.converged[d] = ext.converged[d] && !open[d];
+            }
+            continue;
+        }
+        const bool alongU =
+            patch.nv < 3 || (patch.nu >= 3 && bend(patch, true, open) >= bend(patch, false, open));
+        HullPatch low, high;
+        splitPatch(patch, alongU, low, high);
+        ++splits;
+        takeCorners(low, ext);
+        takeCorners(high, ext);
+        stack.push_back(std::move(low));
+        stack.push_back(std::move(high));
+    }
+    for (int d = 0; d < 6; ++d) {
+        if (uPeriod > 0) {
+            ext.u[d] = ElCLib::InPeriod(ext.u[d], u0, u0 + uPeriod);
+        }
+        if (vPeriod > 0) {
+            ext.v[d] = ElCLib::InPeriod(ext.v[d], v0, v0 + vPeriod);
+        }
+    }
+    return true;
+}
+
+void addFaceBounds(const TopoDS_Face& face, Bnd_Box& box, bool useTriangulation) {
+    TopLoc_Location location;
+    const Handle(Poly_Triangulation)& mesh = BRep_Tool::Triangulation(face, location);
+    SurfaceExtremes ext;
+    if ((useTriangulation && !mesh.IsNull()) || !hasSurface(face) || !surfaceExtremes(face, ext)) {
+        BRepBndLib::AddOptimal(face, box, useTriangulation, false);
+        return;
+    }
+
+    // An extreme of the surface over the UV box is the face's own only when the
+    // point attaining it lies on the face; otherwise the face's extreme is on
+    // its boundary (or elsewhere inside), which OCCT's face bounds cover.
+    const double tol2d =
+        std::max(BRepAdaptor_Surface(face, false).UResolution(BRep_Tool::Tolerance(face)),
+                 Precision::PConfusion());
+    BRepTopAdaptor_FClass2d classifier(face, tol2d);
+    bool certified[6];
+    bool allCertified = true;
+    for (int d = 0; d < 6; ++d) {
+        const bool onFace = classifier.Perform(gp_Pnt2d(ext.u[d], ext.v[d])) != TopAbs_OUT;
+        certified[d] = onFace && ext.converged[d];
+        if (!onFace) {
+            ext.value[d] = d < 3 ? RealLast() : -RealLast();
+        }
+        allCertified = allCertified && certified[d];
+    }
+    double lo[3] = {ext.value[0], ext.value[1], ext.value[2]};
+    double hi[3] = {ext.value[3], ext.value[4], ext.value[5]};
+    if (!allCertified) {
+        Bnd_Box occt;
+        BRepBndLib::AddOptimal(face, occt, useTriangulation, false);
+        if (!occt.IsVoid()) {
+            double o[6];
+            occt.Get(o[0], o[1], o[2], o[3], o[4], o[5]);
+            for (int axis = 0; axis < 3; ++axis) {
+                lo[axis] = std::min(lo[axis], o[axis]);
+                hi[axis] = std::max(hi[axis], o[axis + 3]);
+            }
+        }
+    }
+    if (lo[0] > hi[0] || lo[1] > hi[1] || lo[2] > hi[2]) {
+        return;
+    }
+    Bnd_Box faceBox;
+    faceBox.Update(lo[0], lo[1], lo[2], hi[0], hi[1], hi[2]);
+    faceBox.Enlarge(Precision::Confusion());
+    box.Add(faceBox);
+}
+
+} // namespace
+
+void addPreciseBounds(const TopoDS_Shape& shape, Bnd_Box& box, bool useTriangulation) {
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        addFaceBounds(TopoDS::Face(ex.Current()), box, useTriangulation);
+    }
+    for (TopExp_Explorer ex(shape, TopAbs_EDGE, TopAbs_FACE); ex.More(); ex.Next()) {
+        BRepBndLib::AddOptimal(ex.Current(), box, useTriangulation, false);
+    }
+    for (TopExp_Explorer ex(shape, TopAbs_VERTEX, TopAbs_EDGE); ex.More(); ex.Next()) {
+        BRepBndLib::AddOptimal(ex.Current(), box, useTriangulation, false);
+    }
+}
+
+// --- STEP export ---
+
+UnitsMethods_LengthUnit stepLengthUnit(const std::string& name, const char* op) {
+    std::string key;
+    key.reserve(name.size());
+    for (char c : name) {
+        key += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    static const std::pair<const char*, UnitsMethods_LengthUnit> kUnits[] = {
+        {"mm", UnitsMethods_LengthUnit_Millimeter},
+        {"millimeter", UnitsMethods_LengthUnit_Millimeter},
+        {"millimetre", UnitsMethods_LengthUnit_Millimeter},
+        {"cm", UnitsMethods_LengthUnit_Centimeter},
+        {"centimeter", UnitsMethods_LengthUnit_Centimeter},
+        {"centimetre", UnitsMethods_LengthUnit_Centimeter},
+        {"m", UnitsMethods_LengthUnit_Meter},
+        {"meter", UnitsMethods_LengthUnit_Meter},
+        {"metre", UnitsMethods_LengthUnit_Meter},
+        {"km", UnitsMethods_LengthUnit_Kilometer},
+        {"kilometer", UnitsMethods_LengthUnit_Kilometer},
+        {"kilometre", UnitsMethods_LengthUnit_Kilometer},
+        {"in", UnitsMethods_LengthUnit_Inch},
+        {"inch", UnitsMethods_LengthUnit_Inch},
+        {"ft", UnitsMethods_LengthUnit_Foot},
+        {"foot", UnitsMethods_LengthUnit_Foot},
+        {"feet", UnitsMethods_LengthUnit_Foot},
+        {"mi", UnitsMethods_LengthUnit_Mile},
+        {"mile", UnitsMethods_LengthUnit_Mile},
+        {"mil", UnitsMethods_LengthUnit_Mil},
+        {"thou", UnitsMethods_LengthUnit_Mil},
+        {"um", UnitsMethods_LengthUnit_Micron},
+        {"micron", UnitsMethods_LengthUnit_Micron},
+        {"micrometer", UnitsMethods_LengthUnit_Micron},
+        {"micrometre", UnitsMethods_LengthUnit_Micron},
+        {"uin", UnitsMethods_LengthUnit_Microinch},
+        {"microinch", UnitsMethods_LengthUnit_Microinch},
+    };
+    for (const auto& unit : kUnits) {
+        if (key == unit.first) {
+            return unit.second;
+        }
+    }
+    throw std::runtime_error(std::string(op) + ": unknown length unit '" + name +
+                             "' (expected mm, cm, m, km, inch, ft, mi, mil, um or uin)");
+}
+
+namespace {
+
+// DirectFaces rewrites elementary surfaces STEP cannot carry as stored, such as
+// a cone whose ConicalSurface has a negative semi-angle; without it the cone's
+// lateral face is dropped. The flags live on OCCT's process-wide "STEP"
+// controller actor, which an XCAF export clears, so every writer sets them.
+ShapeProcess::OperationsFlags stepShapeProcessFlags() {
+    ShapeProcess::OperationsFlags flags;
+    flags.set(ShapeProcess::Operation::DirectFaces);
+    flags.set(ShapeProcess::Operation::SplitCommonVertex);
+    return flags;
+}
+
+// Per-call writer parameters, so the unit never touches the process-wide
+// "write.step.unit" static. Geometry stays in millimeters (the cascade unit);
+// the writer scales it into `unit`.
+DESTEP_Parameters stepParameters(UnitsMethods_LengthUnit unit) {
+    DESTEP_Parameters params;
+    params.InitFromStatic();
+    params.WriteUnit = unit;
+    return params;
+}
+
+} // namespace
+
+std::string writeStep(const TopoDS_Shape& shape, UnitsMethods_LengthUnit unit, const char* op) {
+    STEPControl_Writer writer;
+    writer.SetShapeProcessFlags(stepShapeProcessFlags());
+    if (writer.Transfer(shape, STEPControl_AsIs, stepParameters(unit)) != IFSelect_RetDone) {
+        throw std::runtime_error(std::string(op) + ": transfer failed");
+    }
+    std::ostringstream oss;
+    if (writer.WriteStream(oss) != IFSelect_RetDone) {
+        throw std::runtime_error(std::string(op) + ": write failed");
+    }
+    return oss.str();
+}
+
+std::string writeStep(const Handle(TDocStd_Document) & doc, UnitsMethods_LengthUnit unit,
+                      const char* op) {
+    STEPCAFControl_Writer writer;
+    writer.SetColorMode(true);
+    writer.SetNameMode(true);
+    writer.SetShapeProcessFlags(stepShapeProcessFlags());
+    if (!writer.Transfer(doc, stepParameters(unit), STEPControl_AsIs)) {
+        throw std::runtime_error(std::string(op) + ": transfer failed");
+    }
+    std::ostringstream oss;
+    if (writer.WriteStream(oss) != IFSelect_RetDone) {
+        throw std::runtime_error(std::string(op) + ": write failed");
+    }
+    return oss.str();
 }
 
 int OcctKernel::registerLabel(XCAFDocRecord& record, const TDF_Label& label) {

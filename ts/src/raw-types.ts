@@ -188,11 +188,36 @@ export interface OcctRawKernel {
     chamfer(solidId: number, edgeIds: EmbindVectorU32, distance: number): number;
     chamferDistAngle(solidId: number, edgeIds: EmbindVectorU32, distance: number, angleDeg: number): number;
     chamferAsymmetric(solidId: number, edgeId: number, distance1: number, distance2: number, referenceFaceId: number): number;
+    /**
+     * Per-edge radii in one fillet: constant where start === end, else linear from the edge's first
+     * vertex to its last. Tangent-continuous edges that meet must agree on the radius at the joint.
+     */
+    filletRadii(solidId: number, edgeIds: EmbindVectorU32, startRadii: EmbindVectorF64, endRadii: EmbindVectorF64): number;
+    /**
+     * Per-edge two-distance chamfer; equal distances are symmetric. `referenceFaceIds` is empty
+     * or one face per edge (0 selects the edge's first adjacent face); distance1 is set back on it.
+     * Tangent-continuous edges form one contour with one chamfer, so their setbacks must match face
+     * to face (an edge with a 0 or omitted face follows the chain's first edge).
+     */
+    chamferDistances(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
+    /** Per-edge distance-angle chamfer (angles in degrees); reference faces as in `chamferDistances`. */
+    chamferDistAngles(solidId: number, edgeIds: EmbindVectorU32, distances: EmbindVectorF64, anglesDeg: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
     shell(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number): number;
     offset(solidId: number, distance: number, tolerance: number): number;
     shellWithJoin(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, joinType: number): number;
     offsetWithJoin(solidId: number, distance: number, tolerance: number, joinType: number): number;
+    /** @deprecated The neutral plane is fixed to the XY plane through the origin: use `draftFaces`. */
     draft(shapeId: number, faceId: number, angle: number, dx: number, dy: number, dz: number): number;
+    /**
+     * Draft several faces in one operation. Face i tilts by `anglesRad[i]`; (dx, dy, dz) is the
+     * pull direction and the neutral plane passes through (px, py, pz) with normal (nx, ny, nz).
+     */
+    draftFaces(
+        shapeId: number, faceIds: EmbindVectorU32, anglesRad: EmbindVectorF64,
+        dx: number, dy: number, dz: number,
+        px: number, py: number, pz: number,
+        nx: number, ny: number, nz: number,
+    ): number;
 
     // Sweeps
     pipe(profileId: number, spineId: number): number;
@@ -287,6 +312,8 @@ export interface OcctRawKernel {
     // I/O
     importStep(data: string): number;
     exportStep(id: number): string;
+    /** STEP with lengths written in `unit` ("mm", "cm", "m", "km", "inch", "ft", "mi", "mil", "um", "uin"). */
+    exportStepWithUnit(id: number, unit: string): string;
     importStl(data: string): number;
     importStlBinary(data: Uint8Array): number;
     exportStl(id: number, linearDeflection: number, ascii: boolean): string;
@@ -367,6 +394,15 @@ export interface OcctRawKernel {
     scaleWithHistory(id: number, cx: number, cy: number, cz: number, factor: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     intersectWithHistory(a: number, b: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     chamferWithHistory(solidId: number, edgeIds: EmbindVectorU32, distance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    filletRadiiWithHistory(solidId: number, edgeIds: EmbindVectorU32, startRadii: EmbindVectorF64, endRadii: EmbindVectorF64, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    chamferDistancesWithHistory(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    draftFacesWithHistory(
+        shapeId: number, faceIds: EmbindVectorU32, anglesRad: EmbindVectorF64,
+        dx: number, dy: number, dz: number,
+        px: number, py: number, pz: number,
+        nx: number, ny: number, nz: number,
+        inputFaceHashes: EmbindVectorI32, hashUpperBound: number,
+    ): RawEvolutionData;
     shellWithHistory(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     offsetWithHistory(solidId: number, distance: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     shellWithHistoryAndJoin(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number, joinType: number): RawEvolutionData;
@@ -411,6 +447,7 @@ export interface OcctRawKernel {
     xcafGetSubShapeLabels(docId: number, tag: number): EmbindVectorI32;
     xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
+    xcafExportSTEPWithUnit(docId: number, unit: string): string;
     xcafImportSTEP(stepData: string): number;
     /** @deprecated Writes /tmp/xcaf_export.glb and returns its path; use `xcafExportGLB`. */
     xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;
