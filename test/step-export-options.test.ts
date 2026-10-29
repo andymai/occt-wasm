@@ -1,5 +1,5 @@
 /**
- * XCAF STEP export: sRGB colors and UTF-8 names.
+ * STEP export: sRGB colors, UTF-8 names, and the file's length unit.
  *
  * `#808080` is 128/255 = 0.50196 in sRGB. Taken as linear RGB it was written
  * as COLOUR_RGB 0.7366, and a name passed as UTF-8 was decoded byte by byte.
@@ -133,5 +133,48 @@ describe("XCAF names are UTF-8", () => {
             allLabels(imported).map((l) => imported.getLabelInfo(l).name),
         );
         expect(names).toContain(NAME);
+    });
+});
+
+describe("STEP length unit", () => {
+    const INCH = 25.4;
+
+    it("writes a shape in inches and imports it back in millimeters", () => {
+        const box = kernel.makeBox(INCH, 2 * INCH, 3 * INCH);
+        const step: string = kernel.exportStep(box, { unit: "inch" });
+        // INCH is defined as 25.4 of the millimeter unit, and the geometry
+        // context uses it.
+        expect(step).toMatch(/CONVERSION_BASED_UNIT\('INCH'/);
+        expect(step).toMatch(/LENGTH_MEASURE_WITH_UNIT\(25\.4,/);
+        // The far corner is written as (1, 2, 3).
+        expect(step).toMatch(/CARTESIAN_POINT\('[^']*',\s*\(\s*1\.\s*,\s*2\.\s*,\s*3\.\s*\)\s*\)/);
+        const back = kernel.importStep(step);
+        expect(kernel.getVolume(back)).toBeCloseTo(6 * INCH ** 3, 6);
+    });
+
+    it("leaves a later millimeter export in millimeters", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        kernel.exportStep(box, { unit: "inch" });
+        const step: string = kernel.exportStep(box);
+        expect(step).toMatch(/SI_UNIT\(\s*\.MILLI\.\s*,\s*\.METRE\.\s*\)/);
+        expect(kernel.getVolume(kernel.importStep(step))).toBeCloseTo(1000, 6);
+    });
+
+    it("writes an XCAF document in the requested unit", () => {
+        const step: string = withDoc(kernel.createXCAFDocument(), (doc) => {
+            doc.addShape(kernel.makeBox(1000, 1000, 1000), { name: "cube", color: [1, 0, 0] });
+            return doc.exportSTEP({ unit: "m" });
+        });
+        expect(step).toMatch(/SI_UNIT\(\s*\$\s*,\s*\.METRE\.\s*\)/);
+        const back = kernel.importStep(step);
+        expect(kernel.getVolume(back)).toBeCloseTo(1e9, 0);
+        const bb = kernel.getBoundingBox(back);
+        expect(bb.xmax - bb.xmin).toBeCloseTo(1000, 6);
+    });
+
+    it("accepts unit aliases case-insensitively and rejects unknown units", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        expect(raw.exportStepWithUnit(box, "Millimeter")).toMatch(/\.MILLI\./);
+        expect(() => raw.exportStepWithUnit(box, "furlong")).toThrow(/unknown length unit 'furlong'/);
     });
 });

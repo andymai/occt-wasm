@@ -290,6 +290,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // io
         .function("importStep", &OcctKernel::importStep)
         .function("exportStep", &OcctKernel::exportStep)
+        .function("exportStepWithUnit", &OcctKernel::exportStepWithUnit)
         .function("exportStl", &OcctKernel::exportStl)
         .function("importStl", &OcctKernel::importStl)
         .function("exportStlBinary", +[](OcctKernel& kernel, uint32_t id, double linearDeflection) {
@@ -365,6 +366,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("xcafGetSubShapeLabels", &OcctKernel::xcafGetSubShapeLabels)
         .function("xcafAddSubShape", &OcctKernel::xcafAddSubShape)
         .function("xcafExportSTEP", &OcctKernel::xcafExportSTEP)
+        .function("xcafExportSTEPWithUnit", &OcctKernel::xcafExportSTEPWithUnit)
         .function("xcafImportSTEP", &OcctKernel::xcafImportSTEP)
         .function("xcafExportGLB", +[](OcctKernel& kernel, uint32_t docId, double linDeflection, double angDeflection) {
             const std::string bytes = kernel.xcafExportGLB(docId, linDeflection, angDeflection);

@@ -83,6 +83,19 @@ export interface NeutralPlane {
     normal: Vec3;
 }
 
+/** Length unit a STEP file is written in. Shapes are always modeled in millimeters. */
+export type LengthUnit = "mm" | "cm" | "m" | "km" | "inch" | "ft" | "mi" | "mil" | "um" | "uin";
+
+/** Options for STEP export. */
+export interface StepExportOptions {
+    /**
+     * Unit the file's lengths are written in (default `"mm"`). The geometry is
+     * scaled on the way out, so a 25.4 mm edge reads as 1 in an `"inch"` file
+     * and imports back as 25.4 mm.
+     */
+    unit?: LengthUnit | undefined;
+}
+
 /** Options controlling BRepMesh tessellation quality. */
 export interface TessellateOptions {
     /** Maximum chord deviation from the true surface. Default: 0.1 */

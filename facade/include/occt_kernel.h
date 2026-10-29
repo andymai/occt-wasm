@@ -12,6 +12,7 @@
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
 #include <TopoDS_Shape.hxx>
+#include <UnitsMethods_LengthUnit.hxx>
 
 class Bnd_Box;
 class GProp_GProps;
@@ -33,6 +34,14 @@ void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props);
 // surface's extreme (its sampling skips the cell that holds it), so each
 // BSpline/Bezier face's extremes are certified against its control net.
 void addPreciseBounds(const TopoDS_Shape& shape, Bnd_Box& box, bool useTriangulation);
+
+// A length unit name for STEP export ("mm", "inch", ...), case-insensitive.
+UnitsMethods_LengthUnit stepLengthUnit(const std::string& name, const char* op);
+
+// STEP text for a shape or an XCAF document, with lengths written in `unit`.
+std::string writeStep(const TopoDS_Shape& shape, UnitsMethods_LengthUnit unit, const char* op);
+std::string writeStep(const Handle(TDocStd_Document) & doc, UnitsMethods_LengthUnit unit,
+                      const char* op);
 
 // For OCCT writers that only take a file name: runs `write` on a "mem://" URL
 // ending in `extension`, which OCCT's file system keeps in memory, and returns
@@ -338,6 +347,7 @@ class OcctKernel {
     // --- I/O ---
     uint32_t importStep(const std::string& data);
     std::string exportStep(uint32_t id);
+    std::string exportStepWithUnit(uint32_t id, const std::string& unit);
     uint32_t importStl(const std::string& data);
     std::string exportStl(uint32_t id, double linearDeflection, bool ascii);
     std::string exportStlBinary(uint32_t id, double linearDeflection);
@@ -487,6 +497,7 @@ class OcctKernel {
     std::vector<int> xcafGetSubShapeLabels(uint32_t docId, int labelId);
     int xcafAddSubShape(uint32_t docId, int labelId, uint32_t shapeId);
     std::string xcafExportSTEP(uint32_t docId);
+    std::string xcafExportSTEPWithUnit(uint32_t docId, const std::string& unit);
     uint32_t xcafImportSTEP(const std::string& stepData);
     std::string xcafExportGLTF(uint32_t docId, double linDeflection, double angDeflection);
     std::string xcafExportGLB(uint32_t docId, double linDeflection, double angDeflection);

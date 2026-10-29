@@ -865,6 +865,37 @@ fn draft_faces_pivot_about_the_neutral_plane() {
 }
 
 #[test]
+fn step_export_writes_the_requested_unit() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let cube = kernel.make_box(25.4, 25.4, 25.4).unwrap();
+    let step = kernel.export_step_with_unit(cube, "inch").unwrap();
+    assert!(step.contains("CONVERSION_BASED_UNIT('INCH'"));
+    let back = kernel.import_step(&step).unwrap();
+    let volume = kernel.get_volume(back).unwrap();
+    assert!((volume - 25.4f64.powi(3)).abs() < 1e-6, "volume {volume}");
+    assert!(kernel.export_step_with_unit(cube, "furlong").is_err());
+
+    let doc = kernel.xcaf_new_document().unwrap();
+    let label = kernel.xcaf_add_shape(doc, cube).unwrap();
+    kernel.xcaf_set_name(doc, label, "Größe").unwrap();
+    kernel
+        .xcaf_set_color(doc, label, 128.0 / 255.0, 0.5, 0.5)
+        .unwrap();
+    let info = kernel.xcaf_get_label_info(doc, label).unwrap();
+    assert_eq!(info.name, "Größe");
+    assert!((info.r - 128.0 / 255.0).abs() < 1e-6);
+    let step = kernel.xcaf_export_step_with_unit(doc, "inch").unwrap();
+    assert!(step.contains("CONVERSION_BASED_UNIT('INCH'"));
+    assert!(
+        step.contains("COLOUR_RGB('',0.50196"),
+        "colour not written as sRGB"
+    );
+    kernel.xcaf_close(doc).unwrap();
+}
+
+#[test]
 fn freeform_bounds_and_volume_are_exact() {
     let Some(mut kernel) = try_kernel() else {
         return;

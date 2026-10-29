@@ -17,7 +17,7 @@
 
 import * as Comlink from "comlink";
 import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, WireframeOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
-import type { BooleanOp, BooleanOpOptions, ChamferDistance, EvolutionData, FilletRadius, JoinType, NeutralPlane, TransitionMode } from "./types.js";
+import type { BooleanOp, BooleanOpOptions, ChamferDistance, EvolutionData, FilletRadius, JoinType, NeutralPlane, StepExportOptions, TransitionMode } from "./types.js";
 
 /**
  * Async proxy to an OcctKernel running in a Web Worker.
@@ -113,7 +113,7 @@ export interface OcctWorkerProxy {
 
     // I/O
     importStep(data: string | ArrayBuffer): Promise<ShapeHandle>;
-    exportStep(shape: ShapeHandle): Promise<string>;
+    exportStep(shape: ShapeHandle, options?: StepExportOptions): Promise<string>;
     importStl(data: string | ArrayBuffer | Uint8Array): Promise<ShapeHandle>;
     exportStl(shape: ShapeHandle, linearDeflection?: number, ascii?: false): Promise<Uint8Array>;
     exportStl(shape: ShapeHandle, linearDeflection: number | undefined, ascii: true): Promise<string>;
@@ -243,7 +243,7 @@ export class OcctWorker {
     translate(shape: ShapeHandle, dx: number, dy: number, dz: number) { return this.#proxy.translate(shape, dx, dy, dz); }
     rotate(shape: ShapeHandle, axis: { point: Vec3; direction: Vec3 }, angleRad: number) { return this.#proxy.rotate(shape, axis, angleRad); }
     importStep(data: string | ArrayBuffer) { return this.#proxy.importStep(data); }
-    exportStep(shape: ShapeHandle) { return this.#proxy.exportStep(shape); }
+    exportStep(shape: ShapeHandle, options?: StepExportOptions) { return this.#proxy.exportStep(shape, options); }
     cacheStep(data: string | ArrayBuffer) { return this.#proxy.cacheStep(data); }
     loadCached(brep: string) { return this.#proxy.loadCached(brep); }
     getBoundingBox(shape: ShapeHandle, options?: boolean | BoundingBoxOptions) { return this.#proxy.getBoundingBox(shape, options as BoundingBoxOptions | undefined); }

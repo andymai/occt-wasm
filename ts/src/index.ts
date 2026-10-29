@@ -41,6 +41,7 @@ export {
     type LabelInfo,
     type LabelOptions,
     type LabelTag,
+    type LengthUnit,
     type Location,
     type Mesh,
     type MeshBatchData,
@@ -57,6 +58,7 @@ export {
     type SweepAdvancedOptions,
     type SweepFullOptions,
     type SweepOrientedOptions,
+    type StepExportOptions,
     type SweepToleranceOptions,
     type TessellateOptions,
     type UVBounds,
@@ -116,6 +118,7 @@ import type {
     ShapeQueryResult,
     ShapeOrientation,
     ShapeType,
+    StepExportOptions,
     SurfaceKind,
     SweepAdvancedOptions,
     SweepFullOptions,
@@ -1571,8 +1574,16 @@ export class OcctKernel {
         });
     }
 
-    exportStep(shape: ShapeHandle): string {
-        return wrap("exportStep", () => this.#raw.exportStep(shape));
+    /**
+     * Export a shape as STEP text.
+     *
+     * @param options - `unit` picks the length unit the file is written in
+     *     (default millimeters); the geometry is scaled to match.
+     */
+    exportStep(shape: ShapeHandle, options?: StepExportOptions): string {
+        const unit = options?.unit;
+        return wrap("exportStep", () =>
+            unit === undefined ? this.#raw.exportStep(shape) : this.#raw.exportStepWithUnit(shape, unit));
     }
 
     /**

@@ -111,17 +111,13 @@
 #include <Quantity_Color.hxx>
 #include <RWGltf_CafWriter.hxx>
 #include <STEPCAFControl_Reader.hxx>
-#include <STEPCAFControl_Writer.hxx>
 #include <STEPControl_Reader.hxx>
-#include <STEPControl_StepModelType.hxx>
-#include <STEPControl_Writer.hxx>
 #include <ShapeAnalysis.hxx>
 #include <ShapeAnalysis_Surface.hxx>
 #include <ShapeFix_Face.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <ShapeFix_Solid.hxx>
 #include <ShapeFix_Wire.hxx>
-#include <ShapeProcess.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <Standard_Failure.hxx>
 #include <StlAPI_Reader.hxx>
@@ -3885,31 +3881,17 @@ uint32_t OcctKernel::importStep(const std::string& data) {
 
 std::string OcctKernel::exportStep(uint32_t id) {
     try {
-        const auto& shape = get(id);
-        
-        STEPControl_Writer writer;
-        // The STEP write actor only fixes non-conformant elementary surfaces (e.g. a
-        // cone whose stored ConicalSurface has a negative semi-angle) when the
-        // DirectFaces shape-processing op runs. That op lives on the shared OCCT "STEP"
-        // controller actor, whose flags any prior XCAF/STEPCAF export silently clears --
-        // after which writer.Transfer() runs no processing and drops conical faces. Set
-        // the flags explicitly so single-shape STEP export is independent of that state.
-        ShapeProcess::OperationsFlags spFlags;
-        spFlags.set(ShapeProcess::Operation::DirectFaces);
-        spFlags.set(ShapeProcess::Operation::SplitCommonVertex);
-        writer.SetShapeProcessFlags(spFlags);
-        IFSelect_ReturnStatus status = writer.Transfer(shape, STEPControl_AsIs);
-        if (status != IFSelect_RetDone) {
-            throw std::runtime_error("exportStep: transfer failed");
-        }
-        
-        std::ostringstream oss;
-        if (writer.WriteStream(oss) != IFSelect_RetDone) {
-            throw std::runtime_error("exportStep: write failed");
-        }
-        return oss.str();
+        return writeStep(get(id), UnitsMethods_LengthUnit_Millimeter, "exportStep");
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("exportStep: ") + e.what());
+    }
+}
+
+std::string OcctKernel::exportStepWithUnit(uint32_t id, const std::string& unit) {
+    try {
+        return writeStep(get(id), stepLengthUnit(unit, "exportStepWithUnit"), "exportStepWithUnit");
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("exportStepWithUnit: ") + e.what());
     }
 }
 
@@ -5244,32 +5226,21 @@ std::string OcctKernel::xcafExportSTEP(uint32_t docId) {
         auto it = xcafDocs_.find(docId);
         if (it == xcafDocs_.end())
             throw std::runtime_error("xcafExportSTEP: invalid document ID");
-        
-        STEPCAFControl_Writer writer;
-        writer.SetColorMode(Standard_True);
-        writer.SetNameMode(Standard_True);
-        // STEPCAFControl_Writer does not seed the write actor's shape-processing flags,
-        // so non-conformant elementary surfaces (notably cones, whose stored
-        // ConicalSurface carries a negative semi-angle) are never fixed and their
-        // lateral faces are dropped from the output. Enable DirectFaces explicitly to
-        // match the plain exportStep path. (This also re-seeds the shared controller
-        // actor, leaving subsequent exportStep calls in a healthy state.)
-        ShapeProcess::OperationsFlags spFlags;
-        spFlags.set(ShapeProcess::Operation::DirectFaces);
-        spFlags.set(ShapeProcess::Operation::SplitCommonVertex);
-        writer.SetShapeProcessFlags(spFlags);
-        
-        if (!writer.Transfer(it->second.doc, STEPControl_AsIs)) {
-            throw std::runtime_error("xcafExportSTEP: transfer failed");
-        }
-        
-        std::ostringstream oss;
-        if (writer.WriteStream(oss) != IFSelect_RetDone) {
-            throw std::runtime_error("xcafExportSTEP: write failed");
-        }
-        return oss.str();
+        return writeStep(it->second.doc, UnitsMethods_LengthUnit_Millimeter, "xcafExportSTEP");
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafExportSTEP: ") + e.what());
+    }
+}
+
+std::string OcctKernel::xcafExportSTEPWithUnit(uint32_t docId, const std::string& unit) {
+    try {
+        auto it = xcafDocs_.find(docId);
+        if (it == xcafDocs_.end())
+            throw std::runtime_error("xcafExportSTEPWithUnit: invalid document ID");
+        return writeStep(it->second.doc, stepLengthUnit(unit, "xcafExportSTEPWithUnit"),
+                         "xcafExportSTEPWithUnit");
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("xcafExportSTEPWithUnit: ") + e.what());
     }
 }
 

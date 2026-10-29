@@ -17,6 +17,7 @@
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
+#include <DESTEP_Parameters.hxx>
 #include <ElCLib.hxx>
 #include <GProp_GProps.hxx>
 #include <GeomAbs_CurveType.hxx>
@@ -24,6 +25,7 @@
 #include <GeomConvert_BSplineSurfaceToBezierSurface.hxx>
 #include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierSurface.hxx>
+#include <IFSelect_ReturnStatus.hxx>
 #include <Message_ProgressRange.hxx>
 #include <NCollection_Array1.hxx>
 #include <NCollection_Array2.hxx>
@@ -34,6 +36,10 @@
 #include <Poly_Triangulation.hxx>
 #include <Precision.hxx>
 #include <RWStl_Reader.hxx>
+#include <STEPCAFControl_Writer.hxx>
+#include <STEPControl_StepModelType.hxx>
+#include <STEPControl_Writer.hxx>
+#include <ShapeProcess.hxx>
 #include <Standard_Failure.hxx>
 #include <Standard_ReadLineBuffer.hxx>
 #include <TopAbs_Orientation.hxx>
@@ -48,6 +54,7 @@
 #include <TopoDS_Vertex.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <gp_Dir.hxx>
@@ -58,6 +65,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 // --- XCAF helpers (used by generated xcaf methods) ---
@@ -761,6 +769,106 @@ void addPreciseBounds(const TopoDS_Shape& shape, Bnd_Box& box, bool useTriangula
     for (TopExp_Explorer ex(shape, TopAbs_VERTEX, TopAbs_EDGE); ex.More(); ex.Next()) {
         BRepBndLib::AddOptimal(ex.Current(), box, useTriangulation, false);
     }
+}
+
+// --- STEP export ---
+
+UnitsMethods_LengthUnit stepLengthUnit(const std::string& name, const char* op) {
+    std::string key;
+    key.reserve(name.size());
+    for (char c : name) {
+        key += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    static const std::pair<const char*, UnitsMethods_LengthUnit> kUnits[] = {
+        {"mm", UnitsMethods_LengthUnit_Millimeter},
+        {"millimeter", UnitsMethods_LengthUnit_Millimeter},
+        {"millimetre", UnitsMethods_LengthUnit_Millimeter},
+        {"cm", UnitsMethods_LengthUnit_Centimeter},
+        {"centimeter", UnitsMethods_LengthUnit_Centimeter},
+        {"centimetre", UnitsMethods_LengthUnit_Centimeter},
+        {"m", UnitsMethods_LengthUnit_Meter},
+        {"meter", UnitsMethods_LengthUnit_Meter},
+        {"metre", UnitsMethods_LengthUnit_Meter},
+        {"km", UnitsMethods_LengthUnit_Kilometer},
+        {"kilometer", UnitsMethods_LengthUnit_Kilometer},
+        {"kilometre", UnitsMethods_LengthUnit_Kilometer},
+        {"in", UnitsMethods_LengthUnit_Inch},
+        {"inch", UnitsMethods_LengthUnit_Inch},
+        {"ft", UnitsMethods_LengthUnit_Foot},
+        {"foot", UnitsMethods_LengthUnit_Foot},
+        {"feet", UnitsMethods_LengthUnit_Foot},
+        {"mi", UnitsMethods_LengthUnit_Mile},
+        {"mile", UnitsMethods_LengthUnit_Mile},
+        {"mil", UnitsMethods_LengthUnit_Mil},
+        {"thou", UnitsMethods_LengthUnit_Mil},
+        {"um", UnitsMethods_LengthUnit_Micron},
+        {"micron", UnitsMethods_LengthUnit_Micron},
+        {"micrometer", UnitsMethods_LengthUnit_Micron},
+        {"micrometre", UnitsMethods_LengthUnit_Micron},
+        {"uin", UnitsMethods_LengthUnit_Microinch},
+        {"microinch", UnitsMethods_LengthUnit_Microinch},
+    };
+    for (const auto& unit : kUnits) {
+        if (key == unit.first) {
+            return unit.second;
+        }
+    }
+    throw std::runtime_error(std::string(op) + ": unknown length unit '" + name +
+                             "' (expected mm, cm, m, km, inch, ft, mi, mil, um or uin)");
+}
+
+namespace {
+
+// DirectFaces rewrites elementary surfaces STEP cannot carry as stored, such as
+// a cone whose ConicalSurface has a negative semi-angle; without it the cone's
+// lateral face is dropped. The flags live on OCCT's process-wide "STEP"
+// controller actor, which an XCAF export clears, so every writer sets them.
+ShapeProcess::OperationsFlags stepShapeProcessFlags() {
+    ShapeProcess::OperationsFlags flags;
+    flags.set(ShapeProcess::Operation::DirectFaces);
+    flags.set(ShapeProcess::Operation::SplitCommonVertex);
+    return flags;
+}
+
+// Per-call writer parameters, so the unit never touches the process-wide
+// "write.step.unit" static. Geometry stays in millimeters (the cascade unit);
+// the writer scales it into `unit`.
+DESTEP_Parameters stepParameters(UnitsMethods_LengthUnit unit) {
+    DESTEP_Parameters params;
+    params.InitFromStatic();
+    params.WriteUnit = unit;
+    return params;
+}
+
+} // namespace
+
+std::string writeStep(const TopoDS_Shape& shape, UnitsMethods_LengthUnit unit, const char* op) {
+    STEPControl_Writer writer;
+    writer.SetShapeProcessFlags(stepShapeProcessFlags());
+    if (writer.Transfer(shape, STEPControl_AsIs, stepParameters(unit)) != IFSelect_RetDone) {
+        throw std::runtime_error(std::string(op) + ": transfer failed");
+    }
+    std::ostringstream oss;
+    if (writer.WriteStream(oss) != IFSelect_RetDone) {
+        throw std::runtime_error(std::string(op) + ": write failed");
+    }
+    return oss.str();
+}
+
+std::string writeStep(const Handle(TDocStd_Document) & doc, UnitsMethods_LengthUnit unit,
+                      const char* op) {
+    STEPCAFControl_Writer writer;
+    writer.SetColorMode(true);
+    writer.SetNameMode(true);
+    writer.SetShapeProcessFlags(stepShapeProcessFlags());
+    if (!writer.Transfer(doc, stepParameters(unit), STEPControl_AsIs)) {
+        throw std::runtime_error(std::string(op) + ": transfer failed");
+    }
+    std::ostringstream oss;
+    if (writer.WriteStream(oss) != IFSelect_RetDone) {
+        throw std::runtime_error(std::string(op) + ": write failed");
+    }
+    return oss.str();
 }
 
 int OcctKernel::registerLabel(XCAFDocRecord& record, const TDF_Label& label) {

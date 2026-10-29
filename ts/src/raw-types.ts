@@ -307,6 +307,8 @@ export interface OcctRawKernel {
     // I/O
     importStep(data: string): number;
     exportStep(id: number): string;
+    /** STEP with lengths written in `unit` ("mm", "cm", "m", "km", "inch", "ft", "mi", "mil", "um", "uin"). */
+    exportStepWithUnit(id: number, unit: string): string;
     importStl(data: string): number;
     importStlBinary(data: Uint8Array): number;
     exportStl(id: number, linearDeflection: number, ascii: boolean): string;
@@ -440,6 +442,7 @@ export interface OcctRawKernel {
     xcafGetSubShapeLabels(docId: number, tag: number): EmbindVectorI32;
     xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
+    xcafExportSTEPWithUnit(docId: number, unit: string): string;
     xcafImportSTEP(stepData: string): number;
     /** @deprecated Writes /tmp/xcaf_export.glb and returns its path; use `xcafExportGLB`. */
     xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;

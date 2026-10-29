@@ -245,6 +245,7 @@ pub(crate) struct GeneratedFuncs {
     fn_remove_degenerate_edges: TypedFunc<(u32,), u32>,
     fn_import_step: TypedFunc<(i32, i32), u32>,
     fn_export_step: TypedFunc<(u32,), i32>,
+    fn_export_step_with_unit: TypedFunc<(u32, i32, i32), i32>,
     fn_export_stl: TypedFunc<(u32, f64, i32), i32>,
     fn_import_stl: TypedFunc<(i32, i32), u32>,
     fn_export_stl_binary: TypedFunc<(u32, f64), i32>,
@@ -298,6 +299,7 @@ pub(crate) struct GeneratedFuncs {
     fn_xcaf_get_sub_shape_labels: TypedFunc<(u32, i32), i32>,
     fn_xcaf_add_sub_shape: TypedFunc<(u32, i32, u32), i32>,
     fn_xcaf_export_step: TypedFunc<(u32,), i32>,
+    fn_xcaf_export_step_with_unit: TypedFunc<(u32, i32, i32), i32>,
     fn_xcaf_import_step: TypedFunc<(i32, i32), u32>,
     fn_xcaf_export_glb: TypedFunc<(u32, f64, f64), i32>,
 }
@@ -504,6 +506,8 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_remove_degenerate_edges")?,
             fn_import_step: instance.get_typed_func(&mut store, "occt_import_step")?,
             fn_export_step: instance.get_typed_func(&mut store, "occt_export_step")?,
+            fn_export_step_with_unit: instance
+                .get_typed_func(&mut store, "occt_export_step_with_unit")?,
             fn_export_stl: instance.get_typed_func(&mut store, "occt_export_stl")?,
             fn_import_stl: instance.get_typed_func(&mut store, "occt_import_stl")?,
             fn_export_stl_binary: instance.get_typed_func(&mut store, "occt_export_stl_binary")?,
@@ -578,6 +582,8 @@ impl GeneratedFuncs {
             fn_xcaf_add_sub_shape: instance
                 .get_typed_func(&mut store, "occt_xcaf_add_sub_shape")?,
             fn_xcaf_export_step: instance.get_typed_func(&mut store, "occt_xcaf_export_step")?,
+            fn_xcaf_export_step_with_unit: instance
+                .get_typed_func(&mut store, "occt_xcaf_export_step_with_unit")?,
             fn_xcaf_import_step: instance.get_typed_func(&mut store, "occt_xcaf_import_step")?,
             fn_xcaf_export_glb: instance.get_typed_func(&mut store, "occt_xcaf_export_glb")?,
         })
@@ -3849,6 +3855,21 @@ impl crate::kernel::OcctKernel {
         self.read_string_result()
     }
 
+    pub fn export_step_with_unit(&mut self, id: ShapeHandle, unit: &str) -> OcctResult<String> {
+        let unit_ptr = self.write_bytes(unit.as_bytes())?;
+        let unit_len = unit.len() as u32;
+        let len = self
+            .generated
+            .fn_export_step_with_unit
+            .call(&mut self.store, (id.0, unit_ptr as i32, unit_len as i32));
+        self.free_bytes(unit_ptr)?;
+        let len = len?;
+        if len < 0 {
+            return Err(self.read_last_error("export_step_with_unit"));
+        }
+        self.read_string_result()
+    }
+
     pub fn export_stl(
         &mut self,
         id: ShapeHandle,
@@ -5055,6 +5076,25 @@ impl crate::kernel::OcctKernel {
             .call(&mut self.store, (doc_id.0,))?;
         if len < 0 {
             return Err(self.read_last_error("xcaf_export_step"));
+        }
+        self.read_string_result()
+    }
+
+    pub fn xcaf_export_step_with_unit(
+        &mut self,
+        doc_id: DocumentHandle,
+        unit: &str,
+    ) -> OcctResult<String> {
+        let unit_ptr = self.write_bytes(unit.as_bytes())?;
+        let unit_len = unit.len() as u32;
+        let len = self.generated.fn_xcaf_export_step_with_unit.call(
+            &mut self.store,
+            (doc_id.0, unit_ptr as i32, unit_len as i32),
+        );
+        self.free_bytes(unit_ptr)?;
+        let len = len?;
+        if len < 0 {
+            return Err(self.read_last_error("xcaf_export_step_with_unit"));
         }
         self.read_string_result()
     }
