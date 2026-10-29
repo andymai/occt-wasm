@@ -188,11 +188,15 @@ export interface OcctRawKernel {
     chamfer(solidId: number, edgeIds: EmbindVectorU32, distance: number): number;
     chamferDistAngle(solidId: number, edgeIds: EmbindVectorU32, distance: number, angleDeg: number): number;
     chamferAsymmetric(solidId: number, edgeId: number, distance1: number, distance2: number, referenceFaceId: number): number;
-    /** Per-edge radii in one fillet: constant where start === end, else linear from start to end. */
+    /**
+     * Per-edge radii in one fillet: constant where start === end, else linear from the edge's first
+     * vertex to its last. Tangent-continuous edges that meet must agree on the radius at the joint.
+     */
     filletRadii(solidId: number, edgeIds: EmbindVectorU32, startRadii: EmbindVectorF64, endRadii: EmbindVectorF64): number;
     /**
      * Per-edge two-distance chamfer; equal distances are symmetric. `referenceFaceIds` is empty
      * or one face per edge (0 selects the edge's first adjacent face); distance1 is set back on it.
+     * Tangent-continuous edges form one contour with one chamfer, so they must share distances.
      */
     chamferDistances(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
     /** Per-edge distance-angle chamfer (angles in degrees); reference faces as in `chamferDistances`. */

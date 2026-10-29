@@ -715,7 +715,9 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamfer
     },
     // Per-edge radii in one BRepFilletAPI_MakeFillet: edge i gets a constant radius
     // when startRadii[i] == endRadii[i], else a radius running linearly from
-    // startRadii[i] to endRadii[i] along its contour (FreeCAD Part::Fillet's model).
+    // startRadii[i] at its first vertex to endRadii[i] at its last (FreeCAD
+    // Part::Fillet's model). Tangent-continuous edges share one radius law, so
+    // radii must agree where two given edges meet; see addFilletRadii.
     MethodSpec {
         name: "filletRadii",
         kind: MethodKind::CustomBody,
@@ -737,10 +739,10 @@ if (startRadii.size() != edgeIds.size() || endRadii.size() != edgeIds.size()) {
 BRepFilletAPI_MakeFillet maker(get(solidId));
 std::vector<TopoDS_Edge> edges;
 edges.reserve(edgeIds.size());
-for (size_t i = 0; i < edgeIds.size(); ++i) {
-    edges.push_back(TopoDS::Edge(get(edgeIds[i])));
-    addFilletEdge(maker, edges.back(), startRadii[i], endRadii[i], \"filletRadii\");
+for (uint32_t eid : edgeIds) {
+    edges.push_back(TopoDS::Edge(get(eid)));
 }
+addFilletRadii(maker, edgeIds, edges, startRadii, endRadii, \"filletRadii\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(filletFailure(maker, edgeIds, edges, \"filletRadii\"));
@@ -754,7 +756,9 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletR
     // is set back on edge i's reference face, distances2[i] on its other face; equal
     // distances give the symmetric chamfer `chamfer` builds. referenceFaceIds is
     // empty (every edge uses its first adjacent face, chamferAsymmetric's default)
-    // or has one entry per edge, where 0 also selects that default.
+    // or has one entry per edge, where 0 also selects that default. OCCT gives a
+    // contour of tangent-continuous edges one chamfer, so edges of one contour
+    // must ask for the same one (checkChamferContours).
     MethodSpec {
         name: "chamferDistances",
         kind: MethodKind::CustomBody,
@@ -776,6 +780,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
+checkChamferContours(maker, edgeIds, specs, \"chamferDistances\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistances\"));
@@ -813,6 +818,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
+checkChamferContours(maker, edgeIds, specs, \"chamferDistAngles\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistAngles\"));
@@ -5112,10 +5118,10 @@ const auto& solid = get(solidId);
 BRepFilletAPI_MakeFillet maker(solid);
 std::vector<TopoDS_Edge> edges;
 edges.reserve(edgeIds.size());
-for (size_t i = 0; i < edgeIds.size(); ++i) {
-    edges.push_back(TopoDS::Edge(get(edgeIds[i])));
-    addFilletEdge(maker, edges.back(), startRadii[i], endRadii[i], \"filletRadiiWithHistory\");
+for (uint32_t eid : edgeIds) {
+    edges.push_back(TopoDS::Edge(get(eid)));
 }
+addFilletRadii(maker, edgeIds, edges, startRadii, endRadii, \"filletRadiiWithHistory\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(filletFailure(maker, edgeIds, edges, \"filletRadiiWithHistory\"));
@@ -5152,6 +5158,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
+checkChamferContours(maker, edgeIds, specs, \"chamferDistancesWithHistory\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(

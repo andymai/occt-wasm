@@ -278,17 +278,76 @@ static std::string filletFailure(const BRepFilletAPI_MakeFillet& maker,
                                  [&](const TopoDS_Edge& e) { return maker.Contour(e); });
 }
 
-/// Add `edge` to a fillet: a constant radius when `start == end`, otherwise a
-/// radius running linearly from `start` to `end` along the edge's contour.
-static void addFilletEdge(BRepFilletAPI_MakeFillet& maker, const TopoDS_Edge& edge,
-                          double start, double end, const char* op) {
-    if (!(start > 0.0 && end > 0.0 && std::isfinite(start) && std::isfinite(end))) {
-        throw std::runtime_error(std::string(op) + ": every radius must be positive and finite");
+/// `<op>: edges a and b are tangent-continuous ...`, naming the caller's ids.
+static std::string tangentJoinMessage(const char* op, uint32_t a, uint32_t b,
+                                      const std::string& what) {
+    return std::string(op) + ": edges " + std::to_string(a) + " and " + std::to_string(b) +
+           " are tangent-continuous, so OCCT builds them as one contour; " + what;
+}
+
+static bool sameValue(double a, double b) {
+    return std::abs(a - b) <= Precision::Confusion() * std::max({1.0, std::abs(a), std::abs(b)});
+}
+
+/// Add every edge to a fillet, each with its own radius: constant when
+/// `starts[i] == ends[i]`, otherwise linear from the edge's first vertex (at its
+/// first curve parameter) to its last.
+///
+/// OCCT keeps one continuous radius law per contour of tangent-continuous
+/// edges, and `Add(r, edge)` on an edge already in a contour overwrites the
+/// radius the earlier edge set at their shared vertex, silently turning it into
+/// a taper. So the edges are added first, then each edge's radii are set at its
+/// index in its contour, swapped where the contour runs against the edge. Two
+/// given edges that meet must agree on the radius at their joint, since a
+/// fillet cannot jump there; an edge left out of the list blends between its
+/// neighbours.
+static void addFilletRadii(BRepFilletAPI_MakeFillet& maker, const std::vector<uint32_t>& edgeIds,
+                           const std::vector<TopoDS_Edge>& edges, const std::vector<double>& starts,
+                           const std::vector<double>& ends, const char* op) {
+    for (size_t i = 0; i < edges.size(); ++i) {
+        if (!(starts[i] > 0.0 && ends[i] > 0.0 && std::isfinite(starts[i]) &&
+              std::isfinite(ends[i]))) {
+            throw std::runtime_error(std::string(op) + ": every radius must be positive and finite");
+        }
+        maker.Add(edges[i]);
+        if (maker.Contour(edges[i]) == 0) {
+            throw std::runtime_error(std::string(op) + ": edge " + std::to_string(edgeIds[i]) +
+                                     " cannot be filleted (it does not join two faces of the solid)");
+        }
     }
-    if (start == end) {
-        maker.Add(start, edge);
-    } else {
-        maker.Add(start, end, edge);
+    struct Radii {
+        bool set = false;
+        double first = 0.0;
+        double last = 0.0;
+        uint32_t id = 0;
+    };
+    for (int contour = 1; contour <= maker.NbContours(); ++contour) {
+        const int count = maker.NbEdges(contour);
+        std::vector<Radii> along(static_cast<size_t>(count) + 1);
+        for (size_t i = 0; i < edges.size(); ++i) {
+            if (maker.Contour(edges[i]) != contour) continue;
+            for (int j = 1; j <= count; ++j) {
+                const TopoDS_Edge& stored = maker.Edge(contour, j);
+                if (!stored.IsSame(edges[i])) continue;
+                const bool reversed = stored.Orientation() == TopAbs_REVERSED;
+                along[j] = {true, reversed ? ends[i] : starts[i], reversed ? starts[i] : ends[i],
+                            edgeIds[i]};
+            }
+        }
+        auto checkJoint = [&](int a, int b) {
+            if (!along[a].set || !along[b].set || sameValue(along[a].last, along[b].first)) return;
+            std::ostringstream radii;
+            radii << along[a].last << " and " << along[b].first;
+            throw std::runtime_error(tangentJoinMessage(
+                op, along[a].id, along[b].id,
+                "a fillet radius cannot jump where they meet (" + radii.str() +
+                    "), so give both the same radius there, tapering one if needed"));
+        };
+        for (int j = 1; j < count; ++j) checkJoint(j, j + 1);
+        if (count > 1 && maker.Closed(contour)) checkJoint(count, 1);
+        for (int j = 1; j <= count; ++j) {
+            if (along[j].set) maker.SetRadius(along[j].first, along[j].last, contour, j);
+        }
     }
 }
 
@@ -315,6 +374,36 @@ static void addChamferEdge(Builder& builder, const ChamferEdge& c) {
     }
 }
 
+/// OCCT chamfers a contour of tangent-continuous edges with the setback of the
+/// first edge added and ignores any later edge of it, so the given edges of one
+/// contour must ask for the same chamfer. That first edge also decides which
+/// face takes distance1.
+static void checkChamferContours(const BRepFilletAPI_MakeChamfer& maker,
+                                 const std::vector<uint32_t>& edgeIds,
+                                 const std::vector<ChamferEdge>& specs, const char* op) {
+    std::vector<std::pair<int, size_t>> firstOfContour;
+    for (size_t i = 0; i < specs.size(); ++i) {
+        const int contour = maker.Contour(specs[i].edge);
+        if (contour == 0) {
+            throw std::runtime_error(std::string(op) + ": edge " + std::to_string(edgeIds[i]) +
+                                     " cannot be chamfered (it does not join two faces of the solid)");
+        }
+        auto first = std::find_if(firstOfContour.begin(), firstOfContour.end(),
+                                  [&](const std::pair<int, size_t>& f) { return f.first == contour; });
+        if (first == firstOfContour.end()) {
+            firstOfContour.emplace_back(contour, i);
+            continue;
+        }
+        const ChamferEdge& a = specs[first->second];
+        const ChamferEdge& b = specs[i];
+        if (a.byAngle != b.byAngle || !sameValue(a.distance, b.distance) ||
+            !sameValue(a.second, b.second)) {
+            throw std::runtime_error(tangentJoinMessage(
+                op, edgeIds[first->second], edgeIds[i],
+                "a contour takes a single chamfer, so give them the same distances"));
+        }
+    }
+}
 /// Check per-edge chamfer arrays and resolve each edge's reference face: the
 /// given one (it must be adjacent to the edge), or for an empty list or a 0
 /// entry the edge's first adjacent face, the face `chamferAsymmetric` defaults to.
@@ -1076,10 +1165,10 @@ uint32_t OcctKernel::filletRadii(uint32_t solidId, std::vector<uint32_t> edgeIds
         BRepFilletAPI_MakeFillet maker(get(solidId));
         std::vector<TopoDS_Edge> edges;
         edges.reserve(edgeIds.size());
-        for (size_t i = 0; i < edgeIds.size(); ++i) {
-            edges.push_back(TopoDS::Edge(get(edgeIds[i])));
-            addFilletEdge(maker, edges.back(), startRadii[i], endRadii[i], "filletRadii");
+        for (uint32_t eid : edgeIds) {
+            edges.push_back(TopoDS::Edge(get(eid)));
         }
+        addFilletRadii(maker, edgeIds, edges, startRadii, endRadii, "filletRadii");
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error(filletFailure(maker, edgeIds, edges, "filletRadii"));
@@ -1100,6 +1189,7 @@ uint32_t OcctKernel::chamferDistances(uint32_t solidId, std::vector<uint32_t> ed
         for (const ChamferEdge& edge : specs) {
             addChamferEdge(maker, edge);
         }
+        checkChamferContours(maker, edgeIds, specs, "chamferDistances");
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, "chamferDistances"));
@@ -1124,6 +1214,7 @@ uint32_t OcctKernel::chamferDistAngles(uint32_t solidId, std::vector<uint32_t> e
         for (const ChamferEdge& edge : specs) {
             addChamferEdge(maker, edge);
         }
+        checkChamferContours(maker, edgeIds, specs, "chamferDistAngles");
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, "chamferDistAngles"));
@@ -4223,10 +4314,10 @@ EvolutionData OcctKernel::filletRadiiWithHistory(uint32_t solidId, std::vector<u
         BRepFilletAPI_MakeFillet maker(solid);
         std::vector<TopoDS_Edge> edges;
         edges.reserve(edgeIds.size());
-        for (size_t i = 0; i < edgeIds.size(); ++i) {
-            edges.push_back(TopoDS::Edge(get(edgeIds[i])));
-            addFilletEdge(maker, edges.back(), startRadii[i], endRadii[i], "filletRadiiWithHistory");
+        for (uint32_t eid : edgeIds) {
+            edges.push_back(TopoDS::Edge(get(eid)));
         }
+        addFilletRadii(maker, edgeIds, edges, startRadii, endRadii, "filletRadiiWithHistory");
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error(filletFailure(maker, edgeIds, edges, "filletRadiiWithHistory"));
@@ -4251,6 +4342,7 @@ EvolutionData OcctKernel::chamferDistancesWithHistory(uint32_t solidId, std::vec
         for (const ChamferEdge& edge : specs) {
             addChamferEdge(maker, edge);
         }
+        checkChamferContours(maker, edgeIds, specs, "chamferDistancesWithHistory");
         maker.Build();
         if (!maker.IsDone()) {
             throw std::runtime_error(

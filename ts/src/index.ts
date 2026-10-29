@@ -504,8 +504,12 @@ export class OcctKernel {
      *
      * @param radius - One radius for every edge, or one per edge (an array as
      *     long as `edges`). Each is a constant radius or a `{ start, end }` pair
-     *     that varies linearly along the edge's contour.
+     *     that varies linearly along the edge. Tangent-continuous edges form one
+     *     fillet whose radius cannot jump, so two such edges that meet must
+     *     agree on the radius at their shared vertex; an edge of the chain left
+     *     out blends between its neighbours' radii.
      * @throws OcctError, naming the edges of any contour that could not be built
+     *     or of a tangent joint whose radii disagree
      */
     fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: FilletRadius | readonly FilletRadius[]): ShapeHandle {
         return wrap("fillet", () => {

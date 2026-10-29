@@ -215,3 +215,101 @@ describe("chamfer with per-edge distances", () => {
         expect(evo.modified.length + evo.generated.length).toBeGreaterThan(0);
     });
 });
+
+/**
+ * A 5 mm plate whose top edge runs line1 -> arc -> line2, each tangent to the
+ * next, so OCCT fillets the three as one contour. line1 is built from (10, 0)
+ * to (0, 0), against the chain, so its own direction is reversed in the
+ * contour whichever edge seeds it.
+ */
+function tangentChainPlate() {
+    const z0 = (x: number, y: number) => ({ x, y, z: 0 });
+    const profile = kernel.makeFace(
+        kernel.makeWire([
+            kernel.makeLineEdge(z0(10, 0), z0(0, 0)),
+            kernel.makeArcEdge(z0(10, 0), z0(10 + 5 * Math.SQRT1_2, 5 - 5 * Math.SQRT1_2), z0(15, 5)),
+            kernel.makeLineEdge(z0(15, 5), z0(15, 10)),
+            kernel.makeLineEdge(z0(15, 10), z0(0, 10)),
+            kernel.makeLineEdge(z0(0, 10), z0(0, 0)),
+        ]),
+    );
+    const solid = kernel.extrude(profile, 0, 0, 5);
+    const top = (kernel.getSubShapes(solid, "edge") as number[]).filter((e) => {
+        const bb = kernel.getBoundingBox(e);
+        return Math.abs(bb.zmin - 5) < 1e-9 && Math.abs(bb.zmax - 5) < 1e-9;
+    });
+    const find = (pred: (bb: Record<string, number>) => boolean) => {
+        const edge = top.find((e) => pred(kernel.getBoundingBox(e)));
+        expect(edge).toBeDefined();
+        return edge as number;
+    };
+    return {
+        solid,
+        line1: find((bb) => Math.abs(bb.ymax) < 1e-9),
+        arc: find((bb) => bb.xmin > 9.9 && bb.xmax > 14.9 && bb.ymax > 4.9 && bb.ymin < 0.1),
+        line2: find((bb) => Math.abs(bb.xmin - 15) < 1e-9),
+    };
+}
+
+/**
+ * Fillet radius where a straight top edge passes `at`, read off the 45-degree
+ * gap the fillet cuts: (at + t inward, z = 5 - t) is outside the solid while
+ * t < r (1 - 1/sqrt 2).
+ */
+function radiusAt(shape: number, at: { x: number; y: number }, inward: { x: number; y: number }): number {
+    let lo = 0;
+    let hi = 3;
+    for (let i = 0; i < 40; i++) {
+        const t = (lo + hi) / 2;
+        const p = { x: at.x + inward.x * t, y: at.y + inward.y * t, z: 5 - t };
+        if (kernel.containsPoint(shape, p, 1e-9)) hi = t;
+        else lo = t;
+    }
+    return lo / (1 - Math.SQRT1_2);
+}
+
+describe("tangent-continuous edges", () => {
+    const LINE1_NEAR_ORIGIN = [{ x: 1, y: 0 }, { x: 0, y: 1 }] as const;
+    const LINE1_NEAR_ARC = [{ x: 9, y: 0 }, { x: 0, y: 1 }] as const;
+    const LINE2_NEAR_ARC = [{ x: 15, y: 6 }, { x: -1, y: 0 }] as const;
+    const LINE2_FAR_END = [{ x: 15, y: 9 }, { x: -1, y: 0 }] as const;
+
+    it("rejects radii that jump where two tangent edges meet", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        expect(() => kernel.fillet(solid, [line1, arc], [1, 2])).toThrow(/tangent-continuous/);
+        expect(() =>
+            kernel.filletWithHistory(solid, [line1, arc], [1, 2], faceHashes(solid), HASH_BOUND),
+        ).toThrow(/tangent-continuous/);
+    });
+
+    it("tapers each edge from its own first vertex, in any order", () => {
+        const { solid, line1, arc, line2 } = tangentChainPlate();
+        // line1 runs from (10, 0), where it meets the arc at radius 2.
+        const radii = [{ start: 2, end: 1 }, 2, { start: 2, end: 3 }];
+        for (const order of [[0, 1, 2], [2, 1, 0]]) {
+            const edges = order.map((i) => [line1, arc, line2][i]);
+            const result = kernel.fillet(solid, edges, order.map((i) => radii[i]));
+            expect(radiusAt(result, ...LINE1_NEAR_ORIGIN)).toBeLessThan(1.3);
+            expect(radiusAt(result, ...LINE1_NEAR_ARC)).toBeGreaterThan(1.7);
+            expect(radiusAt(result, ...LINE2_NEAR_ARC)).toBeLessThan(2.3);
+            expect(radiusAt(result, ...LINE2_FAR_END)).toBeGreaterThan(2.5);
+        }
+    });
+
+    it("blends between radii given on edges that do not meet", () => {
+        const { solid, line1, line2 } = tangentChainPlate();
+        const result = kernel.fillet(solid, [line1, line2], [1, 2]);
+        expect(radiusAt(result, ...LINE1_NEAR_ORIGIN)).toBeCloseTo(1, 2);
+        expect(radiusAt(result, ...LINE1_NEAR_ARC)).toBeCloseTo(1, 2);
+        expect(radiusAt(result, ...LINE2_NEAR_ARC)).toBeCloseTo(2, 2);
+        expect(radiusAt(result, ...LINE2_FAR_END)).toBeCloseTo(2, 2);
+    });
+
+    it("chamfers a tangent chain with one setback and rejects differing ones", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        expect(() => kernel.chamfer(solid, [line1, arc], [1, 2])).toThrow(/tangent-continuous/);
+        expect(() => kernel.chamferDistAngle(solid, [line1, arc], 1, [30, 45])).toThrow(/tangent-continuous/);
+        const same = kernel.chamfer(solid, [line1, arc], [1, 1]);
+        expect(kernel.getVolume(same)).toBeCloseTo(kernel.getVolume(kernel.chamfer(solid, [line1], 1)), 6);
+    });
+});

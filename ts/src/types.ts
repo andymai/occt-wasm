@@ -59,8 +59,8 @@ export interface Vec3 {
 
 /**
  * A fillet radius for one edge: a constant radius, or one that runs linearly
- * from `start` to `end` along the edge's contour (from its first vertex to its
- * last).
+ * from `start` at the edge's first vertex (its first curve parameter) to `end`
+ * at its last.
  */
 export type FilletRadius = number | { readonly start: number; readonly end: number };
 
@@ -68,6 +68,8 @@ export type FilletRadius = number | { readonly start: number; readonly end: numb
  * A chamfer for one edge: one setback on both faces, or `distance1` on
  * `referenceFace` and `distance2` on the edge's other face. Without a
  * `referenceFace`, the edge's first adjacent face takes `distance1`.
+ * Tangent-continuous edges are chamfered as one contour with one setback, so
+ * edges of such a chain must be given the same chamfer.
  */
 export type ChamferDistance =
     | number
