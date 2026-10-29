@@ -196,7 +196,8 @@ export interface OcctRawKernel {
     /**
      * Per-edge two-distance chamfer; equal distances are symmetric. `referenceFaceIds` is empty
      * or one face per edge (0 selects the edge's first adjacent face); distance1 is set back on it.
-     * Tangent-continuous edges form one contour with one chamfer, so they must share distances.
+     * Tangent-continuous edges form one contour with one chamfer, so their setbacks must match face
+     * to face (an edge with a 0 or omitted face follows the chain's first edge).
      */
     chamferDistances(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
     /** Per-edge distance-angle chamfer (angles in degrees); reference faces as in `chamferDistances`. */

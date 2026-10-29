@@ -353,12 +353,14 @@ static void addFilletRadii(BRepFilletAPI_MakeFillet& maker, const std::vector<ui
 
 /// One edge of a chamfer: `distance` is set back on `face`, and the other side
 /// takes `second`, a distance or (when `byAngle`) an angle in radians.
+/// `faceGiven` is false when `face` is only the edge's default first face.
 struct ChamferEdge {
     TopoDS_Edge edge;
     TopoDS_Face face;
     double distance;
     double second;
     bool byAngle;
+    bool faceGiven;
 };
 
 /// Equal distances add the symmetric chamfer `chamfer` builds. Works on both
@@ -374,10 +376,38 @@ static void addChamferEdge(Builder& builder, const ChamferEdge& c) {
     }
 }
 
-/// OCCT chamfers a contour of tangent-continuous edges with the setback of the
-/// first edge added and ignores any later edge of it, so the given edges of one
-/// contour must ask for the same chamfer. That first edge also decides which
-/// face takes distance1.
+/// Which side of contour `contour` the face `spec.face` lies on, as a flag that
+/// is the same for every face on one side along a tangent chain. A face runs
+/// its boundary edges in its own sense, the reverse of the face across each
+/// edge, so comparing that sense with the direction the contour runs through
+/// the edge separates the two sides.
+static bool chamferSide(const BRepFilletAPI_MakeChamfer& maker, int contour,
+                        const ChamferEdge& spec) {
+    TopAbs_Orientation alongContour = TopAbs_FORWARD;
+    for (int j = 1; j <= maker.NbEdges(contour); ++j) {
+        if (maker.Edge(contour, j).IsSame(spec.edge)) {
+            alongContour = maker.Edge(contour, j).Orientation();
+            break;
+        }
+    }
+    TopAbs_Orientation inFace = TopAbs_FORWARD;
+    for (TopExp_Explorer ex(spec.face, TopAbs_EDGE); ex.More(); ex.Next()) {
+        if (ex.Current().IsSame(spec.edge)) {
+            inFace = ex.Current().Orientation();
+            break;
+        }
+    }
+    return (inFace == TopAbs_FORWARD) == (alongContour == TopAbs_FORWARD);
+}
+
+/// OCCT chamfers a contour of tangent-continuous edges with the chamfer of the
+/// first edge added, measured from that edge's face on the same side all along
+/// the chain, and ignores any later edge of it. So the given edges of one
+/// contour must ask for the same chamfer once their setbacks are matched face
+/// to face: (1, 3) from the top face and (3, 1) from the side face agree. An
+/// edge without a reference face follows the first edge's side. A
+/// distance-angle chamfer stated from the other side would only match where
+/// the faces' dihedral angle allows, so it is rejected.
 static void checkChamferContours(const BRepFilletAPI_MakeChamfer& maker,
                                  const std::vector<uint32_t>& edgeIds,
                                  const std::vector<ChamferEdge>& specs, const char* op) {
@@ -396,11 +426,22 @@ static void checkChamferContours(const BRepFilletAPI_MakeChamfer& maker,
         }
         const ChamferEdge& a = specs[first->second];
         const ChamferEdge& b = specs[i];
-        if (a.byAngle != b.byAngle || !sameValue(a.distance, b.distance) ||
-            !sameValue(a.second, b.second)) {
+        const bool sameSide =
+            !b.faceGiven || chamferSide(maker, contour, a) == chamferSide(maker, contour, b);
+        if (a.byAngle && b.byAngle && !sameSide) {
             throw std::runtime_error(tangentJoinMessage(
                 op, edgeIds[first->second], edgeIds[i],
-                "a contour takes a single chamfer, so give them the same distances"));
+                "a distance-angle chamfer depends on the face it is measured from, so measure "
+                "theirs from faces on the same side of the chain"));
+        }
+        const bool agrees =
+            a.byAngle == b.byAngle &&
+            (sameSide ? sameValue(a.distance, b.distance) && sameValue(a.second, b.second)
+                      : sameValue(a.distance, b.second) && sameValue(a.second, b.distance));
+        if (!agrees) {
+            throw std::runtime_error(tangentJoinMessage(
+                op, edgeIds[first->second], edgeIds[i],
+                "a contour takes a single chamfer, so give them the same setback on each side"));
         }
     }
 }
@@ -453,18 +494,19 @@ static std::vector<ChamferEdge> chamferEdges(const TopoDS_Shape& solid,
         if (faceId == 0) {
             face = TopoDS::Face(adjacent.First());
         } else {
-            face = TopoDS::Face(resolve(faceId));
-            bool isAdjacent = false;
+            // Keep the solid's own instance of the face: its orientation tells
+            // which side of a contour it lies on (see chamferSide).
+            const TopoDS_Shape& given = resolve(faceId);
             for (const TopoDS_Shape& candidate : adjacent) {
-                isAdjacent = isAdjacent || candidate.IsSame(face);
+                if (candidate.IsSame(given)) face = TopoDS::Face(candidate);
             }
-            if (!isAdjacent) {
+            if (face.IsNull()) {
                 throw std::runtime_error(std::string(op) + ": reference face " +
                                          std::to_string(faceId) + " is not adjacent to edge " +
                                          std::to_string(edgeIds[i]));
             }
         }
-        result.push_back({edge, face, distance, second, byAngle});
+        result.push_back({edge, face, distance, second, byAngle, faceId != 0});
     }
     return result;
 }
@@ -500,7 +542,7 @@ static std::string chamferFailure(const TopoDS_Shape& solid, double distance,
     std::vector<ChamferEdge> specs;
     specs.reserve(edges.size());
     for (const TopoDS_Edge& edge : edges) {
-        specs.push_back({edge, TopoDS_Face(), distance, distance, false});
+        specs.push_back({edge, TopoDS_Face(), distance, distance, false, false});
     }
     return chamferEdgesFailure(solid, edgeIds, specs, op);
 }

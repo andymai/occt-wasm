@@ -68,8 +68,10 @@ export type FilletRadius = number | { readonly start: number; readonly end: numb
  * A chamfer for one edge: one setback on both faces, or `distance1` on
  * `referenceFace` and `distance2` on the edge's other face. Without a
  * `referenceFace`, the edge's first adjacent face takes `distance1`.
- * Tangent-continuous edges are chamfered as one contour with one setback, so
- * edges of such a chain must be given the same chamfer.
+ * Tangent-continuous edges are chamfered as one contour, so edges of such a
+ * chain must ask for the same setback on each side: `{ distance1: 1,
+ * distance2: 3 }` from the top face matches `{ distance1: 3, distance2: 1 }`
+ * from the side face.
  */
 export type ChamferDistance =
     | number

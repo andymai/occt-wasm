@@ -758,7 +758,7 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletR
     // empty (every edge uses its first adjacent face, chamferAsymmetric's default)
     // or has one entry per edge, where 0 also selects that default. OCCT gives a
     // contour of tangent-continuous edges one chamfer, so edges of one contour
-    // must ask for the same one (checkChamferContours).
+    // must ask for the same setbacks, matched face to face (checkChamferContours).
     MethodSpec {
         name: "chamferDistances",
         kind: MethodKind::CustomBody,

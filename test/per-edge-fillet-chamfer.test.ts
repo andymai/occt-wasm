@@ -313,3 +313,56 @@ describe("tangent-continuous edges", () => {
         expect(kernel.getVolume(same)).toBeCloseTo(kernel.getVolume(kernel.chamfer(solid, [line1], 1)), 6);
     });
 });
+
+describe("asymmetric chamfers on a tangent chain", () => {
+    /** The plate's top face and the cylindrical wall under the arc. */
+    function chainFaces(solid: number) {
+        const faces: number[] = kernel.getSubShapes(solid, "face");
+        const top = faces.find(
+            (f) => kernel.surfaceType(f) === "plane" && Math.abs(kernel.getSurfaceCenterOfMass(f).z - 5) < 1e-9,
+        );
+        const wall = faces.find((f) => kernel.surfaceType(f) === "cylinder");
+        expect(top).toBeDefined();
+        expect(wall).toBeDefined();
+        return { top: top as number, wall: wall as number };
+    }
+
+    it("accepts the same chamfer measured from either face", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        const { top, wall } = chainFaces(solid);
+        // 1 mm on the top and 3 mm down the side, stated once from each face.
+        const result = kernel.chamfer(solid, [line1, arc], [
+            { distance1: 1, distance2: 3, referenceFace: top },
+            { distance1: 3, distance2: 1, referenceFace: wall },
+        ]);
+        const single = kernel.chamfer(solid, [line1], [{ distance1: 1, distance2: 3, referenceFace: top }]);
+        expect(kernel.getVolume(result)).toBeCloseTo(kernel.getVolume(single), 6);
+    });
+
+    it("rejects setbacks that differ once matched face to face", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        const { top, wall } = chainFaces(solid);
+        expect(() =>
+            kernel.chamfer(solid, [line1, arc], [
+                { distance1: 1, distance2: 3, referenceFace: top },
+                { distance1: 1, distance2: 3, referenceFace: wall },
+            ]),
+        ).toThrow(/tangent-continuous/);
+    });
+
+    it("lets edges without a reference face follow the chain's first edge", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        const result = kernel.chamfer(solid, [line1, arc], { distance1: 1, distance2: 3 });
+        const single = kernel.chamfer(solid, [line1], { distance1: 1, distance2: 3 });
+        expect(kernel.getVolume(result)).toBeCloseTo(kernel.getVolume(single), 6);
+    });
+
+    it("needs distance-angle chamfers measured from the same side", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        const { top, wall } = chainFaces(solid);
+        const sameSide = kernel.chamferDistAngle(solid, [line1, arc], 1, 30, [top, top]);
+        const single = kernel.chamferDistAngle(solid, [line1], 1, 30, [top]);
+        expect(kernel.getVolume(sameSide)).toBeCloseTo(kernel.getVolume(single), 6);
+        expect(() => kernel.chamferDistAngle(solid, [line1, arc], 1, 30, [top, wall])).toThrow(/same side/);
+    });
+});
