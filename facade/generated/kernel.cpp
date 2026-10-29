@@ -4014,7 +4014,7 @@ uint32_t OcctKernel::importStep(const std::string& data) {
 
 std::string OcctKernel::exportStep(uint32_t id) {
     try {
-        return writeStep(get(id), UnitsMethods_LengthUnit_Millimeter, "exportStep");
+        return writeStep(get(id), StepWriteOptions{}, "exportStep");
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("exportStep: ") + e.what());
     }
@@ -4022,9 +4022,20 @@ std::string OcctKernel::exportStep(uint32_t id) {
 
 std::string OcctKernel::exportStepWithUnit(uint32_t id, const std::string& unit) {
     try {
-        return writeStep(get(id), stepLengthUnit(unit, "exportStepWithUnit"), "exportStepWithUnit");
+        StepWriteOptions options;
+        options.unit = stepLengthUnit(unit, "exportStepWithUnit");
+        return writeStep(get(id), options, "exportStepWithUnit");
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("exportStepWithUnit: ") + e.what());
+    }
+}
+
+std::string OcctKernel::exportStepWithOptions(uint32_t id, const std::string& unit, const std::string& schema) {
+    try {
+        return writeStep(get(id), stepWriteOptions(unit, schema, "exportStepWithOptions"),
+                         "exportStepWithOptions");
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("exportStepWithOptions: ") + e.what());
     }
 }
 
@@ -5360,7 +5371,7 @@ std::string OcctKernel::xcafExportSTEP(uint32_t docId) {
         auto it = xcafDocs_.find(docId);
         if (it == xcafDocs_.end())
             throw std::runtime_error("xcafExportSTEP: invalid document ID");
-        return writeStep(it->second.doc, UnitsMethods_LengthUnit_Millimeter, "xcafExportSTEP");
+        return writeStep(it->second.doc, StepWriteOptions{}, "xcafExportSTEP");
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafExportSTEP: ") + e.what());
     }
@@ -5371,10 +5382,24 @@ std::string OcctKernel::xcafExportSTEPWithUnit(uint32_t docId, const std::string
         auto it = xcafDocs_.find(docId);
         if (it == xcafDocs_.end())
             throw std::runtime_error("xcafExportSTEPWithUnit: invalid document ID");
-        return writeStep(it->second.doc, stepLengthUnit(unit, "xcafExportSTEPWithUnit"),
-                         "xcafExportSTEPWithUnit");
+        StepWriteOptions options;
+        options.unit = stepLengthUnit(unit, "xcafExportSTEPWithUnit");
+        return writeStep(it->second.doc, options, "xcafExportSTEPWithUnit");
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafExportSTEPWithUnit: ") + e.what());
+    }
+}
+
+std::string OcctKernel::xcafExportSTEPWithOptions(uint32_t docId, const std::string& unit, const std::string& schema) {
+    try {
+        auto it = xcafDocs_.find(docId);
+        if (it == xcafDocs_.end())
+            throw std::runtime_error("xcafExportSTEPWithOptions: invalid document ID");
+        return writeStep(it->second.doc,
+                         stepWriteOptions(unit, schema, "xcafExportSTEPWithOptions"),
+                         "xcafExportSTEPWithOptions");
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("xcafExportSTEPWithOptions: ") + e.what());
     }
 }
 

@@ -895,6 +895,71 @@ fn step_export_writes_the_requested_unit() {
     kernel.xcaf_close(doc).unwrap();
 }
 
+/// The header's `FILE_SCHEMA` entry. OCCT wraps a long one across lines.
+fn file_schema(step: &str) -> &str {
+    let start = step.find("FILE_SCHEMA").unwrap();
+    let len = step[start..].find(';').unwrap();
+    &step[start..start + len]
+}
+
+#[test]
+fn step_export_writes_the_requested_schema() {
+    const AP214: &str = "'AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'";
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    // The cone's lateral face is dropped unless DirectFaces runs, so it shows
+    // that every protocol still writes it.
+    let cone = kernel.make_cone(8.0, 0.0, 24.0).unwrap();
+    for (schema, protocol) in [
+        ("AP203", "'CONFIG_CONTROL_DESIGN'"),
+        ("ap214", AP214),
+        (
+            "AP242",
+            "'AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF {1 0 10303 442 1 1 4 }'",
+        ),
+    ] {
+        let step = kernel
+            .export_step_with_options(cone, "inch", schema)
+            .unwrap();
+        assert!(file_schema(&step).contains(protocol), "{schema}: {step}");
+        assert!(step.contains("CONVERSION_BASED_UNIT('INCH'"), "{schema}");
+        assert_eq!(step.matches("CONICAL_SURFACE").count(), 1, "{schema}");
+
+        let doc = kernel.xcaf_new_document().unwrap();
+        kernel.xcaf_add_shape(doc, cone).unwrap();
+        let step = kernel
+            .xcaf_export_step_with_options(doc, "", schema)
+            .unwrap();
+        kernel.xcaf_close(doc).unwrap();
+        assert!(
+            file_schema(&step).contains(protocol),
+            "xcaf {schema}: {step}"
+        );
+        assert!(step.contains(".MILLI."), "xcaf {schema}");
+        assert_eq!(step.matches("CONICAL_SURFACE").count(), 1, "xcaf {schema}");
+    }
+
+    let step = kernel.export_step(cone).unwrap();
+    assert_eq!(file_schema(&step), format!("FILE_SCHEMA(({AP214}))"));
+    assert!(step.contains(".MILLI."));
+
+    let err = kernel
+        .export_step_with_options(cone, "", "AP209")
+        .unwrap_err();
+    assert!(
+        format!("{err}").contains("unknown STEP schema 'AP209'"),
+        "got: {err}"
+    );
+    let doc = kernel.xcaf_new_document().unwrap();
+    assert!(
+        kernel
+            .xcaf_export_step_with_options(doc, "mm", "AP209")
+            .is_err()
+    );
+    kernel.xcaf_close(doc).unwrap();
+}
+
 #[test]
 fn freeform_bounds_and_volume_are_exact() {
     let Some(mut kernel) = try_kernel() else {

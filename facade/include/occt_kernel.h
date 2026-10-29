@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <DESTEP_Parameters.hxx>
 #include <TCollection_AsciiString.hxx>
 #include <TDF_Label.hxx>
 #include <TDocStd_Application.hxx>
@@ -35,12 +36,24 @@ void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props);
 // BSpline/Bezier face's extremes are certified against its control net.
 void addPreciseBounds(const TopoDS_Shape& shape, Bnd_Box& box, bool useTriangulation);
 
+// How a STEP file is written. The defaults are what exportStep writes.
+struct StepWriteOptions {
+    UnitsMethods_LengthUnit unit = UnitsMethods_LengthUnit_Millimeter;
+    DESTEP_Parameters::WriteMode_StepSchema schema =
+        DESTEP_Parameters::WriteMode_StepSchema_AP214IS;
+};
+
 // A length unit name for STEP export ("mm", "inch", ...), case-insensitive.
 UnitsMethods_LengthUnit stepLengthUnit(const std::string& name, const char* op);
 
-// STEP text for a shape or an XCAF document, with lengths written in `unit`.
-std::string writeStep(const TopoDS_Shape& shape, UnitsMethods_LengthUnit unit, const char* op);
-std::string writeStep(const Handle(TDocStd_Document) & doc, UnitsMethods_LengthUnit unit,
+// A length unit name and an application protocol name ("AP203", "AP214",
+// "AP242") for STEP export, case-insensitive; an empty name keeps the default.
+StepWriteOptions stepWriteOptions(const std::string& unit, const std::string& schema,
+                                  const char* op);
+
+// STEP text for a shape or an XCAF document, written as `options` asks.
+std::string writeStep(const TopoDS_Shape& shape, const StepWriteOptions& options, const char* op);
+std::string writeStep(const Handle(TDocStd_Document) & doc, const StepWriteOptions& options,
                       const char* op);
 
 // For OCCT writers that only take a file name: runs `write` on a "mem://" URL
@@ -348,6 +361,8 @@ class OcctKernel {
     uint32_t importStep(const std::string& data);
     std::string exportStep(uint32_t id);
     std::string exportStepWithUnit(uint32_t id, const std::string& unit);
+    std::string exportStepWithOptions(uint32_t id, const std::string& unit,
+                                      const std::string& schema);
     uint32_t importStl(const std::string& data);
     std::string exportStl(uint32_t id, double linearDeflection, bool ascii);
     std::string exportStlBinary(uint32_t id, double linearDeflection);
@@ -498,6 +513,8 @@ class OcctKernel {
     int xcafAddSubShape(uint32_t docId, int labelId, uint32_t shapeId);
     std::string xcafExportSTEP(uint32_t docId);
     std::string xcafExportSTEPWithUnit(uint32_t docId, const std::string& unit);
+    std::string xcafExportSTEPWithOptions(uint32_t docId, const std::string& unit,
+                                          const std::string& schema);
     uint32_t xcafImportSTEP(const std::string& stepData);
     std::string xcafExportGLTF(uint32_t docId, double linDeflection, double angDeflection);
     std::string xcafExportGLB(uint32_t docId, double linDeflection, double angDeflection);

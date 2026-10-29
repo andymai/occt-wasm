@@ -314,6 +314,11 @@ export interface OcctRawKernel {
     exportStep(id: number): string;
     /** STEP with lengths written in `unit` ("mm", "cm", "m", "km", "inch", "ft", "mi", "mil", "um", "uin"). */
     exportStepWithUnit(id: number, unit: string): string;
+    /**
+     * STEP with lengths written in `unit` under the application protocol `schema`
+     * ("AP203", "AP214", "AP242"), both case-insensitive; "" keeps the default (mm, AP214).
+     */
+    exportStepWithOptions(id: number, unit: string, schema: string): string;
     importStl(data: string): number;
     importStlBinary(data: Uint8Array): number;
     exportStl(id: number, linearDeflection: number, ascii: boolean): string;
@@ -448,6 +453,7 @@ export interface OcctRawKernel {
     xcafAddSubShape(docId: number, tag: number, shapeId: number): number;
     xcafExportSTEP(docId: number): string;
     xcafExportSTEPWithUnit(docId: number, unit: string): string;
+    xcafExportSTEPWithOptions(docId: number, unit: string, schema: string): string;
     xcafImportSTEP(stepData: string): number;
     /** @deprecated Writes /tmp/xcaf_export.glb and returns its path; use `xcafExportGLB`. */
     xcafExportGLTF(docId: number, linDefl: number, angDefl: number): string;

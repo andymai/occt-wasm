@@ -307,6 +307,7 @@ doc.addChild(housing, gear, {
 // Export
 const step = doc.exportSTEP(); // preserves colors/names
 const stepInches = doc.exportSTEP({ unit: "inch" }); // same geometry, written in inches
+const stepAp242 = doc.exportSTEP({ schema: "AP242" }); // AP203, AP214 (default) or AP242
 const glb = doc.exportGLTF(); // binary glTF (.glb) bytes
 doc.close();
 
@@ -409,7 +410,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | **Transforms**   | Translate, rotate, scale, mirror, align to bounding box, 3x4 matrix, linear/circular patterns                  |
 | **Topology**     | Shape type queries, type predicates, sub-shape extraction, adjacency, hash codes                               |
 | **Tessellation** | Triangle meshes (absolute or relative deflection), wireframe polylines (curve-sampled or mesh-aligned), per-face groups, batched meshing |
-| **I/O**          | STEP (choice of length unit), STL (ASCII + binary), BREP (text + binary) import/export                         |
+| **I/O**          | STEP (choice of length unit and AP203/AP214/AP242 protocol), STL (ASCII + binary), BREP (text + binary) import/export |
 | **Query**        | Bounding box, volume, surface area, length, center of mass, inertia tensor, point-in-solid, curvature          |
 | **Surfaces**     | Type, normal, UV bounds, point classification, B-spline construction                                           |
 | **Curves**       | Type, point/tangent eval, parameters, NURBS data, interpolation (incl. clamped tangents), project point        |
