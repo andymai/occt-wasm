@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.9.0](https://github.com/andymai/occt-wasm/compare/v5.8.1...v5.9.0) (2026-10-29)
+
+
+### Features
+
+* **facade:** add per-edge fillets, multi-face draft, and STEP units ([1a50868](https://github.com/andymai/occt-wasm/commit/1a50868db83d2ad72f6bd0c0a83b198a1cb83dba))
+
+
+### Bug Fixes
+
+* **facade:** bound and measure BSpline and Bezier faces exactly ([1a50868](https://github.com/andymai/occt-wasm/commit/1a50868db83d2ad72f6bd0c0a83b198a1cb83dba))
+* **facade:** store XCAF colors as sRGB and names as UTF-8 ([1a50868](https://github.com/andymai/occt-wasm/commit/1a50868db83d2ad72f6bd0c0a83b198a1cb83dba))
+
 ## [5.8.1](https://github.com/andymai/occt-wasm/compare/v5.8.0...v5.8.1) (2026-10-25)
 
 
