@@ -158,7 +158,11 @@ export interface InitOptions {
 
 // --- XCAF types ---
 
-/** RGB color triple, each channel in the range 0..1. */
+/**
+ * RGB color with sRGB components in [0, 1], the space CSS and hex colors use
+ * (`#808080` is `[128 / 255, 128 / 255, 128 / 255]`). A STEP file carries
+ * these values as they are; glTF output gets the linear factors glTF expects.
+ */
 export type Color3 = [number, number, number];
 
 /**
@@ -213,9 +217,12 @@ export interface LabelInfo {
     labelId: number;
     /** Display name (empty string if unset). */
     name: string;
-    /** Whether a color has been explicitly set on this label. */
+    /**
+     * Whether the label carries a color: one set with `setColor`, or the
+     * surface (else curve) color a STEP import assigns.
+     */
     hasColor: boolean;
-    /** RGB color (meaningful only when hasColor is true). */
+    /** sRGB color (meaningful only when hasColor is true). */
     color: Color3;
     /** True if this label is an assembly (has child components). */
     isAssembly: boolean;

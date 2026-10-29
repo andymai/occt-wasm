@@ -291,7 +291,7 @@ The worker helper uses [Comlink](https://github.com/GoogleChromeLabs/comlink) (~
 
 ## XCAF Assemblies
 
-Create assembly documents with colors, names, and component hierarchies:
+Create assembly documents with colors, names, and component hierarchies. Colors are sRGB components in [0, 1], as in CSS (`#808080` is `128 / 255`), and names may be any Unicode text:
 
 ```typescript check kernel,box,gear,stepData
 // Factory method auto-injects Emscripten FS for glTF export

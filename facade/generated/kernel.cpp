@@ -5030,7 +5030,9 @@ void OcctKernel::xcafSetColor(uint32_t docId, int labelId, double r, double g, d
             XCAFDoc_DocumentTool::ColorTool(it->second.doc->Main());
         TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
         
-        Quantity_Color color(r, g, b, Quantity_TOC_RGB);
+        // Components are sRGB, as CSS and hex colors are; OCCT stores linear RGB and
+        // converts back to sRGB for STEP's COLOUR_RGB.
+        Quantity_Color color(r, g, b, Quantity_TOC_sRGB);
         colorTool->SetColor(label, color, XCAFDoc_ColorGen);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafSetColor: ") + e.what());
@@ -5044,7 +5046,9 @@ void OcctKernel::xcafSetName(uint32_t docId, int labelId, const std::string& nam
             throw std::runtime_error("xcafSetName: invalid document ID");
         
         TDF_Label label = lookupLabel(it->second.labelRegistry, labelId);
-        TDataStd_Name::Set(label, TCollection_ExtendedString(name.c_str()));
+        // Embind and the crate hand over UTF-8; without the multibyte flag each byte
+        // would become its own character.
+        TDataStd_Name::Set(label, TCollection_ExtendedString(name.c_str(), true));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("xcafSetName: ") + e.what());
     }
@@ -5070,16 +5074,20 @@ XCAFLabelInfo OcctKernel::xcafGetLabelInfo(uint32_t docId, int labelId) {
         Handle(TDataStd_Name) nameAttr;
         if (label.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
             TCollection_ExtendedString ext = nameAttr->Get();
+            // With no replacement character, the conversion yields UTF-8.
             info.name = TCollection_AsciiString(ext).ToCString();
         }
         
         // Color
         Quantity_Color color;
-        if (colorTool->GetColor(label, XCAFDoc_ColorGen, color)) {
+        // xcafSetColor sets the generic color; STEP import stores a style as the
+        // surface (or, for wireframes, curve) color instead.
+        if (colorTool->GetColor(label, XCAFDoc_ColorGen, color) ||
+            colorTool->GetColor(label, XCAFDoc_ColorSurf, color) ||
+            colorTool->GetColor(label, XCAFDoc_ColorCurv, color)) {
             info.hasColor = true;
-            info.r = color.Red();
-            info.g = color.Green();
-            info.b = color.Blue();
+            // sRGB, matching what xcafSetColor takes.
+            color.Values(info.r, info.g, info.b, Quantity_TOC_sRGB);
         }
         
         // Assembly/component flags
