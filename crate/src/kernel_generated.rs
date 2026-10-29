@@ -60,6 +60,25 @@ pub(crate) struct GeneratedFuncs {
     fn_shell_with_join: TypedFunc<(u32, i32, i32, f64, f64, i32), u32>,
     fn_offset_with_join: TypedFunc<(u32, f64, f64, i32), u32>,
     fn_draft: TypedFunc<(u32, u32, f64, f64, f64, f64), u32>,
+    fn_draft_faces: TypedFunc<
+        (
+            u32,
+            i32,
+            i32,
+            i32,
+            i32,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+            f64,
+        ),
+        u32,
+    >,
     fn_thicken: TypedFunc<(u32, f64, f64), u32>,
     fn_defeature: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_reverse_shape: TypedFunc<(u32,), u32>,
@@ -330,6 +349,7 @@ impl GeneratedFuncs {
             fn_shell_with_join: instance.get_typed_func(&mut store, "occt_shell_with_join")?,
             fn_offset_with_join: instance.get_typed_func(&mut store, "occt_offset_with_join")?,
             fn_draft: instance.get_typed_func(&mut store, "occt_draft")?,
+            fn_draft_faces: instance.get_typed_func(&mut store, "occt_draft_faces")?,
             fn_thicken: instance.get_typed_func(&mut store, "occt_thicken")?,
             fn_defeature: instance.get_typed_func(&mut store, "occt_defeature")?,
             fn_reverse_shape: instance.get_typed_func(&mut store, "occt_reverse_shape")?,
@@ -1387,6 +1407,62 @@ impl crate::kernel::OcctKernel {
         self.check_error("draft")?;
         if result == 0 {
             return Err(self.read_last_error("draft"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn draft_faces(
+        &mut self,
+        shape_id: ShapeHandle,
+        face_ids: &[ShapeHandle],
+        angles_rad: &[f64],
+        dx: f64,
+        dy: f64,
+        dz: f64,
+        px: f64,
+        py: f64,
+        pz: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let face_ids_bytes: Vec<u8> = face_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let face_ids_ptr = self.write_bytes(&face_ids_bytes)?;
+        let face_ids_len = face_ids.len() as u32;
+        let angles_rad_bytes: Vec<u8> = angles_rad.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let angles_rad_ptr = match self.write_bytes(&angles_rad_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(face_ids_ptr);
+                return Err(e);
+            }
+        };
+        let angles_rad_len = angles_rad.len() as u32;
+        let result = self.generated.fn_draft_faces.call(
+            &mut self.store,
+            (
+                shape_id.0,
+                face_ids_ptr as i32,
+                face_ids_len as i32,
+                angles_rad_ptr as i32,
+                angles_rad_len as i32,
+                dx,
+                dy,
+                dz,
+                px,
+                py,
+                pz,
+                nx,
+                ny,
+                nz,
+            ),
+        );
+        self.free_bytes(face_ids_ptr)?;
+        self.free_bytes(angles_rad_ptr)?;
+        let result = result?;
+        self.check_error("draft_faces")?;
+        if result == 0 {
+            return Err(self.read_last_error("draft_faces"));
         }
         Ok(ShapeHandle(result))
     }

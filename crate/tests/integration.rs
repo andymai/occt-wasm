@@ -804,6 +804,67 @@ fn chamfer_distances_and_angles_per_edge() {
 }
 
 #[test]
+fn draft_faces_pivot_about_the_neutral_plane() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let cube = kernel
+        .make_box_from_corners(0.0, 0.0, 100.0, 10.0, 10.0, 110.0)
+        .unwrap();
+    let faces = kernel.get_sub_shapes(cube, "face").unwrap();
+    let mut sides = Vec::new();
+    for face in faces {
+        let center = kernel.get_surface_center_of_mass(face).unwrap();
+        if (center[2] - 105.0).abs() < 1e-9 {
+            sides.push(face);
+        }
+    }
+    assert_eq!(sides.len(), 4);
+    let angle = 5f64.to_radians();
+    let drafted = kernel
+        .draft_faces(
+            cube,
+            &sides[..1],
+            &[angle],
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            100.0,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .unwrap();
+    let wedge = 500.0 * angle.tan();
+    let expected = 1000.0 - wedge;
+    let volume = kernel.get_volume(drafted).unwrap();
+    assert!(
+        (volume - expected).abs() < 1e-6,
+        "volume {volume}, expected {expected}"
+    );
+
+    let all = kernel
+        .draft_faces(
+            cube,
+            &sides,
+            &[angle; 4],
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            100.0,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .unwrap();
+    assert!(kernel.get_volume(all).unwrap() < volume);
+}
+
+#[test]
 fn freeform_bounds_and_volume_are_exact() {
     let Some(mut kernel) = try_kernel() else {
         return;

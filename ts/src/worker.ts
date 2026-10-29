@@ -17,7 +17,7 @@
 
 import * as Comlink from "comlink";
 import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, WireframeOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
-import type { BooleanOp, BooleanOpOptions, ChamferDistance, EvolutionData, FilletRadius, JoinType, TransitionMode } from "./types.js";
+import type { BooleanOp, BooleanOpOptions, ChamferDistance, EvolutionData, FilletRadius, JoinType, NeutralPlane, TransitionMode } from "./types.js";
 
 /**
  * Async proxy to an OcctKernel running in a Web Worker.
@@ -59,7 +59,7 @@ export interface OcctWorkerProxy {
     chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: ChamferDistance | readonly ChamferDistance[]): Promise<ShapeHandle>;
     shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number, tolerance: number, joinType?: JoinType.Arc | JoinType.Intersection): Promise<ShapeHandle>;
     offset(solid: ShapeHandle, distance: number, tolerance: number, joinType?: JoinType.Arc | JoinType.Intersection): Promise<ShapeHandle>;
-    draft(shape: ShapeHandle, face: ShapeHandle, angleRad: number, direction: Vec3): Promise<ShapeHandle>;
+    draft(shape: ShapeHandle, faces: ShapeHandle | readonly ShapeHandle[], angleRad: number | readonly number[], direction: Vec3, neutralPlane?: NeutralPlane): Promise<ShapeHandle>;
 
     // Sweeps
     pipe(profile: ShapeHandle, spine: ShapeHandle): Promise<ShapeHandle>;

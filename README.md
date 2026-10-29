@@ -402,7 +402,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | ---------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Primitives**   | Box, cylinder, sphere, cone, torus, ellipsoid, rectangle, half-space                                           |
 | **Booleans**     | Fuse, cut, common, intersect, section (by shape or plane) + multi-shape variants, intersection cells           |
-| **Modeling**     | Extrude, revolve, fillet, chamfer, shell, offset, draft                                                        |
+| **Modeling**     | Extrude, revolve, fillet and chamfer (per-edge radii/distances, tapered fillets), shell, offset, multi-face draft |
 | **Sweeps**       | Pipe, loft, sweep, oriented sweep (fixed/Frenet/up-axis/auxiliary), draft prism, extrusion laws                |
 | **Construction** | Vertices, edges (line/arc/circle/ellipse/bezier/helix), wires, faces, solids, compounds, sewing                |
 | **Transforms**   | Translate, rotate, scale, mirror, align to bounding box, 3x4 matrix, linear/circular patterns                  |
@@ -414,7 +414,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | **Curves**       | Type, point/tangent eval, parameters, NURBS data, interpolation (incl. clamped tangents), project point        |
 | **Projection**   | Hidden line removal (HLR), multiview SVG render (Front/Top/Right/Iso)                                          |
 | **Modifiers**    | Thicken, defeature, reverse, simplify, variable fillet, 2D wire offset                                         |
-| **Evolution**    | Face-tracking history for translate, fuse, cut, fillet, rotate, mirror, scale, chamfer, shell, offset, thicken |
+| **Evolution**    | Face-tracking history for translate, fuse, cut, fillet, rotate, mirror, scale, chamfer, draft, shell, offset, thicken |
 | **XCAF**         | Assembly documents with colors, names, component hierarchies, STEP/glTF export                                 |
 | **Healing**      | Fix shape, unify domain, heal solid/face/wire, fix orientations, remove degenerate edges                       |
 | **Batch**        | Multi-shape translate, chained boolean pipeline                                                                |

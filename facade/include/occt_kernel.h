@@ -211,6 +211,9 @@ class OcctKernel {
     uint32_t offsetWithJoin(uint32_t solidId, double distance, double tolerance, int joinType);
     uint32_t draft(uint32_t shapeId, uint32_t faceId, double angleRad, double dx, double dy,
                    double dz);
+    uint32_t draftFaces(uint32_t shapeId, std::vector<uint32_t> faceIds,
+                        std::vector<double> anglesRad, double dx, double dy, double dz, double px,
+                        double py, double pz, double nx, double ny, double nz);
 
     // --- Sweep operations ---
     uint32_t pipe(uint32_t profileId, uint32_t spineId);
@@ -427,6 +430,11 @@ class OcctKernel {
                                               std::vector<double> distances2,
                                               std::vector<uint32_t> referenceFaceIds,
                                               std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData draftFacesWithHistory(uint32_t shapeId, std::vector<uint32_t> faceIds,
+                                        std::vector<double> anglesRad, double dx, double dy,
+                                        double dz, double px, double py, double pz, double nx,
+                                        double ny, double nz, std::vector<int> inputFaceHashes,
+                                        int hashUpperBound);
     EvolutionData shellWithHistory(uint32_t solidId, std::vector<uint32_t> faceIds,
                                    double thickness, double tolerance,
                                    std::vector<int> inputFaceHashes, int hashUpperBound);

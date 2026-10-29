@@ -964,6 +964,75 @@ return store(maker.Shape());",
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
+    // Draft several faces in one BRepOffsetAPI_DraftAngle: face i tilts by
+    // anglesRad[i] about its intersection with the neutral plane through
+    // (px, py, pz) with normal (nx, ny, nz); (dx, dy, dz) is the pull direction.
+    // A positive angle removes material on the pull side, as in OCCT.
+    MethodSpec {
+        name: "draftFaces",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::VectorDouble("anglesRad"),
+            FacadeParam::Double("dx"),
+            FacadeParam::Double("dy"),
+            FacadeParam::Double("dz"),
+            FacadeParam::Double("px"),
+            FacadeParam::Double("py"),
+            FacadeParam::Double("pz"),
+            FacadeParam::Double("nx"),
+            FacadeParam::Double("ny"),
+            FacadeParam::Double("nz"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (faceIds.empty()) {
+    throw std::runtime_error(\"draftFaces: no faces given\");
+}
+if (anglesRad.size() != faceIds.size()) {
+    throw std::runtime_error(\"draftFaces: anglesRad needs one entry per face\");
+}
+// gp_Dir's own zero-length check is compiled out of OCCT release builds.
+if (gp_Vec(dx, dy, dz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"draftFaces: the pull direction is zero\");
+}
+if (gp_Vec(nx, ny, nz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"draftFaces: the neutral plane normal is zero\");
+}
+const auto& shape = get(shapeId);
+NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> shapeFaces;
+TopExp::MapShapes(shape, TopAbs_FACE, shapeFaces);
+const gp_Dir pull(dx, dy, dz);
+const gp_Pln neutralPlane(gp_Pnt(px, py, pz), gp_Dir(nx, ny, nz));
+BRepOffsetAPI_DraftAngle maker(shape);
+for (size_t i = 0; i < faceIds.size(); ++i) {
+    const TopoDS_Shape& face = get(faceIds[i]);
+    // DraftAngle silently skips a face that is not on the shape, such as one
+    // taken from the shape before an earlier draft.
+    if (!shapeFaces.Contains(face)) {
+        throw std::runtime_error(\"draftFaces: face \" + std::to_string(faceIds[i]) +
+                                 \" is not on the shape\");
+    }
+    if (!std::isfinite(anglesRad[i]) || std::abs(anglesRad[i]) >= M_PI / 2) {
+        throw std::runtime_error(\"draftFaces: draft angles must lie strictly between -90 and 90 degrees\");
+    }
+    maker.Add(TopoDS::Face(face), pull, anglesRad[i], neutralPlane);
+    if (!maker.AddDone()) {
+        throw std::runtime_error(\"draftFaces: face \" + std::to_string(faceIds[i]) +
+                                 \" cannot be drafted\");
+    }
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"draftFaces: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_DraftAngle.hxx", "NCollection_IndexedMap.hxx", "TopExp.hxx", "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx", "gp.hxx", "gp_Dir.hxx", "gp_Pln.hxx", "gp_Pnt.hxx", "gp_Vec.hxx"],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
     MethodSpec {
         name: "thicken",
         kind: MethodKind::CustomBody,
@@ -5101,6 +5170,79 @@ EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hash
 result.take();
 return evo;",
         includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    // draftFaces with face history. At 17 WASI scalars it is over wasmtime's
+    // ceiling, so it ships in the npm build only.
+    MethodSpec {
+        name: "draftFacesWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::VectorShapeIds("faceIds"),
+            FacadeParam::VectorDouble("anglesRad"),
+            FacadeParam::Double("dx"),
+            FacadeParam::Double("dy"),
+            FacadeParam::Double("dz"),
+            FacadeParam::Double("px"),
+            FacadeParam::Double("py"),
+            FacadeParam::Double("pz"),
+            FacadeParam::Double("nx"),
+            FacadeParam::Double("ny"),
+            FacadeParam::Double("nz"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (faceIds.empty()) {
+    throw std::runtime_error(\"draftFacesWithHistory: no faces given\");
+}
+if (anglesRad.size() != faceIds.size()) {
+    throw std::runtime_error(\"draftFacesWithHistory: anglesRad needs one entry per face\");
+}
+// gp_Dir's own zero-length check is compiled out of OCCT release builds.
+if (gp_Vec(dx, dy, dz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"draftFacesWithHistory: the pull direction is zero\");
+}
+if (gp_Vec(nx, ny, nz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"draftFacesWithHistory: the neutral plane normal is zero\");
+}
+const auto& shape = get(shapeId);
+NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> shapeFaces;
+TopExp::MapShapes(shape, TopAbs_FACE, shapeFaces);
+const gp_Dir pull(dx, dy, dz);
+const gp_Pln neutralPlane(gp_Pnt(px, py, pz), gp_Dir(nx, ny, nz));
+BRepOffsetAPI_DraftAngle maker(shape);
+for (size_t i = 0; i < faceIds.size(); ++i) {
+    const TopoDS_Shape& face = get(faceIds[i]);
+    // DraftAngle silently skips a face that is not on the shape, such as one
+    // taken from the shape before an earlier draft.
+    if (!shapeFaces.Contains(face)) {
+        throw std::runtime_error(\"draftFacesWithHistory: face \" + std::to_string(faceIds[i]) +
+                                 \" is not on the shape\");
+    }
+    if (!std::isfinite(anglesRad[i]) || std::abs(anglesRad[i]) >= M_PI / 2) {
+        throw std::runtime_error(\"draftFacesWithHistory: draft angles must lie strictly between -90 and 90 degrees\");
+    }
+    maker.Add(TopoDS::Face(face), pull, anglesRad[i], neutralPlane);
+    if (!maker.AddDone()) {
+        throw std::runtime_error(\"draftFacesWithHistory: face \" + std::to_string(faceIds[i]) +
+                                 \" cannot be drafted\");
+    }
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"draftFacesWithHistory: operation failed\");
+}
+BatchScope result(*this, 1);
+uint32_t resultId = result.add(maker.Shape());
+EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+result.take();
+return evo;",
+        includes: &["BRepOffsetAPI_DraftAngle.hxx", "NCollection_IndexedMap.hxx", "TopExp.hxx", "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx", "gp.hxx", "gp_Dir.hxx", "gp_Pln.hxx", "gp_Pnt.hxx", "gp_Vec.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
         return_type: ReturnType::EvolutionData,
     },

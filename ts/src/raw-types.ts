@@ -201,7 +201,18 @@ export interface OcctRawKernel {
     offset(solidId: number, distance: number, tolerance: number): number;
     shellWithJoin(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, joinType: number): number;
     offsetWithJoin(solidId: number, distance: number, tolerance: number, joinType: number): number;
+    /** @deprecated The neutral plane is fixed to the XY plane through the origin: use `draftFaces`. */
     draft(shapeId: number, faceId: number, angle: number, dx: number, dy: number, dz: number): number;
+    /**
+     * Draft several faces in one operation. Face i tilts by `anglesRad[i]`; (dx, dy, dz) is the
+     * pull direction and the neutral plane passes through (px, py, pz) with normal (nx, ny, nz).
+     */
+    draftFaces(
+        shapeId: number, faceIds: EmbindVectorU32, anglesRad: EmbindVectorF64,
+        dx: number, dy: number, dz: number,
+        px: number, py: number, pz: number,
+        nx: number, ny: number, nz: number,
+    ): number;
 
     // Sweeps
     pipe(profileId: number, spineId: number): number;
@@ -378,6 +389,13 @@ export interface OcctRawKernel {
     chamferWithHistory(solidId: number, edgeIds: EmbindVectorU32, distance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     filletRadiiWithHistory(solidId: number, edgeIds: EmbindVectorU32, startRadii: EmbindVectorF64, endRadii: EmbindVectorF64, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     chamferDistancesWithHistory(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    draftFacesWithHistory(
+        shapeId: number, faceIds: EmbindVectorU32, anglesRad: EmbindVectorF64,
+        dx: number, dy: number, dz: number,
+        px: number, py: number, pz: number,
+        nx: number, ny: number, nz: number,
+        inputFaceHashes: EmbindVectorI32, hashUpperBound: number,
+    ): RawEvolutionData;
     shellWithHistory(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     offsetWithHistory(solidId: number, distance: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     shellWithHistoryAndJoin(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number, joinType: number): RawEvolutionData;

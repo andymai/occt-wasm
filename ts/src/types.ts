@@ -77,6 +77,12 @@ export type ChamferDistance =
           readonly referenceFace?: ShapeHandle | undefined;
       };
 
+/** Plane the drafted faces pivot about: they keep their section in it. */
+export interface NeutralPlane {
+    origin: Vec3;
+    normal: Vec3;
+}
+
 /** Options controlling BRepMesh tessellation quality. */
 export interface TessellateOptions {
     /** Maximum chord deviation from the true surface. Default: 0.1 */

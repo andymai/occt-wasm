@@ -153,6 +153,7 @@
 #include <XCAFDoc_ShapeTool.hxx>
 #include <cmath>
 #include <cstdlib>
+#include <gp.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Ax3.hxx>
@@ -1217,6 +1218,54 @@ uint32_t OcctKernel::draft(uint32_t shapeId, uint32_t faceId, double angleRad, d
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("draft: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::draftFaces(uint32_t shapeId, std::vector<uint32_t> faceIds, std::vector<double> anglesRad, double dx, double dy, double dz, double px, double py, double pz, double nx, double ny, double nz) {
+    try {
+        if (faceIds.empty()) {
+            throw std::runtime_error("draftFaces: no faces given");
+        }
+        if (anglesRad.size() != faceIds.size()) {
+            throw std::runtime_error("draftFaces: anglesRad needs one entry per face");
+        }
+        // gp_Dir's own zero-length check is compiled out of OCCT release builds.
+        if (gp_Vec(dx, dy, dz).Magnitude() <= gp::Resolution()) {
+            throw std::runtime_error("draftFaces: the pull direction is zero");
+        }
+        if (gp_Vec(nx, ny, nz).Magnitude() <= gp::Resolution()) {
+            throw std::runtime_error("draftFaces: the neutral plane normal is zero");
+        }
+        const auto& shape = get(shapeId);
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> shapeFaces;
+        TopExp::MapShapes(shape, TopAbs_FACE, shapeFaces);
+        const gp_Dir pull(dx, dy, dz);
+        const gp_Pln neutralPlane(gp_Pnt(px, py, pz), gp_Dir(nx, ny, nz));
+        BRepOffsetAPI_DraftAngle maker(shape);
+        for (size_t i = 0; i < faceIds.size(); ++i) {
+            const TopoDS_Shape& face = get(faceIds[i]);
+            // DraftAngle silently skips a face that is not on the shape, such as one
+            // taken from the shape before an earlier draft.
+            if (!shapeFaces.Contains(face)) {
+                throw std::runtime_error("draftFaces: face " + std::to_string(faceIds[i]) +
+                                         " is not on the shape");
+            }
+            if (!std::isfinite(anglesRad[i]) || std::abs(anglesRad[i]) >= M_PI / 2) {
+                throw std::runtime_error("draftFaces: draft angles must lie strictly between -90 and 90 degrees");
+            }
+            maker.Add(TopoDS::Face(face), pull, anglesRad[i], neutralPlane);
+            if (!maker.AddDone()) {
+                throw std::runtime_error("draftFaces: face " + std::to_string(faceIds[i]) +
+                                         " cannot be drafted");
+            }
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("draftFaces: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("draftFaces: ") + e.what());
     }
 }
 
@@ -4232,6 +4281,58 @@ EvolutionData OcctKernel::chamferDistancesWithHistory(uint32_t solidId, std::vec
         return evo;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferDistancesWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::draftFacesWithHistory(uint32_t shapeId, std::vector<uint32_t> faceIds, std::vector<double> anglesRad, double dx, double dy, double dz, double px, double py, double pz, double nx, double ny, double nz, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        if (faceIds.empty()) {
+            throw std::runtime_error("draftFacesWithHistory: no faces given");
+        }
+        if (anglesRad.size() != faceIds.size()) {
+            throw std::runtime_error("draftFacesWithHistory: anglesRad needs one entry per face");
+        }
+        // gp_Dir's own zero-length check is compiled out of OCCT release builds.
+        if (gp_Vec(dx, dy, dz).Magnitude() <= gp::Resolution()) {
+            throw std::runtime_error("draftFacesWithHistory: the pull direction is zero");
+        }
+        if (gp_Vec(nx, ny, nz).Magnitude() <= gp::Resolution()) {
+            throw std::runtime_error("draftFacesWithHistory: the neutral plane normal is zero");
+        }
+        const auto& shape = get(shapeId);
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> shapeFaces;
+        TopExp::MapShapes(shape, TopAbs_FACE, shapeFaces);
+        const gp_Dir pull(dx, dy, dz);
+        const gp_Pln neutralPlane(gp_Pnt(px, py, pz), gp_Dir(nx, ny, nz));
+        BRepOffsetAPI_DraftAngle maker(shape);
+        for (size_t i = 0; i < faceIds.size(); ++i) {
+            const TopoDS_Shape& face = get(faceIds[i]);
+            // DraftAngle silently skips a face that is not on the shape, such as one
+            // taken from the shape before an earlier draft.
+            if (!shapeFaces.Contains(face)) {
+                throw std::runtime_error("draftFacesWithHistory: face " + std::to_string(faceIds[i]) +
+                                         " is not on the shape");
+            }
+            if (!std::isfinite(anglesRad[i]) || std::abs(anglesRad[i]) >= M_PI / 2) {
+                throw std::runtime_error("draftFacesWithHistory: draft angles must lie strictly between -90 and 90 degrees");
+            }
+            maker.Add(TopoDS::Face(face), pull, anglesRad[i], neutralPlane);
+            if (!maker.AddDone()) {
+                throw std::runtime_error("draftFacesWithHistory: face " + std::to_string(faceIds[i]) +
+                                         " cannot be drafted");
+            }
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("draftFacesWithHistory: operation failed");
+        }
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(maker.Shape());
+        EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("draftFacesWithHistory: ") + e.what());
     }
 }
 

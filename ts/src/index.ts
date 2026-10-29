@@ -44,6 +44,7 @@ export {
     type Location,
     type Mesh,
     type MeshBatchData,
+    type NeutralPlane,
     type NurbsCurveData,
     type OcctModuleFactory,
     type ShapeQueryResult,
@@ -107,6 +108,7 @@ import type {
     InitOptions,
     Mesh,
     MeshBatchData,
+    NeutralPlane,
     NurbsCurveData,
     PointClassification,
     ProjectionData,
@@ -190,6 +192,12 @@ function chamferArrays(
         faces: specs.map((d) => (typeof d === "number" ? 0 : (d.referenceFace ?? 0))),
     };
 }
+
+// The neutral plane `draft` used before it took one: XY through the origin.
+const DEFAULT_NEUTRAL_PLANE: NeutralPlane = {
+    origin: { x: 0, y: 0, z: 0 },
+    normal: { x: 0, y: 0, z: 1 },
+};
 
 // Allowed values for the closed string-union enums returned by the kernel,
 // derived from the single source of truth in types.ts so they can't drift.
@@ -631,10 +639,41 @@ export class OcctKernel {
             : this.#raw.offsetWithJoin(solid, distance, tolerance, RAW_JOIN_CODE[joinType])));
     }
 
-    draft(shape: ShapeHandle, face: ShapeHandle, angleRad: number, direction: Vec3): ShapeHandle {
-        return wrap("draft", () =>
-            handle(this.#raw.draft(shape, face, angleRad, direction.x, direction.y, direction.z)),
-        );
+    /**
+     * Tilt faces of a shape by a draft angle, all in one
+     * BRepOffsetAPI_DraftAngle operation (planar, cylindrical and conical
+     * faces only).
+     *
+     * @param faces - A face of `shape`, or several. Faces of an earlier result
+     *     are rejected: draft them together in one call instead.
+     * @param angleRad - One angle in radians, or one per face. A positive angle
+     *     removes material on the side `direction` points to.
+     * @param direction - The pull (demolding) direction.
+     * @param neutralPlane - The plane where each face keeps its section.
+     *     Defaults to the XY plane through the origin.
+     * @throws OcctError naming a face that cannot be drafted
+     */
+    draft(
+        shape: ShapeHandle,
+        faces: ShapeHandle | readonly ShapeHandle[],
+        angleRad: number | readonly number[],
+        direction: Vec3,
+        neutralPlane: NeutralPlane = DEFAULT_NEUTRAL_PLANE,
+    ): ShapeHandle {
+        return wrap("draft", () => {
+            const faceList: ShapeHandle[] = Array.isArray(faces) ? [...(faces as readonly ShapeHandle[])] : [faces as ShapeHandle];
+            const { origin, normal } = neutralPlane;
+            return this.#withU32(faceList, (faceVec) =>
+                this.#withF64(perItem(faceList.length, angleRad), (angleVec) =>
+                    handle(this.#raw.draftFaces(
+                        shape, faceVec, angleVec,
+                        direction.x, direction.y, direction.z,
+                        origin.x, origin.y, origin.z,
+                        normal.x, normal.y, normal.z,
+                    )),
+                ),
+            );
+        });
     }
 
     // =======================================================================
@@ -2227,6 +2266,35 @@ export class OcctKernel {
                 }),
             ),
         );
+    }
+
+    /** {@link OcctKernel.draft} with face history. */
+    draftWithHistory(
+        shape: ShapeHandle,
+        faces: ShapeHandle | readonly ShapeHandle[],
+        angleRad: number | readonly number[],
+        direction: Vec3,
+        inputFaceHashes: number[],
+        hashUpperBound: number,
+        neutralPlane: NeutralPlane = DEFAULT_NEUTRAL_PLANE,
+    ): EvolutionData {
+        return wrap("draftWithHistory", () => {
+            const faceList: ShapeHandle[] = Array.isArray(faces) ? [...(faces as readonly ShapeHandle[])] : [faces as ShapeHandle];
+            const { origin, normal } = neutralPlane;
+            return this.#withU32(faceList, (faceVec) =>
+                this.#withF64(perItem(faceList.length, angleRad), (angleVec) =>
+                    this.#withI32(inputFaceHashes, (hashes) =>
+                        this.#extractEvolution(this.#raw.draftFacesWithHistory(
+                            shape, faceVec, angleVec,
+                            direction.x, direction.y, direction.z,
+                            origin.x, origin.y, origin.z,
+                            normal.x, normal.y, normal.z,
+                            hashes, hashUpperBound,
+                        )),
+                    ),
+                ),
+            );
+        });
     }
 
     /** {@link OcctKernel.shell} with face history. `joinType` behaves as it does there. */
