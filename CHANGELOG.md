@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.10.0](https://github.com/andymai/occt-wasm/compare/v5.9.0...v5.10.0) (2026-10-29)
+
+
+### Features
+
+* **facade:** choose the STEP application protocol on export ([#431](https://github.com/andymai/occt-wasm/issues/431)) ([7182b63](https://github.com/andymai/occt-wasm/commit/7182b633cdd181aac08aec6e710d1c21de055a68))
+
+
+### Bug Fixes
+
+* **crate:** drop zstd from the crate and clear the OSV scan ([#429](https://github.com/andymai/occt-wasm/issues/429)) ([8eb21b8](https://github.com/andymai/occt-wasm/commit/8eb21b8b5789ae909e643277886a1a371a676881))
+
 ## [5.9.0](https://github.com/andymai/occt-wasm/compare/v5.8.1...v5.9.0) (2026-10-29)
 
 
