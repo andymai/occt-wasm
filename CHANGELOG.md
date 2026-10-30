@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.11.0](https://github.com/andymai/occt-wasm/compare/v5.10.0...v5.11.0) (2026-10-30)
+
+
+### Features
+
+* **facade:** add chamferDistAnglesWithHistory ([68395b6](https://github.com/andymai/occt-wasm/commit/68395b621f0a36e2bd6d74483949f8833a994fe3))
+
+
+### Bug Fixes
+
+* **facade:** accept distance-angle chamfers restated from the other face ([68395b6](https://github.com/andymai/occt-wasm/commit/68395b621f0a36e2bd6d74483949f8833a994fe3))
+
+
+### Performance
+
+* **facade:** restate a contour's distance-angle chamfer only once ([68395b6](https://github.com/andymai/occt-wasm/commit/68395b621f0a36e2bd6d74483949f8833a994fe3))
+
 ## [5.10.0](https://github.com/andymai/occt-wasm/compare/v5.9.0...v5.10.0) (2026-10-29)
 
 
