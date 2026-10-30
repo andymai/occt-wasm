@@ -560,7 +560,9 @@ export class OcctKernel {
      * @param angleDeg - One angle in degrees (strictly between 0 and 90), or one per edge.
      * @param referenceFaces - One face per edge, each adjacent to its edge.
      *     Omitted, every edge uses its first adjacent face. Tangent-continuous
-     *     edges share one chamfer, so measure theirs from faces on the same side.
+     *     edges share one chamfer. Measured from faces on opposite sides, theirs
+     *     must make the same setbacks all along the chain, and both faces must
+     *     run straight away from the edge.
      * @throws OcctError
      */
     chamferDistAngle(

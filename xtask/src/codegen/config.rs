@@ -780,7 +780,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
-checkChamferContours(maker, edgeIds, specs, \"chamferDistances\");
+checkChamferContours(solid, maker, edgeIds, specs, \"chamferDistances\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistances\"));
@@ -792,7 +792,9 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamfer
     },
     // Per-edge distance-angle chamfer: distances[i] on edge i's reference face and
     // anglesDeg[i] (degrees, as chamferDistAngle takes) from that face.
-    // referenceFaceIds works as in chamferDistances.
+    // referenceFaceIds works as in chamferDistances. Edges of one contour measured
+    // from opposite faces must make the same setbacks wherever the faces meet
+    // (checkOppositeDistAngles).
     MethodSpec {
         name: "chamferDistAngles",
         kind: MethodKind::CustomBody,
@@ -818,7 +820,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
-checkChamferContours(maker, edgeIds, specs, \"chamferDistAngles\");
+checkChamferContours(solid, maker, edgeIds, specs, \"chamferDistAngles\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistAngles\"));
@@ -5181,7 +5183,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
-checkChamferContours(maker, edgeIds, specs, \"chamferDistancesWithHistory\");
+checkChamferContours(solid, maker, edgeIds, specs, \"chamferDistancesWithHistory\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(

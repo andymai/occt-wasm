@@ -220,9 +220,11 @@ describe("chamfer with per-edge distances", () => {
  * A 5 mm plate whose top edge runs line1 -> arc -> line2, each tangent to the
  * next, so OCCT fillets the three as one contour. line1 is built from (10, 0)
  * to (0, 0), against the chain, so its own direction is reversed in the
- * contour whichever edge seeds it.
+ * contour whichever edge seeds it. The profile is extruded along (0, dy, 5):
+ * a nonzero dy leans line1's wall away from square to the top, while line2's
+ * wall, parallel to the lean, stays square.
  */
-function tangentChainPlate() {
+function tangentChainPlate(dy = 0) {
     const z0 = (x: number, y: number) => ({ x, y, z: 0 });
     const profile = kernel.makeFace(
         kernel.makeWire([
@@ -233,7 +235,7 @@ function tangentChainPlate() {
             kernel.makeLineEdge(z0(0, 10), z0(0, 0)),
         ]),
     );
-    const solid = kernel.extrude(profile, 0, 0, 5);
+    const solid = kernel.extrude(profile, 0, dy, 5);
     const top = (kernel.getSubShapes(solid, "edge") as number[]).filter((e) => {
         const bb = kernel.getBoundingBox(e);
         return Math.abs(bb.zmin - 5) < 1e-9 && Math.abs(bb.zmax - 5) < 1e-9;
@@ -245,8 +247,8 @@ function tangentChainPlate() {
     };
     return {
         solid,
-        line1: find((bb) => Math.abs(bb.ymax) < 1e-9),
-        arc: find((bb) => bb.xmin > 9.9 && bb.xmax > 14.9 && bb.ymax > 4.9 && bb.ymin < 0.1),
+        line1: find((bb) => Math.abs(bb.ymax - dy) < 1e-9),
+        arc: find((bb) => bb.xmin > 9.9 && bb.xmax > 14.9 && bb.ymax > 4.9 + dy && bb.ymin < 0.1 + dy),
         line2: find((bb) => Math.abs(bb.xmin - 15) < 1e-9),
     };
 }
@@ -357,12 +359,174 @@ describe("asymmetric chamfers on a tangent chain", () => {
         expect(kernel.getVolume(result)).toBeCloseTo(kernel.getVolume(single), 6);
     });
 
-    it("needs distance-angle chamfers measured from the same side", () => {
+    it("matches distance-angle chamfers measured from the same side as given", () => {
         const { solid, line1, arc } = tangentChainPlate();
-        const { top, wall } = chainFaces(solid);
+        const { top } = chainFaces(solid);
         const sameSide = kernel.chamferDistAngle(solid, [line1, arc], 1, 30, [top, top]);
         const single = kernel.chamferDistAngle(solid, [line1], 1, 30, [top]);
         expect(kernel.getVolume(sameSide)).toBeCloseTo(kernel.getVolume(single), 6);
-        expect(() => kernel.chamferDistAngle(solid, [line1, arc], 1, 30, [top, wall])).toThrow(/same side/);
+        expect(() => kernel.chamferDistAngle(solid, [line1, arc], 1, [30, 45], [top, top])).toThrow(
+            /same setback on each side/,
+        );
+    });
+});
+
+/** The faces of `solid` on either side of `edge`. */
+function facesOf(solid: number, edge: number): number[] {
+    const faces = (kernel.getSubShapes(solid, "face") as number[]).filter((f) =>
+        (kernel.getSubShapes(f, "edge") as number[]).some((e) => kernel.isSame(e, edge)),
+    );
+    expect(faces).toHaveLength(2);
+    return faces;
+}
+
+/** The top edges at z = 5 that `pred` picks, ordered by their x extent. */
+function topEdges(solid: number, pred: (bb: Record<string, number>) => boolean): number[] {
+    return (kernel.getSubShapes(solid, "edge") as number[])
+        .filter((e) => {
+            const bb = kernel.getBoundingBox(e);
+            return Math.abs(bb.zmin - 5) < 1e-9 && Math.abs(bb.zmax - 5) < 1e-9 && pred(bb);
+        })
+        .sort((p, q) => kernel.getBoundingBox(p).xmin - kernel.getBoundingBox(q).xmin);
+}
+
+/** An edge's top face (the plane at z = 5) and the wall below it. */
+function topAndWall(solid: number, edge: number) {
+    const [a, b] = facesOf(solid, edge);
+    const isTop = (f: number) =>
+        kernel.surfaceType(f) === "plane" && Math.abs(kernel.getSurfaceCenterOfMass(f).z - 5) < 1e-9;
+    expect(isTop(a) !== isTop(b)).toBe(true);
+    return isTop(a) ? { top: a, wall: b } : { top: b, wall: a };
+}
+
+/**
+ * A distance-angle chamfer restated from the other face of an edge whose faces
+ * meet at `dihedralDeg`: the chamfer cuts a triangle with that angle at the
+ * edge and `angleDeg` at `distance`, so the law of sines gives the setback
+ * across.
+ */
+function fromOtherFace(distance: number, angleDeg: number, dihedralDeg: number) {
+    const rad = Math.PI / 180;
+    return {
+        distance: (distance * Math.sin(angleDeg * rad)) / Math.sin((dihedralDeg + angleDeg) * rad),
+        angleDeg: 180 - dihedralDeg - angleDeg,
+    };
+}
+
+/** Where a wall leaning along (0, -2, 5) meets a horizontal top, in degrees. */
+const LEANING_DIHEDRAL = (Math.acos(2 / Math.sqrt(29)) * 180) / Math.PI;
+
+describe("distance-angle chamfers measured from opposite faces", () => {
+    it("accepts 45 degrees and 1 mm from either face of a square chain", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        const { top } = topAndWall(solid, line1);
+        const { wall } = topAndWall(solid, arc);
+        const oneSide = kernel.getVolume(kernel.chamferDistAngle(solid, [line1, arc], 1, 45, [top, top]));
+        const across = kernel.chamferDistAngle(solid, [line1, arc], 1, 45, [top, wall]);
+        expect(kernel.getVolume(across)).toBeCloseTo(oneSide, 6);
+        const wallFirst = kernel.chamferDistAngle(solid, [arc, line1], 1, 45, [wall, top]);
+        expect(kernel.getVolume(wallFirst)).toBeCloseTo(oneSide, 6);
+    });
+
+    it("accepts an asymmetric chamfer restated from the other face", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        const { top } = topAndWall(solid, line1);
+        const { wall } = topAndWall(solid, arc);
+        // 1 mm at 30 degrees from the top sets back tan 30 on the wall, at 60 degrees from it.
+        const other = fromOtherFace(1, 30, 90);
+        expect(other.distance).toBeCloseTo(Math.tan(Math.PI / 6), 12);
+        const across = kernel.chamferDistAngle(
+            solid,
+            [line1, arc],
+            [1, other.distance],
+            [30, other.angleDeg],
+            [top, wall],
+        );
+        const oneSide = kernel.chamferDistAngle(solid, [line1], 1, 30, [top]);
+        expect(kernel.getVolume(across)).toBeCloseTo(kernel.getVolume(oneSide), 6);
+    });
+
+    it("rejects a pair that is a different chamfer once restated", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        const { top } = topAndWall(solid, line1);
+        const { wall } = topAndWall(solid, arc);
+        expect(() => kernel.chamferDistAngle(solid, [line1, arc], 1, 30, [top, wall])).toThrow(
+            /differ where the faces meet at 90 degrees/,
+        );
+    });
+
+    it("restates through a dihedral angle other than 90 degrees", () => {
+        // A 10 mm square leaning along (0, -2, 5), its front split at x = 5 into
+        // two collinear edges of one chain.
+        const z0 = (x: number, y: number) => ({ x, y, z: 0 });
+        const corners = [z0(0, 0), z0(5, 0), z0(10, 0), z0(10, 10), z0(0, 10)];
+        const profile = kernel.makeFace(
+            kernel.makeWire(corners.map((p, i) => kernel.makeLineEdge(p, corners[(i + 1) % corners.length]))),
+        );
+        const solid = kernel.extrude(profile, 0, -2, 5);
+        const front = topEdges(solid, (bb) => Math.abs(bb.ymax + 2) < 1e-9);
+        expect(front).toHaveLength(2);
+        const [left, right] = front;
+        const { top } = topAndWall(solid, left);
+        const { wall } = topAndWall(solid, right);
+
+        const other = fromOtherFace(1, 40, LEANING_DIHEDRAL);
+        const across = kernel.chamferDistAngle(solid, front, [1, other.distance], [40, other.angleDeg], [top, wall]);
+        const oneSide = kernel.chamferDistAngle(solid, [left], 1, 40, [top]);
+        expect(kernel.getVolume(across)).toBeCloseTo(kernel.getVolume(oneSide), 6);
+
+        // Restated as if the faces met square, it is a different chamfer.
+        const square = fromOtherFace(1, 40, 90);
+        expect(() =>
+            kernel.chamferDistAngle(solid, front, [1, square.distance], [40, square.angleDeg], [top, wall]),
+        ).toThrow(/differ where the faces meet at 68\.19/);
+    });
+
+    it("rejects a pair that matches where the dihedral angle is one value but not another", () => {
+        const { solid, line1, line2 } = tangentChainPlate(-2);
+        const { top } = topAndWall(solid, line1);
+        const { wall } = topAndWall(solid, line2);
+        const atLine1 = fromOtherFace(1, 40, LEANING_DIHEDRAL);
+        expect(() =>
+            kernel.chamferDistAngle(solid, [line1, line2], [1, atLine1.distance], [40, atLine1.angleDeg], [top, wall]),
+        ).toThrow(/differ where the faces meet at 90 degrees/);
+        const atLine2 = fromOtherFace(1, 40, 90);
+        expect(() =>
+            kernel.chamferDistAngle(solid, [line1, line2], [1, atLine2.distance], [40, atLine2.angleDeg], [top, wall]),
+        ).toThrow(/differ where the faces meet at 68\.19/);
+        // Measured from the top on both, they are one chamfer.
+        const sameSide = kernel.chamferDistAngle(solid, [line1, line2], 1, 40, [top, top]);
+        const oneSide = kernel.chamferDistAngle(solid, [line1], 1, 40, [top]);
+        expect(kernel.getVolume(sameSide)).toBeCloseTo(kernel.getVolume(oneSide), 6);
+    });
+
+    it("rejects them where a face curves away from the edge", () => {
+        // A loaf with a cylindrical roof along x, fused from two halves so its
+        // eave at y = 0 is two collinear edges.
+        const half = (x: number) => {
+            const p = (y: number, z: number) => ({ x, y, z });
+            const profile = kernel.makeFace(
+                kernel.makeWire([
+                    kernel.makeLineEdge(p(0, 0), p(10, 0)),
+                    kernel.makeLineEdge(p(10, 0), p(10, 5)),
+                    kernel.makeArcEdge(p(10, 5), p(5, 7), p(0, 5)),
+                    kernel.makeLineEdge(p(0, 5), p(0, 0)),
+                ]),
+            );
+            return kernel.extrude(profile, 5, 0, 0);
+        };
+        const solid = kernel.fuse(half(0), half(5));
+        const eaves = topEdges(solid, (bb) => Math.abs(bb.ymax) < 1e-9);
+        expect(eaves).toHaveLength(2);
+        const wallOf = (edge: number) => facesOf(solid, edge).find((f) => kernel.surfaceType(f) === "plane") as number;
+        const roofOf = (edge: number) => facesOf(solid, edge).find((f) => kernel.surfaceType(f) === "cylinder") as number;
+        const [first, second] = eaves;
+
+        const sameSide = kernel.chamferDistAngle(solid, eaves, 1, 30, [wallOf(first), wallOf(second)]);
+        const oneSide = kernel.chamferDistAngle(solid, [first], 1, 30, [wallOf(first)]);
+        expect(kernel.getVolume(sameSide)).toBeCloseTo(kernel.getVolume(oneSide), 6);
+        expect(() => kernel.chamferDistAngle(solid, eaves, 1, 30, [wallOf(first), roofOf(second)])).toThrow(
+            /curves away from the edge/,
+        );
     });
 });

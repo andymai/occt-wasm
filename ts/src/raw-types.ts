@@ -200,7 +200,11 @@ export interface OcctRawKernel {
      * to face (an edge with a 0 or omitted face follows the chain's first edge).
      */
     chamferDistances(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
-    /** Per-edge distance-angle chamfer (angles in degrees); reference faces as in `chamferDistances`. */
+    /**
+     * Per-edge distance-angle chamfer (angles in degrees); reference faces as in `chamferDistances`.
+     * Edges of one contour measured from faces on opposite sides must make the same setbacks all
+     * along it, and both faces must run straight away from the edge.
+     */
     chamferDistAngles(solidId: number, edgeIds: EmbindVectorU32, distances: EmbindVectorF64, anglesDeg: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
     shell(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number): number;
     offset(solidId: number, distance: number, tolerance: number): number;
