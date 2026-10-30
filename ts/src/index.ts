@@ -2292,6 +2292,36 @@ export class OcctKernel {
         );
     }
 
+    /**
+     * {@link OcctKernel.chamferDistAngle} with face history. `distance`,
+     * `angleDeg` and `referenceFaces` work as they do there.
+     */
+    chamferDistAngleWithHistory(
+        solid: ShapeHandle,
+        edges: ShapeHandle[],
+        distance: number | readonly number[],
+        angleDeg: number | readonly number[],
+        inputFaceHashes: number[],
+        hashUpperBound: number,
+        referenceFaces?: readonly ShapeHandle[],
+    ): EvolutionData {
+        return wrap("chamferDistAngleWithHistory", () =>
+            this.#withU32(edges, (edgeVec) =>
+                this.#withF64(perItem(edges.length, distance), (d) =>
+                    this.#withF64(perItem(edges.length, angleDeg), (a) =>
+                        this.#withU32(referenceFaces ? [...referenceFaces] : [], (faceVec) =>
+                            this.#withI32(inputFaceHashes, (hashes) =>
+                                this.#extractEvolution(
+                                    this.#raw.chamferDistAnglesWithHistory(solid, edgeVec, d, a, faceVec, hashes, hashUpperBound),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        );
+    }
+
     /** {@link OcctKernel.draft} with face history. */
     draftWithHistory(
         shape: ShapeHandle,

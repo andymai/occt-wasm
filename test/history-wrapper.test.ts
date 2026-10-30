@@ -98,6 +98,12 @@ describe("*WithHistory wrapper coverage", () => {
         expectEvolution(kernel.chamferWithHistory(box, edges.slice(0, 1), 1, faceHashes(box), BOUND));
     });
 
+    it("chamferDistAngleWithHistory", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const edges = kernel.getSubShapes(box, "edge");
+        expectEvolution(kernel.chamferDistAngleWithHistory(box, edges.slice(0, 1), 1, 30, faceHashes(box), BOUND));
+    });
+
     it("offsetWithHistory", () => {
         const box = kernel.makeBox(10, 10, 10);
         expectEvolution(kernel.offsetWithHistory(box, 2, 1e-6, faceHashes(box), BOUND));

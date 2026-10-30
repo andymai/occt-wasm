@@ -76,6 +76,17 @@ function faceHashes(shape: number): number[] {
     return kernel.getSubShapes(shape, "face").map((f: number) => kernel.hashCode(f, HASH_BOUND));
 }
 
+/** The [input face hash, result face count] runs of a flat evolution map. */
+function sources(map: readonly number[]): number[][] {
+    const runs: number[][] = [];
+    for (let i = 0; i < map.length; ) {
+        const count = map[i + 1] ?? 0;
+        runs.push([map[i] ?? 0, count]);
+        i += 2 + count;
+    }
+    return runs;
+}
+
 describe("fillet with per-edge radii", () => {
     it("gives each edge its own radius in one operation", () => {
         const box = cube();
@@ -213,6 +224,41 @@ describe("chamfer with per-edge distances", () => {
         const evo = kernel.chamferWithHistory(box, edges, [1, 1, 2, 2], faceHashes(box), HASH_BOUND);
         expect(kernel.getVolume(evo.result)).toBeCloseTo(950, 6);
         expect(evo.modified.length + evo.generated.length).toBeGreaterThan(0);
+    });
+
+    it("tracks face history through distance-angle chamfers", () => {
+        const box = cube();
+        const edges = verticalEdges(box);
+        const evo = kernel.chamferDistAngleWithHistory(box, edges, 1, [30, 30, 60, 60], faceHashes(box), HASH_BOUND);
+        const loss = (deg: number) => 0.5 * Math.tan((deg * Math.PI) / 180) * 10;
+        expect(kernel.getVolume(evo.result)).toBeCloseTo(1000 - 2 * loss(30) - 2 * loss(60), 6);
+        expect(evo.modified.length).toBeGreaterThan(0);
+
+        // 45 degrees at 1 mm is the symmetric 1 mm chamfer: the same faces evolve
+        // into as many faces as through chamferDistancesWithHistory.
+        const angled = kernel.chamferDistAngleWithHistory(box, edges, 1, 45, faceHashes(box), HASH_BOUND);
+        const symmetric = kernel.chamferWithHistory(box, edges, [1, 1, 1, 1], faceHashes(box), HASH_BOUND);
+        expect(sources(angled.modified)).toEqual(sources(symmetric.modified));
+        expect(sources(angled.generated)).toEqual(sources(symmetric.generated));
+        expect(angled.deleted).toEqual(symmetric.deleted);
+    });
+
+    it("measures distance-angle chamfers with history from the given reference face", () => {
+        const box = cube();
+        const [edge] = verticalEdges(box);
+        const [faceA, faceB] = facesOf(box, edge);
+        // 1 mm on the reference face and tan 30 on the other: a point 0.8 mm along
+        // the reference face is cut away, one 0.8 mm along the other is kept.
+        const probes = [
+            { x: 0.05, y: 0.8, z: 5 },
+            { x: 0.8, y: 0.05, z: 5 },
+        ];
+        const inside = (s: number) => probes.map((p) => kernel.containsPoint(s, p, 1e-7));
+        const viaA = kernel.chamferDistAngleWithHistory(box, [edge], 1, 30, faceHashes(box), HASH_BOUND, [faceA]);
+        const viaB = kernel.chamferDistAngleWithHistory(box, [edge], 1, 30, faceHashes(box), HASH_BOUND, [faceB]);
+        expect(inside(viaA.result)).toEqual(inside(kernel.chamferDistAngle(box, [edge], 1, 30, [faceA])));
+        expect(inside(viaA.result)[0]).not.toBe(inside(viaA.result)[1]);
+        expect(inside(viaB.result)).toEqual([...inside(viaA.result)].reverse());
     });
 });
 
@@ -498,6 +544,19 @@ describe("distance-angle chamfers measured from opposite faces", () => {
         const sameSide = kernel.chamferDistAngle(solid, [line1, line2], 1, 40, [top, top]);
         const oneSide = kernel.chamferDistAngle(solid, [line1], 1, 40, [top]);
         expect(kernel.getVolume(sameSide)).toBeCloseTo(kernel.getVolume(oneSide), 6);
+    });
+
+    it("checks them the same way with face history", () => {
+        const { solid, line1, arc } = tangentChainPlate();
+        const { top } = topAndWall(solid, line1);
+        const { wall } = topAndWall(solid, arc);
+        const hashes = faceHashes(solid);
+        const across = kernel.chamferDistAngleWithHistory(solid, [line1, arc], 1, 45, hashes, HASH_BOUND, [top, wall]);
+        const oneSide = kernel.chamferDistAngle(solid, [line1], 1, 45, [top]);
+        expect(kernel.getVolume(across.result)).toBeCloseTo(kernel.getVolume(oneSide), 6);
+        expect(() =>
+            kernel.chamferDistAngleWithHistory(solid, [line1, arc], 1, 30, hashes, HASH_BOUND, [top, wall]),
+        ).toThrow(/chamferDistAnglesWithHistory: edges .* differ where the faces meet at 90 degrees/);
     });
 
     it("rejects them where a face curves away from the edge", () => {

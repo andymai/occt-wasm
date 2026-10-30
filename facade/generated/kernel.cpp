@@ -4581,6 +4581,36 @@ EvolutionData OcctKernel::chamferDistancesWithHistory(uint32_t solidId, std::vec
     }
 }
 
+EvolutionData OcctKernel::chamferDistAnglesWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds, std::vector<double> distances, std::vector<double> anglesDeg, std::vector<uint32_t> referenceFaceIds, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        std::vector<double> anglesRad(anglesDeg.size());
+        for (size_t i = 0; i < anglesDeg.size(); ++i) {
+            anglesRad[i] = anglesDeg[i] * M_PI / 180.0;
+        }
+        const auto& solid = get(solidId);
+        const std::vector<ChamferEdge> specs =
+            chamferEdges(solid, edgeIds, referenceFaceIds, distances, anglesRad, true,
+                         "chamferDistAnglesWithHistory", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+        BRepFilletAPI_MakeChamfer maker(solid);
+        for (const ChamferEdge& edge : specs) {
+            addChamferEdge(maker, edge);
+        }
+        checkChamferContours(solid, maker, edgeIds, specs, "chamferDistAnglesWithHistory");
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error(
+                chamferEdgesFailure(solid, edgeIds, specs, "chamferDistAnglesWithHistory"));
+        }
+        BatchScope result(*this, 1);
+        uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), "chamferDistAnglesWithHistory", false));
+        EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+        result.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("chamferDistAnglesWithHistory: ") + e.what());
+    }
+}
+
 EvolutionData OcctKernel::draftFacesWithHistory(uint32_t shapeId, std::vector<uint32_t> faceIds, std::vector<double> anglesRad, double dx, double dy, double dz, double px, double py, double pz, double nx, double ny, double nz, std::vector<int> inputFaceHashes, int hashUpperBound) {
     try {
         if (faceIds.empty()) {

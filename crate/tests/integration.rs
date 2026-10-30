@@ -797,6 +797,18 @@ fn chamfer_distances_and_angles_per_edge() {
         .unwrap();
     assert!((kernel.get_volume(angled).unwrap() - 980.0).abs() < 1e-6);
 
+    let hashes: Vec<i32> = kernel
+        .get_sub_shapes(cube, "face")
+        .unwrap()
+        .into_iter()
+        .map(|f| kernel.hash_code(f, BOUND).unwrap())
+        .collect();
+    let angled_history = kernel
+        .chamfer_dist_angles_with_history(cube, &edges, &[1.0; 4], &[45.0; 4], &[], &hashes, BOUND)
+        .unwrap();
+    assert!((kernel.get_volume(angled_history.result()).unwrap() - 980.0).abs() < 1e-6);
+    assert!(!angled_history.modified.is_empty());
+
     let err = kernel
         .chamfer_distances(cube, &edges, &[1.0; 4], &[1.0; 3], &[])
         .unwrap_err();

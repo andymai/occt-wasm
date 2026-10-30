@@ -5198,6 +5198,48 @@ return evo;",
         category: "evolution",
         return_type: ReturnType::EvolutionData,
     },
+    MethodSpec {
+        name: "chamferDistAnglesWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("distances"),
+            FacadeParam::VectorDouble("anglesDeg"),
+            FacadeParam::VectorShapeIds("referenceFaceIds"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::vector<double> anglesRad(anglesDeg.size());
+for (size_t i = 0; i < anglesDeg.size(); ++i) {
+    anglesRad[i] = anglesDeg[i] * M_PI / 180.0;
+}
+const auto& solid = get(solidId);
+const std::vector<ChamferEdge> specs =
+    chamferEdges(solid, edgeIds, referenceFaceIds, distances, anglesRad, true,
+                 \"chamferDistAnglesWithHistory\", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+BRepFilletAPI_MakeChamfer maker(solid);
+for (const ChamferEdge& edge : specs) {
+    addChamferEdge(maker, edge);
+}
+checkChamferContours(solid, maker, edgeIds, specs, \"chamferDistAnglesWithHistory\");
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(
+        chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistAnglesWithHistory\"));
+}
+BatchScope result(*this, 1);
+uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistAnglesWithHistory\", false));
+EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+result.take();
+return evo;",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
     // draftFaces with face history. At 17 WASI scalars it is over wasmtime's
     // ceiling, so it ships in the npm build only.
     MethodSpec {
