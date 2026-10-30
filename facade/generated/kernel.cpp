@@ -102,6 +102,7 @@
 #include <Message_ProgressRange.hxx>
 #include <NCollection_Array1.hxx>
 #include <NCollection_Array2.hxx>
+#include <NCollection_DataMap.hxx>
 #include <NCollection_HArray1.hxx>
 #include <NCollection_IndexedDataMap.hxx>
 #include <NCollection_IndexedMap.hxx>
@@ -380,29 +381,95 @@ static void addChamferEdge(Builder& builder, const ChamferEdge& c) {
     }
 }
 
-/// Which side of contour `contour` the face `face` of `edge` lies on, as a flag
-/// that is the same for every face on one side along a tangent chain. A face
-/// runs its boundary edges in its own sense, the reverse of the face across
-/// each edge, so comparing that sense with the direction the contour runs
-/// through the edge separates the two sides.
-static bool chamferSide(const BRepFilletAPI_MakeChamfer& maker, int contour,
-                        const TopoDS_Edge& edge, const TopoDS_Face& face) {
-    TopAbs_Orientation alongContour = TopAbs_FORWARD;
-    for (int j = 1; j <= maker.NbEdges(contour); ++j) {
-        if (maker.Edge(contour, j).IsSame(edge)) {
-            alongContour = maker.Edge(contour, j).Orientation();
-            break;
+/// A face of the solid and the sense it runs one of its edges in.
+struct FaceSense {
+    TopoDS_Face face;
+    TopAbs_Orientation sense;
+};
+
+/// Which side of a contour each face of an edge lies on, as a flag that is the
+/// same for every face on one side along a tangent chain. A face runs its
+/// boundary edges in its own sense, the reverse of the face across each edge,
+/// so comparing that sense with the direction the contour runs through the
+/// edge separates the two sides. Both senses come from maps built once per
+/// check, so a long chain costs one pass over it rather than one per lookup.
+class ChamferSides {
+public:
+    ChamferSides(const TopoDS_Shape& solid, const BRepFilletAPI_MakeChamfer& maker)
+        : solid_(solid), maker_(maker) {}
+
+    bool side(int contour, const TopoDS_Edge& edge, const TopoDS_Face& face) {
+        TopAbs_Orientation alongContour = TopAbs_FORWARD;
+        if (const TopAbs_Orientation* found = along(contour).Seek(edge)) {
+            alongContour = *found;
         }
+        return (inFace(edge, face) == TopAbs_FORWARD) == (alongContour == TopAbs_FORWARD);
     }
-    TopAbs_Orientation inFace = TopAbs_FORWARD;
-    for (TopExp_Explorer ex(face, TopAbs_EDGE); ex.More(); ex.Next()) {
-        if (ex.Current().IsSame(edge)) {
-            inFace = ex.Current().Orientation();
-            break;
+
+    /// The solid's faces around `edge` with their senses, listed as
+    /// TopExp::MapShapesAndAncestors lists them; null for an edge of no face.
+    const std::vector<FaceSense>* faces(const TopoDS_Edge& edge) {
+        return senses().Seek(edge);
+    }
+
+private:
+    using Senses = NCollection_DataMap<TopoDS_Shape, TopAbs_Orientation, TopTools_ShapeMapHasher>;
+    struct Contour {
+        bool mapped = false;
+        Senses senses;
+    };
+
+    const NCollection_DataMap<TopoDS_Shape, std::vector<FaceSense>, TopTools_ShapeMapHasher>&
+    senses() {
+        if (!facesMapped_) {
+            facesMapped_ = true;
+            for (TopExp_Explorer f(solid_, TopAbs_FACE); f.More(); f.Next()) {
+                const TopoDS_Face& face = TopoDS::Face(f.Current());
+                for (TopExp_Explorer e(face, TopAbs_EDGE); e.More(); e.Next()) {
+                    std::vector<FaceSense>* list = faces_.ChangeSeek(e.Current());
+                    if (list == nullptr) list = faces_.Bound(e.Current(), {});
+                    list->push_back({face, e.Current().Orientation()});
+                }
+            }
         }
+        return faces_;
     }
-    return (inFace == TopAbs_FORWARD) == (alongContour == TopAbs_FORWARD);
-}
+
+    /// How the contour runs each of its edges, the first time it lists one.
+    const Senses& along(int contour) {
+        if (contour >= static_cast<int>(contours_.size())) {
+            contours_.resize(static_cast<size_t>(contour) + 1);
+        }
+        Contour& c = contours_[static_cast<size_t>(contour)];
+        if (!c.mapped) {
+            c.mapped = true;
+            for (int j = 1; j <= maker_.NbEdges(contour); ++j) {
+                const TopoDS_Edge& edge = maker_.Edge(contour, j);
+                if (!c.senses.IsBound(edge)) c.senses.Bind(edge, edge.Orientation());
+            }
+        }
+        return c.senses;
+    }
+
+    /// The sense `face` runs `edge` in, the first time it does.
+    TopAbs_Orientation inFace(const TopoDS_Edge& edge, const TopoDS_Face& face) {
+        if (const std::vector<FaceSense>* list = senses().Seek(edge)) {
+            for (const FaceSense& f : *list) {
+                if (f.face.IsEqual(face)) return f.sense;
+            }
+        }
+        for (TopExp_Explorer ex(face, TopAbs_EDGE); ex.More(); ex.Next()) {
+            if (ex.Current().IsSame(edge)) return ex.Current().Orientation();
+        }
+        return TopAbs_FORWARD;
+    }
+
+    const TopoDS_Shape& solid_;
+    const BRepFilletAPI_MakeChamfer& maker_;
+    bool facesMapped_ = false;
+    NCollection_DataMap<TopoDS_Shape, std::vector<FaceSense>, TopTools_ShapeMapHasher> faces_;
+    std::vector<Contour> contours_;
+};
 
 /// A face of an edge, ready to cut chamfer sections through: the edge's curve
 /// on it, its surface, and whether its normal crossed with the edge's curve
@@ -487,36 +554,38 @@ static bool farSetback(double distance, double angle, double dihedral, double& s
     return true;
 }
 
-/// Distance-angle chamfers `a` and `b` on one contour, measured from faces on
-/// opposite sides of it. OCCT builds `a`'s along the whole contour, so `b`
-/// must describe that chamfer from its side wherever the contour runs, setting
-/// back on each face what `a` does. That depends on the faces' dihedral
-/// angle, which can change along the chain, so they are compared at samples
-/// along every edge of the contour, its tangent vertices included. Where a
-/// face curves away before a setback, the triangle does not hold and the two
-/// cannot be matched.
-static void checkOppositeDistAngles(const TopoDS_Shape& solid,
-                                    const BRepFilletAPI_MakeChamfer& maker, int contour,
-                                    const ChamferEdge& a, const ChamferEdge& b, uint32_t aId,
-                                    uint32_t bId, const char* op) {
-    NCollection_IndexedDataMap<TopoDS_Shape, NCollection_List<TopoDS_Shape>,
-                               TopTools_ShapeMapHasher>
-        edgeFaces;
-    TopExp::MapShapesAndAncestors(solid, TopAbs_EDGE, TopAbs_FACE, edgeFaces);
-    const bool aSide = chamferSide(maker, contour, a.edge, a.face);
+/// A contour's first distance-angle chamfer at one point of the contour: the
+/// faces' dihedral angle there, its setback on the face across from its
+/// reference face, and whether both faces run straight out to its setbacks.
+struct RestatedSample {
+    double dihedral;
+    double across;
+    bool straight;
+};
+
+/// Distance-angle chamfer `a`, the first of contour `contour`, at samples along
+/// every edge of the contour, its tangent vertices included. OCCT builds `a`'s
+/// along the whole contour, so this is what every chamfer stated from the
+/// other side must match; it is gathered once per contour. Points where `a`
+/// cannot reach the other face are left out: OCCT fails the contour there and
+/// reports it.
+static std::vector<RestatedSample> restateAlongContour(ChamferSides& sides,
+                                                      const BRepFilletAPI_MakeChamfer& maker,
+                                                      int contour, const ChamferEdge& a) {
+    const bool aSide = sides.side(contour, a.edge, a.face);
     const int intervals = 8;
-    bool curved = false;
+    std::vector<RestatedSample> samples;
     for (int j = 1; j <= maker.NbEdges(contour); ++j) {
         const TopoDS_Edge& edge = maker.Edge(contour, j);
-        const int index = edgeFaces.FindIndex(edge);
-        if (index == 0) continue;
+        const std::vector<FaceSense>* faces = sides.faces(edge);
+        if (faces == nullptr) continue;
         TopoDS_Face onA;
         TopoDS_Face across;
-        for (const TopoDS_Shape& face : edgeFaces(index)) {
-            if (chamferSide(maker, contour, edge, TopoDS::Face(face)) == aSide) {
-                onA = TopoDS::Face(face);
+        for (const FaceSense& face : *faces) {
+            if (sides.side(contour, edge, face.face) == aSide) {
+                onA = face.face;
             } else {
-                across = TopoDS::Face(face);
+                across = face.face;
             }
         }
         if (onA.IsNull() || across.IsNull()) continue;
@@ -540,27 +609,42 @@ static void checkOppositeDistAngles(const TopoDS_Shape& solid,
             }
             const double dihedral = intoA.Angle(intoB);
             double aAcross = 0.0;
-            // Where a's chamfer cannot reach the other face, OCCT fails the
-            // contour and reports it.
             if (!farSetback(a.distance, a.second, dihedral, aAcross)) continue;
-            if (!straightAcross(faceA.surface, uvA, point, intoA, a.distance) ||
-                !straightAcross(faceB.surface, uvB, point, intoB, aAcross)) {
-                curved = true;
-                continue;
-            }
-            double bAcross = 0.0;
-            if (farSetback(b.distance, b.second, dihedral, bAcross) &&
-                sameValue(b.distance, aAcross) && sameValue(bAcross, a.distance)) {
-                continue;
-            }
-            std::ostringstream what;
-            what << "measured from opposite faces, their distance-angle chamfers differ where "
-                    "the faces meet at "
-                 << dihedral * 180.0 / M_PI << " degrees (there edge " << aId << "'s is "
-                 << aAcross << " at " << (M_PI - dihedral - a.second) * 180.0 / M_PI
-                 << " degrees from edge " << bId << "'s reference face)";
-            throw std::runtime_error(tangentJoinMessage(op, aId, bId, what.str()));
+            const bool straight = straightAcross(faceA.surface, uvA, point, intoA, a.distance) &&
+                                  straightAcross(faceB.surface, uvB, point, intoB, aAcross);
+            samples.push_back({dihedral, aAcross, straight});
         }
+    }
+    return samples;
+}
+
+/// Distance-angle chamfer `b`, measured from a face on the other side of its
+/// contour from `a`, the contour's first, must describe `a`'s chamfer from
+/// its side wherever the contour runs, setting back on each face what `a`
+/// does at every one of `samples` (restateAlongContour). Where a face curves
+/// away before a setback, the triangle does not hold and the two cannot be
+/// matched.
+static void checkOppositeDistAngles(const std::vector<RestatedSample>& samples,
+                                    const ChamferEdge& a, const ChamferEdge& b, uint32_t aId,
+                                    uint32_t bId, const char* op) {
+    bool curved = false;
+    for (const RestatedSample& sample : samples) {
+        if (!sample.straight) {
+            curved = true;
+            continue;
+        }
+        double bAcross = 0.0;
+        if (farSetback(b.distance, b.second, sample.dihedral, bAcross) &&
+            sameValue(b.distance, sample.across) && sameValue(bAcross, a.distance)) {
+            continue;
+        }
+        std::ostringstream what;
+        what << "measured from opposite faces, their distance-angle chamfers differ where "
+                "the faces meet at "
+             << sample.dihedral * 180.0 / M_PI << " degrees (there edge " << aId << "'s is "
+             << sample.across << " at " << (M_PI - sample.dihedral - a.second) * 180.0 / M_PI
+             << " degrees from edge " << bId << "'s reference face)";
+        throw std::runtime_error(tangentJoinMessage(op, aId, bId, what.str()));
     }
     if (curved) {
         throw std::runtime_error(tangentJoinMessage(
@@ -582,26 +666,49 @@ static void checkChamferContours(const TopoDS_Shape& solid,
                                  const BRepFilletAPI_MakeChamfer& maker,
                                  const std::vector<uint32_t>& edgeIds,
                                  const std::vector<ChamferEdge>& specs, const char* op) {
-    std::vector<std::pair<int, size_t>> firstOfContour;
+    struct Contour {
+        bool seen = false;
+        size_t first = 0;
+        bool restated = false;
+        std::vector<RestatedSample> samples;
+        bool matched = false;
+        double matchedDistance = 0.0;
+        double matchedAngle = 0.0;
+    };
+    std::vector<Contour> contours(static_cast<size_t>(maker.NbContours()) + 1);
+    ChamferSides sides(solid, maker);
     for (size_t i = 0; i < specs.size(); ++i) {
         const int contour = maker.Contour(specs[i].edge);
         if (contour == 0) {
             throw std::runtime_error(std::string(op) + ": edge " + std::to_string(edgeIds[i]) +
                                      " cannot be chamfered (it does not join two faces of the solid)");
         }
-        auto first = std::find_if(firstOfContour.begin(), firstOfContour.end(),
-                                  [&](const std::pair<int, size_t>& f) { return f.first == contour; });
-        if (first == firstOfContour.end()) {
-            firstOfContour.emplace_back(contour, i);
+        if (contour >= static_cast<int>(contours.size())) {
+            contours.resize(static_cast<size_t>(contour) + 1);
+        }
+        Contour& c = contours[static_cast<size_t>(contour)];
+        if (!c.seen) {
+            c.seen = true;
+            c.first = i;
             continue;
         }
-        const ChamferEdge& a = specs[first->second];
+        const ChamferEdge& a = specs[c.first];
         const ChamferEdge& b = specs[i];
-        const bool sameSide = !b.faceGiven || chamferSide(maker, contour, a.edge, a.face) ==
-                                                  chamferSide(maker, contour, b.edge, b.face);
+        const bool sameSide = !b.faceGiven || sides.side(contour, a.edge, a.face) ==
+                                                  sides.side(contour, b.edge, b.face);
         if (a.byAngle && b.byAngle && !sameSide) {
-            checkOppositeDistAngles(solid, maker, contour, a, b, edgeIds[first->second],
-                                    edgeIds[i], op);
+            // The same numbers compare the same against the same samples.
+            if (c.matched && b.distance == c.matchedDistance && b.second == c.matchedAngle) {
+                continue;
+            }
+            if (!c.restated) {
+                c.samples = restateAlongContour(sides, maker, contour, a);
+                c.restated = true;
+            }
+            checkOppositeDistAngles(c.samples, a, b, edgeIds[c.first], edgeIds[i], op);
+            c.matched = true;
+            c.matchedDistance = b.distance;
+            c.matchedAngle = b.second;
             continue;
         }
         const bool agrees =
@@ -610,7 +717,7 @@ static void checkChamferContours(const TopoDS_Shape& solid,
                       : sameValue(a.distance, b.second) && sameValue(a.second, b.distance));
         if (!agrees) {
             throw std::runtime_error(tangentJoinMessage(
-                op, edgeIds[first->second], edgeIds[i],
+                op, edgeIds[c.first], edgeIds[i],
                 "a contour takes a single chamfer, so give them the same setback on each side"));
         }
     }

@@ -559,6 +559,29 @@ describe("distance-angle chamfers measured from opposite faces", () => {
         ).toThrow(/chamferDistAnglesWithHistory: edges .* differ where the faces meet at 90 degrees/);
     });
 
+    it("matches a long chain with every later chamfer measured from the other face", () => {
+        // A plate whose front top edge is 64 collinear 1 mm edges, one contour.
+        const count = 64;
+        const z0 = (x: number, y: number) => ({ x, y, z: 0 });
+        const corners = [...Array.from({ length: count + 1 }, (_, i) => z0(i, 0)), z0(count, 10), z0(0, 10)];
+        const profile = kernel.makeFace(
+            kernel.makeWire(corners.map((p, i) => kernel.makeLineEdge(p, corners[(i + 1) % corners.length]))),
+        );
+        const solid = kernel.extrude(profile, 0, 0, 5);
+        const front = topEdges(solid, (bb) => Math.abs(bb.ymax) < 1e-9);
+        expect(front).toHaveLength(count);
+        const faces = front.map((e, i) => (i === 0 ? topAndWall(solid, e).top : topAndWall(solid, e).wall));
+
+        const across = kernel.chamferDistAngle(solid, front, 1, 45, faces);
+        const oneSide = kernel.chamferDistAngle(solid, [front[0]], 1, 45, [faces[0]]);
+        expect(kernel.getVolume(across)).toBeCloseTo(kernel.getVolume(oneSide), 6);
+
+        const lastDiffers = front.map((_, i) => (i === count - 1 ? 30 : 45));
+        expect(() => kernel.chamferDistAngle(solid, front, 1, lastDiffers, faces)).toThrow(
+            new RegExp(`edges ${front[0]} and ${front[count - 1]} are tangent-continuous.*differ`),
+        );
+    });
+
     it("rejects them where a face curves away from the edge", () => {
         // A loaf with a cylindrical roof along x, fused from two halves so its
         // eave at y = 0 is two collinear edges.
