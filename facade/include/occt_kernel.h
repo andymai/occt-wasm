@@ -455,6 +455,12 @@ class OcctKernel {
                                               std::vector<double> distances2,
                                               std::vector<uint32_t> referenceFaceIds,
                                               std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData chamferDistAnglesWithHistory(uint32_t solidId, std::vector<uint32_t> edgeIds,
+                                               std::vector<double> distances,
+                                               std::vector<double> anglesDeg,
+                                               std::vector<uint32_t> referenceFaceIds,
+                                               std::vector<int> inputFaceHashes,
+                                               int hashUpperBound);
     EvolutionData draftFacesWithHistory(uint32_t shapeId, std::vector<uint32_t> faceIds,
                                         std::vector<double> anglesRad, double dx, double dy,
                                         double dz, double px, double py, double pz, double nx,

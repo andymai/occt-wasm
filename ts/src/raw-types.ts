@@ -200,7 +200,11 @@ export interface OcctRawKernel {
      * to face (an edge with a 0 or omitted face follows the chain's first edge).
      */
     chamferDistances(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
-    /** Per-edge distance-angle chamfer (angles in degrees); reference faces as in `chamferDistances`. */
+    /**
+     * Per-edge distance-angle chamfer (angles in degrees); reference faces as in `chamferDistances`.
+     * Edges of one contour measured from faces on opposite sides must make the same setbacks all
+     * along it, and both faces must run straight away from the edge.
+     */
     chamferDistAngles(solidId: number, edgeIds: EmbindVectorU32, distances: EmbindVectorF64, anglesDeg: EmbindVectorF64, referenceFaceIds: EmbindVectorU32): number;
     shell(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number): number;
     offset(solidId: number, distance: number, tolerance: number): number;
@@ -401,6 +405,7 @@ export interface OcctRawKernel {
     chamferWithHistory(solidId: number, edgeIds: EmbindVectorU32, distance: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     filletRadiiWithHistory(solidId: number, edgeIds: EmbindVectorU32, startRadii: EmbindVectorF64, endRadii: EmbindVectorF64, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     chamferDistancesWithHistory(solidId: number, edgeIds: EmbindVectorU32, distances1: EmbindVectorF64, distances2: EmbindVectorF64, referenceFaceIds: EmbindVectorU32, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    chamferDistAnglesWithHistory(solidId: number, edgeIds: EmbindVectorU32, distances: EmbindVectorF64, anglesDeg: EmbindVectorF64, referenceFaceIds: EmbindVectorU32, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     draftFacesWithHistory(
         shapeId: number, faceIds: EmbindVectorU32, anglesRad: EmbindVectorF64,
         dx: number, dy: number, dz: number,

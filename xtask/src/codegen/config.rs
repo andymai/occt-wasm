@@ -780,7 +780,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
-checkChamferContours(maker, edgeIds, specs, \"chamferDistances\");
+checkChamferContours(solid, maker, edgeIds, specs, \"chamferDistances\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistances\"));
@@ -792,7 +792,9 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamfer
     },
     // Per-edge distance-angle chamfer: distances[i] on edge i's reference face and
     // anglesDeg[i] (degrees, as chamferDistAngle takes) from that face.
-    // referenceFaceIds works as in chamferDistances.
+    // referenceFaceIds works as in chamferDistances. Edges of one contour measured
+    // from opposite faces must make the same setbacks wherever the faces meet
+    // (checkOppositeDistAngles).
     MethodSpec {
         name: "chamferDistAngles",
         kind: MethodKind::CustomBody,
@@ -818,7 +820,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
-checkChamferContours(maker, edgeIds, specs, \"chamferDistAngles\");
+checkChamferContours(solid, maker, edgeIds, specs, \"chamferDistAngles\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistAngles\"));
@@ -5181,7 +5183,7 @@ BRepFilletAPI_MakeChamfer maker(solid);
 for (const ChamferEdge& edge : specs) {
     addChamferEdge(maker, edge);
 }
-checkChamferContours(maker, edgeIds, specs, \"chamferDistancesWithHistory\");
+checkChamferContours(solid, maker, edgeIds, specs, \"chamferDistancesWithHistory\");
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(
@@ -5189,6 +5191,48 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistancesWithHistory\", false));
+EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+result.take();
+return evo;",
+        includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "evolution",
+        return_type: ReturnType::EvolutionData,
+    },
+    MethodSpec {
+        name: "chamferDistAnglesWithHistory",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("solidId"),
+            FacadeParam::VectorShapeIds("edgeIds"),
+            FacadeParam::VectorDouble("distances"),
+            FacadeParam::VectorDouble("anglesDeg"),
+            FacadeParam::VectorShapeIds("referenceFaceIds"),
+            FacadeParam::VectorInt("inputFaceHashes"),
+            FacadeParam::Int("hashUpperBound"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+std::vector<double> anglesRad(anglesDeg.size());
+for (size_t i = 0; i < anglesDeg.size(); ++i) {
+    anglesRad[i] = anglesDeg[i] * M_PI / 180.0;
+}
+const auto& solid = get(solidId);
+const std::vector<ChamferEdge> specs =
+    chamferEdges(solid, edgeIds, referenceFaceIds, distances, anglesRad, true,
+                 \"chamferDistAnglesWithHistory\", [this](uint32_t id) -> const TopoDS_Shape& { return get(id); });
+BRepFilletAPI_MakeChamfer maker(solid);
+for (const ChamferEdge& edge : specs) {
+    addChamferEdge(maker, edge);
+}
+checkChamferContours(solid, maker, edgeIds, specs, \"chamferDistAnglesWithHistory\");
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(
+        chamferEdgesFailure(solid, edgeIds, specs, \"chamferDistAnglesWithHistory\"));
+}
+BatchScope result(*this, 1);
+uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistAnglesWithHistory\", false));
 EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",

@@ -560,7 +560,9 @@ export class OcctKernel {
      * @param angleDeg - One angle in degrees (strictly between 0 and 90), or one per edge.
      * @param referenceFaces - One face per edge, each adjacent to its edge.
      *     Omitted, every edge uses its first adjacent face. Tangent-continuous
-     *     edges share one chamfer, so measure theirs from faces on the same side.
+     *     edges share one chamfer. Measured from faces on opposite sides, theirs
+     *     must make the same setbacks all along the chain, and both faces must
+     *     run straight away from the edge.
      * @throws OcctError
      */
     chamferDistAngle(
@@ -2286,6 +2288,36 @@ export class OcctKernel {
                         ),
                     );
                 }),
+            ),
+        );
+    }
+
+    /**
+     * {@link OcctKernel.chamferDistAngle} with face history. `distance`,
+     * `angleDeg` and `referenceFaces` work as they do there.
+     */
+    chamferDistAngleWithHistory(
+        solid: ShapeHandle,
+        edges: ShapeHandle[],
+        distance: number | readonly number[],
+        angleDeg: number | readonly number[],
+        inputFaceHashes: number[],
+        hashUpperBound: number,
+        referenceFaces?: readonly ShapeHandle[],
+    ): EvolutionData {
+        return wrap("chamferDistAngleWithHistory", () =>
+            this.#withU32(edges, (edgeVec) =>
+                this.#withF64(perItem(edges.length, distance), (d) =>
+                    this.#withF64(perItem(edges.length, angleDeg), (a) =>
+                        this.#withU32(referenceFaces ? [...referenceFaces] : [], (faceVec) =>
+                            this.#withI32(inputFaceHashes, (hashes) =>
+                                this.#extractEvolution(
+                                    this.#raw.chamferDistAnglesWithHistory(solid, edgeVec, d, a, faceVec, hashes, hashUpperBound),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
             ),
         );
     }

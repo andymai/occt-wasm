@@ -326,6 +326,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("chamferWithHistory", &OcctKernel::chamferWithHistory)
         .function("filletRadiiWithHistory", &OcctKernel::filletRadiiWithHistory)
         .function("chamferDistancesWithHistory", &OcctKernel::chamferDistancesWithHistory)
+        .function("chamferDistAnglesWithHistory", &OcctKernel::chamferDistAnglesWithHistory)
         .function("draftFacesWithHistory", &OcctKernel::draftFacesWithHistory)
         .function("shellWithHistory", &OcctKernel::shellWithHistory)
         .function("offsetWithHistory", &OcctKernel::offsetWithHistory)
