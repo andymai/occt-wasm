@@ -60,7 +60,8 @@ export interface Vec3 {
 /**
  * A fillet radius for one edge: a constant radius, or one that runs linearly
  * from `start` at the edge's first vertex (its first curve parameter) to `end`
- * at its last.
+ * at its last. One end may be 0, running the fillet out to a point, where it
+ * ends an open chain of tangent-continuous edges.
  */
 export type FilletRadius = number | { readonly start: number; readonly end: number };
 
