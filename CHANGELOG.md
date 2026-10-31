@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.11.1](https://github.com/andymai/occt-wasm/compare/v5.11.0...v5.11.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **facade:** let a per-edge fillet radius run out to 0 at an open end ([#436](https://github.com/andymai/occt-wasm/issues/436)) ([35f6db9](https://github.com/andymai/occt-wasm/commit/35f6db9c6e4074f978657ddd640531949286f802))
+
 ## [5.11.0](https://github.com/andymai/occt-wasm/compare/v5.10.0...v5.11.0) (2026-10-30)
 
 
