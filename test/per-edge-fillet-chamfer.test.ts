@@ -121,19 +121,46 @@ describe("fillet with per-edge radii", () => {
         expect(kernel.getVolume(all)).toBeCloseTo(1000 - 4 * (1000 - taper), 6);
     });
 
-    it("rejects a non-positive radius and mismatched arrays on the raw surface", () => {
+    it("runs a taper out to 0 at either end, as filletVariable does", () => {
+        const box = cube();
+        const [edge] = verticalEdges(box);
+        const single = kernel.getVolume(kernel.filletVariable(box, edge, 2, 0));
+        for (const radius of [{ start: 2, end: 0 }, { start: 0, end: 2 }]) {
+            const result = kernel.fillet(box, [edge], radius);
+            expect(kernel.isValid(result)).toBe(true);
+            expect(kernel.getVolume(result)).toBeCloseTo(single, 9);
+        }
+        // Between no fillet and the constant-2 fillet.
+        expect(single).toBeLessThan(1000);
+        expect(single).toBeGreaterThan(1000 - filletLoss(2));
+
+        const evo = kernel.filletWithHistory(box, [edge], { start: 2, end: 0 }, faceHashes(box), HASH_BOUND);
+        expect(kernel.getVolume(evo.result)).toBeCloseTo(single, 9);
+    });
+
+    it("rejects negative, non-finite and all-zero radii and mismatched arrays on the raw surface", () => {
         const box = cube();
         const edges = verticalEdges(box);
         const edgeVec = vecU32(edges);
         const ones = vecF64([1, 1, 1, 1]);
         const short = vecF64([1, 1]);
         const withZero = vecF64([1, 0, 1, 1]);
+        const negative = vecF64([1, -1, 1, 1]);
+        const nan = vecF64([1, NaN, 1, 1]);
         try {
             expect(() => raw.filletRadii(box, edgeVec, ones, short)).toThrow(/one entry per edge/);
-            expect(() => raw.filletRadii(box, edgeVec, ones, withZero)).toThrow(/positive/);
+            expect(() => raw.filletRadii(box, edgeVec, ones, negative)).toThrow(/not negative/);
+            expect(() => raw.filletRadii(box, edgeVec, nan, ones)).toThrow(/finite/);
+            expect(() => raw.filletRadii(box, edgeVec, withZero, withZero)).toThrow(
+                new RegExp(`edge ${edges[1]} has radius 0 at both ends`),
+            );
+            expect(() => kernel.filletWithHistory(box, edges, [1, 0, 1, 1], faceHashes(box), HASH_BOUND)).toThrow(
+                /filletRadiiWithHistory: edge \d+ has radius 0 at both ends/,
+            );
+            expect(raw.filletRadii(box, edgeVec, ones, withZero)).toBeGreaterThan(0);
             expect(raw.filletRadii(box, edgeVec, ones, ones)).toBeGreaterThan(0);
         } finally {
-            [edgeVec, ones, short, withZero].forEach((v) => v.delete());
+            [edgeVec, ones, short, withZero, negative, nan].forEach((v) => v.delete());
         }
     });
 
@@ -342,6 +369,47 @@ describe("tangent-continuous edges", () => {
             expect(radiusAt(result, ...LINE2_NEAR_ARC)).toBeLessThan(2.3);
             expect(radiusAt(result, ...LINE2_FAR_END)).toBeGreaterThan(2.5);
         }
+    });
+
+    it("runs a chain's fillet out to 0 at an open end, in any order", () => {
+        const { solid, line1, arc, line2 } = tangentChainPlate();
+        // line1 runs from (10, 0), where it meets the arc, to the chain's open end at the origin.
+        const radii = [{ start: 2, end: 0 }, 2, 2];
+        for (const order of [[0, 1, 2], [2, 1, 0]]) {
+            const edges = order.map((i) => [line1, arc, line2][i]);
+            const result = kernel.fillet(solid, edges, order.map((i) => radii[i]));
+            expect(kernel.isValid(result)).toBe(true);
+            expect(radiusAt(result, ...LINE1_NEAR_ORIGIN)).toBeLessThan(0.6);
+            expect(radiusAt(result, ...LINE1_NEAR_ARC)).toBeGreaterThan(1.4);
+            expect(radiusAt(result, ...LINE2_FAR_END)).toBeCloseTo(2, 2);
+        }
+    });
+
+    it("refuses a radius of 0 where the fillet continues past the vertex", () => {
+        const { solid, line1, arc, line2 } = tangentChainPlate();
+        // OCCT would drop line1's fillet beyond a pinch at its joint with the arc.
+        const continues = (...edges: number[]) =>
+            new RegExp(`edge (${edges.join("|")}) has radius 0 where its fillet continues`);
+        for (const order of [[0, 1, 2], [2, 1, 0]]) {
+            const edges = order.map((i) => [line1, arc, line2][i]);
+            const pinched = [{ start: 0, end: 2 }, { start: 0, end: 2 }, 2];
+            expect(() => kernel.fillet(solid, edges, order.map((i) => pinched[i]))).toThrow(continues(line1, arc));
+        }
+        // The arc left out would blend from line1's 0 at the joint.
+        expect(() => kernel.fillet(solid, [line1, line2], [{ start: 0, end: 2 }, 2])).toThrow(continues(line1));
+        expect(() =>
+            kernel.filletWithHistory(solid, [line1, line2], [{ start: 0, end: 2 }, 2], faceHashes(solid), HASH_BOUND),
+        ).toThrow(/filletRadiiWithHistory: edge \d+ has radius 0 where its fillet continues/);
+        expect(() => kernel.fillet(solid, [line1, arc, line2], [{ start: 0, end: 2 }, 0, 2])).toThrow(
+            new RegExp(`edge ${arc} has radius 0 at both ends`),
+        );
+
+        // A closed edge has no open end: OCCT would keep its first radius all the way round.
+        const cylinder = kernel.makeCylinder(10, 20);
+        const rim = (kernel.getSubShapes(cylinder, "edge") as number[]).find(
+            (e) => kernel.getBoundingBox(e).zmin > 19.9,
+        );
+        expect(() => kernel.fillet(cylinder, [rim], { start: 2, end: 0 })).toThrow(continues(rim as number));
     });
 
     it("blends between radii given on edges that do not meet", () => {

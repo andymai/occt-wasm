@@ -508,9 +508,11 @@ export class OcctKernel {
      *     that varies linearly along the edge. Tangent-continuous edges form one
      *     fillet whose radius cannot jump, so two such edges that meet must
      *     agree on the radius at their shared vertex; an edge of the chain left
-     *     out blends between its neighbours' radii.
-     * @throws OcctError, naming the edges of any contour that could not be built
-     *     or of a tangent joint whose radii disagree
+     *     out blends between its neighbours' radii. A taper may run out to 0
+     *     only at an open end of its chain, never at a joint inside it or on a
+     *     closed loop.
+     * @throws OcctError, naming the edges of any contour that could not be built,
+     *     of a tangent joint whose radii disagree, or with a 0 the fillet continues past
      */
     fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: FilletRadius | readonly FilletRadius[]): ShapeHandle {
         return wrap("fillet", () => {

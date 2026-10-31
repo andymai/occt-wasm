@@ -717,7 +717,8 @@ return store(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamfer
     // when startRadii[i] == endRadii[i], else a radius running linearly from
     // startRadii[i] at its first vertex to endRadii[i] at its last (FreeCAD
     // Part::Fillet's model). Tangent-continuous edges share one radius law, so
-    // radii must agree where two given edges meet; see addFilletRadii.
+    // radii must agree where two given edges meet, and a 0 is only accepted at
+    // an open end of a contour; see addFilletRadii.
     MethodSpec {
         name: "filletRadii",
         kind: MethodKind::CustomBody,
