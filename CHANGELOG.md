@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.15.0](https://github.com/andymai/occt-wasm/compare/v5.14.0...v5.15.0) (2026-11-02)
+
+
+### Features
+
+* **facade:** build B-spline surfaces from poles and knots ([#446](https://github.com/andymai/occt-wasm/issues/446)) ([ea0b576](https://github.com/andymai/occt-wasm/commit/ea0b5768dc5f486527083e42823553c3f96db201))
+
 ## [5.14.0](https://github.com/andymai/occt-wasm/compare/v5.13.0...v5.14.0) (2026-11-02)
 
 
