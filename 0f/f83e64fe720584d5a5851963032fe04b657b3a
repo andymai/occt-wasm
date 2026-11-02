@@ -1,0 +1,40 @@
+crate/tests/integration.rs
+  s_4164cd16e48c0e::t_12f7d22cd69cbc 1100-1108,1114-1126
+  s_4164cd16e48c0e::t_408c298d2f4493 1088-1099,1109-1113,1127
+ts/src/index.ts
+  s_4164cd16e48c0e::t_0445c7f133f95a 1963-2007
+  s_4164cd16e48c0e::t_9d3956ecaa05df 52,121
+crate/src/kernel_generated.rs
+  s_4164cd16e48c0e::t_12f7d22cd69cbc 171-189,2877-2886,2959-2977
+  s_4164cd16e48c0e::t_9d3956ecaa05df 459,2887-2958,2978-2992
+test/nurbs-surface.test.ts
+  s_4164cd16e48c0e::t_a125dd8fbb50c2 1-187
+ts/src/types.ts
+  s_4164cd16e48c0e::t_9d3956ecaa05df 672-696
+ts/src/raw-types.ts
+  s_4164cd16e48c0e::t_eb5fb9b64318e2 370
+xtask/src/codegen/config.rs
+  s_4164cd16e48c0e::t_eb5fb9b64318e2 2593-2729
+facade/include/occt_kernel.h
+  s_4164cd16e48c0e::t_eb5fb9b64318e2 512-515
+facade/generated/bindings.cpp
+  s_4164cd16e48c0e::t_648e16e4117805 209
+facade/generated/kernel.cpp
+  s_4164cd16e48c0e::t_e3bec41ad7ac96 129,2925-3037
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ff83e64fe720584d5a5851963032fe04b657b3a",
+  "prompts": {},
+  "sessions": {
+    "s_4164cd16e48c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "39b56ca7-b90d-49fe-ad28-4c54a3c049c1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
