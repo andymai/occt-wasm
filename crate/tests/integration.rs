@@ -1085,3 +1085,43 @@ fn fillet_with_history_reports_each_rounded_face_under_its_edge() {
     from_edges.dedup();
     assert_eq!(from_edges.len(), 4);
 }
+
+#[test]
+fn nurbs_surface_is_the_surface_its_poles_describe() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    // A bilinear patch: degree 1 both ways, so its middle is the poles' mean.
+    let poles = [
+        0.0, 0.0, 0.0, 0.0, 10.0, 2.0, //
+        10.0, 0.0, 4.0, 10.0, 10.0, 0.0,
+    ];
+    let face = kernel
+        .nurbs_surface(
+            &poles,
+            &[],
+            &[0.0, 1.0],
+            &[0.0, 1.0],
+            &[2, 2],
+            &[2, 2],
+            &[1, 1, 2, 2, 0, 0],
+        )
+        .unwrap();
+    assert_eq!(kernel.surface_type(face).unwrap(), "bspline");
+    let middle = kernel.make_vertex(5.0, 5.0, 1.5).unwrap();
+    let gap = kernel.distance_between(face, middle).unwrap();
+    assert!(gap < 1e-9, "the patch misses its middle by {gap}");
+    let bad = kernel.nurbs_surface(
+        &poles,
+        &[],
+        &[0.0, 1.0],
+        &[0.0, 1.0],
+        &[2, 1],
+        &[2, 2],
+        &[1, 1, 2, 2, 0, 0],
+    );
+    assert!(
+        bad.is_err(),
+        "multiplicities short of the poles must be rejected"
+    );
+}

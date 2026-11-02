@@ -669,6 +669,31 @@ export interface NurbsCurveData {
     weights: number[];
 }
 
+/**
+ * A B-spline surface given exactly, for {@link OcctKernel.nurbsSurface}.
+ * Knots strictly increase; multiplicities follow OCCT's rules (ends at most
+ * `degree + 1` on a non-periodic surface, interior knots at most `degree`),
+ * and they must account for exactly the poles given in that direction.
+ */
+export interface NurbsSurfaceInput {
+    degreeU: number;
+    degreeV: number;
+    /** `poles[i][j]`: the `i`-th pole along u, `j`-th along v. */
+    poles: Vec3[][];
+    /** One positive weight per pole, in the same layout; omit for a non-rational surface. */
+    weights?: number[][];
+    knotsU: number[];
+    knotsV: number[];
+    /** Multiplicity of each knot in `knotsU`. */
+    multiplicitiesU: number[];
+    /** Multiplicity of each knot in `knotsV`. */
+    multiplicitiesV: number[];
+    /** Default `false`. */
+    periodicU?: boolean;
+    /** Default `false`. */
+    periodicV?: boolean;
+}
+
 /** Result from queryBatch: aggregated shape properties. */
 export interface ShapeQueryResult {
     bbox: BoundingBox;

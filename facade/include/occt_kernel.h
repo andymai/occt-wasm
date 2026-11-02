@@ -509,6 +509,10 @@ class OcctKernel {
 
     // --- Surface construction ---
     uint32_t bsplineSurface(std::vector<double> flatPoints, int rows, int cols);
+    uint32_t nurbsSurface(std::vector<double> flatPoles, std::vector<double> weights,
+                          std::vector<double> knotsU, std::vector<double> knotsV,
+                          std::vector<int> multsU, std::vector<int> multsV,
+                          std::vector<int> layout);
 
     // --- 2D→3D curve lifting ---
     uint32_t liftCurve2dToPlane(std::vector<double> flatPoints2d, double planeOx, double planeOy,

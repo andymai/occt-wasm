@@ -367,6 +367,7 @@ export interface OcctRawKernel {
     projectPointOnFace(faceId: number, x: number, y: number, z: number): EmbindVectorF64;
     classifyPointOnFace(faceId: number, u: number, v: number): string;
     bsplineSurface(flatPoints: EmbindVectorF64, rows: number, cols: number): number;
+    nurbsSurface(flatPoles: EmbindVectorF64, weights: EmbindVectorF64, knotsU: EmbindVectorF64, knotsV: EmbindVectorF64, multsU: EmbindVectorI32, multsV: EmbindVectorI32, layout: EmbindVectorI32): number;
 
     // Curves
     curveType(edgeId: number): string;
