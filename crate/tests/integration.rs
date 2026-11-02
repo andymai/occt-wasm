@@ -996,3 +996,50 @@ fn freeform_bounds_and_volume_are_exact() {
         "volume {volume}"
     );
 }
+
+#[test]
+fn fill_surface_passes_through_boundary_and_point() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let corners = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let edges: Vec<ShapeHandle> = (0..4)
+        .map(|i| {
+            let (a, b) = (corners[i], corners[(i + 1) % 4]);
+            kernel.make_line_edge(a.0, a.1, 0.0, b.0, b.1, 0.0).unwrap()
+        })
+        .collect();
+    let face = kernel
+        .fill_surface(&edges, &[], &[], &[], &[], &[5.0, 5.0, 2.0], 0, &[])
+        .unwrap();
+    assert_eq!(kernel.get_shape_type(face).unwrap(), "face");
+    let apex = kernel.make_vertex(5.0, 5.0, 2.0).unwrap();
+    let gap = kernel.distance_between(face, apex).unwrap();
+    assert!(gap < 1e-3, "filling misses its point by {gap}");
+    let bad = kernel.fill_surface(&edges, &[], &[], &[], &[], &[], 0, &[3.0]);
+    assert!(bad.is_err(), "a short params vector must be rejected");
+}
+
+#[test]
+fn edge_on_surface_follows_a_cylinder_across_its_seam() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let cylinder = kernel.make_cylinder(5.0, 10.0).unwrap();
+    let face = kernel
+        .get_sub_shapes(cylinder, "face")
+        .unwrap()
+        .into_iter()
+        .find(|&f| kernel.surface_type(f).unwrap() == "cylinder")
+        .unwrap();
+    let points: Vec<f64> = (0..48)
+        .flat_map(|i| {
+            let t = std::f64::consts::TAU * f64::from(i) / 48.0;
+            [5.0 * t.cos(), 5.0 * t.sin(), 5.0]
+        })
+        .collect();
+    let edge = kernel.edge_on_surface(face, &points, 1e-4, true).unwrap();
+    let length = kernel.get_length(edge).unwrap();
+    let circumference = std::f64::consts::TAU * 5.0;
+    assert!((length - circumference).abs() < 1e-2, "length {length}");
+}
