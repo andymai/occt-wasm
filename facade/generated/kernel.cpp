@@ -126,6 +126,7 @@
 #include <ShapeFix_Wire.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <Standard_Failure.hxx>
+#include <Standard_Real.hxx>
 #include <StlAPI_Reader.hxx>
 #include <StlAPI_Writer.hxx>
 #include <TCollection_AsciiString.hxx>
@@ -2918,6 +2919,119 @@ uint32_t OcctKernel::bsplineSurface(std::vector<double> flatPoints, int rows, in
         return store(faceMaker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("bsplineSurface: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::nurbsSurface(std::vector<double> flatPoles, std::vector<double> weights, std::vector<double> knotsU, std::vector<double> knotsV, std::vector<int> multsU, std::vector<int> multsV, std::vector<int> layout) {
+    try {
+        if (layout.size() != 6) {
+            throw std::runtime_error("nurbsSurface: layout must be [degreeU, degreeV, nbPolesU, nbPolesV, periodicU, periodicV]");
+        }
+        const int degreeU = layout[0];
+        const int degreeV = layout[1];
+        const int nbU = layout[2];
+        const int nbV = layout[3];
+        const bool periodicU = layout[4] != 0;
+        const bool periodicV = layout[5] != 0;
+        const int maxDegree = Geom_BSplineSurface::MaxDegree();
+        if (degreeU < 1 || degreeV < 1 || degreeU > maxDegree || degreeV > maxDegree) {
+            throw std::runtime_error("nurbsSurface: degrees must be from 1 to " + std::to_string(maxDegree));
+        }
+        if (nbU < 2 || nbV < 2) {
+            throw std::runtime_error("nurbsSurface: needs at least 2 poles in each direction");
+        }
+        const size_t count = static_cast<size_t>(nbU) * static_cast<size_t>(nbV);
+        if (flatPoles.size() != 3 * count) {
+            throw std::runtime_error("nurbsSurface: expected " + std::to_string(3 * count)
+                                     + " pole coordinates for " + std::to_string(nbU) + " x "
+                                     + std::to_string(nbV) + " poles, got " + std::to_string(flatPoles.size()));
+        }
+        if (!weights.empty() && weights.size() != count) {
+            throw std::runtime_error("nurbsSurface: weights must be empty or one per pole");
+        }
+        for (double w : weights) {
+            if (!(w > gp::Resolution())) {
+                throw std::runtime_error("nurbsSurface: weights must be positive");
+            }
+        }
+        // Poles each knot vector implies (BSplCLib::NbPoles), or 0 when the
+        // multiplicities are out of range.
+        auto polesFor = [](const std::vector<double>& knots, const std::vector<int>& mults,
+                           int degree, bool periodic, const char* dir) -> int {
+            if (knots.size() < 2 || knots.size() != mults.size()) {
+                throw std::runtime_error(std::string("nurbsSurface: ") + dir
+                                         + " needs two or more knots, each with a multiplicity");
+            }
+            for (size_t i = 1; i < knots.size(); i++) {
+                if (!(knots[i] - knots[i - 1] > Epsilon(std::abs(knots[i - 1])))) {
+                    throw std::runtime_error(std::string("nurbsSurface: ") + dir + " knots must increase");
+                }
+            }
+            const int first = mults.front();
+            const int last = mults.back();
+            int sigma = 0;
+            if (periodic) {
+                if (first < 1 || first > degree || first != last) {
+                    return 0;
+                }
+                sigma = first;
+            } else {
+                if (first < 1 || last < 1 || first > degree + 1 || last > degree + 1) {
+                    return 0;
+                }
+                sigma = first + last - degree - 1;
+            }
+            for (size_t i = 1; i + 1 < mults.size(); i++) {
+                if (mults[i] < 1 || mults[i] > degree) {
+                    return 0;
+                }
+                sigma += mults[i];
+            }
+            return sigma;
+        };
+        if (polesFor(knotsU, multsU, degreeU, periodicU, "u") != nbU) {
+            throw std::runtime_error("nurbsSurface: u knots and multiplicities do not fit "
+                                     + std::to_string(nbU) + " poles of degree " + std::to_string(degreeU));
+        }
+        if (polesFor(knotsV, multsV, degreeV, periodicV, "v") != nbV) {
+            throw std::runtime_error("nurbsSurface: v knots and multiplicities do not fit "
+                                     + std::to_string(nbV) + " poles of degree " + std::to_string(degreeV));
+        }
+        
+        NCollection_Array2<gp_Pnt> poles(1, nbU, 1, nbV);
+        NCollection_Array2<double> weightGrid(1, nbU, 1, nbV);
+        for (int i = 0; i < nbU; i++) {
+            for (int j = 0; j < nbV; j++) {
+                const size_t k = static_cast<size_t>(i) * nbV + j;
+                poles.SetValue(i + 1, j + 1, gp_Pnt(flatPoles[3 * k], flatPoles[3 * k + 1], flatPoles[3 * k + 2]));
+                weightGrid.SetValue(i + 1, j + 1, weights.empty() ? 1.0 : weights[k]);
+            }
+        }
+        NCollection_Array1<double> uKnots(1, static_cast<int>(knotsU.size()));
+        NCollection_Array1<int> uMults(1, static_cast<int>(multsU.size()));
+        for (size_t i = 0; i < knotsU.size(); i++) {
+            uKnots.SetValue(static_cast<int>(i) + 1, knotsU[i]);
+            uMults.SetValue(static_cast<int>(i) + 1, multsU[i]);
+        }
+        NCollection_Array1<double> vKnots(1, static_cast<int>(knotsV.size()));
+        NCollection_Array1<int> vMults(1, static_cast<int>(multsV.size()));
+        for (size_t i = 0; i < knotsV.size(); i++) {
+            vKnots.SetValue(static_cast<int>(i) + 1, knotsV[i]);
+            vMults.SetValue(static_cast<int>(i) + 1, multsV[i]);
+        }
+        
+        Handle(Geom_BSplineSurface) surface = weights.empty()
+            ? new Geom_BSplineSurface(poles, uKnots, vKnots, uMults, vMults, degreeU, degreeV,
+                                      periodicU, periodicV)
+            : new Geom_BSplineSurface(poles, weightGrid, uKnots, vKnots, uMults, vMults, degreeU,
+                                      degreeV, periodicU, periodicV);
+        BRepBuilderAPI_MakeFace faceMaker(surface, Precision::Confusion());
+        if (!faceMaker.IsDone()) {
+            throw std::runtime_error("nurbsSurface: face construction failed");
+        }
+        return store(faceMaker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("nurbsSurface: ") + e.what());
     }
 }
 

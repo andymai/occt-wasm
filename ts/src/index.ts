@@ -49,6 +49,7 @@ export {
     type MeshBatchData,
     type NeutralPlane,
     type NurbsCurveData,
+    type NurbsSurfaceInput,
     type OcctModuleFactory,
     type ShapeQueryResult,
     type PointClassification,
@@ -117,6 +118,7 @@ import type {
     MeshBatchData,
     NeutralPlane,
     NurbsCurveData,
+    NurbsSurfaceInput,
     PointClassification,
     ProjectionData,
     ShapeHandle,
@@ -1955,6 +1957,51 @@ export class OcctKernel {
             const flat = this.#flattenPoints(controlPoints);
             try { return handle(this.#raw.bsplineSurface(flat, rows, cols)); }
             finally { flat.delete(); }
+        });
+    }
+
+    /**
+     * A face over a whole B-spline surface given exactly by its poles and
+     * knots (rational when `weights` is given), where {@link bsplineSurface}
+     * approximates a grid of points. `poles[i][j]` is the `i`-th pole along u
+     * and the `j`-th along v.
+     */
+    nurbsSurface(data: NurbsSurfaceInput): ShapeHandle {
+        return wrap("nurbsSurface", () => {
+            const nbU = data.poles.length;
+            const nbV = data.poles[0]?.length ?? 0;
+            if (data.poles.some((row) => row.length !== nbV)) {
+                throw new Error("every row of poles must have the same length");
+            }
+            if (data.weights !== undefined
+                && (data.weights.length !== nbU || data.weights.some((row) => row.length !== nbV))) {
+                throw new Error("weights must have one row per row of poles, each as long");
+            }
+            const layout = [
+                data.degreeU, data.degreeV, nbU, nbV, data.periodicU ? 1 : 0, data.periodicV ? 1 : 0,
+            ];
+            const poles = this.#flattenPoints(data.poles.flat());
+            try {
+                return this.#withF64(data.weights?.flat() ?? [], (weights) =>
+                    this.#withF64(data.knotsU, (knotsU) =>
+                        this.#withF64(data.knotsV, (knotsV) =>
+                            this.#withI32(data.multiplicitiesU, (multsU) =>
+                                this.#withI32(data.multiplicitiesV, (multsV) =>
+                                    this.#withI32(layout, (layoutVec) =>
+                                        handle(
+                                            this.#raw.nurbsSurface(
+                                                poles, weights, knotsU, knotsV, multsU, multsV, layoutVec,
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                );
+            } finally {
+                poles.delete();
+            }
         });
     }
 

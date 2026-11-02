@@ -168,6 +168,25 @@ pub(crate) struct GeneratedFuncs {
     fn_build_tri_face: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_tangent_arc: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_bspline_surface: TypedFunc<(i32, i32, i32, i32), u32>,
+    fn_nurbs_surface: TypedFunc<
+        (
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+        ),
+        u32,
+    >,
     fn_get_shape_type: TypedFunc<(u32,), i32>,
     fn_get_sub_shapes: TypedFunc<(u32, i32, i32), i32>,
     fn_sub_shape_count: TypedFunc<(u32, i32, i32), i32>,
@@ -437,6 +456,7 @@ impl GeneratedFuncs {
             fn_build_tri_face: instance.get_typed_func(&mut store, "occt_build_tri_face")?,
             fn_make_tangent_arc: instance.get_typed_func(&mut store, "occt_make_tangent_arc")?,
             fn_bspline_surface: instance.get_typed_func(&mut store, "occt_bspline_surface")?,
+            fn_nurbs_surface: instance.get_typed_func(&mut store, "occt_nurbs_surface")?,
             fn_get_shape_type: instance.get_typed_func(&mut store, "occt_get_shape_type")?,
             fn_get_sub_shapes: instance.get_typed_func(&mut store, "occt_get_sub_shapes")?,
             fn_sub_shape_count: instance.get_typed_func(&mut store, "occt_sub_shape_count")?,
@@ -2850,6 +2870,122 @@ impl crate::kernel::OcctKernel {
         self.check_error("bspline_surface")?;
         if result == 0 {
             return Err(self.read_last_error("bspline_surface"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn nurbs_surface(
+        &mut self,
+        flat_poles: &[f64],
+        weights: &[f64],
+        knots_u: &[f64],
+        knots_v: &[f64],
+        mults_u: &[i32],
+        mults_v: &[i32],
+        layout: &[i32],
+    ) -> OcctResult<ShapeHandle> {
+        let flat_poles_bytes: Vec<u8> = flat_poles.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let flat_poles_ptr = self.write_bytes(&flat_poles_bytes)?;
+        let flat_poles_len = flat_poles.len() as u32;
+        let weights_bytes: Vec<u8> = weights.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let weights_ptr = match self.write_bytes(&weights_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(flat_poles_ptr);
+                return Err(e);
+            }
+        };
+        let weights_len = weights.len() as u32;
+        let knots_u_bytes: Vec<u8> = knots_u.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let knots_u_ptr = match self.write_bytes(&knots_u_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(flat_poles_ptr);
+                let _ = self.free_bytes(weights_ptr);
+                return Err(e);
+            }
+        };
+        let knots_u_len = knots_u.len() as u32;
+        let knots_v_bytes: Vec<u8> = knots_v.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let knots_v_ptr = match self.write_bytes(&knots_v_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(flat_poles_ptr);
+                let _ = self.free_bytes(weights_ptr);
+                let _ = self.free_bytes(knots_u_ptr);
+                return Err(e);
+            }
+        };
+        let knots_v_len = knots_v.len() as u32;
+        let mults_u_bytes: Vec<u8> = mults_u.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let mults_u_ptr = match self.write_bytes(&mults_u_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(flat_poles_ptr);
+                let _ = self.free_bytes(weights_ptr);
+                let _ = self.free_bytes(knots_u_ptr);
+                let _ = self.free_bytes(knots_v_ptr);
+                return Err(e);
+            }
+        };
+        let mults_u_len = mults_u.len() as u32;
+        let mults_v_bytes: Vec<u8> = mults_v.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let mults_v_ptr = match self.write_bytes(&mults_v_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(flat_poles_ptr);
+                let _ = self.free_bytes(weights_ptr);
+                let _ = self.free_bytes(knots_u_ptr);
+                let _ = self.free_bytes(knots_v_ptr);
+                let _ = self.free_bytes(mults_u_ptr);
+                return Err(e);
+            }
+        };
+        let mults_v_len = mults_v.len() as u32;
+        let layout_bytes: Vec<u8> = layout.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let layout_ptr = match self.write_bytes(&layout_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(flat_poles_ptr);
+                let _ = self.free_bytes(weights_ptr);
+                let _ = self.free_bytes(knots_u_ptr);
+                let _ = self.free_bytes(knots_v_ptr);
+                let _ = self.free_bytes(mults_u_ptr);
+                let _ = self.free_bytes(mults_v_ptr);
+                return Err(e);
+            }
+        };
+        let layout_len = layout.len() as u32;
+        let result = self.generated.fn_nurbs_surface.call(
+            &mut self.store,
+            (
+                flat_poles_ptr as i32,
+                flat_poles_len as i32,
+                weights_ptr as i32,
+                weights_len as i32,
+                knots_u_ptr as i32,
+                knots_u_len as i32,
+                knots_v_ptr as i32,
+                knots_v_len as i32,
+                mults_u_ptr as i32,
+                mults_u_len as i32,
+                mults_v_ptr as i32,
+                mults_v_len as i32,
+                layout_ptr as i32,
+                layout_len as i32,
+            ),
+        );
+        self.free_bytes(flat_poles_ptr)?;
+        self.free_bytes(weights_ptr)?;
+        self.free_bytes(knots_u_ptr)?;
+        self.free_bytes(knots_v_ptr)?;
+        self.free_bytes(mults_u_ptr)?;
+        self.free_bytes(mults_v_ptr)?;
+        self.free_bytes(layout_ptr)?;
+        let result = result?;
+        self.check_error("nurbs_surface")?;
+        if result == 0 {
+            return Err(self.read_last_error("nurbs_surface"));
         }
         Ok(ShapeHandle(result))
     }
