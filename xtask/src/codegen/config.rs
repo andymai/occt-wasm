@@ -414,8 +414,9 @@ return store(cutter.Shape());",
     // One entry point for the boolean family with every knob exposed: fuse,
     // cut or common of any number of arguments against any number of tools,
     // glue (0 off, 1 shift, 2 full), a fuzzy value (0 off), result
-    // simplification (an angular tolerance; 0 off), and face history for the
-    // hashes passed (empty: none collected).
+    // simplification (an angular tolerance; 0 off), and history when
+    // hashUpperBound is positive: the faces whose hashes are passed, plus every
+    // input edge (0: none collected, so plain booleans pay nothing).
     MethodSpec {
         name: "booleanOp",
         kind: MethodKind::CustomBody,
@@ -469,7 +470,7 @@ if (simplifyAngularTolerance > 0.0) {
 }
 EvolutionData evo;
 evo.resultId = store(op->Shape());
-if (!inputFaceHashes.empty()) {
+if (hashUpperBound > 0) {
     std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
     for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, tracked, hashUpperBound);
     for (const TopoDS_Shape& s : tools) appendEvolution(evo, *op, s, tracked, hashUpperBound);

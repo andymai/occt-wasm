@@ -564,7 +564,12 @@ export interface BooleanOpOptions {
     simplifyAngularTolerance?: number;
     /** Face hashes to track; the result's `modified`/`generated`/`deleted` cover them. */
     inputFaceHashes?: number[];
-    /** Upper bound the hashes were computed with. Required with `inputFaceHashes`. */
+    /**
+     * Upper bound the hashes were computed with. Required with `inputFaceHashes`.
+     * A positive bound turns history on: the tracked faces plus every input
+     * edge (`edgeModified`/`edgeGenerated`/`edgeDeleted`), so a bound with no
+     * face hashes collects edge history alone. Left at 0, no history is collected.
+     */
     hashUpperBound?: number;
 }
 
@@ -602,14 +607,16 @@ export interface EdgeData {
 
 /**
  * Shape history data from an operation that tracks face and edge evolution.
- * Faces are reported for the input face hashes passed in; edges are reported
- * for every edge of the input.
+ * Faces are reported for the input face hashes passed in. Edges are reported
+ * for every edge of the input, best effort: if OCCT fails while answering for
+ * an input's edges, that input contributes no edge entries and the operation
+ * still succeeds.
  *
- * The `modified` and `generated` lists are run-length encoded as
- * `[inputHash, count, resultHash, ...]`, one group per input shape that has
- * any. The `deleted` lists are flat input hashes. A `generated` list holds
- * shapes of any type: a fillet's or chamfer's face is reported in
- * `edgeGenerated`, under the input edge it replaces.
+ * `modified`, `generated`, `edgeModified` and `edgeGenerated` are run-length
+ * encoded as `[inputHash, count, resultHash, ...]`, one group per input shape
+ * that has any. `deleted` and `edgeDeleted` are flat input hashes.
+ * `edgeGenerated` holds result shapes of any type: a fillet's or chamfer's
+ * face is reported there, under the input edge it replaces.
  */
 export interface EvolutionData {
     /** Result shape handle. */

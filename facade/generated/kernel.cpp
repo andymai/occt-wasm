@@ -1321,7 +1321,7 @@ EvolutionData OcctKernel::booleanOp(int opCode, std::vector<uint32_t> argIds, st
         }
         EvolutionData evo;
         evo.resultId = store(op->Shape());
-        if (!inputFaceHashes.empty()) {
+        if (hashUpperBound > 0) {
             std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
             for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, tracked, hashUpperBound);
             for (const TopoDS_Shape& s : tools) appendEvolution(evo, *op, s, tracked, hashUpperBound);

@@ -109,9 +109,9 @@ struct EdgeData {
 /// Evolution data from an operation.
 ///
 /// `modified`/`generated`/`deleted` cover the tracked input faces;
-/// `edgeModified`/`edgeGenerated`/`edgeDeleted` cover every input edge.
-/// `modified`/`generated` lists are run-length encoded as
-/// `[inputHash, count, resultHash...]`; `deleted` lists are flat input hashes.
+/// `edgeModified`/`edgeGenerated`/`edgeDeleted` cover every input edge (best effort).
+/// `modified`/`generated`/`edgeModified`/`edgeGenerated` are run-length encoded as
+/// `[inputHash, count, resultHash...]`; `deleted`/`edgeDeleted` are flat input hashes.
 struct EvolutionData {
     uint32_t resultId = 0;
     std::vector<int> modified;
