@@ -105,7 +105,7 @@ The same OCCT WASM is available as a [Rust crate](https://crates.io/crates/occt-
 
 ```toml
 [dependencies]
-occt-wasm = "6"
+occt-wasm = "7"
 ```
 
 ```rust

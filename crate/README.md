@@ -10,7 +10,7 @@ No C++ toolchain, no CMake, no system OCCT. Just `cargo add occt-wasm`.
 
 ```toml
 [dependencies]
-occt-wasm = "6"
+occt-wasm = "7"
 ```
 
 ## Why
