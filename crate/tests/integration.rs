@@ -1043,3 +1043,45 @@ fn edge_on_surface_follows_a_cylinder_across_its_seam() {
     let circumference = std::f64::consts::TAU * 5.0;
     assert!((length - circumference).abs() < 1e-2, "length {length}");
 }
+
+#[test]
+fn fillet_with_history_reports_each_rounded_face_under_its_edge() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let cube = kernel.make_box(10.0, 10.0, 10.0).unwrap();
+    let edges = vertical_edges(&mut kernel, cube);
+    let evo = kernel
+        .fillet_with_history(cube, &edges, 1.0, &[], BOUND)
+        .unwrap();
+
+    let mut round_faces = Vec::new();
+    for face in kernel.get_sub_shapes(evo.result(), "face").unwrap() {
+        if kernel.surface_type(face).unwrap() == "cylinder" {
+            round_faces.push(kernel.hash_code(face, BOUND).unwrap());
+        }
+    }
+    assert_eq!(round_faces.len(), 4);
+
+    let mut generated = std::collections::HashMap::new();
+    let mut rest = evo.edge_generated.as_slice();
+    while let [input, count, tail @ ..] = rest {
+        let (results, next) = tail.split_at(usize::try_from(*count).unwrap());
+        generated.insert(*input, results.to_vec());
+        rest = next;
+    }
+    let mut from_edges = Vec::new();
+    for edge in edges {
+        let hash = kernel.hash_code(edge, BOUND).unwrap();
+        let faces: Vec<i32> = generated[&hash]
+            .iter()
+            .copied()
+            .filter(|h| round_faces.contains(h))
+            .collect();
+        assert_eq!(faces.len(), 1, "edge {hash} generated {faces:?}");
+        from_edges.extend(faces);
+    }
+    from_edges.sort_unstable();
+    from_edges.dedup();
+    assert_eq!(from_edges.len(), 4);
+}

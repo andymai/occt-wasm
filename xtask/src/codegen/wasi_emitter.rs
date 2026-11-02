@@ -635,30 +635,23 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
         buf,
         "uint32_t occt_get_evo_result_id() {{ return g_evo_buf.resultId; }}"
     );
-    let _ = writeln!(
-        buf,
-        "const int32_t* occt_get_evo_modified() {{ return reinterpret_cast<const int32_t*>(g_evo_buf.modified.data()); }}"
-    );
-    let _ = writeln!(
-        buf,
-        "uint32_t occt_get_evo_modified_len() {{ return static_cast<uint32_t>(g_evo_buf.modified.size()); }}"
-    );
-    let _ = writeln!(
-        buf,
-        "const int32_t* occt_get_evo_generated() {{ return reinterpret_cast<const int32_t*>(g_evo_buf.generated.data()); }}"
-    );
-    let _ = writeln!(
-        buf,
-        "uint32_t occt_get_evo_generated_len() {{ return static_cast<uint32_t>(g_evo_buf.generated.size()); }}"
-    );
-    let _ = writeln!(
-        buf,
-        "const int32_t* occt_get_evo_deleted() {{ return reinterpret_cast<const int32_t*>(g_evo_buf.deleted.data()); }}"
-    );
-    let _ = writeln!(
-        buf,
-        "uint32_t occt_get_evo_deleted_len() {{ return static_cast<uint32_t>(g_evo_buf.deleted.size()); }}"
-    );
+    for (export, field) in [
+        ("modified", "modified"),
+        ("generated", "generated"),
+        ("deleted", "deleted"),
+        ("edge_modified", "edgeModified"),
+        ("edge_generated", "edgeGenerated"),
+        ("edge_deleted", "edgeDeleted"),
+    ] {
+        let _ = writeln!(
+            buf,
+            "const int32_t* occt_get_evo_{export}() {{ return reinterpret_cast<const int32_t*>(g_evo_buf.{field}.data()); }}"
+        );
+        let _ = writeln!(
+            buf,
+            "uint32_t occt_get_evo_{export}_len() {{ return static_cast<uint32_t>(g_evo_buf.{field}.size()); }}"
+        );
+    }
     let _ = writeln!(buf);
 
     // Projection result accessors
