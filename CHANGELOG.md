@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.13.0](https://github.com/andymai/occt-wasm/compare/v5.12.0...v5.13.0) (2026-11-02)
+
+
+### Features
+
+* **facade:** report edge history in EvolutionData ([#439](https://github.com/andymai/occt-wasm/issues/439)) ([dfb778e](https://github.com/andymai/occt-wasm/commit/dfb778eddb48963fcba55262ef9300eba2c05de1))
+
 ## [5.12.0](https://github.com/andymai/occt-wasm/compare/v5.11.1...v5.12.0) (2026-11-02)
 
 
