@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.12.0](https://github.com/andymai/occt-wasm/compare/v5.11.1...v5.12.0) (2026-11-02)
+
+
+### Features
+
+* **facade:** add fillSurface and edgeOnSurface ([#440](https://github.com/andymai/occt-wasm/issues/440)) ([d2fe858](https://github.com/andymai/occt-wasm/commit/d2fe8589ae87e8bfe69821fcbc31e75e9a2c5f37))
+
 ## [5.11.1](https://github.com/andymai/occt-wasm/compare/v5.11.0...v5.11.1) (2026-10-31)
 
 
