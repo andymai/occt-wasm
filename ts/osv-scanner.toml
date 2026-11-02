@@ -1,0 +1,14 @@
+# Advisories the OSV scan of ts/package-lock.json skips, each with why and until when.
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2026-12-01
+reason = """
+minimatch 10.2.5 is dev-only, reached through eslint, @eslint/config-array,
+@typescript-eslint/typescript-estree and typedoc. The fix exists only in
+minimatch 11.0.1 and every one of those parents still declares ^10. The
+amplification runs only when a glob is compiled with optimizationLevel >= 2;
+none of the four passes optimizationLevel, so they take minimatch's default
+level 1, and every glob they see is authored in this repo. Recheck when those
+parents accept minimatch 11.
+"""
