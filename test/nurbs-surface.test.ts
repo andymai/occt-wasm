@@ -180,6 +180,9 @@ describe("nurbsSurface", () => {
         reject({ multiplicitiesV: [4, 4, 4] }, /v knots and multiplicities do not fit/);
         reject({ degreeU: 0 }, /degrees must be from 1/);
         reject({ weights: data.poles.map((row) => row.map(() => 0)) }, /weights must be positive/);
+        reject({ weights: data.poles.map((row) => row.map(() => Infinity)) }, /weights must be positive and finite/);
+        reject({ poles: data.poles.map((row, i) => row.map((q, j) => (i + j === 0 ? p(NaN, 0, 0) : q))) }, /pole coordinates must be finite/);
+        reject({ knotsU: [0, 1, 2, Infinity] }, /u knots must be finite/);
         reject({ weights: [[1]] }, /weights must have one row per row of poles/);
         reject({ poles: [data.poles[0]!, data.poles[1]!.slice(1)] }, /same length/);
         reject({ poles: [[p(0, 0, 0)]], knotsU: [0, 1], multiplicitiesU: [2, 2] }, /at least 2 poles/);

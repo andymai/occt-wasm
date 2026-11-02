@@ -2946,12 +2946,17 @@ uint32_t OcctKernel::nurbsSurface(std::vector<double> flatPoles, std::vector<dou
                                      + " pole coordinates for " + std::to_string(nbU) + " x "
                                      + std::to_string(nbV) + " poles, got " + std::to_string(flatPoles.size()));
         }
+        for (double c : flatPoles) {
+            if (!std::isfinite(c)) {
+                throw std::runtime_error("nurbsSurface: pole coordinates must be finite");
+            }
+        }
         if (!weights.empty() && weights.size() != count) {
             throw std::runtime_error("nurbsSurface: weights must be empty or one per pole");
         }
         for (double w : weights) {
-            if (!(w > gp::Resolution())) {
-                throw std::runtime_error("nurbsSurface: weights must be positive");
+            if (!(w > gp::Resolution()) || !std::isfinite(w)) {
+                throw std::runtime_error("nurbsSurface: weights must be positive and finite");
             }
         }
         // Poles each knot vector implies (BSplCLib::NbPoles), or 0 when the
@@ -2961,6 +2966,11 @@ uint32_t OcctKernel::nurbsSurface(std::vector<double> flatPoles, std::vector<dou
             if (knots.size() < 2 || knots.size() != mults.size()) {
                 throw std::runtime_error(std::string("nurbsSurface: ") + dir
                                          + " needs two or more knots, each with a multiplicity");
+            }
+            for (double k : knots) {
+                if (!std::isfinite(k)) {
+                    throw std::runtime_error(std::string("nurbsSurface: ") + dir + " knots must be finite");
+                }
             }
             for (size_t i = 1; i < knots.size(); i++) {
                 if (!(knots[i] - knots[i - 1] > Epsilon(std::abs(knots[i - 1])))) {
