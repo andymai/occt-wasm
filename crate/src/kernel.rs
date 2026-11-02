@@ -116,6 +116,12 @@ pub struct OcctKernel {
     pub(crate) fn_get_evo_generated_len: TypedFunc<(), u32>,
     pub(crate) fn_get_evo_deleted: TypedFunc<(), i32>,
     pub(crate) fn_get_evo_deleted_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_evo_edge_modified: TypedFunc<(), i32>,
+    pub(crate) fn_get_evo_edge_modified_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_evo_edge_generated: TypedFunc<(), i32>,
+    pub(crate) fn_get_evo_edge_generated_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_evo_edge_deleted: TypedFunc<(), i32>,
+    pub(crate) fn_get_evo_edge_deleted_len: TypedFunc<(), u32>,
 
     // Projection accessors
     pub(crate) fn_get_proj_visible_outline: TypedFunc<(), u32>,
@@ -339,6 +345,12 @@ impl OcctKernel {
             fn_get_evo_generated_len: get_fn!("occt_get_evo_generated_len" => u32),
             fn_get_evo_deleted: get_fn!("occt_get_evo_deleted" => i32),
             fn_get_evo_deleted_len: get_fn!("occt_get_evo_deleted_len" => u32),
+            fn_get_evo_edge_modified: get_fn!("occt_get_evo_edge_modified" => i32),
+            fn_get_evo_edge_modified_len: get_fn!("occt_get_evo_edge_modified_len" => u32),
+            fn_get_evo_edge_generated: get_fn!("occt_get_evo_edge_generated" => i32),
+            fn_get_evo_edge_generated_len: get_fn!("occt_get_evo_edge_generated_len" => u32),
+            fn_get_evo_edge_deleted: get_fn!("occt_get_evo_edge_deleted" => i32),
+            fn_get_evo_edge_deleted_len: get_fn!("occt_get_evo_edge_deleted_len" => u32),
 
             fn_get_proj_visible_outline: get_fn!("occt_get_proj_visible_outline" => u32),
             fn_get_proj_visible_smooth: get_fn!("occt_get_proj_visible_smooth" => u32),
@@ -630,12 +642,25 @@ impl OcctKernel {
         let gen_len = self.fn_get_evo_generated_len.call(&mut self.store, ())?;
         let del_ptr = self.fn_get_evo_deleted.call(&mut self.store, ())?;
         let del_len = self.fn_get_evo_deleted_len.call(&mut self.store, ())?;
+        let edge_mod_ptr = self.fn_get_evo_edge_modified.call(&mut self.store, ())?;
+        let edge_mod_len = self
+            .fn_get_evo_edge_modified_len
+            .call(&mut self.store, ())?;
+        let edge_gen_ptr = self.fn_get_evo_edge_generated.call(&mut self.store, ())?;
+        let edge_gen_len = self
+            .fn_get_evo_edge_generated_len
+            .call(&mut self.store, ())?;
+        let edge_del_ptr = self.fn_get_evo_edge_deleted.call(&mut self.store, ())?;
+        let edge_del_len = self.fn_get_evo_edge_deleted_len.call(&mut self.store, ())?;
 
         Ok(EvolutionData {
             result_id,
             modified: self.read_i32_slice(mod_ptr as u32, mod_len)?,
             generated: self.read_i32_slice(gen_ptr as u32, gen_len)?,
             deleted: self.read_i32_slice(del_ptr as u32, del_len)?,
+            edge_modified: self.read_i32_slice(edge_mod_ptr as u32, edge_mod_len)?,
+            edge_generated: self.read_i32_slice(edge_gen_ptr as u32, edge_gen_len)?,
+            edge_deleted: self.read_i32_slice(edge_del_ptr as u32, edge_del_len)?,
         })
     }
 

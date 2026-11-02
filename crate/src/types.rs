@@ -108,7 +108,19 @@ pub struct NurbsCurveData {
 }
 
 /// Shape evolution data from operations with history tracking.
+///
+/// Faces are reported for the input face hashes passed in. Edges are reported
+/// for every edge of the input, best effort: if OCCT fails while answering for
+/// an input's edges, that input contributes no edge entries and the operation
+/// still succeeds.
+///
+/// `modified`, `generated`, `edge_modified` and `edge_generated` are run-length
+/// encoded as `[input_hash, count, result_hash, ...]`, one group per input
+/// shape that has any. `deleted` and `edge_deleted` are flat input hashes.
+/// `edge_generated` holds result shapes of any type: a fillet's or chamfer's
+/// face is reported there, under the input edge it replaces.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct EvolutionData {
     /// The result shape handle ID.
     pub result_id: u32,
@@ -118,6 +130,12 @@ pub struct EvolutionData {
     pub generated: Vec<i32>,
     /// Deleted face hashes.
     pub deleted: Vec<i32>,
+    /// Modified edge tracking data.
+    pub edge_modified: Vec<i32>,
+    /// Shapes generated from input edges, keyed by the input edge hash.
+    pub edge_generated: Vec<i32>,
+    /// Deleted edge hashes.
+    pub edge_deleted: Vec<i32>,
 }
 
 impl EvolutionData {
