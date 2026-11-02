@@ -37,7 +37,7 @@ function expand(knots: number[], mults: number[]): number[] {
 /** Cox-de Boor basis values N_{i,p}(t) for every i. */
 function basis(t: number, degree: number, flat: number[], count: number): number[] {
     const n = flat.length - 1;
-    let values = Array.from({ length: n }, (_, i) => {
+    let values = Array.from({ length: n }, (_, i): number => {
         const a = flat[i] ?? 0;
         const b = flat[i + 1] ?? 0;
         // The last non-empty span is closed so t at the end evaluates.
