@@ -83,6 +83,7 @@
 #include <GeomAbs_SurfaceType.hxx>
 #include <GeomAdaptor_Surface.hxx>
 #include <GeomConvert.hxx>
+#include <GeomProjLib.hxx>
 #include <Geom_BSplineCurve.hxx>
 #include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierCurve.hxx>
@@ -2632,6 +2633,117 @@ uint32_t OcctKernel::makeNonPlanarFace(uint32_t wireId) {
         return store(filler.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeNonPlanarFace: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::fillSurface(std::vector<uint32_t> freeEdgeIds, std::vector<uint32_t> supportedEdgeIds, std::vector<uint32_t> supportFaceIds, std::vector<int> supportOrders, std::vector<uint32_t> guideEdgeIds, std::vector<double> flatPoints, uint32_t initFaceId, std::vector<double> params) {
+    try {
+        if (freeEdgeIds.empty() && supportedEdgeIds.empty()) {
+            throw std::runtime_error("fillSurface: no boundary edges");
+        }
+        if (supportFaceIds.size() != supportedEdgeIds.size()
+            || supportOrders.size() != supportedEdgeIds.size()) {
+            throw std::runtime_error("fillSurface: each supported edge needs one support face and one order");
+        }
+        if (flatPoints.size() % 3 != 0) {
+            throw std::runtime_error("fillSurface: point coordinates are not a multiple of 3");
+        }
+        if (!params.empty() && params.size() != 10) {
+            throw std::runtime_error("fillSurface: params must be empty or hold 10 values");
+        }
+        const bool given = !params.empty();
+        const int degree = given ? static_cast<int>(params[0]) : 3;
+        const int nbPtsOnCur = given ? static_cast<int>(params[1]) : 15;
+        const int nbIter = given ? static_cast<int>(params[2]) : 2;
+        const bool anisotropy = given && params[3] != 0.0;
+        const double tol2d = given ? params[4] : 0.00001;
+        const double tol3d = given ? params[5] : 0.0001;
+        const double tolAng = given ? params[6] : 0.01;
+        const double tolCurv = given ? params[7] : 0.1;
+        const int maxDeg = given ? static_cast<int>(params[8]) : 8;
+        const int maxSegments = given ? static_cast<int>(params[9]) : 9;
+        if (degree < 1 || nbPtsOnCur < 1 || nbIter < 1 || maxDeg < 1 || maxSegments < 1) {
+            throw std::runtime_error("fillSurface: degree, point, iteration and segment counts must be positive");
+        }
+        BRepOffsetAPI_MakeFilling filler(degree, nbPtsOnCur, nbIter, anisotropy,
+                                         tol2d, tol3d, tolAng, tolCurv, maxDeg, maxSegments);
+        if (initFaceId != 0) {
+            filler.LoadInitSurface(TopoDS::Face(get(initFaceId)));
+        }
+        for (uint32_t id : freeEdgeIds) {
+            filler.Add(TopoDS::Edge(get(id)), GeomAbs_C0);
+        }
+        for (size_t i = 0; i < supportedEdgeIds.size(); i++) {
+            GeomAbs_Shape order;
+            switch (supportOrders[i]) {
+                case 1: order = GeomAbs_G1; break;
+                case 2: order = GeomAbs_G2; break;
+                default:
+                    throw std::runtime_error("fillSurface: support order must be 1 (tangent) or 2 (curvature)");
+            }
+            filler.Add(TopoDS::Edge(get(supportedEdgeIds[i])), TopoDS::Face(get(supportFaceIds[i])), order);
+        }
+        for (uint32_t id : guideEdgeIds) {
+            filler.Add(TopoDS::Edge(get(id)), GeomAbs_C0, false);
+        }
+        for (size_t i = 0; i < flatPoints.size(); i += 3) {
+            filler.Add(gp_Pnt(flatPoints[i], flatPoints[i + 1], flatPoints[i + 2]));
+        }
+        filler.Build();
+        if (!filler.IsDone()) {
+            throw std::runtime_error("fillSurface: construction failed");
+        }
+        return store(filler.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("fillSurface: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::edgeOnSurface(uint32_t faceId, std::vector<double> flatPoints, double tolerance, bool closed) {
+    try {
+        if (flatPoints.size() % 3 != 0) {
+            throw std::runtime_error("edgeOnSurface: point coordinates are not a multiple of 3");
+        }
+        const int n = static_cast<int>(flatPoints.size() / 3);
+        if (n < 2) {
+            throw std::runtime_error("edgeOnSurface: need at least 2 points");
+        }
+        if (!(tolerance > 0.0)) {
+            throw std::runtime_error("edgeOnSurface: tolerance must be positive");
+        }
+        const int count = closed ? n + 1 : n;
+        NCollection_Array1<gp_Pnt> pts(1, count);
+        for (int i = 0; i < n; i++) {
+            pts.SetValue(i + 1, gp_Pnt(flatPoints[3 * i], flatPoints[3 * i + 1], flatPoints[3 * i + 2]));
+        }
+        if (closed) {
+            pts.SetValue(count, pts.Value(1));
+        }
+        GeomAPI_PointsToBSpline approx(pts, 3, 8, GeomAbs_C2, tolerance);
+        if (!approx.IsDone()) {
+            throw std::runtime_error("edgeOnSurface: curve approximation failed");
+        }
+        Handle(Geom_BSplineCurve) curve = approx.Curve();
+        Handle(Geom_Surface) surface = BRep_Tool::Surface(TopoDS::Face(get(faceId)));
+        double reached = tolerance;
+        Handle(Geom2d_Curve) uv = GeomProjLib::Curve2d(
+            curve, curve->FirstParameter(), curve->LastParameter(), surface, reached);
+        if (uv.IsNull()) {
+            throw std::runtime_error("edgeOnSurface: projection onto the surface failed");
+        }
+        BRepBuilderAPI_MakeEdge maker(uv, surface);
+        if (!maker.IsDone()) {
+            throw std::runtime_error("edgeOnSurface: edge construction failed");
+        }
+        TopoDS_Edge edge = maker.Edge();
+        // The parametric curve is exactly on the surface; only the 3D curve built
+        // from it approximates, so that tolerance is fixed tight.
+        if (!BRepLib::BuildCurves3d(edge, 1.0e-7, GeomAbs_C1, 14, 2000)) {
+            throw std::runtime_error("edgeOnSurface: building the 3D curve failed");
+        }
+        return store(edge);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("edgeOnSurface: ") + e.what());
     }
 }
 

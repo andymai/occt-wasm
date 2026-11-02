@@ -35,6 +35,8 @@ export {
     type CurvatureData,
     type EdgeData,
     type EvolutionData,
+    type FillSurfaceBoundary,
+    type FillSurfaceOptions,
     type FilletRadius,
     type GLTFExportOptions,
     type InitOptions,
@@ -107,6 +109,8 @@ import type {
     CurvatureData,
     EdgeData,
     EvolutionData,
+    FillSurfaceBoundary,
+    FillSurfaceOptions,
     FilletRadius,
     InitOptions,
     Mesh,
@@ -1024,6 +1028,79 @@ export class OcctKernel {
 
     makeNonPlanarFace(wire: ShapeHandle): ShapeHandle {
         return wrap("makeNonPlanarFace", () => handle(this.#raw.makeNonPlanarFace(wire)));
+    }
+
+    /**
+     * Fill a closed boundary with a smooth face (OCCT's N-sided filling).
+     * Bare edges are matched in position only; an edge given with a
+     * `support` face is met tangentially (or with matching curvature), so the
+     * filling blends into its neighbour. `options.points` and
+     * `options.guides` pull the interior through given points and curves.
+     */
+    fillSurface(boundary: FillSurfaceBoundary[], options: FillSurfaceOptions = {}): ShapeHandle {
+        return wrap("fillSurface", () => {
+            const free: ShapeHandle[] = [];
+            const supported: ShapeHandle[] = [];
+            const supports: ShapeHandle[] = [];
+            const orders: number[] = [];
+            for (const b of boundary) {
+                if (typeof b === "number") {
+                    free.push(b);
+                } else {
+                    supported.push(b.edge);
+                    supports.push(b.support);
+                    orders.push(b.continuity === "G2" ? 2 : 1);
+                }
+            }
+            const o = options;
+            const tuned = [
+                o.degree, o.pointsOnCurve, o.iterations, o.anisotropy, o.tolerance2d, o.tolerance3d,
+                o.toleranceAngular, o.toleranceCurvature, o.maxDegree, o.maxSegments,
+            ].some((v) => v !== undefined);
+            const params = tuned
+                ? [
+                      o.degree ?? 3, o.pointsOnCurve ?? 15, o.iterations ?? 2, o.anisotropy ? 1 : 0,
+                      o.tolerance2d ?? 1e-5, o.tolerance3d ?? 1e-4, o.toleranceAngular ?? 1e-2,
+                      o.toleranceCurvature ?? 0.1, o.maxDegree ?? 8, o.maxSegments ?? 9,
+                  ]
+                : [];
+            const points = this.#flattenPoints(o.points ?? []);
+            try {
+                return this.#withU32(free, (freeVec) =>
+                    this.#withU32(supported, (supportedVec) =>
+                        this.#withU32(supports, (supportsVec) =>
+                            this.#withI32(orders, (ordersVec) =>
+                                this.#withU32(o.guides ?? [], (guidesVec) =>
+                                    this.#withF64(params, (paramsVec) =>
+                                        handle(
+                                            this.#raw.fillSurface(
+                                                freeVec, supportedVec, supportsVec, ordersVec, guidesVec,
+                                                points, o.initSurface ?? 0, paramsVec,
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                );
+            } finally {
+                points.delete();
+            }
+        });
+    }
+
+    /**
+     * An edge lying on `face`'s surface through `points`, which are first
+     * approximated by a curve within `tolerance`. Points off the surface are
+     * projected onto it. `closed` joins the last point back to the first.
+     */
+    edgeOnSurface(face: ShapeHandle, points: Vec3[], tolerance = 1e-3, closed = false): ShapeHandle {
+        return wrap("edgeOnSurface", () => {
+            const flat = this.#flattenPoints(points);
+            try { return handle(this.#raw.edgeOnSurface(face, flat, tolerance, closed)); }
+            finally { flat.delete(); }
+        });
     }
 
     addHolesInFace(face: ShapeHandle, holeWires: ShapeHandle[]): ShapeHandle {

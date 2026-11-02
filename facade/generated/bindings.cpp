@@ -196,6 +196,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("makeHelixWire", &OcctKernel::makeHelixWire)
         .function("makeHelixWireHanded", &OcctKernel::makeHelixWireHanded)
         .function("makeNonPlanarFace", &OcctKernel::makeNonPlanarFace)
+        .function("fillSurface", &OcctKernel::fillSurface)
+        .function("edgeOnSurface", &OcctKernel::edgeOnSurface)
         .function("addHolesInFace", &OcctKernel::addHolesInFace)
         .function("removeHolesFromFace", &OcctKernel::removeHolesFromFace)
         .function("solidFromShell", &OcctKernel::solidFromShell)

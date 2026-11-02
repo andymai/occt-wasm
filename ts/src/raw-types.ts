@@ -257,6 +257,8 @@ export interface OcctRawKernel {
     makeWire(edgeIds: EmbindVectorU32): number;
     makeFace(wireId: number): number;
     makeNonPlanarFace(wireId: number): number;
+    fillSurface(freeEdgeIds: EmbindVectorU32, supportedEdgeIds: EmbindVectorU32, supportFaceIds: EmbindVectorU32, supportOrders: EmbindVectorI32, guideEdgeIds: EmbindVectorU32, flatPoints: EmbindVectorF64, initFaceId: number, params: EmbindVectorF64): number;
+    edgeOnSurface(faceId: number, flatPoints: EmbindVectorF64, tolerance: number, closed: boolean): number;
     addHolesInFace(faceId: number, holeWireIds: EmbindVectorU32): number;
     removeHolesFromFace(faceId: number, holeIndices: EmbindVectorI32): number;
     solidFromShell(shellId: number): number;
