@@ -139,6 +139,27 @@ pub(crate) struct GeneratedFuncs {
     fn_make_helix_wire: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_helix_wire_handed: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64, i32), u32>,
     fn_make_non_planar_face: TypedFunc<(u32,), u32>,
+    fn_fill_surface: TypedFunc<
+        (
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            i32,
+            u32,
+            i32,
+            i32,
+        ),
+        u32,
+    >,
+    fn_edge_on_surface: TypedFunc<(u32, i32, i32, f64, i32), u32>,
     fn_add_holes_in_face: TypedFunc<(u32, i32, i32), u32>,
     fn_remove_holes_from_face: TypedFunc<(u32, i32, i32), u32>,
     fn_solid_from_shell: TypedFunc<(u32,), u32>,
@@ -404,6 +425,8 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_make_helix_wire_handed")?,
             fn_make_non_planar_face: instance
                 .get_typed_func(&mut store, "occt_make_non_planar_face")?,
+            fn_fill_surface: instance.get_typed_func(&mut store, "occt_fill_surface")?,
+            fn_edge_on_surface: instance.get_typed_func(&mut store, "occt_edge_on_surface")?,
             fn_add_holes_in_face: instance.get_typed_func(&mut store, "occt_add_holes_in_face")?,
             fn_remove_holes_from_face: instance
                 .get_typed_func(&mut store, "occt_remove_holes_from_face")?,
@@ -603,7 +626,7 @@ impl GeneratedFuncs {
 /// Generated kernel methods.
 ///
 /// All facade methods wrapped as safe Rust functions.
-#[allow(missing_docs, clippy::too_many_arguments)]
+#[allow(missing_docs, clippy::too_many_arguments, clippy::too_many_lines)]
 impl crate::kernel::OcctKernel {
     pub fn make_box(&mut self, dx: f64, dy: f64, dz: f64) -> OcctResult<ShapeHandle> {
         let result = self
@@ -2493,6 +2516,168 @@ impl crate::kernel::OcctKernel {
         self.check_error("make_non_planar_face")?;
         if result == 0 {
             return Err(self.read_last_error("make_non_planar_face"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn fill_surface(
+        &mut self,
+        free_edge_ids: &[ShapeHandle],
+        supported_edge_ids: &[ShapeHandle],
+        support_face_ids: &[ShapeHandle],
+        support_orders: &[i32],
+        guide_edge_ids: &[ShapeHandle],
+        flat_points: &[f64],
+        init_face_id: u32,
+        params: &[f64],
+    ) -> OcctResult<ShapeHandle> {
+        let free_edge_ids_bytes: Vec<u8> = free_edge_ids
+            .iter()
+            .flat_map(|h| h.0.to_le_bytes())
+            .collect();
+        let free_edge_ids_ptr = self.write_bytes(&free_edge_ids_bytes)?;
+        let free_edge_ids_len = free_edge_ids.len() as u32;
+        let supported_edge_ids_bytes: Vec<u8> = supported_edge_ids
+            .iter()
+            .flat_map(|h| h.0.to_le_bytes())
+            .collect();
+        let supported_edge_ids_ptr = match self.write_bytes(&supported_edge_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(free_edge_ids_ptr);
+                return Err(e);
+            }
+        };
+        let supported_edge_ids_len = supported_edge_ids.len() as u32;
+        let support_face_ids_bytes: Vec<u8> = support_face_ids
+            .iter()
+            .flat_map(|h| h.0.to_le_bytes())
+            .collect();
+        let support_face_ids_ptr = match self.write_bytes(&support_face_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(free_edge_ids_ptr);
+                let _ = self.free_bytes(supported_edge_ids_ptr);
+                return Err(e);
+            }
+        };
+        let support_face_ids_len = support_face_ids.len() as u32;
+        let support_orders_bytes: Vec<u8> = support_orders
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let support_orders_ptr = match self.write_bytes(&support_orders_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(free_edge_ids_ptr);
+                let _ = self.free_bytes(supported_edge_ids_ptr);
+                let _ = self.free_bytes(support_face_ids_ptr);
+                return Err(e);
+            }
+        };
+        let support_orders_len = support_orders.len() as u32;
+        let guide_edge_ids_bytes: Vec<u8> = guide_edge_ids
+            .iter()
+            .flat_map(|h| h.0.to_le_bytes())
+            .collect();
+        let guide_edge_ids_ptr = match self.write_bytes(&guide_edge_ids_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(free_edge_ids_ptr);
+                let _ = self.free_bytes(supported_edge_ids_ptr);
+                let _ = self.free_bytes(support_face_ids_ptr);
+                let _ = self.free_bytes(support_orders_ptr);
+                return Err(e);
+            }
+        };
+        let guide_edge_ids_len = guide_edge_ids.len() as u32;
+        let flat_points_bytes: Vec<u8> = flat_points.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let flat_points_ptr = match self.write_bytes(&flat_points_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(free_edge_ids_ptr);
+                let _ = self.free_bytes(supported_edge_ids_ptr);
+                let _ = self.free_bytes(support_face_ids_ptr);
+                let _ = self.free_bytes(support_orders_ptr);
+                let _ = self.free_bytes(guide_edge_ids_ptr);
+                return Err(e);
+            }
+        };
+        let flat_points_len = flat_points.len() as u32;
+        let params_bytes: Vec<u8> = params.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let params_ptr = match self.write_bytes(&params_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(free_edge_ids_ptr);
+                let _ = self.free_bytes(supported_edge_ids_ptr);
+                let _ = self.free_bytes(support_face_ids_ptr);
+                let _ = self.free_bytes(support_orders_ptr);
+                let _ = self.free_bytes(guide_edge_ids_ptr);
+                let _ = self.free_bytes(flat_points_ptr);
+                return Err(e);
+            }
+        };
+        let params_len = params.len() as u32;
+        let result = self.generated.fn_fill_surface.call(
+            &mut self.store,
+            (
+                free_edge_ids_ptr as i32,
+                free_edge_ids_len as i32,
+                supported_edge_ids_ptr as i32,
+                supported_edge_ids_len as i32,
+                support_face_ids_ptr as i32,
+                support_face_ids_len as i32,
+                support_orders_ptr as i32,
+                support_orders_len as i32,
+                guide_edge_ids_ptr as i32,
+                guide_edge_ids_len as i32,
+                flat_points_ptr as i32,
+                flat_points_len as i32,
+                init_face_id,
+                params_ptr as i32,
+                params_len as i32,
+            ),
+        );
+        self.free_bytes(free_edge_ids_ptr)?;
+        self.free_bytes(supported_edge_ids_ptr)?;
+        self.free_bytes(support_face_ids_ptr)?;
+        self.free_bytes(support_orders_ptr)?;
+        self.free_bytes(guide_edge_ids_ptr)?;
+        self.free_bytes(flat_points_ptr)?;
+        self.free_bytes(params_ptr)?;
+        let result = result?;
+        self.check_error("fill_surface")?;
+        if result == 0 {
+            return Err(self.read_last_error("fill_surface"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn edge_on_surface(
+        &mut self,
+        face_id: ShapeHandle,
+        flat_points: &[f64],
+        tolerance: f64,
+        closed: bool,
+    ) -> OcctResult<ShapeHandle> {
+        let flat_points_bytes: Vec<u8> = flat_points.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let flat_points_ptr = self.write_bytes(&flat_points_bytes)?;
+        let flat_points_len = flat_points.len() as u32;
+        let result = self.generated.fn_edge_on_surface.call(
+            &mut self.store,
+            (
+                face_id.0,
+                flat_points_ptr as i32,
+                flat_points_len as i32,
+                tolerance,
+                i32::from(closed),
+            ),
+        );
+        self.free_bytes(flat_points_ptr)?;
+        let result = result?;
+        self.check_error("edge_on_surface")?;
+        if result == 0 {
+            return Err(self.read_last_error("edge_on_surface"));
         }
         Ok(ShapeHandle(result))
     }

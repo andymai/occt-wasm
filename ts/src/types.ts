@@ -366,6 +366,53 @@ export interface SweepToleranceOptions {
 }
 
 /**
+ * One boundary edge of {@link OcctKernel.fillSurface}: a bare edge the face
+ * only passes through, or an edge with the face it must meet smoothly.
+ */
+export type FillSurfaceBoundary =
+    | ShapeHandle
+    | {
+          edge: ShapeHandle;
+          /** The neighbouring face the filling meets along `edge`. */
+          support: ShapeHandle;
+          /** `"G1"` (tangent, the default) or `"G2"` (curvature continuous). */
+          continuity?: "G1" | "G2";
+      };
+
+/**
+ * Interior constraints and solver controls for {@link OcctKernel.fillSurface}.
+ * Omitted controls take OCCT's defaults.
+ */
+export interface FillSurfaceOptions {
+    /** Points the face must pass through. */
+    points?: Vec3[];
+    /** Edges the face must pass through that are not part of its boundary. */
+    guides?: ShapeHandle[];
+    /** A face whose surface seeds the solver, for patches far from planar. */
+    initSurface?: ShapeHandle;
+    /** Degree of the energy-minimizing surface. Default `3`. */
+    degree?: number;
+    /** Points sampled on each constraint curve. Default `15`. */
+    pointsOnCurve?: number;
+    /** Solver iterations. Default `2`. */
+    iterations?: number;
+    /** Let the solver favour one parametric direction. Default `false`. */
+    anisotropy?: boolean;
+    /** 2D tolerance. Default `1e-5`. */
+    tolerance2d?: number;
+    /** 3D tolerance. Default `1e-4`. */
+    tolerance3d?: number;
+    /** Angular tolerance in radians for tangent constraints. Default `1e-2`. */
+    toleranceAngular?: number;
+    /** Curvature tolerance for curvature constraints. Default `0.1`. */
+    toleranceCurvature?: number;
+    /** Highest degree of the approximating B-spline. Default `8`. */
+    maxDegree?: number;
+    /** Most segments of the approximating B-spline. Default `9`. */
+    maxSegments?: number;
+}
+
+/**
  * Controls for {@link OcctKernel.sweepAdvanced} — the union of the orientation
  * controls of {@link OcctKernel.sweepOriented}, the corner transitions of
  * {@link OcctKernel.sweepPipeShell}, and the profile placement that neither

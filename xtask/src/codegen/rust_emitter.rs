@@ -641,7 +641,12 @@ pub fn emit_rust_host(methods: &[&MethodSpec]) -> String {
         buf,
         "/// All facade methods wrapped as safe Rust functions."
     );
-    let _ = writeln!(buf, "#[allow(missing_docs, clippy::too_many_arguments)]");
+    // Each vector parameter adds a fixed block of marshalling, so a method with
+    // several of them outgrows the line limit without being complex.
+    let _ = writeln!(
+        buf,
+        "#[allow(missing_docs, clippy::too_many_arguments, clippy::too_many_lines)]"
+    );
     let _ = writeln!(buf, "impl crate::kernel::OcctKernel {{");
 
     let generable: Vec<&&MethodSpec> = methods.iter().filter(|m| m.has_wasi_binding()).collect();
