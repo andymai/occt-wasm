@@ -2825,11 +2825,17 @@ export class OcctKernel {
         const modified = this.#drainVector(raw.modified, Int32Array);
         const generated = this.#drainVector(raw.generated, Int32Array);
         const deleted = this.#drainVector(raw.deleted, Int32Array);
+        const edgeModified = this.#drainVector(raw.edgeModified, Int32Array);
+        const edgeGenerated = this.#drainVector(raw.edgeGenerated, Int32Array);
+        const edgeDeleted = this.#drainVector(raw.edgeDeleted, Int32Array);
         return {
             result: handle(raw.resultId),
             modified,
             generated,
             deleted,
+            edgeModified,
+            edgeGenerated,
+            edgeDeleted,
         };
     }
 }

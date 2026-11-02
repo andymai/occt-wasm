@@ -293,6 +293,16 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
     // Always-needed headers.
     includes.insert("Standard_Failure.hxx".to_owned());
 
+    if methods
+        .iter()
+        .any(|m| matches!(m.return_type, ReturnType::EvolutionData))
+    {
+        includes.insert("TopExp.hxx".to_owned());
+        includes.insert("TopExp_Explorer.hxx".to_owned());
+        includes.insert("NCollection_IndexedMap.hxx".to_owned());
+        includes.insert("TopTools_ShapeMapHasher.hxx".to_owned());
+    }
+
     if needs_unwrap_singleton_solid(methods) {
         includes.insert("TopExp_Explorer.hxx".to_owned());
         includes.insert("TopoDS_Shape.hxx".to_owned());
@@ -1204,8 +1214,11 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
 
     if needs_evolution {
         for line in [
-            "/// Append the Modified/Generated/Deleted history of `inputShape`'s faces to",
-            "/// `evo`, for the faces whose hash is in `tracked`.",
+            "/// Append the Modified/Generated/Deleted history of `inputShape` to `evo`: its",
+            "/// faces whose hash is in `tracked`, and all of its edges.",
+            "///",
+            "/// Edge history is best effort. A maker that fails while answering for an edge",
+            "/// leaves this input's edge lists empty rather than failing the operation.",
             "static void appendEvolution(EvolutionData& evo, BRepBuilderAPI_MakeShape& maker,",
             "                            const TopoDS_Shape& inputShape,",
             "                            const std::unordered_set<int>& tracked, int hashUpperBound) {",
@@ -1216,38 +1229,57 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
             "    auto hashShape = [&](const TopoDS_Shape& s) -> int {",
             "        return static_cast<int>(TopTools_ShapeMapHasher{}(s) % static_cast<size_t>(hashUpperBound));",
             "    };",
+            "    auto record = [&](const TopoDS_Shape& s, int hash, std::vector<int>& modified,",
+            "                      std::vector<int>& generated, std::vector<int>& deleted) {",
+            "        auto modifiedList = maker.Modified(s);",
+            "        if (!modifiedList.IsEmpty()) {",
+            "            modified.push_back(hash);",
+            "            modified.push_back(static_cast<int>(modifiedList.Size()));",
+            "            for (auto it = modifiedList.begin(); it != modifiedList.end(); ++it) {",
+            "                modified.push_back(hashShape(*it));",
+            "            }",
+            "        }",
+            "",
+            "        auto generatedList = maker.Generated(s);",
+            "        if (!generatedList.IsEmpty()) {",
+            "            generated.push_back(hash);",
+            "            generated.push_back(static_cast<int>(generatedList.Size()));",
+            "            for (auto it = generatedList.begin(); it != generatedList.end(); ++it) {",
+            "                generated.push_back(hashShape(*it));",
+            "            }",
+            "        }",
+            "",
+            "        if (maker.IsDeleted(s)) {",
+            "            deleted.push_back(hash);",
+            "        }",
+            "    };",
             "",
             "    for (TopExp_Explorer ex(inputShape, TopAbs_FACE); ex.More(); ex.Next()) {",
             "        const auto& face = ex.Current();",
             "        int faceHash = hashShape(face);",
             "        if (tracked.count(faceHash) == 0)",
             "            continue;",
-            "",
-            "        auto modifiedList = maker.Modified(face);",
-            "        if (!modifiedList.IsEmpty()) {",
-            "            evo.modified.push_back(faceHash);",
-            "            evo.modified.push_back(static_cast<int>(modifiedList.Size()));",
-            "            for (auto it = modifiedList.begin(); it != modifiedList.end(); ++it) {",
-            "                evo.modified.push_back(hashShape(*it));",
-            "            }",
-            "        }",
-            "",
-            "        auto generatedList = maker.Generated(face);",
-            "        if (!generatedList.IsEmpty()) {",
-            "            evo.generated.push_back(faceHash);",
-            "            evo.generated.push_back(static_cast<int>(generatedList.Size()));",
-            "            for (auto it = generatedList.begin(); it != generatedList.end(); ++it) {",
-            "                evo.generated.push_back(hashShape(*it));",
-            "            }",
-            "        }",
-            "",
-            "        if (maker.IsDeleted(face)) {",
-            "            evo.deleted.push_back(faceHash);",
-            "        }",
+            "        record(face, faceHash, evo.modified, evo.generated, evo.deleted);",
             "    }",
+            "",
+            "    // An explorer visits an edge once per face that uses it; the map holds each once.",
+            "    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edges;",
+            "    TopExp::MapShapes(inputShape, TopAbs_EDGE, edges);",
+            "    std::vector<int> edgeModified, edgeGenerated, edgeDeleted;",
+            "    try {",
+            "        for (int i = 1; i <= edges.Extent(); ++i) {",
+            "            const auto& edge = edges.FindKey(i);",
+            "            record(edge, hashShape(edge), edgeModified, edgeGenerated, edgeDeleted);",
+            "        }",
+            "    } catch (const Standard_Failure&) {",
+            "        return;",
+            "    }",
+            "    evo.edgeModified.insert(evo.edgeModified.end(), edgeModified.begin(), edgeModified.end());",
+            "    evo.edgeGenerated.insert(evo.edgeGenerated.end(), edgeGenerated.begin(), edgeGenerated.end());",
+            "    evo.edgeDeleted.insert(evo.edgeDeleted.end(), edgeDeleted.begin(), edgeDeleted.end());",
             "}",
             "",
-            "/// Build evolution data by tracking Modified/Generated/Deleted faces.",
+            "/// Build evolution data by tracking Modified/Generated/Deleted faces and edges.",
             "static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,",
             "                                    const TopoDS_Shape& inputShape,",
             "                                    const std::vector<int>& inputFaceHashes, int hashUpperBound) {",
@@ -1548,7 +1580,15 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
 
     let _ = writeln!(buf, "    // EvolutionData");
     let _ = writeln!(buf, "    class_<EvolutionData>(\"EvolutionData\")");
-    for prop in &["resultId", "modified", "generated", "deleted"] {
+    for prop in &[
+        "resultId",
+        "modified",
+        "generated",
+        "deleted",
+        "edgeModified",
+        "edgeGenerated",
+        "edgeDeleted",
+    ] {
         let _ = writeln!(buf, "        .property(\"{prop}\", &EvolutionData::{prop})");
     }
     close_embind_chain(&mut buf);

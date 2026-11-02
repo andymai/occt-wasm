@@ -897,8 +897,11 @@ static TopoDS_Shape validateFilletResult(const TopoDS_Shape& shape, const char* 
     throw std::runtime_error(std::string(op) + ": produced an invalid solid");
 }
 
-/// Append the Modified/Generated/Deleted history of `inputShape`'s faces to
-/// `evo`, for the faces whose hash is in `tracked`.
+/// Append the Modified/Generated/Deleted history of `inputShape` to `evo`: its
+/// faces whose hash is in `tracked`, and all of its edges.
+///
+/// Edge history is best effort. A maker that fails while answering for an edge
+/// leaves this input's edge lists empty rather than failing the operation.
 static void appendEvolution(EvolutionData& evo, BRepBuilderAPI_MakeShape& maker,
                             const TopoDS_Shape& inputShape,
                             const std::unordered_set<int>& tracked, int hashUpperBound) {
@@ -909,38 +912,57 @@ static void appendEvolution(EvolutionData& evo, BRepBuilderAPI_MakeShape& maker,
     auto hashShape = [&](const TopoDS_Shape& s) -> int {
         return static_cast<int>(TopTools_ShapeMapHasher{}(s) % static_cast<size_t>(hashUpperBound));
     };
+    auto record = [&](const TopoDS_Shape& s, int hash, std::vector<int>& modified,
+                      std::vector<int>& generated, std::vector<int>& deleted) {
+        auto modifiedList = maker.Modified(s);
+        if (!modifiedList.IsEmpty()) {
+            modified.push_back(hash);
+            modified.push_back(static_cast<int>(modifiedList.Size()));
+            for (auto it = modifiedList.begin(); it != modifiedList.end(); ++it) {
+                modified.push_back(hashShape(*it));
+            }
+        }
+
+        auto generatedList = maker.Generated(s);
+        if (!generatedList.IsEmpty()) {
+            generated.push_back(hash);
+            generated.push_back(static_cast<int>(generatedList.Size()));
+            for (auto it = generatedList.begin(); it != generatedList.end(); ++it) {
+                generated.push_back(hashShape(*it));
+            }
+        }
+
+        if (maker.IsDeleted(s)) {
+            deleted.push_back(hash);
+        }
+    };
 
     for (TopExp_Explorer ex(inputShape, TopAbs_FACE); ex.More(); ex.Next()) {
         const auto& face = ex.Current();
         int faceHash = hashShape(face);
         if (tracked.count(faceHash) == 0)
             continue;
-
-        auto modifiedList = maker.Modified(face);
-        if (!modifiedList.IsEmpty()) {
-            evo.modified.push_back(faceHash);
-            evo.modified.push_back(static_cast<int>(modifiedList.Size()));
-            for (auto it = modifiedList.begin(); it != modifiedList.end(); ++it) {
-                evo.modified.push_back(hashShape(*it));
-            }
-        }
-
-        auto generatedList = maker.Generated(face);
-        if (!generatedList.IsEmpty()) {
-            evo.generated.push_back(faceHash);
-            evo.generated.push_back(static_cast<int>(generatedList.Size()));
-            for (auto it = generatedList.begin(); it != generatedList.end(); ++it) {
-                evo.generated.push_back(hashShape(*it));
-            }
-        }
-
-        if (maker.IsDeleted(face)) {
-            evo.deleted.push_back(faceHash);
-        }
+        record(face, faceHash, evo.modified, evo.generated, evo.deleted);
     }
+
+    // An explorer visits an edge once per face that uses it; the map holds each once.
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edges;
+    TopExp::MapShapes(inputShape, TopAbs_EDGE, edges);
+    std::vector<int> edgeModified, edgeGenerated, edgeDeleted;
+    try {
+        for (int i = 1; i <= edges.Extent(); ++i) {
+            const auto& edge = edges.FindKey(i);
+            record(edge, hashShape(edge), edgeModified, edgeGenerated, edgeDeleted);
+        }
+    } catch (const Standard_Failure&) {
+        return;
+    }
+    evo.edgeModified.insert(evo.edgeModified.end(), edgeModified.begin(), edgeModified.end());
+    evo.edgeGenerated.insert(evo.edgeGenerated.end(), edgeGenerated.begin(), edgeGenerated.end());
+    evo.edgeDeleted.insert(evo.edgeDeleted.end(), edgeDeleted.begin(), edgeDeleted.end());
 }
 
-/// Build evolution data by tracking Modified/Generated/Deleted faces.
+/// Build evolution data by tracking Modified/Generated/Deleted faces and edges.
 static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,
                                     const TopoDS_Shape& inputShape,
                                     const std::vector<int>& inputFaceHashes, int hashUpperBound) {
@@ -4516,6 +4538,9 @@ EvolutionData OcctKernel::fuseWithHistory(uint32_t a, uint32_t b, std::vector<in
         evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
         evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
         evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+        evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
+        evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
+        evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
         return evo;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("fuseWithHistory: ") + e.what());
@@ -4538,6 +4563,9 @@ EvolutionData OcctKernel::cutWithHistory(uint32_t a, uint32_t b, std::vector<int
         evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
         evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
         evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+        evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
+        evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
+        evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
         return evo;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("cutWithHistory: ") + e.what());
@@ -4622,6 +4650,9 @@ EvolutionData OcctKernel::intersectWithHistory(uint32_t a, uint32_t b, std::vect
         evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
         evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
         evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+        evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
+        evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
+        evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
         return evo;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("intersectWithHistory: ") + e.what());

@@ -80,6 +80,9 @@ export interface RawEvolutionData {
     modified: EmbindVectorI32;
     generated: EmbindVectorI32;
     deleted: EmbindVectorI32;
+    edgeModified: EmbindVectorI32;
+    edgeGenerated: EmbindVectorI32;
+    edgeDeleted: EmbindVectorI32;
 }
 
 export interface RawProjectionData {

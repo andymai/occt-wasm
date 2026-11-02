@@ -554,8 +554,15 @@ export interface EdgeData {
 }
 
 /**
- * Shape history data from an operation that tracks face evolution.
- * Maps input face hashes to their modified/generated/deleted status.
+ * Shape history data from an operation that tracks face and edge evolution.
+ * Faces are reported for the input face hashes passed in; edges are reported
+ * for every edge of the input.
+ *
+ * The `modified` and `generated` lists are run-length encoded as
+ * `[inputHash, count, resultHash, ...]`, one group per input shape that has
+ * any. The `deleted` lists are flat input hashes. A `generated` list holds
+ * shapes of any type: a fillet's or chamfer's face is reported in
+ * `edgeGenerated`, under the input edge it replaces.
  */
 export interface EvolutionData {
     /** Result shape handle. */
@@ -566,6 +573,12 @@ export interface EvolutionData {
     generated: number[];
     /** Face hashes from the input that no longer exist in the result. */
     deleted: number[];
+    /** Edge hashes from the input that were modified in the result. */
+    edgeModified: number[];
+    /** Shapes generated from input edges, keyed by the input edge hash. */
+    edgeGenerated: number[];
+    /** Edge hashes from the input that no longer exist in the result. */
+    edgeDeleted: number[];
 }
 
 /** HLR (hidden line removal) projection result, split by visibility and edge category. */

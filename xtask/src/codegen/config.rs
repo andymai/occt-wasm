@@ -4927,6 +4927,9 @@ EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashU
 evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
 evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
 evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
+evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
+evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
 return evo;",
         includes: &["BRepAlgoAPI_Fuse.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
@@ -4956,6 +4959,9 @@ EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashU
 evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
 evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
 evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
+evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
+evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
 return evo;",
         includes: &["BRepAlgoAPI_Cut.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
@@ -5083,6 +5089,9 @@ EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashU
 evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
 evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
 evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
+evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
+evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
+evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
 return evo;",
         includes: &["BRepAlgoAPI_Common.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",

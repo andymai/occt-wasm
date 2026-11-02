@@ -124,6 +124,98 @@ describe("*WithHistory wrapper coverage", () => {
     });
 });
 
+/** Decode a run-length-encoded `[inputHash, count, resultHash...]` list. */
+function decodeGroups(list: number[]): Map<number, number[]> {
+    const groups = new Map<number, number[]>();
+    for (let i = 0; i < list.length; ) {
+        const input = list[i]!;
+        const count = list[i + 1]!;
+        groups.set(input, [...(groups.get(input) ?? []), ...list.slice(i + 2, i + 2 + count)]);
+        i += 2 + count;
+    }
+    return groups;
+}
+
+function hashesOf(shape: number, type: "face" | "edge"): number[] {
+    return kernel.getSubShapes(shape, type).map((s: number) => kernel.hashCode(s, BOUND));
+}
+
+/** The four edges of a 10 mm box that run along Z. */
+function verticalEdges(box: number): number[] {
+    return kernel.getSubShapes(box, "edge").filter((e: number) => {
+        const bb = kernel.getBoundingBox(e);
+        return bb.zmax - bb.zmin > 9 && bb.xmax - bb.xmin < 1e-6 && bb.ymax - bb.ymin < 1e-6;
+    });
+}
+
+describe("*WithHistory edge history", () => {
+    it("filletWithHistory reports each filleted edge's rounded face in edgeGenerated", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const edges = verticalEdges(box);
+        expect(edges).toHaveLength(4);
+        const evo = kernel.filletWithHistory(box, edges, 1, faceHashes(box), BOUND);
+
+        const roundFaces = kernel
+            .getSubShapes(evo.result, "face")
+            .filter((f: number) => kernel.surfaceType(f) === "cylinder")
+            .map((f: number) => kernel.hashCode(f, BOUND));
+        expect(roundFaces).toHaveLength(4);
+
+        const generated = decodeGroups(evo.edgeGenerated);
+        const fromPicked = new Set<number>();
+        for (const e of edges) {
+            const results = generated.get(kernel.hashCode(e, BOUND)) ?? [];
+            const faces = results.filter((h) => roundFaces.includes(h));
+            expect(faces).toHaveLength(1);
+            fromPicked.add(faces[0]!);
+        }
+        expect(fromPicked.size).toBe(4);
+    });
+
+    it("chamferWithHistory reports each chamfered edge's bevel face in edgeGenerated", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const edges = verticalEdges(box);
+        const evo = kernel.chamferWithHistory(box, edges, 1, faceHashes(box), BOUND);
+        const resultFaces = hashesOf(evo.result, "face");
+        const inputFaces = new Set(faceHashes(box));
+        const generated = decodeGroups(evo.edgeGenerated);
+        for (const e of edges) {
+            const results = generated.get(kernel.hashCode(e, BOUND)) ?? [];
+            const newFaces = results.filter((h) => resultFaces.includes(h) && !inputFaces.has(h));
+            expect(newFaces).toHaveLength(1);
+        }
+    });
+
+    it("edgeModified maps input edges only to edges of the result", () => {
+        const a = kernel.makeBox(10, 10, 10);
+        const b = kernel.translate(kernel.makeBox(10, 10, 10), 5, 5, 5);
+        const evo = kernel.cutWithHistory(a, b, faceHashes(a), BOUND);
+        const inputEdges = new Set([...hashesOf(a, "edge"), ...hashesOf(b, "edge")]);
+        const resultEdges = new Set(hashesOf(evo.result, "edge"));
+        const modified = decodeGroups(evo.edgeModified);
+        expect(modified.size).toBeGreaterThan(0);
+        for (const [input, results] of modified) {
+            expect(inputEdges.has(input)).toBe(true);
+            for (const r of results) expect(resultEdges.has(r)).toBe(true);
+        }
+        for (const d of evo.edgeDeleted) expect(inputEdges.has(d)).toBe(true);
+    });
+
+    it("translateWithHistory gives every input edge its moved counterpart", () => {
+        const box = kernel.makeBox(10, 10, 10);
+        const evo = kernel.translateWithHistory(box, 5, 0, 0, faceHashes(box), BOUND);
+        const resultEdges = new Set(hashesOf(evo.result, "edge"));
+        const modified = decodeGroups(evo.edgeModified);
+        for (const e of hashesOf(box, "edge")) {
+            const results = modified.get(e);
+            // An edge the transform kept as-is has no Modified entry and is in the result itself.
+            if (results === undefined) expect(resultEdges.has(e)).toBe(true);
+            else expect(results.every((r) => resultEdges.has(r))).toBe(true);
+        }
+        expect(evo.edgeDeleted).toHaveLength(0);
+    });
+});
+
 describe("XCAF wrapper factory coverage", () => {
     it("createXCAFDocument builds, exports STEP, and round-trips via importXCAFFromSTEP", () => {
         const doc = kernel.createXCAFDocument();
