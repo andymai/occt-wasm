@@ -84,10 +84,28 @@ describe("booleanOp", () => {
         expect(modified.some((h) => fromT2.includes(h))).toBe(true);
     });
 
-    it("collects no history without face hashes", () => {
+    it("collects no history without a hash bound", () => {
         const [a, b] = overlappingCubes();
         const evo = kernel.booleanOp(mod.BooleanOp.Fuse, [a], [b]);
         expect(evo.modified.length + evo.generated.length + evo.deleted.length).toBe(0);
+        expect(evo.edgeModified.length + evo.edgeGenerated.length + evo.edgeDeleted.length).toBe(0);
+    });
+
+    it("collects edge history alone from a hash bound with no face hashes", () => {
+        const [a, b] = overlappingCubes();
+        const inputEdges = new Set(
+            [a, b].flatMap((s) =>
+                kernel.getSubShapes(s, "edge").map((e: number) => kernel.hashCode(e, BOUND)),
+            ),
+        );
+        const evo = kernel.booleanOp(mod.BooleanOp.Cut, [a], [b], { hashUpperBound: BOUND });
+        expect(evo.modified.length + evo.generated.length + evo.deleted.length).toBe(0);
+        const edgeModified: number[] = Array.from(evo.edgeModified);
+        expect(edgeModified.length).toBeGreaterThan(0);
+        // Each run-length group opens with the input edge it describes.
+        for (let i = 0; i < edgeModified.length; i += 2 + edgeModified[i + 1]!) {
+            expect(inputEdges.has(edgeModified[i]!)).toBe(true);
+        }
     });
 
     it("simplifies the result within the angular tolerance", () => {

@@ -85,7 +85,10 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("resultId", &EvolutionData::resultId)
         .property("modified", &EvolutionData::modified)
         .property("generated", &EvolutionData::generated)
-        .property("deleted", &EvolutionData::deleted);
+        .property("deleted", &EvolutionData::deleted)
+        .property("edgeModified", &EvolutionData::edgeModified)
+        .property("edgeGenerated", &EvolutionData::edgeGenerated)
+        .property("edgeDeleted", &EvolutionData::edgeDeleted);
 
     // XCAFLabelInfo
     value_object<XCAFLabelInfo>("XCAFLabelInfo")

@@ -564,7 +564,12 @@ export interface BooleanOpOptions {
     simplifyAngularTolerance?: number;
     /** Face hashes to track; the result's `modified`/`generated`/`deleted` cover them. */
     inputFaceHashes?: number[];
-    /** Upper bound the hashes were computed with. Required with `inputFaceHashes`. */
+    /**
+     * Upper bound the hashes were computed with. Required with `inputFaceHashes`.
+     * A positive bound turns history on: the tracked faces plus every input
+     * edge (`edgeModified`/`edgeGenerated`/`edgeDeleted`), so a bound with no
+     * face hashes collects edge history alone. Left at 0, no history is collected.
+     */
     hashUpperBound?: number;
 }
 
@@ -601,8 +606,17 @@ export interface EdgeData {
 }
 
 /**
- * Shape history data from an operation that tracks face evolution.
- * Maps input face hashes to their modified/generated/deleted status.
+ * Shape history data from an operation that tracks face and edge evolution.
+ * Faces are reported for the input face hashes passed in. Edges are reported
+ * for every edge of the input, best effort: if OCCT fails while answering for
+ * an input's edges, that input contributes no edge entries and the operation
+ * still succeeds.
+ *
+ * `modified`, `generated`, `edgeModified` and `edgeGenerated` are run-length
+ * encoded as `[inputHash, count, resultHash, ...]`, one group per input shape
+ * that has any. `deleted` and `edgeDeleted` are flat input hashes.
+ * `edgeGenerated` holds result shapes of any type: a fillet's or chamfer's
+ * face is reported there, under the input edge it replaces.
  */
 export interface EvolutionData {
     /** Result shape handle. */
@@ -613,6 +627,12 @@ export interface EvolutionData {
     generated: number[];
     /** Face hashes from the input that no longer exist in the result. */
     deleted: number[];
+    /** Edge hashes from the input that were modified in the result. */
+    edgeModified: number[];
+    /** Shapes generated from input edges, keyed by the input edge hash. */
+    edgeGenerated: number[];
+    /** Edge hashes from the input that no longer exist in the result. */
+    edgeDeleted: number[];
 }
 
 /** HLR (hidden line removal) projection result, split by visibility and edge category. */

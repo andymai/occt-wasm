@@ -107,11 +107,19 @@ struct EdgeData {
 };
 
 /// Evolution data from an operation.
+///
+/// `modified`/`generated`/`deleted` cover the tracked input faces;
+/// `edgeModified`/`edgeGenerated`/`edgeDeleted` cover every input edge (best effort).
+/// `modified`/`generated`/`edgeModified`/`edgeGenerated` are run-length encoded as
+/// `[inputHash, count, resultHash...]`; `deleted`/`edgeDeleted` are flat input hashes.
 struct EvolutionData {
     uint32_t resultId = 0;
     std::vector<int> modified;
     std::vector<int> generated;
     std::vector<int> deleted;
+    std::vector<int> edgeModified;
+    std::vector<int> edgeGenerated;
+    std::vector<int> edgeDeleted;
 };
 
 /// Projection result (hidden line removal).
