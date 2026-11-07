@@ -1,0 +1,19 @@
+facade/generated/kernel.cpp
+  s_7b53f3324d25da::t_4fdae6bb9eed67 3631-3633
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "071f2b39a4461ba962e699211841e762c32a3562",
+  "prompts": {},
+  "sessions": {
+    "s_7b53f3324d25da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "34985578-074b-45af-adfa-32aeae9c626d",
+        "model": "unknown"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
