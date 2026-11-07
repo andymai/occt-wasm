@@ -157,6 +157,12 @@ pub struct OcctKernel {
     pub(crate) fn_get_evo_edge_generated_len: TypedFunc<(), u32>,
     pub(crate) fn_get_evo_edge_deleted: TypedFunc<(), i32>,
     pub(crate) fn_get_evo_edge_deleted_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_evo_first_shape: TypedFunc<(), i32>,
+    pub(crate) fn_get_evo_first_shape_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_evo_last_shape: TypedFunc<(), i32>,
+    pub(crate) fn_get_evo_last_shape_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_evo_spine_generated: TypedFunc<(), i32>,
+    pub(crate) fn_get_evo_spine_generated_len: TypedFunc<(), u32>,
 
     // Projection accessors
     pub(crate) fn_get_proj_visible_outline: TypedFunc<(), u32>,
@@ -419,6 +425,12 @@ impl OcctKernel {
             fn_get_evo_edge_generated_len: get_fn!("occt_get_evo_edge_generated_len" => u32),
             fn_get_evo_edge_deleted: get_fn!("occt_get_evo_edge_deleted" => i32),
             fn_get_evo_edge_deleted_len: get_fn!("occt_get_evo_edge_deleted_len" => u32),
+            fn_get_evo_first_shape: get_fn!("occt_get_evo_first_shape" => i32),
+            fn_get_evo_first_shape_len: get_fn!("occt_get_evo_first_shape_len" => u32),
+            fn_get_evo_last_shape: get_fn!("occt_get_evo_last_shape" => i32),
+            fn_get_evo_last_shape_len: get_fn!("occt_get_evo_last_shape_len" => u32),
+            fn_get_evo_spine_generated: get_fn!("occt_get_evo_spine_generated" => i32),
+            fn_get_evo_spine_generated_len: get_fn!("occt_get_evo_spine_generated_len" => u32),
 
             fn_get_proj_visible_outline: get_fn!("occt_get_proj_visible_outline" => u32),
             fn_get_proj_visible_smooth: get_fn!("occt_get_proj_visible_smooth" => u32),
@@ -801,6 +813,14 @@ impl OcctKernel {
             .call(&mut self.store, ())?;
         let edge_del_ptr = self.fn_get_evo_edge_deleted.call(&mut self.store, ())?;
         let edge_del_len = self.fn_get_evo_edge_deleted_len.call(&mut self.store, ())?;
+        let first_ptr = self.fn_get_evo_first_shape.call(&mut self.store, ())?;
+        let first_len = self.fn_get_evo_first_shape_len.call(&mut self.store, ())?;
+        let last_ptr = self.fn_get_evo_last_shape.call(&mut self.store, ())?;
+        let last_len = self.fn_get_evo_last_shape_len.call(&mut self.store, ())?;
+        let spine_ptr = self.fn_get_evo_spine_generated.call(&mut self.store, ())?;
+        let spine_len = self
+            .fn_get_evo_spine_generated_len
+            .call(&mut self.store, ())?;
 
         Ok(EvolutionData {
             result_id,
@@ -810,6 +830,9 @@ impl OcctKernel {
             edge_modified: self.read_i32_slice(edge_mod_ptr as u32, edge_mod_len)?,
             edge_generated: self.read_i32_slice(edge_gen_ptr as u32, edge_gen_len)?,
             edge_deleted: self.read_i32_slice(edge_del_ptr as u32, edge_del_len)?,
+            first_shape: self.read_i32_slice(first_ptr as u32, first_len)?,
+            last_shape: self.read_i32_slice(last_ptr as u32, last_len)?,
+            spine_generated: self.read_i32_slice(spine_ptr as u32, spine_len)?,
         })
     }
 

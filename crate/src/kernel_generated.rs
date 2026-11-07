@@ -297,6 +297,14 @@ pub(crate) struct GeneratedFuncs {
     fn_from_brep: TypedFunc<(i32, i32), u32>,
     fn_to_brep_binary: TypedFunc<(u32,), i32>,
     fn_from_brep_binary: TypedFunc<(i32, i32), u32>,
+    fn_extrude_with_history: TypedFunc<(u32, f64, f64, f64, i32, i32, i32), i32>,
+    fn_revolve_with_history:
+        TypedFunc<(u32, f64, f64, f64, f64, f64, f64, f64, i32, i32, i32), i32>,
+    fn_pipe_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
+    fn_sweep_with_history: TypedFunc<(u32, u32, u32, u32, i32, i32, i32, i32, i32), i32>,
+    fn_loft_with_history: TypedFunc<(i32, i32, i32, i32, u32, u32, i32, i32, i32), i32>,
+    fn_unify_same_domain_with_history: TypedFunc<(u32, i32, i32, i32), i32>,
+    fn_transform_with_history: TypedFunc<(u32, i32, i32, i32, i32, i32), i32>,
     fn_translate_with_history: TypedFunc<(u32, f64, f64, f64, i32, i32, i32), i32>,
     fn_fuse_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
     fn_cut_with_history: TypedFunc<(u32, u32, i32, i32, i32), i32>,
@@ -569,6 +577,18 @@ impl GeneratedFuncs {
             fn_from_brep: instance.get_typed_func(&mut store, "occt_from_brep")?,
             fn_to_brep_binary: instance.get_typed_func(&mut store, "occt_to_brep_binary")?,
             fn_from_brep_binary: instance.get_typed_func(&mut store, "occt_from_brep_binary")?,
+            fn_extrude_with_history: instance
+                .get_typed_func(&mut store, "occt_extrude_with_history")?,
+            fn_revolve_with_history: instance
+                .get_typed_func(&mut store, "occt_revolve_with_history")?,
+            fn_pipe_with_history: instance.get_typed_func(&mut store, "occt_pipe_with_history")?,
+            fn_sweep_with_history: instance
+                .get_typed_func(&mut store, "occt_sweep_with_history")?,
+            fn_loft_with_history: instance.get_typed_func(&mut store, "occt_loft_with_history")?,
+            fn_unify_same_domain_with_history: instance
+                .get_typed_func(&mut store, "occt_unify_same_domain_with_history")?,
+            fn_transform_with_history: instance
+                .get_typed_func(&mut store, "occt_transform_with_history")?,
             fn_translate_with_history: instance
                 .get_typed_func(&mut store, "occt_translate_with_history")?,
             fn_fuse_with_history: instance.get_typed_func(&mut store, "occt_fuse_with_history")?,
@@ -4374,6 +4394,282 @@ impl crate::kernel::OcctKernel {
             return Err(self.read_last_error("from_brep_binary"));
         }
         Ok(ShapeHandle(result))
+    }
+
+    pub fn extrude_with_history(
+        &mut self,
+        shape_id: ShapeHandle,
+        dx: f64,
+        dy: f64,
+        dz: f64,
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = self.write_bytes(&input_face_hashes_bytes)?;
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_extrude_with_history.call(
+            &mut self.store,
+            (
+                shape_id.0,
+                dx,
+                dy,
+                dz,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("extrude_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn revolve_with_history(
+        &mut self,
+        shape_id: ShapeHandle,
+        px: f64,
+        py: f64,
+        pz: f64,
+        dx: f64,
+        dy: f64,
+        dz: f64,
+        angle_rad: f64,
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = self.write_bytes(&input_face_hashes_bytes)?;
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_revolve_with_history.call(
+            &mut self.store,
+            (
+                shape_id.0,
+                px,
+                py,
+                pz,
+                dx,
+                dy,
+                dz,
+                angle_rad,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("revolve_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn pipe_with_history(
+        &mut self,
+        profile_id: ShapeHandle,
+        spine_id: ShapeHandle,
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = self.write_bytes(&input_face_hashes_bytes)?;
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_pipe_with_history.call(
+            &mut self.store,
+            (
+                profile_id.0,
+                spine_id.0,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("pipe_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn sweep_with_history(
+        &mut self,
+        profile_id: ShapeHandle,
+        spine_id: ShapeHandle,
+        aux_spine_id: u32,
+        support_id: u32,
+        options: &[f64],
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let options_bytes: Vec<u8> = options.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let options_ptr = self.write_bytes(&options_bytes)?;
+        let options_len = options.len() as u32;
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(options_ptr);
+                return Err(e);
+            }
+        };
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_sweep_with_history.call(
+            &mut self.store,
+            (
+                profile_id.0,
+                spine_id.0,
+                aux_spine_id,
+                support_id,
+                options_ptr as i32,
+                options_len as i32,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(options_ptr)?;
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("sweep_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn loft_with_history(
+        &mut self,
+        wire_ids: &[ShapeHandle],
+        is_solid: bool,
+        ruled: bool,
+        start_vertex_id: u32,
+        end_vertex_id: u32,
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let wire_ids_bytes: Vec<u8> = wire_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let wire_ids_ptr = self.write_bytes(&wire_ids_bytes)?;
+        let wire_ids_len = wire_ids.len() as u32;
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(wire_ids_ptr);
+                return Err(e);
+            }
+        };
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_loft_with_history.call(
+            &mut self.store,
+            (
+                wire_ids_ptr as i32,
+                wire_ids_len as i32,
+                i32::from(is_solid),
+                i32::from(ruled),
+                start_vertex_id,
+                end_vertex_id,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(wire_ids_ptr)?;
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("loft_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn unify_same_domain_with_history(
+        &mut self,
+        id: ShapeHandle,
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = self.write_bytes(&input_face_hashes_bytes)?;
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_unify_same_domain_with_history.call(
+            &mut self.store,
+            (
+                id.0,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("unify_same_domain_with_history"));
+        }
+        self.read_evolution_result()
+    }
+
+    pub fn transform_with_history(
+        &mut self,
+        id: ShapeHandle,
+        matrix: &[f64],
+        input_face_hashes: &[i32],
+        hash_upper_bound: i32,
+    ) -> OcctResult<EvolutionData> {
+        let matrix_bytes: Vec<u8> = matrix.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let matrix_ptr = self.write_bytes(&matrix_bytes)?;
+        let matrix_len = matrix.len() as u32;
+        let input_face_hashes_bytes: Vec<u8> = input_face_hashes
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let input_face_hashes_ptr = match self.write_bytes(&input_face_hashes_bytes) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(matrix_ptr);
+                return Err(e);
+            }
+        };
+        let input_face_hashes_len = input_face_hashes.len() as u32;
+        let status = self.generated.fn_transform_with_history.call(
+            &mut self.store,
+            (
+                id.0,
+                matrix_ptr as i32,
+                matrix_len as i32,
+                input_face_hashes_ptr as i32,
+                input_face_hashes_len as i32,
+                hash_upper_bound,
+            ),
+        );
+        self.free_bytes(matrix_ptr)?;
+        self.free_bytes(input_face_hashes_ptr)?;
+        let status = status?;
+        if status < 0 {
+            return Err(self.read_last_error("transform_with_history"));
+        }
+        self.read_evolution_result()
     }
 
     pub fn translate_with_history(

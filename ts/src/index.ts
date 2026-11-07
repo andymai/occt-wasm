@@ -2375,6 +2375,152 @@ export class OcctKernel {
     // Evolution (operations with shape history)
     // =======================================================================
 
+    /** {@link OcctKernel.extrude}, reporting each profile edge's wall and the two caps. */
+    extrudeWithHistory(shape: ShapeHandle, dx: number, dy: number, dz: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+        return wrap("extrudeWithHistory", () => {
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.extrudeWithHistory(shape, dx, dy, dz, hashes, hashUpperBound)));
+        });
+    }
+
+    /**
+     * {@link OcctKernel.revolve}, reporting each profile edge's face and the two
+     * caps. A full revolve has no caps.
+     */
+    revolveWithHistory(
+        shape: ShapeHandle,
+        axis: { point: Vec3; direction: Vec3 },
+        angleRad: number,
+        inputFaceHashes: number[],
+        hashUpperBound: number,
+    ): EvolutionData {
+        return wrap("revolveWithHistory", () =>
+            this.#withI32(inputFaceHashes, (hashes) =>
+                this.#extractEvolution(this.#raw.revolveWithHistory(
+                    shape,
+                    axis.point.x, axis.point.y, axis.point.z,
+                    axis.direction.x, axis.direction.y, axis.direction.z,
+                    angleRad,
+                    hashes,
+                    hashUpperBound,
+                )),
+            ),
+        );
+    }
+
+    /**
+     * {@link OcctKernel.pipe}, reporting each profile edge's faces, the two caps
+     * of a face profile on an open spine, and in `spineGenerated` the face for
+     * each spine edge and profile edge.
+     */
+    pipeWithHistory(profile: ShapeHandle, spine: ShapeHandle, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+        return wrap("pipeWithHistory", () => {
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.pipeWithHistory(profile, spine, hashes, hashUpperBound)));
+        });
+    }
+
+    /**
+     * {@link OcctKernel.sweepFull}, reporting each profile edge's faces, the two
+     * caps, and in `spineGenerated` the faces for each spine edge and profile
+     * edge. The options cover every other sweep too: mind that
+     * {@link OcctKernel.sweepPipeShell} defaults to a round-corner transition,
+     * where these default to {@link TransitionMode.Transformed}.
+     */
+    sweepWithHistory(
+        profile: ShapeHandle,
+        spine: ShapeHandle,
+        inputFaceHashes: number[],
+        hashUpperBound: number,
+        options: SweepFullOptions = {},
+    ): EvolutionData {
+        const up = options.up ?? { x: 0, y: 0, z: 1 };
+        const law = options.law ?? SweepLaw.None;
+        if (law !== SweepLaw.None && options.lawLength === undefined) {
+            throw new Error("sweepWithHistory: lawLength is required when a law is set");
+        }
+        const packed = [
+            options.mode ?? SweepMode.Fixed,
+            up.x,
+            up.y,
+            up.z,
+            options.curvilinearEquivalence ? 1 : 0,
+            options.guideContact ?? SweepContact.None,
+            options.transitionMode ?? TransitionMode.Transformed,
+            options.withContact ? 1 : 0,
+            options.withCorrection ? 1 : 0,
+            options.tol3d ?? 0,
+            options.boundTol ?? 0,
+            options.tolAngular ?? 0,
+            options.maxDegree ?? 0,
+            options.maxSegments ?? 0,
+            law,
+            options.lawLength ?? 0,
+            options.lawEndFactor ?? 1,
+        ];
+        return wrap("sweepWithHistory", () =>
+            this.#withF64(packed, (packedVec) =>
+                this.#withI32(inputFaceHashes, (hashes) =>
+                    this.#extractEvolution(this.#raw.sweepWithHistory(
+                        profile,
+                        spine,
+                        options.auxSpine ?? 0,
+                        options.support ?? 0,
+                        packedVec,
+                        hashes,
+                        hashUpperBound,
+                    )),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * {@link OcctKernel.loft}, reporting the faces of every section's edges and
+     * the two caps. `vertices` starts or ends the loft at a point, as
+     * {@link OcctKernel.loftWithVertices} does.
+     */
+    loftWithHistory(
+        wires: ShapeHandle[],
+        isSolid: boolean,
+        ruled: boolean,
+        inputFaceHashes: number[],
+        hashUpperBound: number,
+        vertices: { start?: ShapeHandle; end?: ShapeHandle } = {},
+    ): EvolutionData {
+        return wrap("loftWithHistory", () =>
+            this.#withU32(wires, (wireVec) =>
+                this.#withI32(inputFaceHashes, (hashes) =>
+                    this.#extractEvolution(this.#raw.loftWithHistory(
+                        wireVec,
+                        isSolid,
+                        ruled,
+                        vertices.start ?? 0,
+                        vertices.end ?? 0,
+                        hashes,
+                        hashUpperBound,
+                    )),
+                ),
+            ),
+        );
+    }
+
+    /** {@link OcctKernel.unifySameDomain}, reporting the merged face or edge each input became. */
+    unifySameDomainWithHistory(shape: ShapeHandle, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+        return wrap("unifySameDomainWithHistory", () => {
+            return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.unifySameDomainWithHistory(shape, hashes, hashUpperBound)));
+        });
+    }
+
+    /** {@link OcctKernel.transform}, reporting history as the other transforms do. */
+    transformWithHistory(shape: ShapeHandle, matrix: number[], inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
+        return wrap("transformWithHistory", () =>
+            this.#withF64(matrix, (matrixVec) =>
+                this.#withI32(inputFaceHashes, (hashes) =>
+                    this.#extractEvolution(this.#raw.transformWithHistory(shape, matrixVec, hashes, hashUpperBound)),
+                ),
+            ),
+        );
+    }
+
     translateWithHistory(shape: ShapeHandle, dx: number, dy: number, dz: number, inputFaceHashes: number[], hashUpperBound: number): EvolutionData {
         return wrap("translateWithHistory", () => {
             return this.#withI32(inputFaceHashes, (hashes) => this.#extractEvolution(this.#raw.translateWithHistory(shape, dx, dy, dz, hashes, hashUpperBound)));
@@ -3079,6 +3225,9 @@ export class OcctKernel {
         const edgeModified = this.#drainVector(raw.edgeModified, Int32Array);
         const edgeGenerated = this.#drainVector(raw.edgeGenerated, Int32Array);
         const edgeDeleted = this.#drainVector(raw.edgeDeleted, Int32Array);
+        const firstShape = this.#drainVector(raw.firstShape, Int32Array);
+        const lastShape = this.#drainVector(raw.lastShape, Int32Array);
+        const spineGenerated = this.#drainVector(raw.spineGenerated, Int32Array);
         return {
             result: handle(raw.resultId),
             modified,
@@ -3087,6 +3236,9 @@ export class OcctKernel {
             edgeModified,
             edgeGenerated,
             edgeDeleted,
+            firstShape,
+            lastShape,
+            spineGenerated,
         };
     }
 }

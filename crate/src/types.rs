@@ -297,6 +297,14 @@ pub enum SurfaceData {
 /// shape that has any. `deleted` and `edge_deleted` are flat input hashes.
 /// `edge_generated` holds result shapes of any type: a fillet's or chamfer's
 /// face is reported there, under the input edge it replaces.
+///
+/// A sweep's faces are in `edge_generated` too, under the profile edge that swept
+/// them, and `generated` holds the solid a profile face swept into. Extrude, revolve,
+/// pipe, sweep and loft fill `first_shape` and `last_shape`; pipe and sweep fill
+/// `spine_generated`.
+///
+/// Hash a wire's edges as `get_sub_shapes` returns them, not the edges given to
+/// `make_wire`, which can copy an edge to share a vertex.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct EvolutionData {
@@ -314,6 +322,13 @@ pub struct EvolutionData {
     pub edge_generated: Vec<i32>,
     /// Deleted edge hashes.
     pub edge_deleted: Vec<i32>,
+    /// Result hashes of the faces capping the start of a sweep. Empty when it has none.
+    pub first_shape: Vec<i32>,
+    /// Result hashes of the faces capping the end of a sweep. Empty when it has none.
+    pub last_shape: Vec<i32>,
+    /// The faces each spine edge and profile edge swept into together, encoded as
+    /// `[spine_edge_hash, profile_edge_hash, count, face_hash, ...]`.
+    pub spine_generated: Vec<i32>,
 }
 
 impl EvolutionData {

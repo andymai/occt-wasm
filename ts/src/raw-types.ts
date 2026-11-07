@@ -83,6 +83,9 @@ export interface RawEvolutionData {
     edgeModified: EmbindVectorI32;
     edgeGenerated: EmbindVectorI32;
     edgeDeleted: EmbindVectorI32;
+    firstShape: EmbindVectorI32;
+    lastShape: EmbindVectorI32;
+    spineGenerated: EmbindVectorI32;
 }
 
 export interface RawProjectionData {
@@ -438,6 +441,13 @@ export interface OcctRawKernel {
     offsetWire2D(wireId: number, offset: number, joinType: number): number;
 
     // Evolution
+    extrudeWithHistory(shapeId: number, dx: number, dy: number, dz: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    revolveWithHistory(shapeId: number, px: number, py: number, pz: number, dx: number, dy: number, dz: number, angleRad: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    pipeWithHistory(profileId: number, spineId: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    sweepWithHistory(profileId: number, spineId: number, auxSpineId: number, supportId: number, options: EmbindVectorF64, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    loftWithHistory(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean, startVertexId: number, endVertexId: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    unifySameDomainWithHistory(id: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
+    transformWithHistory(id: number, matrix: EmbindVectorF64, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     translateWithHistory(id: number, dx: number, dy: number, dz: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     fuseWithHistory(a: number, b: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;
     cutWithHistory(a: number, b: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;

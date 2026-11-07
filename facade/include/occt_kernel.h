@@ -112,6 +112,10 @@ struct EdgeData {
 /// `edgeModified`/`edgeGenerated`/`edgeDeleted` cover every input edge (best effort).
 /// `modified`/`generated`/`edgeModified`/`edgeGenerated` are run-length encoded as
 /// `[inputHash, count, resultHash...]`; `deleted`/`edgeDeleted` are flat input hashes.
+///
+/// `firstShape`/`lastShape` are flat result hashes of the cap faces, filled by extrude,
+/// revolve, pipe, sweep and loft. `spineGenerated`, filled by pipe and sweep, is
+/// run-length encoded as `[spineEdgeHash, profileEdgeHash, count, faceHash...]`.
 struct EvolutionData {
     uint32_t resultId = 0;
     std::vector<int> modified;
@@ -120,6 +124,9 @@ struct EvolutionData {
     std::vector<int> edgeModified;
     std::vector<int> edgeGenerated;
     std::vector<int> edgeDeleted;
+    std::vector<int> firstShape;
+    std::vector<int> lastShape;
+    std::vector<int> spineGenerated;
 };
 
 /// Projection result (hidden line removal).
@@ -498,6 +505,28 @@ class OcctKernel {
     uint32_t offsetWire2D(uint32_t wireId, double offset, int joinType);
 
     // --- Evolution (operations with shape history) ---
+    EvolutionData extrudeWithHistory(uint32_t shapeId, double dx, double dy, double dz,
+                                     std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData revolveWithHistory(uint32_t shapeId, double px, double py, double pz, double dx,
+                                     double dy, double dz, double angleRad,
+                                     std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData pipeWithHistory(uint32_t profileId, uint32_t spineId,
+                                  std::vector<int> inputFaceHashes, int hashUpperBound);
+    /// `auxSpineId` and `supportId` may be 0. `options` is empty for the defaults, or
+    /// [mode, upX, upY, upZ, curvilinearEquivalence, guideContact, transitionMode,
+    /// withContact, withCorrection, tol3d, boundTol, tolAngular, maxDegree, maxSegments,
+    /// lawKind, lawLength, lawEndFactor], each as `sweepFull` takes it.
+    EvolutionData sweepWithHistory(uint32_t profileId, uint32_t spineId, uint32_t auxSpineId,
+                                   uint32_t supportId, std::vector<double> options,
+                                   std::vector<int> inputFaceHashes, int hashUpperBound);
+    /// `startVertexId` and `endVertexId` may be 0.
+    EvolutionData loftWithHistory(std::vector<uint32_t> wireIds, bool isSolid, bool ruled,
+                                  uint32_t startVertexId, uint32_t endVertexId,
+                                  std::vector<int> inputFaceHashes, int hashUpperBound);
+    EvolutionData unifySameDomainWithHistory(uint32_t id, std::vector<int> inputFaceHashes,
+                                             int hashUpperBound);
+    EvolutionData transformWithHistory(uint32_t id, std::vector<double> matrix,
+                                       std::vector<int> inputFaceHashes, int hashUpperBound);
     EvolutionData translateWithHistory(uint32_t id, double dx, double dy, double dz,
                                        std::vector<int> inputFaceHashes, int hashUpperBound);
     EvolutionData fuseWithHistory(uint32_t a, uint32_t b, std::vector<int> inputFaceHashes,
