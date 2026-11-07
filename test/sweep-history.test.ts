@@ -360,6 +360,12 @@ describe("sweepWithHistory", () => {
         );
     });
 
+    it("rejects options that are not whole numbers where they must be", () => {
+        for (const maxDegree of [1.5, Number.NaN, Number.POSITIVE_INFINITY, 3e10]) {
+            expect(() => kernel.sweepWithHistory(square(), spine(), [], BOUND, { maxDegree })).toThrow(/whole number/);
+        }
+    });
+
     it("needs a law length with a law", () => {
         expect(() => kernel.sweepWithHistory(square(), spine(), [], BOUND, { law: 1 })).toThrow(/lawLength/);
     });

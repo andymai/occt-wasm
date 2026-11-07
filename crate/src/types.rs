@@ -299,8 +299,9 @@ pub enum SurfaceData {
 /// face is reported there, under the input edge it replaces.
 ///
 /// A sweep's faces are in `edge_generated` too, under the profile edge that swept
-/// them, and `generated` holds the solid a profile face swept into. Only the sweeps
-/// fill the last three fields.
+/// them, and `generated` holds the solid a profile face swept into. Extrude, revolve,
+/// pipe, sweep and loft fill `first_shape` and `last_shape`; pipe and sweep fill
+/// `spine_generated`.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct EvolutionData {

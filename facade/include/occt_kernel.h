@@ -113,9 +113,9 @@ struct EdgeData {
 /// `modified`/`generated`/`edgeModified`/`edgeGenerated` are run-length encoded as
 /// `[inputHash, count, resultHash...]`; `deleted`/`edgeDeleted` are flat input hashes.
 ///
-/// Only the sweeps fill the last three. `firstShape`/`lastShape` are flat result hashes
-/// of the cap faces. `spineGenerated` is run-length encoded as
-/// `[spineEdgeHash, profileEdgeHash, count, faceHash...]`.
+/// `firstShape`/`lastShape` are flat result hashes of the cap faces, filled by extrude,
+/// revolve, pipe, sweep and loft. `spineGenerated`, filled by pipe and sweep, is
+/// run-length encoded as `[spineEdgeHash, profileEdgeHash, count, faceHash...]`.
 struct EvolutionData {
     uint32_t resultId = 0;
     std::vector<int> modified;

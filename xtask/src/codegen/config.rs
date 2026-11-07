@@ -5347,23 +5347,32 @@ return evo;",
 if (!options.empty() && options.size() != 17) {
     throw std::runtime_error(\"sweepWithHistory: options must be empty or hold 17 values\");
 }
+// Raw callers can pass anything, and casting NaN or an out-of-range value to int is undefined.
+auto wholeOption = [&options](size_t i) {
+    const double value = options[i];
+    if (!(value >= -2147483648.0 && value <= 2147483647.0) || value != std::floor(value)) {
+        throw std::runtime_error(\"sweepWithHistory: option \" + std::to_string(i)
+                                 + \" must be a whole number\");
+    }
+    return static_cast<int>(value);
+};
 SweepSetup setup;
 if (!options.empty()) {
-    setup.mode = static_cast<int>(options[0]);
+    setup.mode = wholeOption(0);
     setup.upX = options[1];
     setup.upY = options[2];
     setup.upZ = options[3];
     setup.curvilinearEquivalence = options[4] != 0.0;
-    setup.guideContact = static_cast<int>(options[5]);
-    setup.transitionMode = static_cast<int>(options[6]);
+    setup.guideContact = wholeOption(5);
+    setup.transitionMode = wholeOption(6);
     setup.withContact = options[7] != 0.0;
     setup.withCorrection = options[8] != 0.0;
     setup.tol3d = options[9];
     setup.boundTol = options[10];
     setup.tolAngular = options[11];
-    setup.maxDegree = static_cast<int>(options[12]);
-    setup.maxSegments = static_cast<int>(options[13]);
-    setup.lawKind = static_cast<int>(options[14]);
+    setup.maxDegree = wholeOption(12);
+    setup.maxSegments = wholeOption(13);
+    setup.lawKind = wholeOption(14);
     setup.lawLength = options[15];
     setup.lawEndFactor = options[16];
 }
@@ -5413,6 +5422,7 @@ return evo;",
             "gp_Dir.hxx",
             "TopExp_Explorer.hxx",
             "TopTools_ShapeMapHasher.hxx",
+            "cmath",
         ],
         category: "evolution",
         return_type: ReturnType::EvolutionData,

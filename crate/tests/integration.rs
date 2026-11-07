@@ -1348,20 +1348,51 @@ fn sweep_and_pipe_with_history_pair_spine_and_profile_edges() {
     let swept = kernel
         .sweep_with_history(profile, spine, 0, 0, &[], &[], BOUND)
         .unwrap();
+    let spine_hashes = spine_edges.map(|e| kernel.hash_code(e, BOUND).unwrap());
+    let profile_hashes = profile_edges.map(|e| kernel.hash_code(e, BOUND).unwrap());
     for evo in [piped, swept] {
-        assert_eq!(runs(&evo.edge_generated).len(), 2);
+        let walls = runs(&evo.edge_generated);
+        assert_eq!(walls.len(), 2);
         assert!(evo.first_shape.is_empty());
-        let mut pairs = 0;
+        let result_faces: Vec<i32> = kernel
+            .get_sub_shapes(evo.result(), "face")
+            .unwrap()
+            .into_iter()
+            .map(|f| kernel.hash_code(f, BOUND).unwrap())
+            .collect();
+
+        let mut pairs = Vec::new();
         let mut rest = evo.spine_generated.as_slice();
-        while let [_, _, count, tail @ ..] = rest {
-            rest = &tail[usize::try_from(*count).unwrap()..];
-            pairs += 1;
+        while let [spine_hash, profile_hash, count, tail @ ..] = rest {
+            let (faces, next) = tail.split_at(usize::try_from(*count).unwrap());
+            assert!(!faces.is_empty());
+            let (_, wall) = walls.iter().find(|(edge, _)| edge == profile_hash).unwrap();
+            for face in faces {
+                assert!(result_faces.contains(face), "{face} is not in the result");
+                assert!(wall.contains(face), "{face} is not under its profile edge");
+            }
+            pairs.push((*spine_hash, *profile_hash));
+            rest = next;
         }
-        assert_eq!(pairs, 4);
+        pairs.sort_unstable();
+        let mut expected: Vec<(i32, i32)> = spine_hashes
+            .iter()
+            .flat_map(|s| profile_hashes.iter().map(|p| (*s, *p)))
+            .collect();
+        expected.sort_unstable();
+        assert_eq!(pairs, expected);
     }
 
-    let bad = kernel.sweep_with_history(profile, spine, 0, 0, &[1.0], &[], BOUND);
-    assert!(bad.is_err(), "a short options list must be rejected");
+    let short = kernel.sweep_with_history(profile, spine, 0, 0, &[1.0], &[], BOUND);
+    assert!(short.is_err(), "a short options list must be rejected");
+    let mut options = [0.0; 17];
+    options[3] = 1.0;
+    options[16] = 1.0;
+    for bad in [f64::NAN, f64::INFINITY, 0.5, 3e10] {
+        options[0] = bad;
+        let swept = kernel.sweep_with_history(profile, spine, 0, 0, &options, &[], BOUND);
+        assert!(swept.is_err(), "a mode of {bad} must be rejected");
+    }
 }
 
 #[test]
