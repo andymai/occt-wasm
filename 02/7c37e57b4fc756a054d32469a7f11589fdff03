@@ -1,0 +1,29 @@
+xtask/src/codegen/config.rs
+  s_7b53f3324d25da::t_29a0efd49f8250 5350-5358,5361,5366-5367,5373-5375,5425
+crate/src/types.rs
+  s_7b53f3324d25da::t_29a0efd49f8250 302-304
+crate/tests/integration.rs
+  s_7b53f3324d25da::t_29a0efd49f8250 1351-1352,1354-1355,1357-1364,1366-1375,1377-1383,1386-1395
+test/sweep-history.test.ts
+  s_7b53f3324d25da::t_29a0efd49f8250 363-368
+facade/include/occt_kernel.h
+  s_7b53f3324d25da::t_29a0efd49f8250 116-118
+facade/generated/kernel.cpp
+  s_7b53f3324d25da::t_7a39a6ef75944a 5226-5234,5237,5242-5243,5249-5251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "027c37e57b4fc756a054d32469a7f11589fdff03",
+  "prompts": {},
+  "sessions": {
+    "s_7b53f3324d25da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "34985578-074b-45af-adfa-32aeae9c626d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
