@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.16.0](https://github.com/andymai/occt-wasm/compare/v5.15.0...v5.16.0) (2026-11-07)
+
+
+### Features
+
+* **facade:** read exact curve and surface parameters ([#454](https://github.com/andymai/occt-wasm/issues/454)) ([dd5807e](https://github.com/andymai/occt-wasm/commit/dd5807e46e32d34f970471f65d2a5b8b08130507))
+* **facade:** report history for extrude, revolve, pipe, sweep and loft ([#456](https://github.com/andymai/occt-wasm/issues/456)) ([184d2f7](https://github.com/andymai/occt-wasm/commit/184d2f76cf8b592031e91ea87ba98d66e2da73ba))
+
 ## [5.15.0](https://github.com/andymai/occt-wasm/compare/v5.14.0...v5.15.0) (2026-11-02)
 
 
