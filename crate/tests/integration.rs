@@ -1348,8 +1348,19 @@ fn sweep_and_pipe_with_history_pair_spine_and_profile_edges() {
     let swept = kernel
         .sweep_with_history(profile, spine, 0, 0, &[], &[], BOUND)
         .unwrap();
-    let spine_hashes = spine_edges.map(|e| kernel.hash_code(e, BOUND).unwrap());
-    let profile_hashes = profile_edges.map(|e| kernel.hash_code(e, BOUND).unwrap());
+    // Read back from the wires: make_wire can copy an edge to share a vertex.
+    let spine_hashes: Vec<i32> = kernel
+        .get_sub_shapes(spine, "edge")
+        .unwrap()
+        .into_iter()
+        .map(|e| kernel.hash_code(e, BOUND).unwrap())
+        .collect();
+    let profile_hashes: Vec<i32> = kernel
+        .get_sub_shapes(profile, "edge")
+        .unwrap()
+        .into_iter()
+        .map(|e| kernel.hash_code(e, BOUND).unwrap())
+        .collect();
     for evo in [piped, swept] {
         let walls = runs(&evo.edge_generated);
         assert_eq!(walls.len(), 2);

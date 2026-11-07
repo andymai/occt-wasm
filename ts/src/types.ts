@@ -622,6 +622,10 @@ export interface EdgeData {
  *
  * `firstShape`, `lastShape` and `spineGenerated` are filled only by the sweeps
  * (extrude, revolve, pipe, sweep, loft); `spineGenerated` by pipe and sweep alone.
+ *
+ * Hash a wire's edges as {@link OcctKernel.getSubShapes} returns them, not the
+ * edges given to {@link OcctKernel.makeWire}, which can copy an edge to share a
+ * vertex.
  */
 export interface EvolutionData {
     /** Result shape handle. */

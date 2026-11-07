@@ -302,6 +302,9 @@ pub enum SurfaceData {
 /// them, and `generated` holds the solid a profile face swept into. Extrude, revolve,
 /// pipe, sweep and loft fill `first_shape` and `last_shape`; pipe and sweep fill
 /// `spine_generated`.
+///
+/// Hash a wire's edges as `get_sub_shapes` returns them, not the edges given to
+/// `make_wire`, which can copy an edge to share a vertex.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct EvolutionData {
