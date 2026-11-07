@@ -169,7 +169,8 @@ struct NurbsSurfaceData {
 ///   hyperbola  [frame, major radius, minor radius]
 ///   parabola   [frame, focal length]
 /// Other kinds have empty `params`. `bspline` is set when `hasBSpline`: always for
-/// "bspline", and for other kinds without params when OCCT can convert the curve.
+/// "bspline", and for other kinds without params when OCCT can convert the curve. It
+/// holds the whole curve for "bspline" and "bezier", and the edge's range otherwise.
 struct CurveData {
     std::string kind;
     double first = 0.0;
@@ -189,8 +190,8 @@ struct CurveData {
 ///   sphere    [frame, radius]
 ///   torus     [frame, major radius, minor radius]
 /// Other kinds have empty `params`. `bspline` is set when `hasBSpline`: always for
-/// "bspline", and for other kinds when OCCT can convert the surface over the face's
-/// UV bounds.
+/// "bspline", and for other kinds when OCCT can convert the surface. It holds the whole
+/// surface for "bspline" and "bezier", and the face's UV bounds otherwise.
 struct SurfaceData {
     std::string kind;
     bool isDirect = true;

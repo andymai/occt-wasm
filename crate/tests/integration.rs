@@ -12,7 +12,9 @@
 use std::sync::OnceLock;
 
 use occt_wasm::wasmtime::{Engine, Module, StoreLimitsBuilder};
-use occt_wasm::{CurveGeometry, DocumentHandle, OcctError, OcctKernel, ShapeHandle, SurfaceData};
+use occt_wasm::{
+    CurveGeometry, DocumentHandle, OcctError, OcctKernel, ShapeHandle, SurfaceData, Vec3,
+};
 
 /// The embedded module, compiled once for the whole test binary: compiling
 /// takes seconds and over a gigabyte per copy, instantiating about a
@@ -1126,6 +1128,18 @@ fn nurbs_surface_is_the_surface_its_poles_describe() {
     );
 }
 
+fn assert_near(actual: Vec3, expected: [f64; 3]) {
+    let delta = [
+        actual.x - expected[0],
+        actual.y - expected[1],
+        actual.z - expected[2],
+    ];
+    assert!(
+        delta.iter().all(|d| d.abs() < 1e-9),
+        "{actual:?} is not {expected:?}"
+    );
+}
+
 #[test]
 fn curve_data_reads_exact_parameters() {
     let Some(mut kernel) = try_kernel() else {
@@ -1135,21 +1149,29 @@ fn curve_data_reads_exact_parameters() {
         .make_line_edge(1.0, 2.0, 3.0, 1.0, 2.0, 13.0)
         .unwrap();
     let data = kernel.curve_data(line).unwrap();
-    assert!((data.last - data.first - 10.0).abs() < 1e-9);
+    assert!(data.first.abs() < 1e-9);
+    assert!((data.last - 10.0).abs() < 1e-9);
     let CurveGeometry::Line { point, direction } = data.geometry else {
         panic!("expected a line, got {:?}", data.geometry);
     };
-    assert!((point.z - 3.0).abs() < 1e-9);
-    assert!((direction.z - 1.0).abs() < 1e-9);
+    assert_near(point, [1.0, 2.0, 3.0]);
+    assert_near(direction, [0.0, 0.0, 1.0]);
 
     let circle = kernel
         .make_circle_edge(1.0, 2.0, 3.0, 0.0, 0.0, 1.0, 7.0)
         .unwrap();
-    let CurveGeometry::Circle { center, radius, .. } = kernel.curve_data(circle).unwrap().geometry
+    let CurveGeometry::Circle {
+        center,
+        axis,
+        x_direction,
+        radius,
+    } = kernel.curve_data(circle).unwrap().geometry
     else {
         panic!("expected a circle");
     };
-    assert!((center.x - 1.0).abs() < 1e-9);
+    assert_near(center, [1.0, 2.0, 3.0]);
+    assert_near(axis, [0.0, 0.0, 1.0]);
+    assert_near(x_direction, [1.0, 0.0, 0.0]);
     assert!((radius - 7.0).abs() < 1e-12);
 
     let bezier = kernel
@@ -1180,8 +1202,16 @@ fn surface_data_reads_exact_parameters() {
         panic!("expected a cylinder");
     };
     assert!((radius - 5.0).abs() < 1e-12);
-    assert!((frame.axis.z - 1.0).abs() < 1e-9);
+    assert_near(frame.location, [0.0, 0.0, 0.0]);
+    assert_near(frame.axis, [0.0, 0.0, 1.0]);
     assert!(frame.is_direct);
+
+    let matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 1.0, 3.0];
+    let moved = kernel.located(side, &matrix).unwrap();
+    let SurfaceData::Cylinder { frame, .. } = kernel.surface_data(moved).unwrap() else {
+        panic!("expected a cylinder");
+    };
+    assert_near(frame.location, [1.0, 2.0, 3.0]);
 
     let poles = [
         0.0, 0.0, 0.0, 0.0, 10.0, 2.0, //
@@ -1205,7 +1235,12 @@ fn surface_data_reads_exact_parameters() {
     assert_eq!((data.nb_poles_u, data.nb_poles_v), (2, 2));
     assert_eq!(data.poles, poles);
     assert!(data.weights.is_empty());
+    assert_eq!(data.knots_u, [0.0, 1.0]);
+    assert_eq!(data.knots_v, [0.0, 1.0]);
     assert_eq!(data.multiplicities_u, [2, 2]);
+    assert_eq!(data.multiplicities_v, [2, 2]);
+    assert!(!data.periodic_u);
+    assert!(!data.periodic_v);
 
     assert!(kernel.surface_data(cylinder).is_err());
 }

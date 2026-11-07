@@ -202,8 +202,9 @@ pub enum CurveGeometry {
     Other {
         /// The kind, as `curve_type` names it.
         kind: String,
-        /// A B-spline form, when OCCT can convert the curve. Only this
-        /// conversion can approximate: an offset curve is fitted to 1e-4.
+        /// A B-spline form, when OCCT can convert the curve: the whole curve for
+        /// a Bezier, the edge's range otherwise. Only this conversion can
+        /// approximate: an offset curve is fitted to 1e-4.
         bspline: Option<NurbsCurveData>,
     },
 }
@@ -271,14 +272,15 @@ pub enum SurfaceData {
         /// The minor radius.
         minor_radius: f64,
     },
-    /// A B-spline.
+    /// A B-spline. Holds the whole surface the face lies on.
     BSpline(NurbsSurfaceData),
     /// A kind without exact parameters here.
     Other {
         /// The kind, as `surface_type` names it.
         kind: String,
-        /// A B-spline form over the face's UV bounds, when OCCT can convert
-        /// the surface. Only this conversion can approximate.
+        /// A B-spline form, when OCCT can convert the surface: the whole surface
+        /// for a Bezier, the face's UV bounds otherwise. Only this conversion can
+        /// approximate: an offset surface is fitted to 1e-4.
         bspline: Option<NurbsSurfaceData>,
     },
 }

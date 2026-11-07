@@ -57,7 +57,7 @@ describe("curveData", () => {
         if (data.kind !== "circle") throw new Error(data.kind);
         expectVec(data.center, p(1, 2, 3));
         expectVec(data.axis, p(0, 0, 1));
-        expect(Math.abs(data.xDirection.z)).toBeCloseTo(0, 9);
+        expectVec(data.xDirection, p(1, 0, 0));
         expect(data.radius).toBe(7);
         expect(data.last - data.first).toBeCloseTo(2 * Math.PI, 9);
     });
@@ -185,9 +185,10 @@ describe("surfaceData", () => {
     it("reads a plane's location and normal", () => {
         const data = kernel.surfaceData(kernel.makeRectangle(4, 2));
         if (data.kind !== "plane") throw new Error(data.kind);
-        expect(Math.abs(data.normal.z)).toBeCloseTo(1, 9);
-        expect(data.location.z).toBeCloseTo(0, 9);
-        expect(data.xDirection.z).toBeCloseTo(0, 9);
+        expectVec(data.normal, p(0, 0, 1));
+        expectVec(data.location, p(0, 0, 0));
+        expectVec(data.xDirection, p(1, 0, 0));
+        expect(data.isDirect).toBe(true);
     });
 
     it("reads a cylinder's axis, not just its radius", () => {

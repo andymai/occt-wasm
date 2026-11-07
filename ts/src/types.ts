@@ -708,11 +708,12 @@ export interface NurbsSurfaceData extends NurbsSurfaceInput {
  * Exact parameters of an edge's curve, from {@link OcctKernel.curveData}, with
  * the shape's location applied. `kind` matches {@link OcctKernel.curveType}.
  * `first` and `last` bound the edge on the curve. A `bspline` holds the whole
- * curve the edge lies on, so `first` and `last` still say which part it uses.
+ * curve the edge lies on, and so does a `bezier`'s form, so `first` and `last`
+ * still say which part it uses.
  *
- * Kinds without exact parameters carry a B-spline form when OCCT can convert
- * them. Only those conversions can approximate: an `offset` curve is fitted to
- * a tolerance of 1e-4.
+ * The other kinds without exact parameters carry a B-spline form of the edge's
+ * range when OCCT can convert them. Only those conversions can approximate: an
+ * `offset` curve is fitted to a tolerance of 1e-4.
  */
 export type CurveData = { first: number; last: number } & (
     | { kind: "line"; point: Vec3; direction: Vec3 }
@@ -738,9 +739,11 @@ export interface SurfaceFrame {
  * {@link OcctKernel.surfaceType}. A plane's `normal` is the surface's own and
  * ignores the face's orientation ({@link OcctKernel.shapeOrientation}).
  *
- * Kinds without exact parameters carry a B-spline form over the face's UV
- * bounds when OCCT can convert them. Only those conversions can approximate:
- * an `offset` surface is fitted to a tolerance of 1e-4.
+ * A `bspline` holds the whole surface the face lies on, and so does a `bezier`'s
+ * form; {@link OcctKernel.uvBounds} says which part the face uses. The other kinds
+ * without exact parameters can be unbounded, so their form covers the face's UV
+ * bounds. Only those conversions can approximate: an `offset` surface is fitted to
+ * a tolerance of 1e-4.
  */
 export type SurfaceData =
     | ({ kind: "plane"; normal: Vec3 } & Omit<SurfaceFrame, "axis">)
