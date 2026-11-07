@@ -16,7 +16,7 @@
  */
 
 import * as Comlink from "comlink";
-import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, WireframeOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceKind, CurveKind, ShapeQueryResult } from "./types.js";
+import type { InitOptions, ShapeHandle, Mesh, BoundingBox, BoundingBoxOptions, Vec3, TessellateOptions, WireframeOptions, ShapeType, EdgeData, MeshBatchData, ProjectionData, NurbsCurveData, CurvatureData, UVBounds, ShapeOrientation, PointClassification, SurfaceData, SurfaceKind, CurveData, CurveKind, ShapeQueryResult } from "./types.js";
 import type { BooleanOp, BooleanOpOptions, ChamferDistance, EvolutionData, FilletRadius, JoinType, NeutralPlane, StepExportOptions, TransitionMode } from "./types.js";
 
 /**
@@ -133,12 +133,14 @@ export interface OcctWorkerProxy {
 
     // Surfaces
     surfaceType(face: ShapeHandle): Promise<SurfaceKind>;
+    surfaceData(face: ShapeHandle): Promise<SurfaceData>;
     surfaceNormal(face: ShapeHandle, u: number, v: number): Promise<Vec3>;
     uvBounds(face: ShapeHandle): Promise<UVBounds>;
     classifyPointOnFace(face: ShapeHandle, u: number, v: number): Promise<PointClassification>;
 
     // Curves
     curveType(edge: ShapeHandle): Promise<CurveKind>;
+    curveData(edge: ShapeHandle): Promise<CurveData>;
     curveLength(edge: ShapeHandle): Promise<number>;
     getNurbsCurveData(edge: ShapeHandle): Promise<NurbsCurveData>;
     makeBSplineEdge(poles: number[], weights: number[], knots: number[], multiplicities: number[], degree: number, periodic?: boolean): Promise<ShapeHandle>;

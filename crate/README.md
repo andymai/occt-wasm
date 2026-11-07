@@ -65,7 +65,7 @@ The crate exposes the full OCCT facade — 170+ methods generated from the same 
 | **Tessellation** | `tessellate` (triangles), `mesh_shape` (with face groups), `mesh_batch` |
 | **I/O** | STEP (import/export), STL (import/export), glTF export |
 | **Query** | volume, surface area, length, center of mass, curvature |
-| **Curves** | NURBS data extraction, point/tangent evaluation, interpolation |
+| **Curves** | Exact curve and surface parameters, NURBS data extraction, point/tangent evaluation, interpolation |
 | **Projection** | Hidden line removal (HLR) |
 | **Healing** | `fix_shape`, `unify_same_domain`, wire/face/solid repair |
 | **Evolution** | Per-face and per-edge history tracking across modifications |

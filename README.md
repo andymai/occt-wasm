@@ -412,8 +412,8 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | **Tessellation** | Triangle meshes (absolute or relative deflection), wireframe polylines (curve-sampled or mesh-aligned), per-face groups, batched meshing |
 | **I/O**          | STEP (choice of length unit and AP203/AP214/AP242 protocol), STL (ASCII + binary), BREP (text + binary) import/export |
 | **Query**        | Bounding box, volume, surface area, length, center of mass, inertia tensor, point-in-solid, curvature          |
-| **Surfaces**     | Type, normal, UV bounds, point classification, B-spline construction                                           |
-| **Curves**       | Type, point/tangent eval, parameters, NURBS data, interpolation (incl. clamped tangents), project point        |
+| **Surfaces**     | Type, exact parameters, normal, UV bounds, point classification, B-spline construction                         |
+| **Curves**       | Type, exact parameters, point/tangent eval, parameters, NURBS data, interpolation (incl. clamped tangents), project point |
 | **Projection**   | Hidden line removal (HLR), multiview SVG render (Front/Top/Right/Iso)                                          |
 | **Modifiers**    | Thicken, defeature, reverse, simplify, variable fillet, 2D wire offset                                         |
 | **Evolution**    | Face-tracking history for translate, fuse, cut, fillet, rotate, mirror, scale, chamfer, draft, shell, offset, thicken |

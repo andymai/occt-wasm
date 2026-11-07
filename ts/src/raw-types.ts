@@ -102,6 +102,42 @@ export interface RawNurbsCurveData {
     multiplicities: EmbindVectorI32;
     poles: EmbindVectorF64;
     weights: EmbindVectorF64;
+    delete(): void;
+}
+
+export interface RawNurbsSurfaceData {
+    degreeU: number;
+    degreeV: number;
+    nbPolesU: number;
+    nbPolesV: number;
+    periodicU: boolean;
+    periodicV: boolean;
+    knotsU: EmbindVectorF64;
+    knotsV: EmbindVectorF64;
+    multiplicitiesU: EmbindVectorI32;
+    multiplicitiesV: EmbindVectorI32;
+    poles: EmbindVectorF64;
+    weights: EmbindVectorF64;
+    delete(): void;
+}
+
+export interface RawCurveData {
+    kind: string;
+    first: number;
+    last: number;
+    params: EmbindVectorF64;
+    hasBSpline: boolean;
+    bspline: RawNurbsCurveData;
+    delete(): void;
+}
+
+export interface RawSurfaceData {
+    kind: string;
+    isDirect: boolean;
+    params: EmbindVectorF64;
+    hasBSpline: boolean;
+    bspline: RawNurbsSurfaceData;
+    delete(): void;
 }
 
 export interface EmbindVectorU32 {
@@ -382,6 +418,8 @@ export interface OcctRawKernel {
     projectPointOnEdge(edgeId: number, x: number, y: number, z: number): EmbindVectorF64;
     approximatePoints(flatPoints: EmbindVectorF64, tolerance: number): number;
     getNurbsCurveData(edgeId: number): RawNurbsCurveData;
+    curveData(edgeId: number): RawCurveData;
+    surfaceData(faceId: number): RawSurfaceData;
     curveDegreeElevate(edgeId: number, elevateBy: number): number;
     curveKnotInsert(edgeId: number, knot: number, times: number): number;
     curveKnotRemove(edgeId: number, knot: number, tolerance: number): number;

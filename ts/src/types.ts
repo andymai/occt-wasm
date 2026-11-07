@@ -694,6 +694,63 @@ export interface NurbsSurfaceInput {
     periodicV?: boolean;
 }
 
+/**
+ * A B-spline surface as {@link OcctKernel.surfaceData} reads it. `weights` is
+ * present only on a rational surface. Pass it to {@link OcctKernel.nurbsSurface}
+ * to build the same surface again.
+ */
+export interface NurbsSurfaceData extends NurbsSurfaceInput {
+    periodicU: boolean;
+    periodicV: boolean;
+}
+
+/**
+ * Exact parameters of an edge's curve, from {@link OcctKernel.curveData}, with
+ * the shape's location applied. `kind` matches {@link OcctKernel.curveType}.
+ * `first` and `last` bound the edge on the curve. A `bspline` holds the whole
+ * curve the edge lies on, so `first` and `last` still say which part it uses.
+ *
+ * Kinds without exact parameters carry a B-spline form when OCCT can convert
+ * them. Only those conversions can approximate: an `offset` curve is fitted to
+ * a tolerance of 1e-4.
+ */
+export type CurveData = { first: number; last: number } & (
+    | { kind: "line"; point: Vec3; direction: Vec3 }
+    | { kind: "circle"; center: Vec3; axis: Vec3; xDirection: Vec3; radius: number }
+    | { kind: "ellipse"; center: Vec3; axis: Vec3; majorDirection: Vec3; majorRadius: number; minorRadius: number }
+    | { kind: "hyperbola"; center: Vec3; axis: Vec3; majorDirection: Vec3; majorRadius: number; minorRadius: number }
+    | { kind: "parabola"; vertex: Vec3; axis: Vec3; xDirection: Vec3; focal: number }
+    | { kind: "bspline"; bspline: NurbsCurveData }
+    | { kind: "bezier" | "offset" | "other"; bspline?: NurbsCurveData }
+);
+
+/** The placement of an elementary surface. `isDirect` is false for a left-handed frame. */
+export interface SurfaceFrame {
+    location: Vec3;
+    axis: Vec3;
+    xDirection: Vec3;
+    isDirect: boolean;
+}
+
+/**
+ * Exact parameters of a face's surface, from {@link OcctKernel.surfaceData},
+ * with the shape's location applied. `kind` matches
+ * {@link OcctKernel.surfaceType}. A plane's `normal` is the surface's own and
+ * ignores the face's orientation ({@link OcctKernel.shapeOrientation}).
+ *
+ * Kinds without exact parameters carry a B-spline form over the face's UV
+ * bounds when OCCT can convert them. Only those conversions can approximate:
+ * an `offset` surface is fitted to a tolerance of 1e-4.
+ */
+export type SurfaceData =
+    | ({ kind: "plane"; normal: Vec3 } & Omit<SurfaceFrame, "axis">)
+    | ({ kind: "cylinder"; radius: number } & SurfaceFrame)
+    | ({ kind: "cone"; refRadius: number; semiAngle: number } & SurfaceFrame)
+    | ({ kind: "sphere"; radius: number } & SurfaceFrame)
+    | ({ kind: "torus"; majorRadius: number; minorRadius: number } & SurfaceFrame)
+    | { kind: "bspline"; bspline: NurbsSurfaceData }
+    | { kind: "bezier" | "revolution" | "extrusion" | "offset" | "other"; bspline?: NurbsSurfaceData };
+
 /** Result from queryBatch: aggregated shape properties. */
 export interface ShapeQueryResult {
     bbox: BoundingBox;

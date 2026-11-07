@@ -64,6 +64,8 @@ const fn rust_return_type(rt: ReturnType) -> &'static str {
         ReturnType::MeshBatchData => "OcctResult<MeshBatch>",
         ReturnType::EdgeData => "OcctResult<EdgeData>",
         ReturnType::NurbsCurveData => "OcctResult<NurbsCurveData>",
+        ReturnType::CurveData => "OcctResult<CurveData>",
+        ReturnType::SurfaceData => "OcctResult<SurfaceData>",
         ReturnType::EvolutionData => "OcctResult<EvolutionData>",
         ReturnType::ProjectionData => "OcctResult<ProjectionData>",
         ReturnType::XCAFLabelInfo => "OcctResult<LabelInfo>",
@@ -292,6 +294,8 @@ fn wasm_typed_func_type(spec: &MethodSpec) -> String {
         | ReturnType::VectorInt
         | ReturnType::BBoxData
         | ReturnType::NurbsCurveData
+        | ReturnType::CurveData
+        | ReturnType::SurfaceData
         | ReturnType::EvolutionData
         | ReturnType::MeshData
         | ReturnType::MeshBatchData
@@ -529,6 +533,8 @@ fn emit_rust_method(buf: &mut String, spec: &MethodSpec) {
         ReturnType::MeshBatchData => emit_struct_result(buf, "self.read_mesh_batch_result()"),
         ReturnType::EdgeData => emit_struct_result(buf, "self.read_edge_result()"),
         ReturnType::NurbsCurveData => emit_struct_result(buf, "self.read_nurbs_result()"),
+        ReturnType::CurveData => emit_struct_result(buf, "self.read_curve_result()"),
+        ReturnType::SurfaceData => emit_struct_result(buf, "self.read_surface_result()"),
         ReturnType::EvolutionData => emit_struct_result(buf, "self.read_evolution_result()"),
         ReturnType::ProjectionData => emit_struct_result(buf, "self.read_projection_result()"),
         ReturnType::XCAFLabelInfo => emit_struct_result(buf, "self.read_label_info_result()"),
@@ -588,11 +594,11 @@ pub fn emit_rust_host(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf, "use crate::types::{{");
     let _ = writeln!(
         buf,
-        "    BoundingBox, EdgeData, EvolutionData, LabelInfo, Mesh, MeshBatch,"
+        "    BoundingBox, CurveData, EdgeData, EvolutionData, LabelInfo, Mesh, MeshBatch,"
     );
     let _ = writeln!(
         buf,
-        "    DocumentHandle, NurbsCurveData, ProjectionData, ShapeHandle,"
+        "    DocumentHandle, NurbsCurveData, ProjectionData, ShapeHandle, SurfaceData,"
     );
     let _ = writeln!(buf, "}};");
     let _ = writeln!(buf);

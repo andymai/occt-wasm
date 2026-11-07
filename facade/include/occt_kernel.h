@@ -143,6 +143,62 @@ struct NurbsCurveData {
     std::vector<double> weights;
 };
 
+/// A B-spline surface: the layout `nurbsSurface` takes, so a reader's result rebuilds it.
+struct NurbsSurfaceData {
+    int degreeU = 0;
+    int degreeV = 0;
+    int nbPolesU = 0;
+    int nbPolesV = 0;
+    bool periodicU = false;
+    bool periodicV = false;
+    std::vector<double> knotsU;
+    std::vector<double> knotsV;
+    std::vector<int> multiplicitiesU;
+    std::vector<int> multiplicitiesV;
+    std::vector<double> poles;   // flat xyz, pole (i, j) at index i * nbPolesV + j
+    std::vector<double> weights; // same order, empty unless rational
+};
+
+/// Exact parameters of an edge's curve, with the shape's location applied.
+///
+/// `kind` is `curveType`'s name for the curve. `params` by kind, where a frame is
+/// [location xyz, axis xyz, x direction xyz]:
+///   line       [point xyz, direction xyz]
+///   circle     [frame, radius]
+///   ellipse    [frame, major radius, minor radius] (x direction is the major axis)
+///   hyperbola  [frame, major radius, minor radius]
+///   parabola   [frame, focal length]
+/// Other kinds have empty `params`. `bspline` is set when `hasBSpline`: always for
+/// "bspline", and for other kinds without params when OCCT can convert the curve.
+struct CurveData {
+    std::string kind;
+    double first = 0.0;
+    double last = 0.0;
+    std::vector<double> params;
+    bool hasBSpline = false;
+    NurbsCurveData bspline;
+};
+
+/// Exact parameters of a face's surface, with the shape's location applied.
+///
+/// `kind` is `surfaceType`'s name for the surface. `params` by kind, where a frame is
+/// [location xyz, axis xyz, x direction xyz] and `isDirect` is its handedness:
+///   plane     [frame] (axis is the plane's normal, ignoring the face's orientation)
+///   cylinder  [frame, radius]
+///   cone      [frame, reference radius, semi-angle]
+///   sphere    [frame, radius]
+///   torus     [frame, major radius, minor radius]
+/// Other kinds have empty `params`. `bspline` is set when `hasBSpline`: always for
+/// "bspline", and for other kinds when OCCT can convert the surface over the face's
+/// UV bounds.
+struct SurfaceData {
+    std::string kind;
+    bool isDirect = true;
+    std::vector<double> params;
+    bool hasBSpline = false;
+    NurbsSurfaceData bspline;
+};
+
 /// Batch mesh data: concatenated positions/normals/indices with per-shape offsets.
 struct MeshBatchData {
     float* positions = nullptr;
@@ -404,6 +460,7 @@ class OcctKernel {
     // --- Vertex/Surface query ---
     std::vector<double> vertexPosition(uint32_t vertexId);
     std::string surfaceType(uint32_t faceId);
+    SurfaceData surfaceData(uint32_t faceId);
     std::vector<double> surfaceNormal(uint32_t faceId, double u, double v);
     std::vector<double> pointOnSurface(uint32_t faceId, double u, double v);
     uint32_t outerWire(uint32_t faceId);
@@ -416,6 +473,7 @@ class OcctKernel {
 
     // --- Curve ops ---
     std::string curveType(uint32_t edgeId);
+    CurveData curveData(uint32_t edgeId);
     std::vector<double> curvePointAtParam(uint32_t edgeId, double param);
     std::vector<double> curveTangent(uint32_t edgeId, double param);
     std::vector<double> curveParameters(uint32_t edgeId);

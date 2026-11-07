@@ -3276,33 +3276,100 @@ return {p.X(), p.Y(), p.Z()};",
         ctor_args: "",
         setup_code: "\
 BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
-switch (surf.GetType()) {
-case GeomAbs_Plane:
-    return \"plane\";
-case GeomAbs_Cylinder:
-    return \"cylinder\";
-case GeomAbs_Cone:
-    return \"cone\";
-case GeomAbs_Sphere:
-    return \"sphere\";
-case GeomAbs_Torus:
-    return \"torus\";
-case GeomAbs_BezierSurface:
-    return \"bezier\";
-case GeomAbs_BSplineSurface:
-    return \"bspline\";
-case GeomAbs_SurfaceOfRevolution:
-    return \"revolution\";
-case GeomAbs_SurfaceOfExtrusion:
-    return \"extrusion\";
-case GeomAbs_OffsetSurface:
-    return \"offset\";
-default:
-    return \"other\";
-}",
+return surfaceKindName(surf.GetType());",
         includes: &["BRepAdaptor_Surface.hxx", "GeomAbs_SurfaceType.hxx", "TopoDS.hxx"],
         category: "query",
         return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "surfaceData",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("faceId")],
+        occt_class: "",
+        ctor_args: "",
+        // The OCCT readers below only guard their kind with *_Raise_if, which
+        // Release compiles away, so they must never run on a kind they do not
+        // match. See the header for the params layout.
+        setup_code: "\
+const auto& shape = get(faceId);
+if (shape.IsNull() || shape.ShapeType() != TopAbs_FACE) {
+    throw std::runtime_error(\"surfaceData: shape is not a face\");
+}
+BRepAdaptor_Surface surf(TopoDS::Face(shape));
+const GeomAbs_SurfaceType type = surf.GetType();
+SurfaceData result;
+result.kind = surfaceKindName(type);
+auto pushFrame = [&result](const gp_Ax3& frame) {
+    const gp_Pnt& p = frame.Location();
+    const gp_Dir& a = frame.Direction();
+    const gp_Dir& x = frame.XDirection();
+    result.params = {p.X(), p.Y(), p.Z(), a.X(), a.Y(), a.Z(), x.X(), x.Y(), x.Z()};
+    result.isDirect = frame.Direct();
+};
+switch (type) {
+case GeomAbs_Plane:
+    pushFrame(surf.Plane().Position());
+    return result;
+case GeomAbs_Cylinder: {
+    const gp_Cylinder cylinder = surf.Cylinder();
+    pushFrame(cylinder.Position());
+    result.params.push_back(cylinder.Radius());
+    return result;
+}
+case GeomAbs_Cone: {
+    const gp_Cone cone = surf.Cone();
+    pushFrame(cone.Position());
+    result.params.insert(result.params.end(), {cone.RefRadius(), cone.SemiAngle()});
+    return result;
+}
+case GeomAbs_Sphere: {
+    const gp_Sphere sphere = surf.Sphere();
+    pushFrame(sphere.Position());
+    result.params.push_back(sphere.Radius());
+    return result;
+}
+case GeomAbs_Torus: {
+    const gp_Torus torus = surf.Torus();
+    pushFrame(torus.Position());
+    result.params.insert(result.params.end(), {torus.MajorRadius(), torus.MinorRadius()});
+    return result;
+}
+case GeomAbs_BSplineSurface:
+    result.bspline = toNurbsSurfaceData(surf.BSpline());
+    result.hasBSpline = true;
+    return result;
+default:
+    break;
+}
+// No exact parameters to read. Offer a B-spline form over the face's UV bounds
+// where OCCT can make one; failing to is not an error.
+try {
+    Handle(Geom_BSplineSurface) form;
+    if (type == GeomAbs_BezierSurface) {
+        form = GeomConvert::SurfaceToBSplineSurface(surf.Bezier());
+    } else {
+        Handle(Geom_Surface) basis = Handle(Geom_Surface)::DownCast(
+            surf.Surface().Surface()->Transformed(surf.Trsf()));
+        form = GeomConvert::SurfaceToBSplineSurface(new Geom_RectangularTrimmedSurface(
+            basis, surf.FirstUParameter(), surf.LastUParameter(), surf.FirstVParameter(),
+            surf.LastVParameter()));
+    }
+    if (!form.IsNull()) {
+        result.bspline = toNurbsSurfaceData(form);
+        result.hasBSpline = true;
+    }
+} catch (const Standard_Failure&) {
+}
+return result;",
+        includes: &[
+            "BRepAdaptor_Surface.hxx", "GeomAbs_SurfaceType.hxx", "GeomAdaptor_Surface.hxx",
+            "GeomConvert.hxx", "Geom_BSplineSurface.hxx", "Geom_BezierSurface.hxx",
+            "Geom_RectangularTrimmedSurface.hxx", "Geom_Surface.hxx", "Standard_Failure.hxx",
+            "TopoDS.hxx", "gp_Ax3.hxx", "gp_Cone.hxx", "gp_Cylinder.hxx", "gp_Dir.hxx", "gp_Pln.hxx",
+            "gp_Pnt.hxx", "gp_Sphere.hxx", "gp_Torus.hxx",
+        ],
+        category: "query",
+        return_type: ReturnType::SurfaceData,
     },
     MethodSpec {
         name: "surfaceNormal",
@@ -3563,32 +3630,107 @@ if (shape.ShapeType() == TopAbs_WIRE) {
     BRepAdaptor_Curve curve(TopoDS::Edge(shape));
     ctype = curve.GetType();
 }
-switch (ctype) {
-case GeomAbs_Line:
-    return \"line\";
-case GeomAbs_Circle:
-    return \"circle\";
-case GeomAbs_Ellipse:
-    return \"ellipse\";
-case GeomAbs_Hyperbola:
-    return \"hyperbola\";
-case GeomAbs_Parabola:
-    return \"parabola\";
-case GeomAbs_BezierCurve:
-    return \"bezier\";
-case GeomAbs_BSplineCurve:
-    return \"bspline\";
-case GeomAbs_OffsetCurve:
-    return \"offset\";
-default:
-    return \"other\";
-}",
+return curveKindName(ctype);",
         includes: &[
             "BRepAdaptor_CompCurve.hxx", "BRepAdaptor_Curve.hxx",
             "GeomAbs_CurveType.hxx", "TopoDS.hxx",
         ],
         category: "curve",
         return_type: ReturnType::String,
+    },
+    MethodSpec {
+        name: "curveData",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("edgeId")],
+        occt_class: "",
+        ctor_args: "",
+        // The OCCT readers below only guard their kind with *_Raise_if, which
+        // Release compiles away, so they must never run on a kind they do not
+        // match. See the header for the params layout.
+        setup_code: "\
+const auto& shape = get(edgeId);
+if (shape.IsNull() || shape.ShapeType() != TopAbs_EDGE) {
+    throw std::runtime_error(\"curveData: shape is not an edge\");
+}
+BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+const GeomAbs_CurveType type = curve.GetType();
+CurveData result;
+result.kind = curveKindName(type);
+result.first = curve.FirstParameter();
+result.last = curve.LastParameter();
+auto pushFrame = [&result](const gp_Ax2& frame) {
+    const gp_Pnt& p = frame.Location();
+    const gp_Dir& a = frame.Direction();
+    const gp_Dir& x = frame.XDirection();
+    result.params = {p.X(), p.Y(), p.Z(), a.X(), a.Y(), a.Z(), x.X(), x.Y(), x.Z()};
+};
+switch (type) {
+case GeomAbs_Line: {
+    const gp_Lin line = curve.Line();
+    const gp_Pnt& p = line.Location();
+    const gp_Dir& d = line.Direction();
+    result.params = {p.X(), p.Y(), p.Z(), d.X(), d.Y(), d.Z()};
+    return result;
+}
+case GeomAbs_Circle: {
+    const gp_Circ circle = curve.Circle();
+    pushFrame(circle.Position());
+    result.params.push_back(circle.Radius());
+    return result;
+}
+case GeomAbs_Ellipse: {
+    const gp_Elips ellipse = curve.Ellipse();
+    pushFrame(ellipse.Position());
+    result.params.insert(result.params.end(), {ellipse.MajorRadius(), ellipse.MinorRadius()});
+    return result;
+}
+case GeomAbs_Hyperbola: {
+    const gp_Hypr hyperbola = curve.Hyperbola();
+    pushFrame(hyperbola.Position());
+    result.params.insert(result.params.end(), {hyperbola.MajorRadius(), hyperbola.MinorRadius()});
+    return result;
+}
+case GeomAbs_Parabola: {
+    const gp_Parab parabola = curve.Parabola();
+    pushFrame(parabola.Position());
+    result.params.push_back(parabola.Focal());
+    return result;
+}
+case GeomAbs_BSplineCurve:
+    result.bspline = toNurbsCurveData(curve.BSpline());
+    result.hasBSpline = true;
+    return result;
+default:
+    break;
+}
+// No exact parameters to read. Offer a B-spline form where OCCT can make one;
+// failing to is not an error. An edge with only a pcurve has no 3D curve to convert.
+try {
+    Handle(Geom_BSplineCurve) form;
+    if (type == GeomAbs_BezierCurve) {
+        form = GeomConvert::CurveToBSplineCurve(curve.Bezier());
+    } else if (curve.Is3DCurve()) {
+        Handle(Geom_Curve) basis =
+            Handle(Geom_Curve)::DownCast(curve.Curve().Curve()->Transformed(curve.Trsf()));
+        form = GeomConvert::CurveToBSplineCurve(
+            new Geom_TrimmedCurve(basis, result.first, result.last));
+    }
+    if (!form.IsNull()) {
+        result.bspline = toNurbsCurveData(form);
+        result.hasBSpline = true;
+    }
+} catch (const Standard_Failure&) {
+}
+return result;",
+        includes: &[
+            "BRepAdaptor_Curve.hxx", "GeomAbs_CurveType.hxx", "GeomAdaptor_Curve.hxx",
+            "GeomConvert.hxx", "Geom_BSplineCurve.hxx", "Geom_BezierCurve.hxx", "Geom_Curve.hxx",
+            "Geom_TrimmedCurve.hxx", "Standard_Failure.hxx", "TopoDS.hxx", "gp_Ax2.hxx",
+            "gp_Circ.hxx", "gp_Dir.hxx", "gp_Elips.hxx", "gp_Hypr.hxx", "gp_Lin.hxx", "gp_Parab.hxx",
+            "gp_Pnt.hxx",
+        ],
+        category: "curve",
+        return_type: ReturnType::CurveData,
     },
     MethodSpec {
         name: "curvePointAtParam",
@@ -3935,39 +4077,7 @@ if (adaptor.GetType() == GeomAbs_BSplineCurve) {
 } else {
     throw std::runtime_error(\"getNurbsCurveData: edge is not a BSpline or Bezier curve\");
 }
-NurbsCurveData result{};
-result.degree = bspline->Degree();
-result.rational = bspline->IsRational();
-result.periodic = bspline->IsPeriodic();
-
-// Knots and multiplicities
-int nKnots = bspline->NbKnots();
-result.knots.resize(nKnots);
-result.multiplicities.resize(nKnots);
-for (int i = 1; i <= nKnots; i++) {
-    result.knots[i - 1] = bspline->Knot(i);
-    result.multiplicities[i - 1] = bspline->Multiplicity(i);
-}
-
-// Poles (control points)
-int nPoles = bspline->NbPoles();
-result.poles.resize(nPoles * 3);
-for (int i = 1; i <= nPoles; i++) {
-    gp_Pnt p = bspline->Pole(i);
-    result.poles[(i - 1) * 3] = p.X();
-    result.poles[(i - 1) * 3 + 1] = p.Y();
-    result.poles[(i - 1) * 3 + 2] = p.Z();
-}
-
-// Weights (only if rational)
-if (bspline->IsRational()) {
-    result.weights.resize(nPoles);
-    for (int i = 1; i <= nPoles; i++) {
-        result.weights[i - 1] = bspline->Weight(i);
-    }
-}
-
-return result;",
+return toNurbsCurveData(bspline);",
         includes: &[
             "BRepAdaptor_Curve.hxx", "GeomAbs_CurveType.hxx",
             "Geom_BSplineCurve.hxx", "Geom_BezierCurve.hxx", "GeomConvert.hxx",
