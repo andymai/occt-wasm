@@ -3628,8 +3628,9 @@ SurfaceData OcctKernel::surfaceData(uint32_t faceId) {
         default:
             break;
         }
-        // No exact parameters to read. Offer a B-spline form over the face's UV bounds
-        // where OCCT can make one; failing to is not an error.
+        // No exact parameters to read. Offer a B-spline form where OCCT can make one; failing
+        // to is not an error. A Bezier converts whole, as a B-spline reads whole. The others
+        // can be unbounded, so they convert over the face's UV bounds.
         try {
             Handle(Geom_BSplineSurface) form;
             if (type == GeomAbs_BezierSurface) {
