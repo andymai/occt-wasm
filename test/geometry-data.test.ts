@@ -186,7 +186,7 @@ describe("surfaceData", () => {
         const data = kernel.surfaceData(kernel.makeRectangle(4, 2));
         if (data.kind !== "plane") throw new Error(data.kind);
         expectVec(data.normal, p(0, 0, 1));
-        expectVec(data.location, p(0, 0, 0));
+        expectVec(data.location, p(2, 1, 0));
         expectVec(data.xDirection, p(1, 0, 0));
         expect(data.isDirect).toBe(true);
     });
