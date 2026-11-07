@@ -616,7 +616,12 @@ export interface EdgeData {
  * encoded as `[inputHash, count, resultHash, ...]`, one group per input shape
  * that has any. `deleted` and `edgeDeleted` are flat input hashes.
  * `edgeGenerated` holds result shapes of any type: a fillet's or chamfer's
- * face is reported there, under the input edge it replaces.
+ * face is reported there, under the input edge it replaces. A sweep's faces are
+ * there too, under the profile edge that swept them, and `generated` holds the
+ * solid a profile face swept into.
+ *
+ * `firstShape`, `lastShape` and `spineGenerated` are filled only by the sweeps
+ * (extrude, revolve, pipe, sweep, loft); `spineGenerated` by pipe and sweep alone.
  */
 export interface EvolutionData {
     /** Result shape handle. */
@@ -633,6 +638,15 @@ export interface EvolutionData {
     edgeGenerated: number[];
     /** Edge hashes from the input that no longer exist in the result. */
     edgeDeleted: number[];
+    /** Result hashes of the faces capping the start of a sweep. Empty when it has none. */
+    firstShape: number[];
+    /** Result hashes of the faces capping the end of a sweep. Empty when it has none. */
+    lastShape: number[];
+    /**
+     * The faces each spine edge and profile edge swept into together, encoded
+     * as `[spineEdgeHash, profileEdgeHash, count, faceHash, ...]`.
+     */
+    spineGenerated: number[];
 }
 
 /** HLR (hidden line removal) projection result, split by visibility and edge category. */
@@ -863,7 +877,7 @@ function parseFaultyEdges(message: string): ShapeHandle[] | undefined {
 const BOOLEAN_OPS = new Set(["fuse", "cut", "common", "intersect", "section", "sectionPlane", "fuseAll", "cutAll", "split", "booleanPipeline", "fuseWithHistory", "cutWithHistory", "intersectWithHistory"]);
 const TESSELLATION_OPS = new Set(["tessellate", "wireframe", "meshShape", "meshBatch"]);
 const IO_OPS = new Set(["importStep", "exportStep", "importStl", "exportStl", "toBREP", "fromBREP", "toBREPBinary", "fromBREPBinary", "xcafExportSTEP", "xcafImportSTEP", "xcafExportGLTF", "xcafExportGLB"]);
-const HEALING_OPS = new Set(["fixShape", "unifySameDomain", "healSolid", "healFace", "healWire", "fixFaceOrientations", "removeDegenerateEdges", "fixWireOnFace", "buildCurves3d"]);
+const HEALING_OPS = new Set(["fixShape", "unifySameDomain", "unifySameDomainWithHistory", "healSolid", "healFace", "healWire", "fixFaceOrientations", "removeDegenerateEdges", "fixWireOnFace", "buildCurves3d"]);
 
 /**
  * Classify an error into a structured code by matching known C++ error patterns

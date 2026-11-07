@@ -1244,3 +1244,174 @@ fn surface_data_reads_exact_parameters() {
 
     assert!(kernel.surface_data(cylinder).is_err());
 }
+
+/// Decode `[input, count, result...]` runs into `(input, results)` pairs.
+fn runs(flat: &[i32]) -> Vec<(i32, Vec<i32>)> {
+    let mut decoded = Vec::new();
+    let mut rest = flat;
+    while let [input, count, tail @ ..] = rest {
+        let (results, next) = tail.split_at(usize::try_from(*count).unwrap());
+        decoded.push((*input, results.to_vec()));
+        rest = next;
+    }
+    decoded
+}
+
+#[test]
+fn revolve_with_history_names_walls_and_caps() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let points = [
+        [5.0, 0.0, 0.0],
+        [8.0, 0.0, 0.0],
+        [8.0, 0.0, 4.0],
+        [5.0, 0.0, 4.0],
+    ];
+    let edges: Vec<_> = (0..4)
+        .map(|i| {
+            let (a, b) = (points[i], points[(i + 1) % 4]);
+            kernel
+                .make_line_edge(a[0], a[1], a[2], b[0], b[1], b[2])
+                .unwrap()
+        })
+        .collect();
+    let wire = kernel.make_wire(&edges).unwrap();
+    let face = kernel.make_face(wire).unwrap();
+    let evo = kernel
+        .revolve_with_history(face, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.5, &[], BOUND)
+        .unwrap();
+    assert_eq!(evo.first_shape.len(), 1);
+    assert_eq!(evo.last_shape.len(), 1);
+    let walls = runs(&evo.edge_generated);
+    assert_eq!(walls.len(), 4);
+
+    let result_faces: Vec<i32> = kernel
+        .get_sub_shapes(evo.result(), "face")
+        .unwrap()
+        .into_iter()
+        .map(|f| kernel.hash_code(f, BOUND).unwrap())
+        .collect();
+    assert_eq!(result_faces.len(), 6);
+    for hash in walls
+        .iter()
+        .flat_map(|(_, faces)| faces)
+        .chain(&evo.first_shape)
+        .chain(&evo.last_shape)
+    {
+        assert!(result_faces.contains(hash), "{hash} is not in the result");
+    }
+
+    let full = kernel
+        .revolve_with_history(
+            face,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            std::f64::consts::TAU,
+            &[],
+            BOUND,
+        )
+        .unwrap();
+    assert!(full.first_shape.is_empty());
+    assert!(full.last_shape.is_empty());
+}
+
+#[test]
+fn sweep_and_pipe_with_history_pair_spine_and_profile_edges() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let spine_edges = [
+        kernel
+            .make_line_edge(0.0, 0.0, 0.0, 0.0, 0.0, 10.0)
+            .unwrap(),
+        kernel
+            .make_line_edge(0.0, 0.0, 10.0, 0.0, 10.0, 10.0)
+            .unwrap(),
+    ];
+    let spine = kernel.make_wire(&spine_edges).unwrap();
+    let profile_edges = [
+        kernel
+            .make_line_edge(-1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+            .unwrap(),
+        kernel.make_line_edge(1.0, 0.0, 0.0, 1.0, 1.0, 0.0).unwrap(),
+    ];
+    let profile = kernel.make_wire(&profile_edges).unwrap();
+
+    let piped = kernel
+        .pipe_with_history(profile, spine, &[], BOUND)
+        .unwrap();
+    let swept = kernel
+        .sweep_with_history(profile, spine, 0, 0, &[], &[], BOUND)
+        .unwrap();
+    for evo in [piped, swept] {
+        assert_eq!(runs(&evo.edge_generated).len(), 2);
+        assert!(evo.first_shape.is_empty());
+        let mut pairs = 0;
+        let mut rest = evo.spine_generated.as_slice();
+        while let [_, _, count, tail @ ..] = rest {
+            rest = &tail[usize::try_from(*count).unwrap()..];
+            pairs += 1;
+        }
+        assert_eq!(pairs, 4);
+    }
+
+    let bad = kernel.sweep_with_history(profile, spine, 0, 0, &[1.0], &[], BOUND);
+    assert!(bad.is_err(), "a short options list must be rejected");
+}
+
+#[test]
+fn loft_and_unify_with_history_report_their_inputs() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let bottom = kernel
+        .make_circle_edge(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 5.0)
+        .unwrap();
+    let top = kernel
+        .make_circle_edge(0.0, 0.0, 10.0, 0.0, 0.0, 1.0, 3.0)
+        .unwrap();
+    let wires = [
+        kernel.make_wire(&[bottom]).unwrap(),
+        kernel.make_wire(&[top]).unwrap(),
+    ];
+    let evo = kernel
+        .loft_with_history(&wires, true, false, 0, 0, &[], BOUND)
+        .unwrap();
+    assert_eq!(evo.first_shape.len(), 1);
+    assert_eq!(evo.last_shape.len(), 1);
+    assert_eq!(runs(&evo.edge_generated).len(), 2);
+
+    let left = kernel.make_box(10.0, 10.0, 10.0).unwrap();
+    let right = kernel.make_box(10.0, 10.0, 10.0).unwrap();
+    let right = kernel.translate(right, 10.0, 0.0, 0.0).unwrap();
+    let fused = kernel.fuse(left, right).unwrap();
+    let hashes: Vec<i32> = kernel
+        .get_sub_shapes(fused, "face")
+        .unwrap()
+        .into_iter()
+        .map(|f| kernel.hash_code(f, BOUND).unwrap())
+        .collect();
+    let unified = kernel
+        .unify_same_domain_with_history(fused, &hashes, BOUND)
+        .unwrap();
+    assert_eq!(
+        kernel
+            .get_sub_shapes(unified.result(), "face")
+            .unwrap()
+            .len(),
+        6
+    );
+    assert!(!unified.modified.is_empty());
+
+    let matrix = [1.0, 0.0, 0.0, 5.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let moved = kernel
+        .transform_with_history(left, &matrix, &[], BOUND)
+        .unwrap();
+    assert!(moved.first_shape.is_empty());
+    assert!(!moved.edge_modified.is_empty());
+}

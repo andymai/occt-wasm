@@ -19,6 +19,7 @@
 #include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeShape.hxx>
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
@@ -56,7 +57,9 @@
 #include <BRepPrimAPI_MakeRevol.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRepPrimAPI_MakeTorus.hxx>
+#include <BRepSweep_Revol.hxx>
 #include <BRepTools.hxx>
+#include <BRepTools_History.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <BinTools.hxx>
@@ -1094,6 +1097,262 @@ static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t re
     appendEvolution(evo, maker, inputShape, tracked, hashUpperBound);
     return evo;
 }
+
+/// The controls `sweepFull` and `sweepWithHistory` share. 0 or null leaves a control
+/// at OCCT's default.
+struct SweepSetup {
+    int mode = 0;
+    double upX = 0.0;
+    double upY = 0.0;
+    double upZ = 1.0;
+    const TopoDS_Shape* auxSpine = nullptr;
+    bool curvilinearEquivalence = false;
+    int guideContact = 0;
+    int transitionMode = 0;
+    bool withContact = false;
+    bool withCorrection = false;
+    double tol3d = 0.0;
+    double boundTol = 0.0;
+    double tolAngular = 0.0;
+    const TopoDS_Shape* support = nullptr;
+    int maxDegree = 0;
+    int maxSegments = 0;
+    int lawKind = 0;
+    double lawLength = 0.0;
+    double lawEndFactor = 1.0;
+};
+
+/// lawKind 1 is Law_Linear and 2 is Law_S, each set over [0,1] from lawLength to
+/// lawEndFactor. SetLaw replaces Add rather than supplementing it (OCCT warns the two
+/// should not be combined), so it carries the same contact and correction flags.
+static void buildSweep(BRepOffsetAPI_MakePipeShell& maker, const TopoDS_Shape& profile,
+                       const SweepSetup& setup, const std::string& op) {
+    if (setup.support != nullptr) {
+        if (!maker.SetMode(*setup.support)) {
+            throw std::runtime_error(
+                op + ": the support shape is not a valid spine support. It must contain the "
+                     "spine and supply the surface the sweep follows.");
+        }
+    } else {
+        switch (setup.mode) {
+        case 0:
+            maker.SetMode(Standard_False);
+            break;
+        case 1:
+            maker.SetMode(Standard_True);
+            break;
+        case 2:
+            maker.SetMode(gp_Dir(setup.upX, setup.upY, setup.upZ));
+            break;
+        case 3: {
+            BRepFill_TypeOfContact contact;
+            switch (setup.guideContact) {
+            case 0:
+                contact = BRepFill_NoContact;
+                break;
+            case 1:
+                contact = BRepFill_Contact;
+                break;
+            case 2:
+                contact = BRepFill_ContactOnBorder;
+                break;
+            default:
+                throw std::runtime_error(op + ": invalid contact mode");
+            }
+            maker.SetMode(TopoDS::Wire(*setup.auxSpine), setup.curvilinearEquivalence, contact);
+            break;
+        }
+        default:
+            throw std::runtime_error(op + ": invalid mode");
+        }
+    }
+    if (setup.transitionMode < 0 || setup.transitionMode > 2) {
+        throw std::runtime_error(op + ": invalid transition mode");
+    }
+    maker.SetTransitionMode(static_cast<BRepBuilderAPI_TransitionMode>(setup.transitionMode));
+    if (setup.tol3d > 0.0 || setup.boundTol > 0.0 || setup.tolAngular > 0.0) {
+        maker.SetTolerance(setup.tol3d > 0.0 ? setup.tol3d : 1.0e-4,
+                           setup.boundTol > 0.0 ? setup.boundTol : 1.0e-4,
+                           setup.tolAngular > 0.0 ? setup.tolAngular : 1.0e-2);
+    }
+    if (setup.maxDegree > 0) {
+        maker.SetMaxDegree(setup.maxDegree);
+    }
+    if (setup.maxSegments > 0) {
+        maker.SetMaxSegments(setup.maxSegments);
+    }
+    if (setup.lawKind == 0) {
+        maker.Add(profile, setup.withContact, setup.withCorrection);
+    } else if (setup.lawKind == 1) {
+        Handle(Law_Linear) law = new Law_Linear();
+        law->Set(0.0, 1.0, setup.lawLength, setup.lawEndFactor);
+        maker.SetLaw(profile, law, setup.withContact, setup.withCorrection);
+    } else if (setup.lawKind == 2) {
+        Handle(Law_S) law = new Law_S();
+        law->Set(0.0, 1.0, setup.lawLength, setup.lawEndFactor);
+        maker.SetLaw(profile, law, setup.withContact, setup.withCorrection);
+    } else {
+        throw std::runtime_error(op + ": invalid law kind");
+    }
+    maker.Build();
+    if (!maker.IsDone()) {
+        switch (maker.GetStatus()) {
+        case BRepBuilderAPI_PlaneNotIntersectGuide:
+            throw std::runtime_error(
+                op + ": a section plane does not intersect the guide wire. The guide must "
+                     "span the whole spine and stay close enough to meet every section.");
+        case BRepBuilderAPI_ImpossibleContact:
+            throw std::runtime_error(
+                op + ": cannot keep the section in contact with the guide wire. The guide "
+                     "must be close enough to the spine to intersect every section.");
+        default:
+            throw std::runtime_error(op + ": operation failed");
+        }
+    }
+}
+
+/// Record the result faces of a sweep's first and last shapes. A maker can name a cap
+/// the result does not hold, such as a closed pipe's section, so only the result's
+/// faces count. Best effort, like the edge history.
+template <class Maker>
+static void appendSweepCaps(EvolutionData& evo, Maker& maker, const TopoDS_Shape& result,
+                            int hashUpperBound) {
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> faces;
+    TopExp::MapShapes(result, TopAbs_FACE, faces);
+    auto capHashes = [&](const TopoDS_Shape& cap) {
+        std::vector<int> hashes;
+        if (cap.IsNull()) {
+            return hashes;
+        }
+        for (TopExp_Explorer ex(cap, TopAbs_FACE); ex.More(); ex.Next()) {
+            if (faces.Contains(ex.Current())) {
+                hashes.push_back(static_cast<int>(TopTools_ShapeMapHasher{}(ex.Current()) %
+                                                  static_cast<size_t>(hashUpperBound)));
+            }
+        }
+        return hashes;
+    };
+    try {
+        std::vector<int> first = capHashes(maker.FirstShape());
+        std::vector<int> last = capHashes(maker.LastShape());
+        evo.firstShape = std::move(first);
+        evo.lastShape = std::move(last);
+    } catch (const Standard_Failure&) {
+    }
+}
+
+/// Record the faces each spine edge and profile edge sweep into together.
+/// `facesOf(spineEdge, profileEdge)` names them. Best effort, like the edge history.
+template <class FacesOf>
+static void appendSpineGenerated(EvolutionData& evo, const TopoDS_Shape& spine,
+                                 const TopoDS_Shape& profile, const TopoDS_Shape& result,
+                                 int hashUpperBound, FacesOf facesOf) {
+    auto hashShape = [&](const TopoDS_Shape& s) -> int {
+        return static_cast<int>(TopTools_ShapeMapHasher{}(s) % static_cast<size_t>(hashUpperBound));
+    };
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> faces, spineEdges, profileEdges;
+    TopExp::MapShapes(result, TopAbs_FACE, faces);
+    TopExp::MapShapes(spine, TopAbs_EDGE, spineEdges);
+    TopExp::MapShapes(profile, TopAbs_EDGE, profileEdges);
+    std::vector<int> generated;
+    try {
+        for (int i = 1; i <= spineEdges.Extent(); ++i) {
+            for (int j = 1; j <= profileEdges.Extent(); ++j) {
+                std::vector<int> hashes;
+                for (const TopoDS_Shape& face : facesOf(spineEdges.FindKey(i), profileEdges.FindKey(j))) {
+                    if (faces.Contains(face)) {
+                        hashes.push_back(hashShape(face));
+                    }
+                }
+                if (hashes.empty()) {
+                    continue;
+                }
+                generated.push_back(hashShape(spineEdges.FindKey(i)));
+                generated.push_back(hashShape(profileEdges.FindKey(j)));
+                generated.push_back(static_cast<int>(hashes.size()));
+                generated.insert(generated.end(), hashes.begin(), hashes.end());
+            }
+        }
+    } catch (const Standard_Failure&) {
+        return;
+    }
+    evo.spineGenerated = std::move(generated);
+}
+
+/// BRepPrimAPI_MakeRevol::Generated asks BRepSweep_Revol::IsUsed first, which on a full
+/// revolve is false for an edge sweeping a planar face (it has no seam to use the edge)
+/// and for the profile face itself, though the sweep built them and the result holds
+/// them. This asks the sweep directly.
+class RevolHistory : public BRepBuilderAPI_MakeShape {
+  public:
+    RevolHistory(BRepPrimAPI_MakeRevol& maker, const TopoDS_Shape& result)
+        : maker_(maker), revol_(const_cast<BRepSweep_Revol&>(maker.Revol())) {
+        TopExp::MapShapes(result, resultShapes_);
+    }
+    const NCollection_List<TopoDS_Shape>& Generated(const TopoDS_Shape& s) override {
+        const NCollection_List<TopoDS_Shape>& generated = maker_.Generated(s);
+        if (!generated.IsEmpty()) {
+            return generated;
+        }
+        myGenerated.Clear();
+        const TopoDS_Shape swept = revol_.Shape(s);
+        if (!swept.IsNull() && resultShapes_.Contains(swept)) {
+            myGenerated.Append(swept);
+        }
+        return myGenerated;
+    }
+    bool IsDeleted(const TopoDS_Shape& s) override {
+        return maker_.IsDeleted(s) && Generated(s).IsEmpty();
+    }
+
+  private:
+    BRepPrimAPI_MakeRevol& maker_;
+    BRepSweep_Revol& revol_;
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> resultShapes_;
+};
+
+/// BRepFill_Pipe keeps Generated lists for a wire's edges only, so a bare edge profile,
+/// alone or in a compound, answers from its face along each spine edge instead.
+class PipeHistory : public BRepBuilderAPI_MakeShape {
+  public:
+    PipeHistory(BRepOffsetAPI_MakePipe& maker, const TopoDS_Shape& spine) : maker_(maker) {
+        TopExp::MapShapes(spine, TopAbs_EDGE, spineEdges_);
+    }
+    const NCollection_List<TopoDS_Shape>& Generated(const TopoDS_Shape& s) override {
+        const NCollection_List<TopoDS_Shape>& generated = maker_.Generated(s);
+        if (!generated.IsEmpty() || s.ShapeType() != TopAbs_EDGE) {
+            return generated;
+        }
+        myGenerated.Clear();
+        for (int i = 1; i <= spineEdges_.Extent(); ++i) {
+            const TopoDS_Shape face = maker_.Generated(spineEdges_.FindKey(i), s);
+            if (!face.IsNull()) {
+                myGenerated.Append(face);
+            }
+        }
+        return myGenerated;
+    }
+
+  private:
+    BRepOffsetAPI_MakePipe& maker_;
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> spineEdges_;
+};
+
+/// Presents a BRepTools_History as a maker, so `buildEvolution` can read it.
+class HistoryMaker : public BRepBuilderAPI_MakeShape {
+  public:
+    explicit HistoryMaker(const Handle(BRepTools_History)& history) : history_(history) {}
+    const NCollection_List<TopoDS_Shape>& Generated(const TopoDS_Shape& s) override {
+        return history_->Generated(s);
+    }
+    const NCollection_List<TopoDS_Shape>& Modified(const TopoDS_Shape& s) override {
+        return history_->Modified(s);
+    }
+    bool IsDeleted(const TopoDS_Shape& s) override { return history_->IsRemoved(s); }
+
+  private:
+    Handle(BRepTools_History) history_;
+};
 
 // === primitives ===
 
@@ -4554,91 +4813,31 @@ uint32_t OcctKernel::sweepAdvanced(uint32_t profileId, uint32_t spineId, int mod
 
 uint32_t OcctKernel::sweepFull(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY, double upZ, uint32_t auxSpineId, bool curvilinearEquivalence, int guideContact, int transitionMode, bool withContact, bool withCorrection, double tol3d, double boundTol, double tolAngular, uint32_t supportId, int maxDegree, int maxSegments, int lawKind, double lawLength, double lawEndFactor) {
     try {
-        BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
+        SweepSetup setup;
+        setup.mode = mode;
+        setup.upX = upX;
+        setup.upY = upY;
+        setup.upZ = upZ;
+        setup.curvilinearEquivalence = curvilinearEquivalence;
+        setup.guideContact = guideContact;
+        setup.transitionMode = transitionMode;
+        setup.withContact = withContact;
+        setup.withCorrection = withCorrection;
+        setup.tol3d = tol3d;
+        setup.boundTol = boundTol;
+        setup.tolAngular = tolAngular;
+        setup.maxDegree = maxDegree;
+        setup.maxSegments = maxSegments;
+        setup.lawKind = lawKind;
+        setup.lawLength = lawLength;
+        setup.lawEndFactor = lawEndFactor;
         if (supportId != 0) {
-            if (!maker.SetMode(get(supportId))) {
-                throw std::runtime_error(
-                    "sweepFull: the support shape is not a valid spine support. It must contain the "
-                    "spine and supply the surface the sweep follows.");
-            }
-        } else {
-            switch (mode) {
-                case 0:
-                    maker.SetMode(Standard_False);
-                    break;
-                case 1:
-                    maker.SetMode(Standard_True);
-                    break;
-                case 2: {
-                    gp_Dir up(upX, upY, upZ);
-                    maker.SetMode(up);
-                    break;
-                }
-                case 3: {
-                    BRepFill_TypeOfContact contact;
-                    switch (guideContact) {
-                        case 0:
-                            contact = BRepFill_NoContact;
-                            break;
-                        case 1:
-                            contact = BRepFill_Contact;
-                            break;
-                        case 2:
-                            contact = BRepFill_ContactOnBorder;
-                            break;
-                        default:
-                            throw std::runtime_error("sweepFull: invalid contact mode");
-                    }
-                    maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
-                    break;
-                }
-                default:
-                    throw std::runtime_error("sweepFull: invalid mode");
-            }
+            setup.support = &get(supportId);
+        } else if (mode == 3) {
+            setup.auxSpine = &get(auxSpineId);
         }
-        if (transitionMode < 0 || transitionMode > 2) {
-            throw std::runtime_error("sweepFull: invalid transition mode");
-        }
-        maker.SetTransitionMode(static_cast<BRepBuilderAPI_TransitionMode>(transitionMode));
-        if (tol3d > 0.0 || boundTol > 0.0 || tolAngular > 0.0) {
-            maker.SetTolerance(tol3d > 0.0 ? tol3d : 1.0e-4,
-                               boundTol > 0.0 ? boundTol : 1.0e-4,
-                               tolAngular > 0.0 ? tolAngular : 1.0e-2);
-        }
-        if (maxDegree > 0) {
-            maker.SetMaxDegree(maxDegree);
-        }
-        if (maxSegments > 0) {
-            maker.SetMaxSegments(maxSegments);
-        }
-        if (lawKind == 0) {
-            maker.Add(get(profileId), withContact, withCorrection);
-        } else if (lawKind == 1) {
-            Handle(Law_Linear) law = new Law_Linear();
-            law->Set(0.0, 1.0, lawLength, lawEndFactor);
-            maker.SetLaw(get(profileId), law, withContact, withCorrection);
-        } else if (lawKind == 2) {
-            Handle(Law_S) law = new Law_S();
-            law->Set(0.0, 1.0, lawLength, lawEndFactor);
-            maker.SetLaw(get(profileId), law, withContact, withCorrection);
-        } else {
-            throw std::runtime_error("sweepFull: invalid law kind");
-        }
-        maker.Build();
-        if (!maker.IsDone()) {
-            switch (maker.GetStatus()) {
-                case BRepBuilderAPI_PlaneNotIntersectGuide:
-                    throw std::runtime_error(
-                        "sweepFull: a section plane does not intersect the guide wire. The guide must "
-                        "span the whole spine and stay close enough to meet every section.");
-                case BRepBuilderAPI_ImpossibleContact:
-                    throw std::runtime_error(
-                        "sweepFull: cannot keep the section in contact with the guide wire. The guide "
-                        "must be close enough to the spine to intersect every section.");
-                default:
-                    throw std::runtime_error("sweepFull: operation failed");
-            }
-        }
+        BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));
+        buildSweep(maker, get(profileId), setup, "sweepFull");
         maker.MakeSolid();
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
@@ -4946,6 +5145,211 @@ std::string OcctKernel::xcafExportGLTF(uint32_t docId, double linDeflection, dou
 }
 
 // === evolution ===
+
+EvolutionData OcctKernel::extrudeWithHistory(uint32_t shapeId, double dx, double dy, double dz, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        const auto& shape = get(shapeId);
+        BRepPrimAPI_MakePrism maker(shape, gp_Vec(dx, dy, dz));
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("extrudeWithHistory: construction failed");
+        }
+        BatchScope batch(*this, 1);
+        const TopoDS_Shape result = normalizeSolidOrientation(maker.Shape());
+        uint32_t resultId = batch.add(result);
+        EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+        appendSweepCaps(evo, maker, result, hashUpperBound);
+        batch.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("extrudeWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::revolveWithHistory(uint32_t shapeId, double px, double py, double pz, double dx, double dy, double dz, double angleRad, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        const auto& shape = get(shapeId);
+        BRepPrimAPI_MakeRevol maker(shape, gp_Ax1(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz)), angleRad);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("revolveWithHistory: construction failed");
+        }
+        BatchScope batch(*this, 1);
+        const TopoDS_Shape result = normalizeSolidOrientation(maker.Shape());
+        uint32_t resultId = batch.add(result);
+        RevolHistory history(maker, result);
+        EvolutionData evo = buildEvolution(history, resultId, shape, inputFaceHashes, hashUpperBound);
+        appendSweepCaps(evo, maker, result, hashUpperBound);
+        batch.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("revolveWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::pipeWithHistory(uint32_t profileId, uint32_t spineId, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        const auto& profile = get(profileId);
+        const auto& spine = get(spineId);
+        BRepOffsetAPI_MakePipe maker(TopoDS::Wire(spine), profile);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("pipeWithHistory: operation failed");
+        }
+        BatchScope batch(*this, 1);
+        const TopoDS_Shape result = maker.Shape();
+        uint32_t resultId = batch.add(result);
+        PipeHistory history(maker, spine);
+        EvolutionData evo = buildEvolution(history, resultId, profile, inputFaceHashes, hashUpperBound);
+        appendSweepCaps(evo, maker, result, hashUpperBound);
+        appendSpineGenerated(evo, spine, profile, result, hashUpperBound,
+            [&maker](const TopoDS_Shape& spineEdge, const TopoDS_Shape& profileEdge) {
+                std::vector<TopoDS_Shape> faces;
+                const TopoDS_Shape face = maker.Generated(spineEdge, profileEdge);
+                if (!face.IsNull()) {
+                    faces.push_back(face);
+                }
+                return faces;
+            });
+        batch.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("pipeWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::sweepWithHistory(uint32_t profileId, uint32_t spineId, uint32_t auxSpineId, uint32_t supportId, std::vector<double> options, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        if (!options.empty() && options.size() != 17) {
+            throw std::runtime_error("sweepWithHistory: options must be empty or hold 17 values");
+        }
+        SweepSetup setup;
+        if (!options.empty()) {
+            setup.mode = static_cast<int>(options[0]);
+            setup.upX = options[1];
+            setup.upY = options[2];
+            setup.upZ = options[3];
+            setup.curvilinearEquivalence = options[4] != 0.0;
+            setup.guideContact = static_cast<int>(options[5]);
+            setup.transitionMode = static_cast<int>(options[6]);
+            setup.withContact = options[7] != 0.0;
+            setup.withCorrection = options[8] != 0.0;
+            setup.tol3d = options[9];
+            setup.boundTol = options[10];
+            setup.tolAngular = options[11];
+            setup.maxDegree = static_cast<int>(options[12]);
+            setup.maxSegments = static_cast<int>(options[13]);
+            setup.lawKind = static_cast<int>(options[14]);
+            setup.lawLength = options[15];
+            setup.lawEndFactor = options[16];
+        }
+        if (supportId != 0) {
+            setup.support = &get(supportId);
+        } else if (setup.mode == 3) {
+            setup.auxSpine = &get(auxSpineId);
+        }
+        const auto& profile = get(profileId);
+        const auto& spine = get(spineId);
+        BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(spine));
+        buildSweep(maker, profile, setup, "sweepWithHistory");
+        maker.MakeSolid();
+        BatchScope batch(*this, 1);
+        const TopoDS_Shape result = maker.Shape();
+        uint32_t resultId = batch.add(result);
+        EvolutionData evo = buildEvolution(maker, resultId, profile, inputFaceHashes, hashUpperBound);
+        appendSweepCaps(evo, maker, result, hashUpperBound);
+        // BRepFill_PipeShell binds a spine edge to the faces swept along it as well as a
+        // profile edge to the faces it swept, so a pair's faces are the ones in both lists.
+        // Generated answers through one list it reuses, hence the copies.
+        appendSpineGenerated(evo, spine, profile, result, hashUpperBound,
+            [&maker](const TopoDS_Shape& spineEdge, const TopoDS_Shape& profileEdge) {
+                std::vector<TopoDS_Shape> faces;
+                const auto alongSpine = maker.Generated(spineEdge);
+                const auto fromProfile = maker.Generated(profileEdge);
+                for (auto s = alongSpine.begin(); s != alongSpine.end(); ++s) {
+                    for (auto p = fromProfile.begin(); p != fromProfile.end(); ++p) {
+                        if (s->IsSame(*p)) {
+                            faces.push_back(*s);
+                            break;
+                        }
+                    }
+                }
+                return faces;
+            });
+        batch.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("sweepWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::loftWithHistory(std::vector<uint32_t> wireIds, bool isSolid, bool ruled, uint32_t startVertexId, uint32_t endVertexId, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        BRepOffsetAPI_ThruSections maker(isSolid, ruled);
+        if (startVertexId != 0) {
+            maker.AddVertex(TopoDS::Vertex(get(startVertexId)));
+        }
+        for (uint32_t wid : wireIds) {
+            maker.AddWire(TopoDS::Wire(get(wid)));
+        }
+        if (endVertexId != 0) {
+            maker.AddVertex(TopoDS::Vertex(get(endVertexId)));
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("loftWithHistory: operation failed");
+        }
+        BatchScope batch(*this, 1);
+        const TopoDS_Shape result = maker.Shape();
+        EvolutionData evo;
+        evo.resultId = batch.add(result);
+        std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
+        for (uint32_t wid : wireIds) {
+            appendEvolution(evo, maker, get(wid), tracked, hashUpperBound);
+        }
+        appendSweepCaps(evo, maker, result, hashUpperBound);
+        batch.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("loftWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::unifySameDomainWithHistory(uint32_t id, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        const auto& shape = get(id);
+        ShapeUpgrade_UnifySameDomain upgrader(shape, true, true, false);
+        upgrader.Build();
+        BatchScope batch(*this, 1);
+        uint32_t resultId = batch.add(upgrader.Shape());
+        HistoryMaker maker(upgrader.History());
+        EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+        batch.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("unifySameDomainWithHistory: ") + e.what());
+    }
+}
+
+EvolutionData OcctKernel::transformWithHistory(uint32_t id, std::vector<double> matrix, std::vector<int> inputFaceHashes, int hashUpperBound) {
+    try {
+        if (matrix.size() != 12) {
+            throw std::runtime_error("transformWithHistory: matrix must have 12 elements (3x4)");
+        }
+        const auto& shape = get(id);
+        gp_Trsf trsf;
+        trsf.SetValues(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5], matrix[6],
+                       matrix[7], matrix[8], matrix[9], matrix[10], matrix[11]);
+        BRepBuilderAPI_Transform maker(shape, trsf, true);
+        BatchScope batch(*this, 1);
+        uint32_t resultId = batch.add(maker.Shape());
+        EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+        batch.take();
+        return evo;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("transformWithHistory: ") + e.what());
+    }
+}
 
 EvolutionData OcctKernel::translateWithHistory(uint32_t id, double dx, double dy, double dz, std::vector<int> inputFaceHashes, int hashUpperBound) {
     try {

@@ -770,6 +770,9 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
         ("edge_modified", "edgeModified"),
         ("edge_generated", "edgeGenerated"),
         ("edge_deleted", "edgeDeleted"),
+        ("first_shape", "firstShape"),
+        ("last_shape", "lastShape"),
+        ("spine_generated", "spineGenerated"),
     ] {
         let _ = writeln!(
             buf,

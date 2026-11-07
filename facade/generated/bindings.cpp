@@ -120,7 +120,10 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("deleted", &EvolutionData::deleted)
         .property("edgeModified", &EvolutionData::edgeModified)
         .property("edgeGenerated", &EvolutionData::edgeGenerated)
-        .property("edgeDeleted", &EvolutionData::edgeDeleted);
+        .property("edgeDeleted", &EvolutionData::edgeDeleted)
+        .property("firstShape", &EvolutionData::firstShape)
+        .property("lastShape", &EvolutionData::lastShape)
+        .property("spineGenerated", &EvolutionData::spineGenerated);
 
     // XCAFLabelInfo
     value_object<XCAFLabelInfo>("XCAFLabelInfo")
@@ -355,6 +358,13 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("xcafExportGLTF", &OcctKernel::xcafExportGLTF)
 
         // evolution
+        .function("extrudeWithHistory", &OcctKernel::extrudeWithHistory)
+        .function("revolveWithHistory", &OcctKernel::revolveWithHistory)
+        .function("pipeWithHistory", &OcctKernel::pipeWithHistory)
+        .function("sweepWithHistory", &OcctKernel::sweepWithHistory)
+        .function("loftWithHistory", &OcctKernel::loftWithHistory)
+        .function("unifySameDomainWithHistory", &OcctKernel::unifySameDomainWithHistory)
+        .function("transformWithHistory", &OcctKernel::transformWithHistory)
         .function("translateWithHistory", &OcctKernel::translateWithHistory)
         .function("fuseWithHistory", &OcctKernel::fuseWithHistory)
         .function("cutWithHistory", &OcctKernel::cutWithHistory)

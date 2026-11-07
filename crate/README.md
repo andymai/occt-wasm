@@ -69,7 +69,7 @@ The crate exposes the full OCCT facade — 170+ methods generated from the same 
 | **Curves** | Exact parameters (`curve_data`), NURBS data extraction, point/tangent evaluation, interpolation |
 | **Projection** | Hidden line removal (HLR) |
 | **Healing** | `fix_shape`, `unify_same_domain`, wire/face/solid repair |
-| **Evolution** | Per-face and per-edge history tracking across modifications |
+| **Evolution** | Per-face and per-edge history tracking across modifications and sweeps |
 | **XCAF** | Assembly documents with colors, names, component hierarchies |
 
 See the [API docs](https://docs.rs/occt-wasm) for the complete list.

@@ -416,7 +416,7 @@ Generate full docs locally: `cd ts && npm run docs` (TypeDoc output).
 | **Curves**       | Type, exact parameters, point/tangent eval, parameters, NURBS data, interpolation (incl. clamped tangents), project point |
 | **Projection**   | Hidden line removal (HLR), multiview SVG render (Front/Top/Right/Iso)                                          |
 | **Modifiers**    | Thicken, defeature, reverse, simplify, variable fillet, 2D wire offset                                         |
-| **Evolution**    | Face-tracking history for translate, fuse, cut, fillet, rotate, mirror, scale, chamfer, draft, shell, offset, thicken |
+| **Evolution**    | Face and edge history for extrude, revolve, pipe, sweep, loft, fuse, cut, fillet, chamfer, draft, shell, offset, thicken, unify, and the transforms |
 | **XCAF**         | Assembly documents with colors, names, component hierarchies, STEP/glTF export                                 |
 | **Healing**      | Fix shape, unify domain, heal solid/face/wire, fix orientations, remove degenerate edges                       |
 | **Batch**        | Multi-shape translate, chained boolean pipeline                                                                |
