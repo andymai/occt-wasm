@@ -80,6 +80,38 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("poles", &NurbsCurveData::poles)
         .property("weights", &NurbsCurveData::weights);
 
+    // NurbsSurfaceData
+    class_<NurbsSurfaceData>("NurbsSurfaceData")
+        .property("degreeU", &NurbsSurfaceData::degreeU)
+        .property("degreeV", &NurbsSurfaceData::degreeV)
+        .property("nbPolesU", &NurbsSurfaceData::nbPolesU)
+        .property("nbPolesV", &NurbsSurfaceData::nbPolesV)
+        .property("periodicU", &NurbsSurfaceData::periodicU)
+        .property("periodicV", &NurbsSurfaceData::periodicV)
+        .property("knotsU", &NurbsSurfaceData::knotsU)
+        .property("knotsV", &NurbsSurfaceData::knotsV)
+        .property("multiplicitiesU", &NurbsSurfaceData::multiplicitiesU)
+        .property("multiplicitiesV", &NurbsSurfaceData::multiplicitiesV)
+        .property("poles", &NurbsSurfaceData::poles)
+        .property("weights", &NurbsSurfaceData::weights);
+
+    // CurveData
+    class_<CurveData>("CurveData")
+        .property("kind", &CurveData::kind)
+        .property("first", &CurveData::first)
+        .property("last", &CurveData::last)
+        .property("params", &CurveData::params)
+        .property("hasBSpline", &CurveData::hasBSpline)
+        .property("bspline", &CurveData::bspline);
+
+    // SurfaceData
+    class_<SurfaceData>("SurfaceData")
+        .property("kind", &SurfaceData::kind)
+        .property("isDirect", &SurfaceData::isDirect)
+        .property("params", &SurfaceData::params)
+        .property("hasBSpline", &SurfaceData::hasBSpline)
+        .property("bspline", &SurfaceData::bspline);
+
     // EvolutionData
     class_<EvolutionData>("EvolutionData")
         .property("resultId", &EvolutionData::resultId)
@@ -237,6 +269,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("getSurfaceCenterOfMass", &OcctKernel::getSurfaceCenterOfMass)
         .function("vertexPosition", &OcctKernel::vertexPosition)
         .function("surfaceType", &OcctKernel::surfaceType)
+        .function("surfaceData", &OcctKernel::surfaceData)
         .function("surfaceNormal", &OcctKernel::surfaceNormal)
         .function("pointOnSurface", &OcctKernel::pointOnSurface)
         .function("outerWire", &OcctKernel::outerWire)
@@ -252,6 +285,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
 
         // curve
         .function("curveType", &OcctKernel::curveType)
+        .function("curveData", &OcctKernel::curveData)
         .function("curvePointAtParam", &OcctKernel::curvePointAtParam)
         .function("curveTangent", &OcctKernel::curveTangent)
         .function("curveParameters", &OcctKernel::curveParameters)

@@ -81,17 +81,20 @@
 #include <GeomAbs_JoinType.hxx>
 #include <GeomAbs_Shape.hxx>
 #include <GeomAbs_SurfaceType.hxx>
+#include <GeomAdaptor_Curve.hxx>
 #include <GeomAdaptor_Surface.hxx>
 #include <GeomConvert.hxx>
 #include <GeomProjLib.hxx>
 #include <Geom_BSplineCurve.hxx>
 #include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierCurve.hxx>
+#include <Geom_BezierSurface.hxx>
 #include <Geom_Circle.hxx>
 #include <Geom_Curve.hxx>
 #include <Geom_CylindricalSurface.hxx>
 #include <Geom_Ellipse.hxx>
 #include <Geom_Plane.hxx>
+#include <Geom_RectangularTrimmedSurface.hxx>
 #include <Geom_Surface.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <HLRAlgo_Projector.hxx>
@@ -161,15 +164,21 @@
 #include <gp_Ax2.hxx>
 #include <gp_Ax3.hxx>
 #include <gp_Circ.hxx>
+#include <gp_Cone.hxx>
 #include <gp_Cylinder.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Dir2d.hxx>
 #include <gp_Elips.hxx>
 #include <gp_GTrsf.hxx>
+#include <gp_Hypr.hxx>
+#include <gp_Lin.hxx>
 #include <gp_Mat.hxx>
+#include <gp_Parab.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Pnt2d.hxx>
+#include <gp_Sphere.hxx>
+#include <gp_Torus.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
 #include <memory>
@@ -190,6 +199,117 @@
 #include <vector>
 
 // === helper functions ===
+
+static const char* curveKindName(GeomAbs_CurveType type) {
+    switch (type) {
+    case GeomAbs_Line:
+        return "line";
+    case GeomAbs_Circle:
+        return "circle";
+    case GeomAbs_Ellipse:
+        return "ellipse";
+    case GeomAbs_Hyperbola:
+        return "hyperbola";
+    case GeomAbs_Parabola:
+        return "parabola";
+    case GeomAbs_BezierCurve:
+        return "bezier";
+    case GeomAbs_BSplineCurve:
+        return "bspline";
+    case GeomAbs_OffsetCurve:
+        return "offset";
+    default:
+        return "other";
+    }
+}
+
+static const char* surfaceKindName(GeomAbs_SurfaceType type) {
+    switch (type) {
+    case GeomAbs_Plane:
+        return "plane";
+    case GeomAbs_Cylinder:
+        return "cylinder";
+    case GeomAbs_Cone:
+        return "cone";
+    case GeomAbs_Sphere:
+        return "sphere";
+    case GeomAbs_Torus:
+        return "torus";
+    case GeomAbs_BezierSurface:
+        return "bezier";
+    case GeomAbs_BSplineSurface:
+        return "bspline";
+    case GeomAbs_SurfaceOfRevolution:
+        return "revolution";
+    case GeomAbs_SurfaceOfExtrusion:
+        return "extrusion";
+    case GeomAbs_OffsetSurface:
+        return "offset";
+    default:
+        return "other";
+    }
+}
+
+static NurbsCurveData toNurbsCurveData(const Handle(Geom_BSplineCurve)& curve) {
+    NurbsCurveData data;
+    data.degree = curve->Degree();
+    data.rational = curve->IsRational();
+    data.periodic = curve->IsPeriodic();
+    const int nbKnots = curve->NbKnots();
+    data.knots.reserve(nbKnots);
+    data.multiplicities.reserve(nbKnots);
+    for (int i = 1; i <= nbKnots; i++) {
+        data.knots.push_back(curve->Knot(i));
+        data.multiplicities.push_back(curve->Multiplicity(i));
+    }
+    const int nbPoles = curve->NbPoles();
+    data.poles.reserve(3 * static_cast<size_t>(nbPoles));
+    for (int i = 1; i <= nbPoles; i++) {
+        const gp_Pnt p = curve->Pole(i);
+        data.poles.insert(data.poles.end(), {p.X(), p.Y(), p.Z()});
+    }
+    if (curve->IsRational()) {
+        data.weights.reserve(nbPoles);
+        for (int i = 1; i <= nbPoles; i++) {
+            data.weights.push_back(curve->Weight(i));
+        }
+    }
+    return data;
+}
+
+static NurbsSurfaceData toNurbsSurfaceData(const Handle(Geom_BSplineSurface)& surface) {
+    NurbsSurfaceData data;
+    data.degreeU = surface->UDegree();
+    data.degreeV = surface->VDegree();
+    data.nbPolesU = surface->NbUPoles();
+    data.nbPolesV = surface->NbVPoles();
+    data.periodicU = surface->IsUPeriodic();
+    data.periodicV = surface->IsVPeriodic();
+    for (int i = 1; i <= surface->NbUKnots(); i++) {
+        data.knotsU.push_back(surface->UKnot(i));
+        data.multiplicitiesU.push_back(surface->UMultiplicity(i));
+    }
+    for (int i = 1; i <= surface->NbVKnots(); i++) {
+        data.knotsV.push_back(surface->VKnot(i));
+        data.multiplicitiesV.push_back(surface->VMultiplicity(i));
+    }
+    const size_t count = static_cast<size_t>(data.nbPolesU) * data.nbPolesV;
+    const bool rational = surface->IsURational() || surface->IsVRational();
+    data.poles.reserve(3 * count);
+    if (rational) {
+        data.weights.reserve(count);
+    }
+    for (int i = 1; i <= data.nbPolesU; i++) {
+        for (int j = 1; j <= data.nbPolesV; j++) {
+            const gp_Pnt p = surface->Pole(i, j);
+            data.poles.insert(data.poles.end(), {p.X(), p.Y(), p.Z()});
+            if (rational) {
+                data.weights.push_back(surface->Weight(i, j));
+            }
+        }
+    }
+    return data;
+}
 
 /// Map a raw join code for the 3D offset family (shell/offset and their
 /// history variants). The codes are the ones `offsetWire2D` takes: 0 = Arc,
@@ -3450,32 +3570,87 @@ std::vector<double> OcctKernel::vertexPosition(uint32_t vertexId) {
 std::string OcctKernel::surfaceType(uint32_t faceId) {
     try {
         BRepAdaptor_Surface surf(TopoDS::Face(get(faceId)));
-        switch (surf.GetType()) {
-        case GeomAbs_Plane:
-            return "plane";
-        case GeomAbs_Cylinder:
-            return "cylinder";
-        case GeomAbs_Cone:
-            return "cone";
-        case GeomAbs_Sphere:
-            return "sphere";
-        case GeomAbs_Torus:
-            return "torus";
-        case GeomAbs_BezierSurface:
-            return "bezier";
-        case GeomAbs_BSplineSurface:
-            return "bspline";
-        case GeomAbs_SurfaceOfRevolution:
-            return "revolution";
-        case GeomAbs_SurfaceOfExtrusion:
-            return "extrusion";
-        case GeomAbs_OffsetSurface:
-            return "offset";
-        default:
-            return "other";
-        }
+        return surfaceKindName(surf.GetType());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("surfaceType: ") + e.what());
+    }
+}
+
+SurfaceData OcctKernel::surfaceData(uint32_t faceId) {
+    try {
+        const auto& shape = get(faceId);
+        if (shape.IsNull() || shape.ShapeType() != TopAbs_FACE) {
+            throw std::runtime_error("surfaceData: shape is not a face");
+        }
+        BRepAdaptor_Surface surf(TopoDS::Face(shape));
+        const GeomAbs_SurfaceType type = surf.GetType();
+        SurfaceData result;
+        result.kind = surfaceKindName(type);
+        auto pushFrame = [&result](const gp_Ax3& frame) {
+            const gp_Pnt& p = frame.Location();
+            const gp_Dir& a = frame.Direction();
+            const gp_Dir& x = frame.XDirection();
+            result.params = {p.X(), p.Y(), p.Z(), a.X(), a.Y(), a.Z(), x.X(), x.Y(), x.Z()};
+            result.isDirect = frame.Direct();
+        };
+        switch (type) {
+        case GeomAbs_Plane:
+            pushFrame(surf.Plane().Position());
+            return result;
+        case GeomAbs_Cylinder: {
+            const gp_Cylinder cylinder = surf.Cylinder();
+            pushFrame(cylinder.Position());
+            result.params.push_back(cylinder.Radius());
+            return result;
+        }
+        case GeomAbs_Cone: {
+            const gp_Cone cone = surf.Cone();
+            pushFrame(cone.Position());
+            result.params.insert(result.params.end(), {cone.RefRadius(), cone.SemiAngle()});
+            return result;
+        }
+        case GeomAbs_Sphere: {
+            const gp_Sphere sphere = surf.Sphere();
+            pushFrame(sphere.Position());
+            result.params.push_back(sphere.Radius());
+            return result;
+        }
+        case GeomAbs_Torus: {
+            const gp_Torus torus = surf.Torus();
+            pushFrame(torus.Position());
+            result.params.insert(result.params.end(), {torus.MajorRadius(), torus.MinorRadius()});
+            return result;
+        }
+        case GeomAbs_BSplineSurface:
+            result.bspline = toNurbsSurfaceData(surf.BSpline());
+            result.hasBSpline = true;
+            return result;
+        default:
+            break;
+        }
+        // No exact parameters to read. Offer a B-spline form where OCCT can make one; failing
+        // to is not an error. A Bezier converts whole, as a B-spline reads whole. The others
+        // can be unbounded, so they convert over the face's UV bounds.
+        try {
+            Handle(Geom_BSplineSurface) form;
+            if (type == GeomAbs_BezierSurface) {
+                form = GeomConvert::SurfaceToBSplineSurface(surf.Bezier());
+            } else {
+                Handle(Geom_Surface) basis = Handle(Geom_Surface)::DownCast(
+                    surf.Surface().Surface()->Transformed(surf.Trsf()));
+                form = GeomConvert::SurfaceToBSplineSurface(new Geom_RectangularTrimmedSurface(
+                    basis, surf.FirstUParameter(), surf.LastUParameter(), surf.FirstVParameter(),
+                    surf.LastVParameter()));
+            }
+            if (!form.IsNull()) {
+                result.bspline = toNurbsSurfaceData(form);
+                result.hasBSpline = true;
+            }
+        } catch (const Standard_Failure&) {
+        }
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("surfaceData: ") + e.what());
     }
 }
 
@@ -3682,28 +3857,90 @@ std::string OcctKernel::curveType(uint32_t id) {
             BRepAdaptor_Curve curve(TopoDS::Edge(shape));
             ctype = curve.GetType();
         }
-        switch (ctype) {
-        case GeomAbs_Line:
-            return "line";
-        case GeomAbs_Circle:
-            return "circle";
-        case GeomAbs_Ellipse:
-            return "ellipse";
-        case GeomAbs_Hyperbola:
-            return "hyperbola";
-        case GeomAbs_Parabola:
-            return "parabola";
-        case GeomAbs_BezierCurve:
-            return "bezier";
-        case GeomAbs_BSplineCurve:
-            return "bspline";
-        case GeomAbs_OffsetCurve:
-            return "offset";
-        default:
-            return "other";
-        }
+        return curveKindName(ctype);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curveType: ") + e.what());
+    }
+}
+
+CurveData OcctKernel::curveData(uint32_t edgeId) {
+    try {
+        const auto& shape = get(edgeId);
+        if (shape.IsNull() || shape.ShapeType() != TopAbs_EDGE) {
+            throw std::runtime_error("curveData: shape is not an edge");
+        }
+        BRepAdaptor_Curve curve(TopoDS::Edge(shape));
+        const GeomAbs_CurveType type = curve.GetType();
+        CurveData result;
+        result.kind = curveKindName(type);
+        result.first = curve.FirstParameter();
+        result.last = curve.LastParameter();
+        auto pushFrame = [&result](const gp_Ax2& frame) {
+            const gp_Pnt& p = frame.Location();
+            const gp_Dir& a = frame.Direction();
+            const gp_Dir& x = frame.XDirection();
+            result.params = {p.X(), p.Y(), p.Z(), a.X(), a.Y(), a.Z(), x.X(), x.Y(), x.Z()};
+        };
+        switch (type) {
+        case GeomAbs_Line: {
+            const gp_Lin line = curve.Line();
+            const gp_Pnt& p = line.Location();
+            const gp_Dir& d = line.Direction();
+            result.params = {p.X(), p.Y(), p.Z(), d.X(), d.Y(), d.Z()};
+            return result;
+        }
+        case GeomAbs_Circle: {
+            const gp_Circ circle = curve.Circle();
+            pushFrame(circle.Position());
+            result.params.push_back(circle.Radius());
+            return result;
+        }
+        case GeomAbs_Ellipse: {
+            const gp_Elips ellipse = curve.Ellipse();
+            pushFrame(ellipse.Position());
+            result.params.insert(result.params.end(), {ellipse.MajorRadius(), ellipse.MinorRadius()});
+            return result;
+        }
+        case GeomAbs_Hyperbola: {
+            const gp_Hypr hyperbola = curve.Hyperbola();
+            pushFrame(hyperbola.Position());
+            result.params.insert(result.params.end(), {hyperbola.MajorRadius(), hyperbola.MinorRadius()});
+            return result;
+        }
+        case GeomAbs_Parabola: {
+            const gp_Parab parabola = curve.Parabola();
+            pushFrame(parabola.Position());
+            result.params.push_back(parabola.Focal());
+            return result;
+        }
+        case GeomAbs_BSplineCurve:
+            result.bspline = toNurbsCurveData(curve.BSpline());
+            result.hasBSpline = true;
+            return result;
+        default:
+            break;
+        }
+        // No exact parameters to read. Offer a B-spline form where OCCT can make one;
+        // failing to is not an error. An edge with only a pcurve has no 3D curve to convert.
+        try {
+            Handle(Geom_BSplineCurve) form;
+            if (type == GeomAbs_BezierCurve) {
+                form = GeomConvert::CurveToBSplineCurve(curve.Bezier());
+            } else if (curve.Is3DCurve()) {
+                Handle(Geom_Curve) basis =
+                    Handle(Geom_Curve)::DownCast(curve.Curve().Curve()->Transformed(curve.Trsf()));
+                form = GeomConvert::CurveToBSplineCurve(
+                    new Geom_TrimmedCurve(basis, result.first, result.last));
+            }
+            if (!form.IsNull()) {
+                result.bspline = toNurbsCurveData(form);
+                result.hasBSpline = true;
+            }
+        } catch (const Standard_Failure&) {
+        }
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("curveData: ") + e.what());
     }
 }
 
@@ -3958,39 +4195,7 @@ NurbsCurveData OcctKernel::getNurbsCurveData(uint32_t edgeId) {
         } else {
             throw std::runtime_error("getNurbsCurveData: edge is not a BSpline or Bezier curve");
         }
-        NurbsCurveData result{};
-        result.degree = bspline->Degree();
-        result.rational = bspline->IsRational();
-        result.periodic = bspline->IsPeriodic();
-        
-        // Knots and multiplicities
-        int nKnots = bspline->NbKnots();
-        result.knots.resize(nKnots);
-        result.multiplicities.resize(nKnots);
-        for (int i = 1; i <= nKnots; i++) {
-            result.knots[i - 1] = bspline->Knot(i);
-            result.multiplicities[i - 1] = bspline->Multiplicity(i);
-        }
-        
-        // Poles (control points)
-        int nPoles = bspline->NbPoles();
-        result.poles.resize(nPoles * 3);
-        for (int i = 1; i <= nPoles; i++) {
-            gp_Pnt p = bspline->Pole(i);
-            result.poles[(i - 1) * 3] = p.X();
-            result.poles[(i - 1) * 3 + 1] = p.Y();
-            result.poles[(i - 1) * 3 + 2] = p.Z();
-        }
-        
-        // Weights (only if rational)
-        if (bspline->IsRational()) {
-            result.weights.resize(nPoles);
-            for (int i = 1; i <= nPoles; i++) {
-                result.weights[i - 1] = bspline->Weight(i);
-            }
-        }
-        
-        return result;
+        return toNurbsCurveData(bspline);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("getNurbsCurveData: ") + e.what());
     }

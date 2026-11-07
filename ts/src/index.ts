@@ -31,6 +31,7 @@ export {
     type BoundingBoxOptions,
     type ChamferDistance,
     type Color3,
+    type CurveData,
     type CurveKind,
     type CurvatureData,
     type EdgeData,
@@ -49,6 +50,7 @@ export {
     type MeshBatchData,
     type NeutralPlane,
     type NurbsCurveData,
+    type NurbsSurfaceData,
     type NurbsSurfaceInput,
     type OcctModuleFactory,
     type ShapeQueryResult,
@@ -57,6 +59,8 @@ export {
     type ShapeHandle,
     type ShapeOrientation,
     type ShapeType,
+    type SurfaceData,
+    type SurfaceFrame,
     type SurfaceKind,
     type SweepAdvancedOptions,
     type SweepFullOptions,
@@ -106,6 +110,7 @@ import type {
     AlignAnchor,
     BoundingBox,
     ChamferDistance,
+    CurveData,
     CurveKind,
     CurvatureData,
     EdgeData,
@@ -118,6 +123,7 @@ import type {
     MeshBatchData,
     NeutralPlane,
     NurbsCurveData,
+    NurbsSurfaceData,
     NurbsSurfaceInput,
     PointClassification,
     ProjectionData,
@@ -126,6 +132,8 @@ import type {
     ShapeOrientation,
     ShapeType,
     StepExportOptions,
+    SurfaceData,
+    SurfaceFrame,
     SurfaceKind,
     SweepAdvancedOptions,
     SweepFullOptions,
@@ -145,6 +153,8 @@ import type {
     OcctRawKernel,
     RawMeshData,
     RawEvolutionData,
+    RawNurbsCurveData,
+    RawNurbsSurfaceData,
     EmbindVectorU32,
     EmbindVectorF64,
     EmbindVectorI32,
@@ -1871,6 +1881,47 @@ export class OcctKernel {
         return wrap("surfaceType", () => this.#raw.surfaceType(face) as SurfaceKind);
     }
 
+    /** Read the exact parameters of a face's surface. See {@link SurfaceData}. */
+    surfaceData(face: ShapeHandle): SurfaceData {
+        return wrap("surfaceData", () => {
+            const raw = this.#raw.surfaceData(face);
+            try {
+                const p = this.#drainVector(raw.params, Float64Array);
+                const vec3 = (i: number): Vec3 => ({ x: p[i]!, y: p[i + 1]!, z: p[i + 2]! });
+                const frame: SurfaceFrame = {
+                    location: vec3(0),
+                    axis: vec3(3),
+                    xDirection: vec3(6),
+                    isDirect: raw.isDirect,
+                };
+                const bspline = raw.hasBSpline ? this.#extractNurbsSurface(raw.bspline) : undefined;
+                switch (raw.kind) {
+                    case "plane": {
+                        const { axis: normal, ...rest } = frame;
+                        return { kind: "plane", normal, ...rest };
+                    }
+                    case "cylinder":
+                        return { kind: "cylinder", ...frame, radius: p[9]! };
+                    case "cone":
+                        return { kind: "cone", ...frame, refRadius: p[9]!, semiAngle: p[10]! };
+                    case "sphere":
+                        return { kind: "sphere", ...frame, radius: p[9]! };
+                    case "torus":
+                        return { kind: "torus", ...frame, majorRadius: p[9]!, minorRadius: p[10]! };
+                    case "bspline":
+                        return { kind: "bspline", bspline: bspline! };
+                    default:
+                        return {
+                            kind: raw.kind as "bezier" | "revolution" | "extrusion" | "offset" | "other",
+                            ...(bspline === undefined ? {} : { bspline }),
+                        };
+                }
+            } finally {
+                raw.delete();
+            }
+        });
+    }
+
     surfaceNormal(face: ShapeHandle, u: number, v: number): Vec3 {
         return wrap("surfaceNormal", () => {
             const vec = this.#raw.surfaceNormal(face, u, v);
@@ -2107,18 +2158,48 @@ export class OcctKernel {
     }
 
     getNurbsCurveData(edge: ShapeHandle): NurbsCurveData {
-        return wrap("getNurbsCurveData", () => {
-            const raw = this.#raw.getNurbsCurveData(edge);
-            const result: NurbsCurveData = {
-                degree: raw.degree,
-                rational: raw.rational,
-                periodic: raw.periodic,
-                knots: this.#drainVector(raw.knots, Float64Array),
-                multiplicities: this.#drainVector(raw.multiplicities, Int32Array),
-                poles: this.#drainVector(raw.poles, Float64Array),
-                weights: this.#drainVector(raw.weights, Float64Array),
-            };
-            return result;
+        return wrap("getNurbsCurveData", () => this.#extractNurbsCurve(this.#raw.getNurbsCurveData(edge)));
+    }
+
+    /** Read the exact parameters of an edge's curve. See {@link CurveData}. */
+    curveData(edge: ShapeHandle): CurveData {
+        return wrap("curveData", () => {
+            const raw = this.#raw.curveData(edge);
+            try {
+                const range = { first: raw.first, last: raw.last };
+                const p = this.#drainVector(raw.params, Float64Array);
+                const vec3 = (i: number): Vec3 => ({ x: p[i]!, y: p[i + 1]!, z: p[i + 2]! });
+                const bspline = raw.hasBSpline ? this.#extractNurbsCurve(raw.bspline) : undefined;
+                switch (raw.kind) {
+                    case "line":
+                        return { kind: "line", ...range, point: vec3(0), direction: vec3(3) };
+                    case "circle":
+                        return { kind: "circle", ...range, center: vec3(0), axis: vec3(3), xDirection: vec3(6), radius: p[9]! };
+                    case "ellipse":
+                    case "hyperbola":
+                        return {
+                            kind: raw.kind,
+                            ...range,
+                            center: vec3(0),
+                            axis: vec3(3),
+                            majorDirection: vec3(6),
+                            majorRadius: p[9]!,
+                            minorRadius: p[10]!,
+                        };
+                    case "parabola":
+                        return { kind: "parabola", ...range, vertex: vec3(0), axis: vec3(3), xDirection: vec3(6), focal: p[9]! };
+                    case "bspline":
+                        return { kind: "bspline", ...range, bspline: bspline! };
+                    default:
+                        return {
+                            kind: raw.kind as "bezier" | "offset" | "other",
+                            ...range,
+                            ...(bspline === undefined ? {} : { bspline }),
+                        };
+                }
+            } finally {
+                raw.delete();
+            }
         });
     }
 
@@ -2940,6 +3021,52 @@ export class OcctKernel {
                 mesh.faceCount = raw.faceGroupCount / 3;
             }
             return mesh;
+        } finally {
+            raw.delete();
+        }
+    }
+
+    #extractNurbsCurve(raw: RawNurbsCurveData): NurbsCurveData {
+        try {
+            return {
+                degree: raw.degree,
+                rational: raw.rational,
+                periodic: raw.periodic,
+                knots: this.#drainVector(raw.knots, Float64Array),
+                multiplicities: this.#drainVector(raw.multiplicities, Int32Array),
+                poles: this.#drainVector(raw.poles, Float64Array),
+                weights: this.#drainVector(raw.weights, Float64Array),
+            };
+        } finally {
+            raw.delete();
+        }
+    }
+
+    #extractNurbsSurface(raw: RawNurbsSurfaceData): NurbsSurfaceData {
+        try {
+            const nbV = raw.nbPolesV;
+            const flat = this.#drainVector(raw.poles, Float64Array);
+            const flatWeights = this.#drainVector(raw.weights, Float64Array);
+            const rows = Array.from({ length: raw.nbPolesU }, (_, i) => i * nbV);
+            return {
+                degreeU: raw.degreeU,
+                degreeV: raw.degreeV,
+                poles: rows.map((start) =>
+                    Array.from({ length: nbV }, (_, j) => {
+                        const k = 3 * (start + j);
+                        return { x: flat[k]!, y: flat[k + 1]!, z: flat[k + 2]! };
+                    }),
+                ),
+                ...(flatWeights.length === 0
+                    ? {}
+                    : { weights: rows.map((start) => flatWeights.slice(start, start + nbV)) }),
+                knotsU: this.#drainVector(raw.knotsU, Float64Array),
+                knotsV: this.#drainVector(raw.knotsV, Float64Array),
+                multiplicitiesU: this.#drainVector(raw.multiplicitiesU, Int32Array),
+                multiplicitiesV: this.#drainVector(raw.multiplicitiesV, Int32Array),
+                periodicU: raw.periodicU,
+                periodicV: raw.periodicV,
+            };
         } finally {
             raw.delete();
         }

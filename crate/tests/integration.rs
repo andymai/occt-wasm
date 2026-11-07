@@ -12,7 +12,9 @@
 use std::sync::OnceLock;
 
 use occt_wasm::wasmtime::{Engine, Module, StoreLimitsBuilder};
-use occt_wasm::{DocumentHandle, OcctError, OcctKernel, ShapeHandle};
+use occt_wasm::{
+    CurveGeometry, DocumentHandle, OcctError, OcctKernel, ShapeHandle, SurfaceData, Vec3,
+};
 
 /// The embedded module, compiled once for the whole test binary: compiling
 /// takes seconds and over a gigabyte per copy, instantiating about a
@@ -1124,4 +1126,121 @@ fn nurbs_surface_is_the_surface_its_poles_describe() {
         bad.is_err(),
         "multiplicities short of the poles must be rejected"
     );
+}
+
+fn assert_near(actual: Vec3, expected: [f64; 3]) {
+    let delta = [
+        actual.x - expected[0],
+        actual.y - expected[1],
+        actual.z - expected[2],
+    ];
+    assert!(
+        delta.iter().all(|d| d.abs() < 1e-9),
+        "{actual:?} is not {expected:?}"
+    );
+}
+
+#[test]
+fn curve_data_reads_exact_parameters() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let line = kernel
+        .make_line_edge(1.0, 2.0, 3.0, 1.0, 2.0, 13.0)
+        .unwrap();
+    let data = kernel.curve_data(line).unwrap();
+    assert!(data.first.abs() < 1e-9);
+    assert!((data.last - 10.0).abs() < 1e-9);
+    let CurveGeometry::Line { point, direction } = data.geometry else {
+        panic!("expected a line, got {:?}", data.geometry);
+    };
+    assert_near(point, [1.0, 2.0, 3.0]);
+    assert_near(direction, [0.0, 0.0, 1.0]);
+
+    let circle = kernel
+        .make_circle_edge(1.0, 2.0, 3.0, 0.0, 0.0, 1.0, 7.0)
+        .unwrap();
+    let CurveGeometry::Circle {
+        center,
+        axis,
+        x_direction,
+        radius,
+    } = kernel.curve_data(circle).unwrap().geometry
+    else {
+        panic!("expected a circle");
+    };
+    assert_near(center, [1.0, 2.0, 3.0]);
+    assert_near(axis, [0.0, 0.0, 1.0]);
+    assert_near(x_direction, [1.0, 0.0, 0.0]);
+    assert!((radius - 7.0).abs() < 1e-12);
+
+    let bezier = kernel
+        .make_bezier_edge(&[0.0, 0.0, 0.0, 1.0, 2.0, 0.0, 3.0, 0.0, 0.0])
+        .unwrap();
+    let CurveGeometry::Other { kind, bspline } = kernel.curve_data(bezier).unwrap().geometry else {
+        panic!("expected another kind");
+    };
+    assert_eq!(kind, "bezier");
+    assert_eq!(bspline.unwrap().degree, 2);
+
+    let solid = kernel.make_box(1.0, 1.0, 1.0).unwrap();
+    assert!(kernel.curve_data(solid).is_err());
+}
+
+#[test]
+fn surface_data_reads_exact_parameters() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let cylinder = kernel.make_cylinder(5.0, 10.0).unwrap();
+    let faces = kernel.get_sub_shapes(cylinder, "face").unwrap();
+    let side = faces
+        .into_iter()
+        .find(|&f| kernel.surface_type(f).unwrap() == "cylinder")
+        .unwrap();
+    let SurfaceData::Cylinder { frame, radius } = kernel.surface_data(side).unwrap() else {
+        panic!("expected a cylinder");
+    };
+    assert!((radius - 5.0).abs() < 1e-12);
+    assert_near(frame.location, [0.0, 0.0, 0.0]);
+    assert_near(frame.axis, [0.0, 0.0, 1.0]);
+    assert!(frame.is_direct);
+
+    let matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 1.0, 3.0];
+    let moved = kernel.located(side, &matrix).unwrap();
+    let SurfaceData::Cylinder { frame, .. } = kernel.surface_data(moved).unwrap() else {
+        panic!("expected a cylinder");
+    };
+    assert_near(frame.location, [1.0, 2.0, 3.0]);
+
+    let poles = [
+        0.0, 0.0, 0.0, 0.0, 10.0, 2.0, //
+        10.0, 0.0, 4.0, 10.0, 10.0, 0.0,
+    ];
+    let face = kernel
+        .nurbs_surface(
+            &poles,
+            &[],
+            &[0.0, 1.0],
+            &[0.0, 1.0],
+            &[2, 2],
+            &[2, 2],
+            &[1, 1, 2, 2, 0, 0],
+        )
+        .unwrap();
+    let SurfaceData::BSpline(data) = kernel.surface_data(face).unwrap() else {
+        panic!("expected a B-spline");
+    };
+    assert_eq!((data.degree_u, data.degree_v), (1, 1));
+    assert_eq!((data.nb_poles_u, data.nb_poles_v), (2, 2));
+    assert_eq!(data.poles, poles);
+    assert!(data.weights.is_empty());
+    assert_eq!(data.knots_u, [0.0, 1.0]);
+    assert_eq!(data.knots_v, [0.0, 1.0]);
+    assert_eq!(data.multiplicities_u, [2, 2]);
+    assert_eq!(data.multiplicities_v, [2, 2]);
+    assert!(!data.periodic_u);
+    assert!(!data.periodic_v);
+
+    assert!(kernel.surface_data(cylinder).is_err());
 }

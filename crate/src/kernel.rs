@@ -11,8 +11,8 @@ use crate::error::{OcctError, OcctResult};
 use crate::host::HostState;
 use crate::kernel_generated::GeneratedFuncs;
 use crate::types::{
-    BoundingBox, EdgeData, EvolutionData, LabelInfo, Mesh, MeshBatch, NurbsCurveData,
-    ProjectionData, ShapeHandle, Vec3,
+    BoundingBox, CurveData, CurveGeometry, EdgeData, EvolutionData, LabelInfo, Mesh, MeshBatch,
+    NurbsCurveData, NurbsSurfaceData, ProjectionData, ShapeHandle, SurfaceData, SurfaceFrame, Vec3,
 };
 
 /// Brotli-compressed WASM binary, embedded at compile time.
@@ -107,6 +107,41 @@ pub struct OcctKernel {
     pub(crate) fn_get_nurbs_poles_len: TypedFunc<(), u32>,
     pub(crate) fn_get_nurbs_weights: TypedFunc<(), i32>,
     pub(crate) fn_get_nurbs_weights_len: TypedFunc<(), u32>,
+
+    // Curve geometry accessors
+    pub(crate) fn_get_curve_kind: TypedFunc<(), i32>,
+    pub(crate) fn_get_curve_kind_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_curve_first: TypedFunc<(), f64>,
+    pub(crate) fn_get_curve_last: TypedFunc<(), f64>,
+    pub(crate) fn_get_curve_params: TypedFunc<(), i32>,
+    pub(crate) fn_get_curve_params_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_curve_has_bspline: TypedFunc<(), i32>,
+
+    // Surface geometry accessors
+    pub(crate) fn_get_surface_kind: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_kind_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_surface_is_direct: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_params: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_params_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_surface_has_bspline: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_degree_u: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_degree_v: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_nb_poles_u: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_nb_poles_v: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_periodic_u: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_periodic_v: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_knots_u: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_knots_u_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_surface_knots_v: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_knots_v_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_surface_multiplicities_u: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_multiplicities_u_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_surface_multiplicities_v: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_multiplicities_v_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_surface_poles: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_poles_len: TypedFunc<(), u32>,
+    pub(crate) fn_get_surface_weights: TypedFunc<(), i32>,
+    pub(crate) fn_get_surface_weights_len: TypedFunc<(), u32>,
 
     // Evolution accessors
     pub(crate) fn_get_evo_result_id: TypedFunc<(), u32>,
@@ -337,6 +372,39 @@ impl OcctKernel {
             fn_get_nurbs_poles_len: get_fn!("occt_get_nurbs_poles_len" => u32),
             fn_get_nurbs_weights: get_fn!("occt_get_nurbs_weights" => i32),
             fn_get_nurbs_weights_len: get_fn!("occt_get_nurbs_weights_len" => u32),
+
+            fn_get_curve_kind: get_fn!("occt_get_curve_kind" => i32),
+            fn_get_curve_kind_len: get_fn!("occt_get_curve_kind_len" => u32),
+            fn_get_curve_first: get_fn!("occt_get_curve_first" => f64),
+            fn_get_curve_last: get_fn!("occt_get_curve_last" => f64),
+            fn_get_curve_params: get_fn!("occt_get_curve_params" => i32),
+            fn_get_curve_params_len: get_fn!("occt_get_curve_params_len" => u32),
+            fn_get_curve_has_bspline: get_fn!("occt_get_curve_has_bspline" => i32),
+
+            fn_get_surface_kind: get_fn!("occt_get_surface_kind" => i32),
+            fn_get_surface_kind_len: get_fn!("occt_get_surface_kind_len" => u32),
+            fn_get_surface_is_direct: get_fn!("occt_get_surface_is_direct" => i32),
+            fn_get_surface_params: get_fn!("occt_get_surface_params" => i32),
+            fn_get_surface_params_len: get_fn!("occt_get_surface_params_len" => u32),
+            fn_get_surface_has_bspline: get_fn!("occt_get_surface_has_bspline" => i32),
+            fn_get_surface_degree_u: get_fn!("occt_get_surface_degree_u" => i32),
+            fn_get_surface_degree_v: get_fn!("occt_get_surface_degree_v" => i32),
+            fn_get_surface_nb_poles_u: get_fn!("occt_get_surface_nb_poles_u" => i32),
+            fn_get_surface_nb_poles_v: get_fn!("occt_get_surface_nb_poles_v" => i32),
+            fn_get_surface_periodic_u: get_fn!("occt_get_surface_periodic_u" => i32),
+            fn_get_surface_periodic_v: get_fn!("occt_get_surface_periodic_v" => i32),
+            fn_get_surface_knots_u: get_fn!("occt_get_surface_knots_u" => i32),
+            fn_get_surface_knots_u_len: get_fn!("occt_get_surface_knots_u_len" => u32),
+            fn_get_surface_knots_v: get_fn!("occt_get_surface_knots_v" => i32),
+            fn_get_surface_knots_v_len: get_fn!("occt_get_surface_knots_v_len" => u32),
+            fn_get_surface_multiplicities_u: get_fn!("occt_get_surface_multiplicities_u" => i32),
+            fn_get_surface_multiplicities_u_len: get_fn!("occt_get_surface_multiplicities_u_len" => u32),
+            fn_get_surface_multiplicities_v: get_fn!("occt_get_surface_multiplicities_v" => i32),
+            fn_get_surface_multiplicities_v_len: get_fn!("occt_get_surface_multiplicities_v_len" => u32),
+            fn_get_surface_poles: get_fn!("occt_get_surface_poles" => i32),
+            fn_get_surface_poles_len: get_fn!("occt_get_surface_poles_len" => u32),
+            fn_get_surface_weights: get_fn!("occt_get_surface_weights" => i32),
+            fn_get_surface_weights_len: get_fn!("occt_get_surface_weights_len" => u32),
 
             fn_get_evo_result_id: get_fn!("occt_get_evo_result_id" => u32),
             fn_get_evo_modified: get_fn!("occt_get_evo_modified" => i32),
@@ -633,6 +701,87 @@ impl OcctKernel {
         })
     }
 
+    /// Read a curve geometry result.
+    pub(crate) fn read_curve_result(&mut self) -> OcctResult<CurveData> {
+        let kind_ptr = self.fn_get_curve_kind.call(&mut self.store, ())?;
+        let kind_len = self.fn_get_curve_kind_len.call(&mut self.store, ())?;
+        let kind = String::from_utf8(self.read_bytes(kind_ptr as u32, kind_len)?)
+            .map_err(|e| OcctError::Memory(e.to_string()))?;
+        let first = self.fn_get_curve_first.call(&mut self.store, ())?;
+        let last = self.fn_get_curve_last.call(&mut self.store, ())?;
+        let params_ptr = self.fn_get_curve_params.call(&mut self.store, ())?;
+        let params_len = self.fn_get_curve_params_len.call(&mut self.store, ())?;
+        let params = self.read_f64_slice(params_ptr as u32, params_len)?;
+        let has_bspline = self.fn_get_curve_has_bspline.call(&mut self.store, ())? != 0;
+        let bspline = if has_bspline {
+            Some(self.read_nurbs_result()?)
+        } else {
+            None
+        };
+        Ok(CurveData {
+            first,
+            last,
+            geometry: decode_curve_geometry(kind, &params, bspline)?,
+        })
+    }
+
+    /// Read a surface geometry result.
+    pub(crate) fn read_surface_result(&mut self) -> OcctResult<SurfaceData> {
+        let kind_ptr = self.fn_get_surface_kind.call(&mut self.store, ())?;
+        let kind_len = self.fn_get_surface_kind_len.call(&mut self.store, ())?;
+        let kind = String::from_utf8(self.read_bytes(kind_ptr as u32, kind_len)?)
+            .map_err(|e| OcctError::Memory(e.to_string()))?;
+        let is_direct = self.fn_get_surface_is_direct.call(&mut self.store, ())? != 0;
+        let params_ptr = self.fn_get_surface_params.call(&mut self.store, ())?;
+        let params_len = self.fn_get_surface_params_len.call(&mut self.store, ())?;
+        let params = self.read_f64_slice(params_ptr as u32, params_len)?;
+        let has_bspline = self.fn_get_surface_has_bspline.call(&mut self.store, ())? != 0;
+        let bspline = if has_bspline {
+            Some(self.read_nurbs_surface()?)
+        } else {
+            None
+        };
+        decode_surface_data(kind, &params, is_direct, bspline)
+    }
+
+    fn read_nurbs_surface(&mut self) -> OcctResult<NurbsSurfaceData> {
+        let knots_u_ptr = self.fn_get_surface_knots_u.call(&mut self.store, ())?;
+        let knots_u_len = self.fn_get_surface_knots_u_len.call(&mut self.store, ())?;
+        let knots_v_ptr = self.fn_get_surface_knots_v.call(&mut self.store, ())?;
+        let knots_v_len = self.fn_get_surface_knots_v_len.call(&mut self.store, ())?;
+        let mults_u_ptr = self
+            .fn_get_surface_multiplicities_u
+            .call(&mut self.store, ())?;
+        let mults_u_len = self
+            .fn_get_surface_multiplicities_u_len
+            .call(&mut self.store, ())?;
+        let mults_v_ptr = self
+            .fn_get_surface_multiplicities_v
+            .call(&mut self.store, ())?;
+        let mults_v_len = self
+            .fn_get_surface_multiplicities_v_len
+            .call(&mut self.store, ())?;
+        let poles_ptr = self.fn_get_surface_poles.call(&mut self.store, ())?;
+        let poles_len = self.fn_get_surface_poles_len.call(&mut self.store, ())?;
+        let weights_ptr = self.fn_get_surface_weights.call(&mut self.store, ())?;
+        let weights_len = self.fn_get_surface_weights_len.call(&mut self.store, ())?;
+
+        Ok(NurbsSurfaceData {
+            degree_u: self.fn_get_surface_degree_u.call(&mut self.store, ())?,
+            degree_v: self.fn_get_surface_degree_v.call(&mut self.store, ())?,
+            nb_poles_u: self.fn_get_surface_nb_poles_u.call(&mut self.store, ())?,
+            nb_poles_v: self.fn_get_surface_nb_poles_v.call(&mut self.store, ())?,
+            periodic_u: self.fn_get_surface_periodic_u.call(&mut self.store, ())? != 0,
+            periodic_v: self.fn_get_surface_periodic_v.call(&mut self.store, ())? != 0,
+            knots_u: self.read_f64_slice(knots_u_ptr as u32, knots_u_len)?,
+            knots_v: self.read_f64_slice(knots_v_ptr as u32, knots_v_len)?,
+            multiplicities_u: self.read_i32_slice(mults_u_ptr as u32, mults_u_len)?,
+            multiplicities_v: self.read_i32_slice(mults_v_ptr as u32, mults_v_len)?,
+            poles: self.read_f64_slice(poles_ptr as u32, poles_len)?,
+            weights: self.read_f64_slice(weights_ptr as u32, weights_len)?,
+        })
+    }
+
     /// Read an evolution data result.
     pub(crate) fn read_evolution_result(&mut self) -> OcctResult<EvolutionData> {
         let result_id = self.fn_get_evo_result_id.call(&mut self.store, ())?;
@@ -725,4 +874,142 @@ fn decompress_wasm() -> OcctResult<Vec<u8>> {
     brotli::BrotliDecompress(&mut input, &mut output)
         .map_err(|e| OcctError::Memory(format!("brotli decompression failed: {e}")))?;
     Ok(output)
+}
+
+const fn vec3(v: [f64; 3]) -> Vec3 {
+    Vec3 {
+        x: v[0],
+        y: v[1],
+        z: v[2],
+    }
+}
+
+fn malformed(kind: &str) -> OcctError {
+    OcctError::Memory(format!("malformed {kind} geometry result"))
+}
+
+fn decode_curve_geometry(
+    kind: String,
+    params: &[f64],
+    bspline: Option<NurbsCurveData>,
+) -> OcctResult<CurveGeometry> {
+    let frame = |p: &[f64]| -> Option<(Vec3, Vec3, Vec3)> {
+        let &[lx, ly, lz, ax, ay, az, xx, xy, xz, ..] = p else {
+            return None;
+        };
+        Some((vec3([lx, ly, lz]), vec3([ax, ay, az]), vec3([xx, xy, xz])))
+    };
+    let geometry = match kind.as_str() {
+        "line" => {
+            let &[px, py, pz, dx, dy, dz] = params else {
+                return Err(malformed(&kind));
+            };
+            CurveGeometry::Line {
+                point: vec3([px, py, pz]),
+                direction: vec3([dx, dy, dz]),
+            }
+        }
+        "circle" => {
+            let ((center, axis, x_direction), Some(&radius)) = (
+                frame(params).ok_or_else(|| malformed(&kind))?,
+                params.get(9),
+            ) else {
+                return Err(malformed(&kind));
+            };
+            CurveGeometry::Circle {
+                center,
+                axis,
+                x_direction,
+                radius,
+            }
+        }
+        "ellipse" | "hyperbola" => {
+            let ((center, axis, major_direction), Some(&major_radius), Some(&minor_radius)) = (
+                frame(params).ok_or_else(|| malformed(&kind))?,
+                params.get(9),
+                params.get(10),
+            ) else {
+                return Err(malformed(&kind));
+            };
+            if kind == "ellipse" {
+                CurveGeometry::Ellipse {
+                    center,
+                    axis,
+                    major_direction,
+                    major_radius,
+                    minor_radius,
+                }
+            } else {
+                CurveGeometry::Hyperbola {
+                    center,
+                    axis,
+                    major_direction,
+                    major_radius,
+                    minor_radius,
+                }
+            }
+        }
+        "parabola" => {
+            let ((vertex, axis, x_direction), Some(&focal)) = (
+                frame(params).ok_or_else(|| malformed(&kind))?,
+                params.get(9),
+            ) else {
+                return Err(malformed(&kind));
+            };
+            CurveGeometry::Parabola {
+                vertex,
+                axis,
+                x_direction,
+                focal,
+            }
+        }
+        "bspline" => CurveGeometry::BSpline(bspline.ok_or_else(|| malformed(&kind))?),
+        _ => CurveGeometry::Other { kind, bspline },
+    };
+    Ok(geometry)
+}
+
+fn decode_surface_data(
+    kind: String,
+    params: &[f64],
+    is_direct: bool,
+    bspline: Option<NurbsSurfaceData>,
+) -> OcctResult<SurfaceData> {
+    let frame = || -> OcctResult<SurfaceFrame> {
+        let &[lx, ly, lz, ax, ay, az, xx, xy, xz, ..] = params else {
+            return Err(malformed(&kind));
+        };
+        Ok(SurfaceFrame {
+            location: vec3([lx, ly, lz]),
+            axis: vec3([ax, ay, az]),
+            x_direction: vec3([xx, xy, xz]),
+            is_direct,
+        })
+    };
+    let value =
+        |at: usize| -> OcctResult<f64> { params.get(at).copied().ok_or_else(|| malformed(&kind)) };
+    let data = match kind.as_str() {
+        "plane" => SurfaceData::Plane(frame()?),
+        "cylinder" => SurfaceData::Cylinder {
+            frame: frame()?,
+            radius: value(9)?,
+        },
+        "cone" => SurfaceData::Cone {
+            frame: frame()?,
+            ref_radius: value(9)?,
+            semi_angle: value(10)?,
+        },
+        "sphere" => SurfaceData::Sphere {
+            frame: frame()?,
+            radius: value(9)?,
+        },
+        "torus" => SurfaceData::Torus {
+            frame: frame()?,
+            major_radius: value(9)?,
+            minor_radius: value(10)?,
+        },
+        "bspline" => SurfaceData::BSpline(bspline.ok_or_else(|| malformed(&kind))?),
+        _ => SurfaceData::Other { kind, bspline },
+    };
+    Ok(data)
 }

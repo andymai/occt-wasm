@@ -5,8 +5,8 @@ use wasmtime::TypedFunc;
 
 use crate::error::OcctResult;
 use crate::types::{
-    BoundingBox, DocumentHandle, EdgeData, EvolutionData, LabelInfo, Mesh, MeshBatch,
-    NurbsCurveData, ProjectionData, ShapeHandle,
+    BoundingBox, CurveData, DocumentHandle, EdgeData, EvolutionData, LabelInfo, Mesh, MeshBatch,
+    NurbsCurveData, ProjectionData, ShapeHandle, SurfaceData,
 };
 
 /// Cached WASM function handles for kernel methods.
@@ -213,6 +213,7 @@ pub(crate) struct GeneratedFuncs {
     fn_get_surface_center_of_mass: TypedFunc<(u32,), i32>,
     fn_vertex_position: TypedFunc<(u32,), i32>,
     fn_surface_type: TypedFunc<(u32,), i32>,
+    fn_surface_data: TypedFunc<(u32,), i32>,
     fn_surface_normal: TypedFunc<(u32, f64, f64), i32>,
     fn_point_on_surface: TypedFunc<(u32, f64, f64), i32>,
     fn_outer_wire: TypedFunc<(u32,), u32>,
@@ -225,6 +226,7 @@ pub(crate) struct GeneratedFuncs {
     fn_project_point_on_face: TypedFunc<(u32, f64, f64, f64), i32>,
     fn_classify_point_on_face: TypedFunc<(u32, f64, f64), i32>,
     fn_curve_type: TypedFunc<(u32,), i32>,
+    fn_curve_data: TypedFunc<(u32,), i32>,
     fn_curve_point_at_param: TypedFunc<(u32, f64), i32>,
     fn_curve_tangent: TypedFunc<(u32, f64), i32>,
     fn_curve_parameters: TypedFunc<(u32,), i32>,
@@ -486,6 +488,7 @@ impl GeneratedFuncs {
                 .get_typed_func(&mut store, "occt_get_surface_center_of_mass")?,
             fn_vertex_position: instance.get_typed_func(&mut store, "occt_vertex_position")?,
             fn_surface_type: instance.get_typed_func(&mut store, "occt_surface_type")?,
+            fn_surface_data: instance.get_typed_func(&mut store, "occt_surface_data")?,
             fn_surface_normal: instance.get_typed_func(&mut store, "occt_surface_normal")?,
             fn_point_on_surface: instance.get_typed_func(&mut store, "occt_point_on_surface")?,
             fn_outer_wire: instance.get_typed_func(&mut store, "occt_outer_wire")?,
@@ -502,6 +505,7 @@ impl GeneratedFuncs {
             fn_classify_point_on_face: instance
                 .get_typed_func(&mut store, "occt_classify_point_on_face")?,
             fn_curve_type: instance.get_typed_func(&mut store, "occt_curve_type")?,
+            fn_curve_data: instance.get_typed_func(&mut store, "occt_curve_data")?,
             fn_curve_point_at_param: instance
                 .get_typed_func(&mut store, "occt_curve_point_at_param")?,
             fn_curve_tangent: instance.get_typed_func(&mut store, "occt_curve_tangent")?,
@@ -3319,6 +3323,17 @@ impl crate::kernel::OcctKernel {
         self.read_string_result()
     }
 
+    pub fn surface_data(&mut self, face_id: ShapeHandle) -> OcctResult<SurfaceData> {
+        let status = self
+            .generated
+            .fn_surface_data
+            .call(&mut self.store, (face_id.0,))?;
+        if status < 0 {
+            return Err(self.read_last_error("surface_data"));
+        }
+        self.read_surface_result()
+    }
+
     pub fn surface_normal(&mut self, face_id: ShapeHandle, u: f64, v: f64) -> OcctResult<Vec<f64>> {
         let len = self
             .generated
@@ -3478,6 +3493,17 @@ impl crate::kernel::OcctKernel {
             return Err(self.read_last_error("curve_type"));
         }
         self.read_string_result()
+    }
+
+    pub fn curve_data(&mut self, edge_id: ShapeHandle) -> OcctResult<CurveData> {
+        let status = self
+            .generated
+            .fn_curve_data
+            .call(&mut self.store, (edge_id.0,))?;
+        if status < 0 {
+            return Err(self.read_last_error("curve_data"));
+        }
+        self.read_curve_result()
     }
 
     pub fn curve_point_at_param(&mut self, id: ShapeHandle, param: f64) -> OcctResult<Vec<f64>> {

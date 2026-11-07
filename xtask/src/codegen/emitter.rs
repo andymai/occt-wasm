@@ -227,6 +227,8 @@ const fn cpp_return_type(ret: ReturnType) -> &'static str {
         ReturnType::VectorInt => "std::vector<int>",
         ReturnType::BBoxData => "BBoxData",
         ReturnType::NurbsCurveData => "NurbsCurveData",
+        ReturnType::CurveData => "CurveData",
+        ReturnType::SurfaceData => "SurfaceData",
         ReturnType::EvolutionData => "EvolutionData",
         ReturnType::MeshData => "MeshData",
         ReturnType::MeshBatchData => "MeshBatchData",
@@ -436,12 +438,156 @@ fn needs_solid_join_type(methods: &[&MethodSpec]) -> bool {
         .any(|m| m.setup_code.contains("solidJoinType"))
 }
 
+fn any_body_calls(methods: &[&MethodSpec], helper: &str) -> bool {
+    methods.iter().any(|m| m.setup_code.contains(helper))
+}
+
+/// Emit the geometry readers' helpers, each only if a method body calls it.
+#[allow(clippy::too_many_lines)]
+fn emit_geometry_helpers(buf: &mut String, methods: &[&MethodSpec]) {
+    if any_body_calls(methods, "curveKindName(") {
+        for line in [
+            "static const char* curveKindName(GeomAbs_CurveType type) {",
+            "    switch (type) {",
+            "    case GeomAbs_Line:",
+            "        return \"line\";",
+            "    case GeomAbs_Circle:",
+            "        return \"circle\";",
+            "    case GeomAbs_Ellipse:",
+            "        return \"ellipse\";",
+            "    case GeomAbs_Hyperbola:",
+            "        return \"hyperbola\";",
+            "    case GeomAbs_Parabola:",
+            "        return \"parabola\";",
+            "    case GeomAbs_BezierCurve:",
+            "        return \"bezier\";",
+            "    case GeomAbs_BSplineCurve:",
+            "        return \"bspline\";",
+            "    case GeomAbs_OffsetCurve:",
+            "        return \"offset\";",
+            "    default:",
+            "        return \"other\";",
+            "    }",
+            "}",
+            "",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
+    }
+    if any_body_calls(methods, "surfaceKindName(") {
+        for line in [
+            "static const char* surfaceKindName(GeomAbs_SurfaceType type) {",
+            "    switch (type) {",
+            "    case GeomAbs_Plane:",
+            "        return \"plane\";",
+            "    case GeomAbs_Cylinder:",
+            "        return \"cylinder\";",
+            "    case GeomAbs_Cone:",
+            "        return \"cone\";",
+            "    case GeomAbs_Sphere:",
+            "        return \"sphere\";",
+            "    case GeomAbs_Torus:",
+            "        return \"torus\";",
+            "    case GeomAbs_BezierSurface:",
+            "        return \"bezier\";",
+            "    case GeomAbs_BSplineSurface:",
+            "        return \"bspline\";",
+            "    case GeomAbs_SurfaceOfRevolution:",
+            "        return \"revolution\";",
+            "    case GeomAbs_SurfaceOfExtrusion:",
+            "        return \"extrusion\";",
+            "    case GeomAbs_OffsetSurface:",
+            "        return \"offset\";",
+            "    default:",
+            "        return \"other\";",
+            "    }",
+            "}",
+            "",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
+    }
+    if any_body_calls(methods, "toNurbsCurveData(") {
+        for line in [
+            "static NurbsCurveData toNurbsCurveData(const Handle(Geom_BSplineCurve)& curve) {",
+            "    NurbsCurveData data;",
+            "    data.degree = curve->Degree();",
+            "    data.rational = curve->IsRational();",
+            "    data.periodic = curve->IsPeriodic();",
+            "    const int nbKnots = curve->NbKnots();",
+            "    data.knots.reserve(nbKnots);",
+            "    data.multiplicities.reserve(nbKnots);",
+            "    for (int i = 1; i <= nbKnots; i++) {",
+            "        data.knots.push_back(curve->Knot(i));",
+            "        data.multiplicities.push_back(curve->Multiplicity(i));",
+            "    }",
+            "    const int nbPoles = curve->NbPoles();",
+            "    data.poles.reserve(3 * static_cast<size_t>(nbPoles));",
+            "    for (int i = 1; i <= nbPoles; i++) {",
+            "        const gp_Pnt p = curve->Pole(i);",
+            "        data.poles.insert(data.poles.end(), {p.X(), p.Y(), p.Z()});",
+            "    }",
+            "    if (curve->IsRational()) {",
+            "        data.weights.reserve(nbPoles);",
+            "        for (int i = 1; i <= nbPoles; i++) {",
+            "            data.weights.push_back(curve->Weight(i));",
+            "        }",
+            "    }",
+            "    return data;",
+            "}",
+            "",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
+    }
+    if any_body_calls(methods, "toNurbsSurfaceData(") {
+        for line in [
+            "static NurbsSurfaceData toNurbsSurfaceData(const Handle(Geom_BSplineSurface)& surface) {",
+            "    NurbsSurfaceData data;",
+            "    data.degreeU = surface->UDegree();",
+            "    data.degreeV = surface->VDegree();",
+            "    data.nbPolesU = surface->NbUPoles();",
+            "    data.nbPolesV = surface->NbVPoles();",
+            "    data.periodicU = surface->IsUPeriodic();",
+            "    data.periodicV = surface->IsVPeriodic();",
+            "    for (int i = 1; i <= surface->NbUKnots(); i++) {",
+            "        data.knotsU.push_back(surface->UKnot(i));",
+            "        data.multiplicitiesU.push_back(surface->UMultiplicity(i));",
+            "    }",
+            "    for (int i = 1; i <= surface->NbVKnots(); i++) {",
+            "        data.knotsV.push_back(surface->VKnot(i));",
+            "        data.multiplicitiesV.push_back(surface->VMultiplicity(i));",
+            "    }",
+            "    const size_t count = static_cast<size_t>(data.nbPolesU) * data.nbPolesV;",
+            "    const bool rational = surface->IsURational() || surface->IsVRational();",
+            "    data.poles.reserve(3 * count);",
+            "    if (rational) {",
+            "        data.weights.reserve(count);",
+            "    }",
+            "    for (int i = 1; i <= data.nbPolesU; i++) {",
+            "        for (int j = 1; j <= data.nbPolesV; j++) {",
+            "            const gp_Pnt p = surface->Pole(i, j);",
+            "            data.poles.insert(data.poles.end(), {p.X(), p.Y(), p.Z()});",
+            "            if (rational) {",
+            "                data.weights.push_back(surface->Weight(i, j));",
+            "            }",
+            "        }",
+            "    }",
+            "    return data;",
+            "}",
+            "",
+        ] {
+            let _ = writeln!(buf, "{line}");
+        }
+    }
+}
+
 /// Emit static helper functions that generated methods depend on.
 ///
 /// Emits `unwrapSingletonSolid` + `validateFilletResult` for the fillet/chamfer
 /// family, `solidJoinType` for the 3D offset join variants, `buildBoolean` for
-/// the two-operand booleans, and `buildEvolution` if any method returns
-/// `EvolutionData`.
+/// the two-operand booleans, `buildEvolution` if any method returns
+/// `EvolutionData`, and the geometry readers' helpers.
 #[allow(clippy::too_many_lines)]
 fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
     let needs_evolution = methods
@@ -453,16 +599,28 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
     let needs_finite = needs_finite_check(methods);
     let needs_faulty = needs_faulty_edges(methods);
 
+    let needs_geometry = [
+        "curveKindName(",
+        "surfaceKindName(",
+        "toNurbsCurveData(",
+        "toNurbsSurfaceData(",
+    ]
+    .iter()
+    .any(|helper| any_body_calls(methods, helper));
+
     if needs_evolution
         || needs_unwrap
         || needs_join
         || needs_boolean
         || needs_finite
         || needs_faulty
+        || needs_geometry
     {
         let _ = writeln!(buf, "// === helper functions ===");
         let _ = writeln!(buf);
     }
+
+    emit_geometry_helpers(buf, methods);
 
     if needs_join {
         for line in [
@@ -1574,6 +1732,46 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
             buf,
             "        .property(\"{prop}\", &NurbsCurveData::{prop})"
         );
+    }
+    close_embind_chain(&mut buf);
+    let _ = writeln!(buf);
+
+    let _ = writeln!(buf, "    // NurbsSurfaceData");
+    let _ = writeln!(buf, "    class_<NurbsSurfaceData>(\"NurbsSurfaceData\")");
+    for prop in &[
+        "degreeU",
+        "degreeV",
+        "nbPolesU",
+        "nbPolesV",
+        "periodicU",
+        "periodicV",
+        "knotsU",
+        "knotsV",
+        "multiplicitiesU",
+        "multiplicitiesV",
+        "poles",
+        "weights",
+    ] {
+        let _ = writeln!(
+            buf,
+            "        .property(\"{prop}\", &NurbsSurfaceData::{prop})"
+        );
+    }
+    close_embind_chain(&mut buf);
+    let _ = writeln!(buf);
+
+    let _ = writeln!(buf, "    // CurveData");
+    let _ = writeln!(buf, "    class_<CurveData>(\"CurveData\")");
+    for prop in &["kind", "first", "last", "params", "hasBSpline", "bspline"] {
+        let _ = writeln!(buf, "        .property(\"{prop}\", &CurveData::{prop})");
+    }
+    close_embind_chain(&mut buf);
+    let _ = writeln!(buf);
+
+    let _ = writeln!(buf, "    // SurfaceData");
+    let _ = writeln!(buf, "    class_<SurfaceData>(\"SurfaceData\")");
+    for prop in &["kind", "isDirect", "params", "hasBSpline", "bspline"] {
+        let _ = writeln!(buf, "        .property(\"{prop}\", &SurfaceData::{prop})");
     }
     close_embind_chain(&mut buf);
     let _ = writeln!(buf);

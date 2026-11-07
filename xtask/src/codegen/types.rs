@@ -153,6 +153,10 @@ pub enum ReturnType {
     BBoxData,
     /// `NurbsCurveData` return (NURBS curve data struct).
     NurbsCurveData,
+    /// `CurveData` return (exact parameters of an edge's curve).
+    CurveData,
+    /// `SurfaceData` return (exact parameters of a face's surface).
+    SurfaceData,
     /// `EvolutionData` return (face evolution tracking struct).
     EvolutionData,
     /// `MeshData` return (tessellation mesh struct).

@@ -128,6 +128,8 @@ const fn c_return_type(rt: ReturnType) -> &'static str {
         | ReturnType::VectorInt
         | ReturnType::BBoxData
         | ReturnType::NurbsCurveData
+        | ReturnType::CurveData
+        | ReturnType::SurfaceData
         | ReturnType::EvolutionData
         | ReturnType::MeshData
         | ReturnType::MeshBatchData
@@ -157,6 +159,8 @@ const fn error_sentinel(rt: ReturnType) -> &'static str {
         | ReturnType::VectorInt
         | ReturnType::BBoxData
         | ReturnType::NurbsCurveData
+        | ReturnType::CurveData
+        | ReturnType::SurfaceData
         | ReturnType::EvolutionData
         | ReturnType::MeshData
         | ReturnType::MeshBatchData
@@ -291,6 +295,24 @@ fn emit_wasi_method(buf: &mut String, spec: &MethodSpec) {
             );
             let _ = writeln!(buf, "        return 0;");
         }
+        ReturnType::CurveData => {
+            let _ = writeln!(
+                buf,
+                "        g_curve_buf = g_kernel->{name}({args});",
+                name = spec.name
+            );
+            // The curve's B-spline form crosses through the NURBS accessors.
+            let _ = writeln!(buf, "        g_nurbs_buf = g_curve_buf.bspline;");
+            let _ = writeln!(buf, "        return 0;");
+        }
+        ReturnType::SurfaceData => {
+            let _ = writeln!(
+                buf,
+                "        g_surface_buf = g_kernel->{name}({args});",
+                name = spec.name
+            );
+            let _ = writeln!(buf, "        return 0;");
+        }
         ReturnType::EvolutionData => {
             let _ = writeln!(
                 buf,
@@ -375,6 +397,8 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(buf, "static EdgeData g_edge_buf;");
     let _ = writeln!(buf, "static BBoxData g_bbox_buf;");
     let _ = writeln!(buf, "static NurbsCurveData g_nurbs_buf;");
+    let _ = writeln!(buf, "static CurveData g_curve_buf;");
+    let _ = writeln!(buf, "static SurfaceData g_surface_buf;");
     let _ = writeln!(buf, "static EvolutionData g_evo_buf;");
     let _ = writeln!(buf, "static ProjectionData g_proj_buf;");
     let _ = writeln!(buf, "static XCAFLabelInfo g_label_info_buf;");
@@ -627,6 +651,110 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
         buf,
         "uint32_t occt_get_nurbs_weights_len() {{ return static_cast<uint32_t>(g_nurbs_buf.weights.size()); }}"
     );
+    let _ = writeln!(buf);
+
+    // Curve and surface geometry result accessors
+    let _ = writeln!(buf, "// Curve geometry result");
+    let _ = writeln!(
+        buf,
+        "const char* occt_get_curve_kind() {{ return g_curve_buf.kind.data(); }}"
+    );
+    let _ = writeln!(
+        buf,
+        "uint32_t occt_get_curve_kind_len() {{ return static_cast<uint32_t>(g_curve_buf.kind.size()); }}"
+    );
+    let _ = writeln!(
+        buf,
+        "double occt_get_curve_first() {{ return g_curve_buf.first; }}"
+    );
+    let _ = writeln!(
+        buf,
+        "double occt_get_curve_last() {{ return g_curve_buf.last; }}"
+    );
+    let _ = writeln!(
+        buf,
+        "const double* occt_get_curve_params() {{ return g_curve_buf.params.data(); }}"
+    );
+    let _ = writeln!(
+        buf,
+        "uint32_t occt_get_curve_params_len() {{ return static_cast<uint32_t>(g_curve_buf.params.size()); }}"
+    );
+    let _ = writeln!(
+        buf,
+        "int32_t occt_get_curve_has_bspline() {{ return g_curve_buf.hasBSpline ? 1 : 0; }}"
+    );
+    let _ = writeln!(buf);
+
+    let _ = writeln!(buf, "// Surface geometry result");
+    let _ = writeln!(
+        buf,
+        "const char* occt_get_surface_kind() {{ return g_surface_buf.kind.data(); }}"
+    );
+    let _ = writeln!(
+        buf,
+        "uint32_t occt_get_surface_kind_len() {{ return static_cast<uint32_t>(g_surface_buf.kind.size()); }}"
+    );
+    let _ = writeln!(
+        buf,
+        "int32_t occt_get_surface_is_direct() {{ return g_surface_buf.isDirect ? 1 : 0; }}"
+    );
+    let _ = writeln!(
+        buf,
+        "const double* occt_get_surface_params() {{ return g_surface_buf.params.data(); }}"
+    );
+    let _ = writeln!(
+        buf,
+        "uint32_t occt_get_surface_params_len() {{ return static_cast<uint32_t>(g_surface_buf.params.size()); }}"
+    );
+    let _ = writeln!(
+        buf,
+        "int32_t occt_get_surface_has_bspline() {{ return g_surface_buf.hasBSpline ? 1 : 0; }}"
+    );
+    for (export, field) in [
+        ("degree_u", "degreeU"),
+        ("degree_v", "degreeV"),
+        ("nb_poles_u", "nbPolesU"),
+        ("nb_poles_v", "nbPolesV"),
+    ] {
+        let _ = writeln!(
+            buf,
+            "int32_t occt_get_surface_{export}() {{ return g_surface_buf.bspline.{field}; }}"
+        );
+    }
+    for (export, field) in [("periodic_u", "periodicU"), ("periodic_v", "periodicV")] {
+        let _ = writeln!(
+            buf,
+            "int32_t occt_get_surface_{export}() {{ return g_surface_buf.bspline.{field} ? 1 : 0; }}"
+        );
+    }
+    for (export, field) in [
+        ("knots_u", "knotsU"),
+        ("knots_v", "knotsV"),
+        ("poles", "poles"),
+        ("weights", "weights"),
+    ] {
+        let _ = writeln!(
+            buf,
+            "const double* occt_get_surface_{export}() {{ return g_surface_buf.bspline.{field}.data(); }}"
+        );
+        let _ = writeln!(
+            buf,
+            "uint32_t occt_get_surface_{export}_len() {{ return static_cast<uint32_t>(g_surface_buf.bspline.{field}.size()); }}"
+        );
+    }
+    for (export, field) in [
+        ("multiplicities_u", "multiplicitiesU"),
+        ("multiplicities_v", "multiplicitiesV"),
+    ] {
+        let _ = writeln!(
+            buf,
+            "const int32_t* occt_get_surface_{export}() {{ return reinterpret_cast<const int32_t*>(g_surface_buf.bspline.{field}.data()); }}"
+        );
+        let _ = writeln!(
+            buf,
+            "uint32_t occt_get_surface_{export}_len() {{ return static_cast<uint32_t>(g_surface_buf.bspline.{field}.size()); }}"
+        );
+    }
     let _ = writeln!(buf);
 
     // Evolution result accessors
