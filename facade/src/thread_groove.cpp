@@ -66,8 +66,8 @@ constexpr double kMaxTurns = 10000;
 constexpr double kLongestPatch = 1.75 * M_PI;
 
 int spansPerTurn(double radius) {
-    return std::max(kMinSpansPerTurn,
-                    static_cast<int>(std::ceil(kMinSpansPerTurn * std::pow(radius / 10.0, 1.0 / 6))));
+    return std::max(kMinSpansPerTurn, static_cast<int>(std::ceil(
+                                          kMinSpansPerTurn * std::pow(radius / 10.0, 1.0 / 6))));
 }
 
 struct Derivatives {
@@ -92,11 +92,13 @@ Handle(Geom_BSplineCurve) hermiteCurve(const CurveFn& f, double from, double to,
         poles(k + 2) = gp_Pnt(a.point + a.first * (2 * h / 5) + a.second * (h * h / 20));
         poles(k + 3) = gp_Pnt(b.point - b.first * (2 * h / 5) + b.second * (h * h / 20));
         poles(k + 4) = gp_Pnt(b.point - b.first * (h / 5));
-        if (i == spans - 1) poles(k + 5) = gp_Pnt(b.point);
+        if (i == spans - 1)
+            poles(k + 5) = gp_Pnt(b.point);
     }
     Handle(Geom_BSplineCurve) curve = new Geom_BSplineCurve(poles, knots, mults, 5);
     // The pieces share value and two derivatives, so the curve is C2 at its knots.
-    for (int i = 2; i <= spans; i++) curve->RemoveKnot(i, 3, 1.0e-9);
+    for (int i = 2; i <= spans; i++)
+        curve->RemoveKnot(i, 3, 1.0e-9);
     return curve;
 }
 
@@ -125,7 +127,7 @@ struct Strip {
 };
 
 class GrooveBuilder {
-public:
+  public:
     explicit GrooveBuilder(const ThreadGrooveSpec& spec)
         : length_(spec.length), rise_(spec.pitch / kTwoPi),
           perTurn_(spansPerTurn(std::max(spec.coverRadius, spec.rootRadius))) {
@@ -152,7 +154,8 @@ public:
         TopoDS_Shell shell;
         builder.MakeShell(shell);
         for (Strip& strip : strips) {
-            for (const TopoDS_Face& face : patches(strip)) builder.Add(shell, face);
+            for (const TopoDS_Face& face : patches(strip))
+                builder.Add(shell, face);
         }
         builder.Add(shell, endFace(strips, false));
         builder.Add(shell, endFace(strips, true));
@@ -163,7 +166,7 @@ public:
         return solid;
     }
 
-private:
+  private:
     double length_, rise_;
     int perTurn_;
     double sampleStep_ = 0;
@@ -175,7 +178,8 @@ private:
 
     /// Angles the whole groove divides at, kept off the ends of its helices.
     void placeCuts() {
-        const double from = *std::min_element(start_, start_ + 4), to = *std::max_element(end_, end_ + 4);
+        const double from = *std::min_element(start_, start_ + 4),
+                     to = *std::max_element(end_, end_ + 4);
         const int pieces = std::max(1, static_cast<int>(std::ceil((to - from) / kLongestPatch)));
         cuts_.push_back(from);
         for (int j = 1; j < pieces; j++) {
@@ -197,7 +201,8 @@ private:
     std::vector<double> divided(double from, double to) const {
         std::vector<double> out{from};
         for (size_t j = 1; j + 1 < cuts_.size(); j++) {
-            if (cuts_[j] > from + 1.0e-9 && cuts_[j] < to - 1.0e-9) out.push_back(cuts_[j]);
+            if (cuts_[j] > from + 1.0e-9 && cuts_[j] < to - 1.0e-9)
+                out.push_back(cuts_[j]);
         }
         out.push_back(to);
         return out;
@@ -206,7 +211,9 @@ private:
     gp_Pnt pointAt(double radius, double angle, double height) const {
         return gp_Pnt(radius * std::cos(angle), radius * std::sin(angle), height);
     }
-    bool isCylinder(const Strip& s) const { return radius_[s.lower] == radius_[s.upper]; }
+    bool isCylinder(const Strip& s) const {
+        return radius_[s.lower] == radius_[s.upper];
+    }
     /// How far across the strip (0 to 1) the point at this angle and height lies.
     double across(const Strip& s, double angle, double height) const {
         return (height - rise_ * angle - height_[s.lower]) / (height_[s.upper] - height_[s.lower]);
@@ -217,12 +224,17 @@ private:
     double width(const Strip& s) const {
         return std::hypot(radius_[s.upper] - radius_[s.lower], height_[s.upper] - height_[s.lower]);
     }
-    double lowest(const Strip& s, double angle) const { return std::max(0.0, height_[s.lower] + rise_ * angle); }
-    double highest(const Strip& s, double angle) const { return std::min(length_, height_[s.upper] + rise_ * angle); }
+    double lowest(const Strip& s, double angle) const {
+        return std::max(0.0, height_[s.lower] + rise_ * angle);
+    }
+    double highest(const Strip& s, double angle) const {
+        return std::min(length_, height_[s.upper] + rise_ * angle);
+    }
 
     TopoDS_Vertex vertexAt(const gp_Pnt& p) {
         for (const auto& known : vertices_) {
-            if (known.first.Distance(p) < 1.0e-8) return known.second;
+            if (known.first.Distance(p) < 1.0e-8)
+                return known.second;
         }
         TopoDS_Vertex v;
         BRep_Builder().MakeVertex(v, p, kTolerance);
@@ -230,7 +242,8 @@ private:
         return v;
     }
 
-    TopoDS_Edge makeEdge(const Handle(Geom_Curve)& curve, const gp_Pnt& a, const gp_Pnt& b, double first, double last) {
+    TopoDS_Edge makeEdge(const Handle(Geom_Curve) & curve, const gp_Pnt& a, const gp_Pnt& b,
+                         double first, double last) {
         BRep_Builder builder;
         TopoDS_Edge edge;
         builder.MakeEdge(edge, curve, TopLoc_Location(), kTolerance);
@@ -245,19 +258,30 @@ private:
         return [=](double t) {
             const double c = std::cos(t), s = std::sin(t);
             return Derivatives{gp_XYZ(radius * c, radius * s, height + rise * t),
-                               gp_XYZ(-radius * s, radius * c, rise), gp_XYZ(-radius * c, -radius * s, 0)};
+                               gp_XYZ(-radius * s, radius * c, rise),
+                               gp_XYZ(-radius * c, -radius * s, 0)};
         };
     }
 
     void makeHelix(int i) {
-        if (!helix_[i].empty()) return;
+        if (!helix_[i].empty())
+            return;
         const double radius = radius_[i], height = height_[i];
         const std::vector<double> at = divided(start_[i], end_[i]);
         for (size_t q = 0; q + 1 < at.size(); q++) {
             const double a = at[q], b = at[q + 1];
-            Handle(Geom_Curve) curve = hermiteCurve(helixAt(radius, height), a, b, spansOver(a, b, perTurn_));
+            Handle(Geom_Curve) curve =
+                hermiteCurve(helixAt(radius, height), a, b, spansOver(a, b, perTurn_));
             const double za = height + rise_ * a, zb = height + rise_ * b;
-            helix_[i].push_back(Edge{makeEdge(curve, pointAt(radius, a, za), pointAt(radius, b, zb), a, b), a, b, a, za, b, zb, {}});
+            helix_[i].push_back(
+                Edge{makeEdge(curve, pointAt(radius, a, za), pointAt(radius, b, zb), a, b),
+                     a,
+                     b,
+                     a,
+                     za,
+                     b,
+                     zb,
+                     {}});
         }
     }
 
@@ -266,22 +290,43 @@ private:
         if (isCylinder(s)) {
             const double radius = radius_[s.lower], turns = kTwoPi * std::floor(a / kTwoPi);
             const double first = a - turns, last = b - turns;
-            Handle(Geom_Curve) circle = new Geom_Circle(gp_Ax2(gp_Pnt(0, 0, plane), gp::DZ(), gp::DX()), radius);
-            Edge e{makeEdge(circle, pointAt(radius, a, plane), pointAt(radius, b, plane), first, last), first, last, a, plane, b, plane, {}};
-            e.onPlane = new Geom2d_Circle(gp_Ax22d(gp_Pnt2d(0, 0), gp_Dir2d(1, 0), gp_Dir2d(0, 1)), radius);
+            Handle(Geom_Curve) circle =
+                new Geom_Circle(gp_Ax2(gp_Pnt(0, 0, plane), gp::DZ(), gp::DX()), radius);
+            Edge e{
+                makeEdge(circle, pointAt(radius, a, plane), pointAt(radius, b, plane), first, last),
+                first,
+                last,
+                a,
+                plane,
+                b,
+                plane,
+                {}};
+            e.onPlane =
+                new Geom2d_Circle(gp_Ax22d(gp_Pnt2d(0, 0), gp_Dir2d(1, 0), gp_Dir2d(0, 1)), radius);
             return e;
         }
-        const double ra = radiusOn(s, a, plane), rb = radiusOn(s, b, plane), slope = (rb - ra) / (b - a);
+        const double ra = radiusOn(s, a, plane), rb = radiusOn(s, b, plane),
+                     slope = (rb - ra) / (b - a);
         const CurveFn spiral = [=](double t) {
             const double r = ra + slope * (t - a), c = std::cos(t), n = std::sin(t);
-            return Derivatives{gp_XYZ(r * c, r * n, plane), gp_XYZ(slope * c - r * n, slope * n + r * c, 0),
+            return Derivatives{gp_XYZ(r * c, r * n, plane),
+                               gp_XYZ(slope * c - r * n, slope * n + r * c, 0),
                                gp_XYZ(-2 * slope * n - r * c, 2 * slope * c - r * n, 0)};
         };
         Handle(Geom_BSplineCurve) curve = hermiteCurve(spiral, a, b, spansOver(a, b, perTurn_));
-        Edge e{makeEdge(curve, pointAt(ra, a, plane), pointAt(rb, b, plane), a, b), a, b, a, plane, b, plane, {}};
+        Edge e{makeEdge(curve, pointAt(ra, a, plane), pointAt(rb, b, plane), a, b),
+               a,
+               b,
+               a,
+               plane,
+               b,
+               plane,
+               {}};
         NCollection_Array1<gp_Pnt2d> poles(1, curve->NbPoles());
-        for (int n = 1; n <= curve->NbPoles(); n++) poles(n) = gp_Pnt2d(curve->Pole(n).X(), curve->Pole(n).Y());
-        e.onPlane = new Geom2d_BSplineCurve(poles, curve->Knots(), curve->Multiplicities(), curve->Degree());
+        for (int n = 1; n <= curve->NbPoles(); n++)
+            poles(n) = gp_Pnt2d(curve->Pole(n).X(), curve->Pole(n).Y());
+        e.onPlane = new Geom2d_BSplineCurve(poles, curve->Knots(), curve->Multiplicities(),
+                                            curve->Degree());
         return e;
     }
 
@@ -289,39 +334,49 @@ private:
         makeHelix(lower);
         makeHelix(upper);
         Strip s{lower, upper, {}, {}, {}};
-        const std::vector<double> low = divided(start_[upper], start_[lower]), high = divided(end_[upper], end_[lower]);
-        for (size_t i = 0; i + 1 < low.size(); i++) s.endLow.push_back(endEdge(s, low[i], low[i + 1], 0));
-        for (size_t i = 0; i + 1 < high.size(); i++) s.endHigh.push_back(endEdge(s, high[i], high[i + 1], length_));
+        const std::vector<double> low = divided(start_[upper], start_[lower]),
+                                  high = divided(end_[upper], end_[lower]);
+        for (size_t i = 0; i + 1 < low.size(); i++)
+            s.endLow.push_back(endEdge(s, low[i], low[i + 1], 0));
+        for (size_t i = 0; i + 1 < high.size(); i++)
+            s.endHigh.push_back(endEdge(s, high[i], high[i + 1], length_));
         return s;
     }
 
     /// The edge across the strip at `angle`, where two of its patches meet.
     Edge wallAt(const Strip& s, double angle) {
         const double a = lowest(s, angle), b = highest(s, angle);
-        const gp_Pnt pa = pointAt(radiusOn(s, angle, a), angle, a), pb = pointAt(radiusOn(s, angle, b), angle, b);
+        const gp_Pnt pa = pointAt(radiusOn(s, angle, a), angle, a),
+                     pb = pointAt(radiusOn(s, angle, b), angle, b);
         const double distance = pa.Distance(pb);
         Handle(Geom_Curve) line = new Geom_Line(gp_Ax1(pa, gp_Dir(gp_Vec(pa, pb))));
         return Edge{makeEdge(line, pa, pb, 0, distance), 0, distance, angle, a, angle, b, {}};
     }
 
-    static void collect(const Chain& chain, double from, double to, bool forward, std::vector<Side>& out) {
+    static void collect(const Chain& chain, double from, double to, bool forward,
+                        std::vector<Side>& out) {
         std::vector<Side> part;
         for (const Edge& e : chain) {
-            if (e.angle0 >= from - 1.0e-9 && e.angle1 <= to + 1.0e-9) part.push_back({&e, forward});
+            if (e.angle0 >= from - 1.0e-9 && e.angle1 <= to + 1.0e-9)
+                part.push_back({&e, forward});
         }
-        if (!forward) std::reverse(part.begin(), part.end());
+        if (!forward)
+            std::reverse(part.begin(), part.end());
         out.insert(out.end(), part.begin(), part.end());
     }
 
-    static void addPcurve(const Edge& e, const Handle(Geom_Surface)& surface, const Handle(Geom2d_Curve)& curve) {
+    static void addPcurve(const Edge& e, const Handle(Geom_Surface) & surface,
+                          const Handle(Geom2d_Curve) & curve) {
         BRep_Builder builder;
         builder.UpdateEdge(e.shape, curve, surface, TopLoc_Location(), kTolerance);
         builder.Range(e.shape, surface, TopLoc_Location(), e.first, e.last);
     }
 
     /// A straight pcurve with a span per piece of a turn, in the edge's own parameter.
-    Handle(Geom2d_Curve) straightPcurve(double u0, double v0, double u1, double v1, double first, double last) const {
-        const int spans = std::max(1, static_cast<int>(std::ceil(std::abs(u1 - u0) / kTwoPi * perTurn_)));
+    Handle(Geom2d_Curve) straightPcurve(double u0, double v0, double u1, double v1, double first,
+                                        double last) const {
+        const int spans =
+            std::max(1, static_cast<int>(std::ceil(std::abs(u1 - u0) / kTwoPi * perTurn_)));
         NCollection_Array1<gp_Pnt2d> poles(1, spans + 1);
         NCollection_Array1<double> knots(1, spans + 1);
         NCollection_Array1<int> mults(1, spans + 1);
@@ -334,18 +389,21 @@ private:
         return new Geom2d_BSplineCurve(poles, knots, mults, 1);
     }
 
-    static TopoDS_Face makeFace(const Handle(Geom_Surface)& surface, const std::vector<Side>& sides, bool reversed) {
+    static TopoDS_Face makeFace(const Handle(Geom_Surface) & surface,
+                                const std::vector<Side>& sides, bool reversed) {
         BRep_Builder builder;
         TopoDS_Face face;
         builder.MakeFace(face, surface, TopLoc_Location(), 1.0e-7);
         TopoDS_Wire wire;
         builder.MakeWire(wire);
         for (const Side& side : sides) {
-            builder.Add(wire, side.edge->shape.Oriented(side.forward ? TopAbs_FORWARD : TopAbs_REVERSED));
+            builder.Add(wire,
+                        side.edge->shape.Oriented(side.forward ? TopAbs_FORWARD : TopAbs_REVERSED));
         }
         wire.Closed(true);
         builder.Add(face, wire);
-        if (reversed) face.Reverse();
+        if (reversed)
+            face.Reverse();
         return face;
     }
 
@@ -353,8 +411,10 @@ private:
     Handle(Geom_Surface) flankSurface(const Strip& s, double a, double b) const {
         const double from = a - 0.01, to = b + 0.01;
         const int spans = spansOver(from, to, perTurn_);
-        Handle(Geom_BSplineCurve) low = hermiteCurve(helixAt(radius_[s.lower], height_[s.lower]), from, to, spans);
-        Handle(Geom_BSplineCurve) high = hermiteCurve(helixAt(radius_[s.upper], height_[s.upper]), from, to, spans);
+        Handle(Geom_BSplineCurve) low =
+            hermiteCurve(helixAt(radius_[s.lower], height_[s.lower]), from, to, spans);
+        Handle(Geom_BSplineCurve) high =
+            hermiteCurve(helixAt(radius_[s.upper], height_[s.upper]), from, to, spans);
         const int count = low->NbPoles();
         NCollection_Array2<gp_Pnt> poles(1, count, 1, 2);
         for (int q = 1; q <= count; q++) {
@@ -366,11 +426,13 @@ private:
         vKnots(2) = width(s);
         NCollection_Array1<int> vMults(1, 2);
         vMults(1) = vMults(2) = 2;
-        return new Geom_BSplineSurface(poles, low->Knots(), vKnots, low->Multiplicities(), vMults, 5, 1);
+        return new Geom_BSplineSurface(poles, low->Knots(), vKnots, low->Multiplicities(), vMults,
+                                       5, 1);
     }
 
     /// Whether a flank patch's natural normal points into the solid.
-    bool flankFacesIn(const Strip& s, const Handle(Geom_Surface)& surface, double a, double b) const {
+    bool flankFacesIn(const Strip& s, const Handle(Geom_Surface) & surface, double a,
+                      double b) const {
         const double angle = (a + b) / 2, height = (lowest(s, angle) + highest(s, angle)) / 2;
         gp_Pnt p;
         gp_Vec du, dv;
@@ -387,33 +449,39 @@ private:
     std::vector<TopoDS_Face> patches(Strip& s) {
         std::vector<TopoDS_Face> out;
         const std::vector<double> at = divided(start_[s.upper], end_[s.lower]);
-        for (size_t j = 1; j + 1 < at.size(); j++) s.walls.push_back(wallAt(s, at[j]));
+        for (size_t j = 1; j + 1 < at.size(); j++)
+            s.walls.push_back(wallAt(s, at[j]));
         const bool cylinder = isCylinder(s), cover = s.lower == 0 && s.upper == 3;
         for (size_t j = 0; j + 1 < at.size(); j++) {
             const double a = at[j], b = at[j + 1];
             std::vector<Side> sides;
             collect(s.endLow, a, b, true, sides);
             collect(helix_[s.lower], a, b, true, sides);
-            if (j + 2 < at.size()) sides.push_back({&s.walls[j], true});
+            if (j + 2 < at.size())
+                sides.push_back({&s.walls[j], true});
             collect(s.endHigh, a, b, false, sides);
             collect(helix_[s.upper], a, b, false, sides);
-            if (j > 0) sides.push_back({&s.walls[j - 1], false});
+            if (j > 0)
+                sides.push_back({&s.walls[j - 1], false});
 
             const double turns = kTwoPi * std::floor(a / kTwoPi), across_ = width(s);
             Handle(Geom_Surface) surface;
             if (cylinder) {
-                surface = new Geom_CylindricalSurface(gp_Ax3(gp_Pnt(0, 0, 0), gp::DZ(), gp::DX()), radius_[s.lower]);
+                surface = new Geom_CylindricalSurface(gp_Ax3(gp_Pnt(0, 0, 0), gp::DZ(), gp::DX()),
+                                                      radius_[s.lower]);
             } else {
                 surface = flankSurface(s, a, b);
             }
             for (const Side& side : sides) {
                 const Edge& e = *side.edge;
-                const double u0 = cylinder ? e.angle0 - turns : e.angle0, u1 = cylinder ? e.angle1 - turns : e.angle1;
+                const double u0 = cylinder ? e.angle0 - turns : e.angle0,
+                             u1 = cylinder ? e.angle1 - turns : e.angle1;
                 const double v0 = cylinder ? e.height0 : across_ * across(s, e.angle0, e.height0);
                 const double v1 = cylinder ? e.height1 : across_ * across(s, e.angle1, e.height1);
                 addPcurve(e, surface, straightPcurve(u0, v0, u1, v1, e.first, e.last));
             }
-            // A cylinder's normal points away from its axis, and the groove lies on the root's side of the cover.
+            // A cylinder's normal points away from its axis, and the groove lies on the root's side
+            // of the cover.
             const bool reversed = cylinder ? cover == internal_ : flankFacesIn(s, surface, a, b);
             out.push_back(makeFace(surface, sides, reversed));
         }
@@ -423,22 +491,28 @@ private:
     /// An end face, whose edges run round the profile.
     TopoDS_Face endFace(Strip* strips, bool high) {
         const double plane = high ? length_ : 0.0;
-        Handle(Geom_Surface) surface = new Geom_Plane(gp_Ax3(gp_Pnt(0, 0, plane), gp::DZ(), gp::DX()));
+        Handle(Geom_Surface) surface =
+            new Geom_Plane(gp_Ax3(gp_Pnt(0, 0, plane), gp::DZ(), gp::DX()));
         const double all = std::numeric_limits<double>::max();
-        const auto chain = [&](const Strip& s) -> const Chain& { return high ? s.endHigh : s.endLow; };
+        const auto chain = [&](const Strip& s) -> const Chain& {
+            return high ? s.endHigh : s.endLow;
+        };
         std::vector<Side> sides;
         collect(chain(strips[1]), -all, all, false, sides);
         collect(chain(strips[2]), -all, all, false, sides);
         collect(chain(strips[3]), -all, all, false, sides);
         collect(chain(strips[0]), -all, all, true, sides);
-        for (const Side& side : sides) addPcurve(*side.edge, surface, side.edge->onPlane);
+        for (const Side& side : sides)
+            addPcurve(*side.edge, surface, side.edge->onPlane);
 
         std::vector<gp_Pnt2d> outline;
         for (const Side& side : sides) {
             const Edge& e = *side.edge;
-            const int samples = std::max(8, static_cast<int>(std::ceil(std::abs(e.angle1 - e.angle0) / sampleStep_)));
+            const int samples = std::max(
+                8, static_cast<int>(std::ceil(std::abs(e.angle1 - e.angle0) / sampleStep_)));
             for (int q = 0; q < samples; q++) {
-                const double w = side.forward ? static_cast<double>(q) / samples : 1 - static_cast<double>(q) / samples;
+                const double w = side.forward ? static_cast<double>(q) / samples
+                                              : 1 - static_cast<double>(q) / samples;
                 outline.push_back(e.onPlane->Value(e.first + w * (e.last - e.first)));
             }
         }
@@ -450,27 +524,32 @@ private:
         }
         if (area < 0) {
             std::reverse(sides.begin(), sides.end());
-            for (Side& side : sides) side.forward = !side.forward;
+            for (Side& side : sides)
+                side.forward = !side.forward;
         }
         return makeFace(surface, sides, !high);
     }
 };
 
-}  // namespace
+} // namespace
 
 TopoDS_Shape buildThreadGroove(const gp_Ax3& frame, const ThreadGrooveSpec& spec) {
     for (double value : {spec.pitch, spec.length, spec.coverRadius, spec.rootRadius,
                          spec.coverHalfWidth, spec.rootHalfWidth, spec.phase}) {
-        if (!std::isfinite(value)) throw std::runtime_error("threadGroove: every value must be finite");
+        if (!std::isfinite(value))
+            throw std::runtime_error("threadGroove: every value must be finite");
     }
     if (!(spec.pitch > 0) || !(spec.length > 0)) {
         throw std::runtime_error("threadGroove: pitch and length must be positive");
     }
     if (!(spec.coverRadius > 0) || !(spec.rootRadius > 0) || spec.coverRadius == spec.rootRadius) {
-        throw std::runtime_error("threadGroove: the cover and root must be different positive radii");
+        throw std::runtime_error(
+            "threadGroove: the cover and root must be different positive radii");
     }
-    if (!(spec.rootHalfWidth > 0) || !(spec.coverHalfWidth > spec.rootHalfWidth) || !(2 * spec.coverHalfWidth < spec.pitch)) {
-        throw std::runtime_error("threadGroove: the groove must narrow to its root and stay under a pitch wide");
+    if (!(spec.rootHalfWidth > 0) || !(spec.coverHalfWidth > spec.rootHalfWidth) ||
+        !(2 * spec.coverHalfWidth < spec.pitch)) {
+        throw std::runtime_error(
+            "threadGroove: the groove must narrow to its root and stay under a pitch wide");
     }
     if (spec.length / spec.pitch > kMaxTurns) {
         throw std::runtime_error("threadGroove: at most 10000 turns");
@@ -481,4 +560,4 @@ TopoDS_Shape buildThreadGroove(const gp_Ax3& frame, const ThreadGrooveSpec& spec
     return groove.Moved(TopLoc_Location(place));
 }
 
-}  // namespace occtwasm
+} // namespace occtwasm

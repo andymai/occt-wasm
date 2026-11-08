@@ -26,4 +26,4 @@ struct ThreadGrooveSpec {
 /// patches of less than a turn, then the end faces at z = 0 and z = length.
 TopoDS_Shape buildThreadGroove(const gp_Ax3& frame, const ThreadGrooveSpec& spec);
 
-}  // namespace occtwasm
+} // namespace occtwasm
