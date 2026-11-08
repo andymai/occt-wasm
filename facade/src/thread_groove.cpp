@@ -551,8 +551,16 @@ TopoDS_Shape buildThreadGroove(const gp_Ax3& frame, const ThreadGrooveSpec& spec
         throw std::runtime_error(
             "threadGroove: the groove must narrow to its root and stay under a pitch wide");
     }
-    if (spec.length / spec.pitch > kMaxTurns) {
-        throw std::runtime_error("threadGroove: at most 10000 turns");
+    // The end faces' outline steps by sqrt(0.8 * depth / radius), so a groove that
+    // is shallow for its radius would ask for an unbounded number of points.
+    const double depth = std::abs(spec.coverRadius - spec.rootRadius);
+    const double widest = std::max(spec.coverRadius, spec.rootRadius);
+    if (depth < std::max(10 * kTolerance, 1.0e-6 * widest)) {
+        throw std::runtime_error("threadGroove: the groove is too shallow for its radius");
+    }
+    // The helices take more spans per turn on a wide thread, so it gets fewer turns.
+    if (spec.length / spec.pitch * spansPerTurn(widest) > kMaxTurns * kMinSpansPerTurn) {
+        throw std::runtime_error("threadGroove: at most 10000 turns, and fewer on a wide thread");
     }
     TopoDS_Shape groove = GrooveBuilder(spec).build();
     gp_Trsf place;
