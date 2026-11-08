@@ -1162,6 +1162,9 @@ static void buildSweep(BRepOffsetAPI_MakePipeShell& maker, const TopoDS_Shape& p
             maker.SetMode(TopoDS::Wire(*setup.auxSpine), setup.curvilinearEquivalence, contact);
             break;
         }
+        case 4:
+            maker.SetMode(gp::XOY());
+            break;
         default:
             throw std::runtime_error(op + ": invalid mode");
         }
@@ -4712,6 +4715,9 @@ uint32_t OcctKernel::sweepOriented(uint32_t profileId, uint32_t spineId, int mod
                 maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
                 break;
             }
+            case 4:
+                maker.SetMode(gp::XOY());
+                break;
             default:
                 throw std::runtime_error("sweepOriented: invalid mode");
         }
@@ -4776,6 +4782,9 @@ uint32_t OcctKernel::sweepAdvanced(uint32_t profileId, uint32_t spineId, int mod
                 maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
                 break;
             }
+            case 4:
+                maker.SetMode(gp::XOY());
+                break;
             default:
                 throw std::runtime_error("sweepAdvanced: invalid mode");
         }
