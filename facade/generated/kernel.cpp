@@ -393,7 +393,10 @@ static void recoverLostFuse(BRepAlgoAPI_BooleanOperation& op,
         return std::abs(props.Mass());
     };
     std::vector<double> volumes(operands.size(), -1.0);
+    const double asked = op.FuzzyValue();
     for (double fuzzy : {1.0e-6, 1.0e-5}) {
+        // A retry never narrows the gaps the caller asked to merge.
+        if (fuzzy <= asked) continue;
         if (op.HasErrors()) return;
         NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> kept;
         TopExp::MapShapes(op.Shape(), TopAbs_FACE, kept);

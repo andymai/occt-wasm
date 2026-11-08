@@ -25,9 +25,16 @@ describe("a fuse that would lose an operand", () => {
     const load = (name: string) => kernel.fromBREP(readFileSync(new URL(`fixtures/${name}.brep`, import.meta.url), "utf8"));
 
     it("keeps both, by fuse and by booleanOp", () => {
-        const expected = 59063;
-        expect(kernel.getVolume(kernel.fuse(load("seam-body"), load("seam-fin")))).toBeGreaterThan(expected);
-        expect(kernel.getVolume(kernel.booleanOp(BooleanOp.Fuse, [load("seam-body")], [load("seam-fin")]).result)).toBeGreaterThan(expected);
+        const body = load("seam-body");
+        const fin = load("seam-fin");
+        const apart = kernel.getVolume(body) + kernel.getVolume(fin);
+        for (const fused of [kernel.fuse(body, fin), kernel.booleanOp(BooleanOp.Fuse, [body], [fin]).result]) {
+            expect(kernel.isValid(fused)).toBe(true);
+            expect(kernel.getSubShapes(fused, "solid")).toHaveLength(1);
+            // More than the body alone, and less than the two apart: they overlap.
+            expect(kernel.getVolume(fused)).toBeGreaterThan(59063);
+            expect(kernel.getVolume(fused)).toBeLessThan(apart - 100);
+        }
     });
 
     it("keeps an operand's absorption inside the other as it is", () => {
