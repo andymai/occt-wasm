@@ -5474,8 +5474,22 @@ BRepOffsetAPI_ThruSections maker(isSolid, ruled);
 if (startVertexId != 0) {
     maker.AddVertex(TopoDS::Vertex(get(startVertexId)));
 }
-for (uint32_t wid : wireIds) {
-    maker.AddWire(TopoDS::Wire(get(wid)));
+// A closed loft lists its first wire again at the end. Its sections are lined up
+// here, as ThruSections can twist them; sections of different edge counts cannot be.
+std::vector<TopoDS_Shape> loop;
+if (wireIds.size() >= 4 && wireIds.front() == wireIds.back()) {
+    std::vector<TopoDS_Shape> sections;
+    for (size_t i = 0; i + 1 < wireIds.size(); i++) sections.push_back(get(wireIds[i]));
+    loop = alignLoopSections(sections);
+}
+if (!loop.empty()) {
+    maker.CheckCompatibility(Standard_False);
+    for (const TopoDS_Shape& wire : loop) maker.AddWire(TopoDS::Wire(wire));
+    maker.AddWire(TopoDS::Wire(loop.front()));
+} else {
+    for (uint32_t wid : wireIds) {
+        maker.AddWire(TopoDS::Wire(get(wid)));
+    }
 }
 if (endVertexId != 0) {
     maker.AddVertex(TopoDS::Vertex(get(endVertexId)));
@@ -5489,8 +5503,10 @@ const TopoDS_Shape result = maker.Shape();
 EvolutionData evo;
 evo.resultId = batch.add(result);
 std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
+// A closed loft's first wire is reported once.
+std::unordered_set<uint32_t> seen;
 for (uint32_t wid : wireIds) {
-    appendEvolution(evo, maker, get(wid), tracked, hashUpperBound);
+    if (seen.insert(wid).second) appendEvolution(evo, maker, get(wid), tracked, hashUpperBound);
 }
 appendSweepCaps(evo, maker, result, hashUpperBound);
 batch.take();

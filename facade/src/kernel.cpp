@@ -1,9 +1,11 @@
 #include "occt_kernel.h"
 
+#include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Curve2d.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_MakeShapeOnMesh.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepGProp.hxx>
 #include <BRepGProp_Domain.hxx>
 #include <BRepGProp_Face.hxx>
@@ -13,6 +15,7 @@
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepTools.hxx>
+#include <BRepTools_WireExplorer.hxx>
 #include <BRepTopAdaptor_FClass2d.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
@@ -52,16 +55,20 @@
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Iterator.hxx>
 #include <TopoDS_Vertex.hxx>
+#include <TopoDS_Wire.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <gp_Ax1.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Pnt2d.hxx>
+#include <gp_Trsf.hxx>
 #include <gp_XYZ.hxx>
 #include <istream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -417,6 +424,114 @@ void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props) {
         return;
     }
     integrateFaces<BRepGProp_Sinert>(shape, props, BRepGProp_MeshProps::Sinert, false);
+}
+
+namespace {
+
+constexpr int kSamplesPerEdge = 4;
+
+/// A closed section's edges in order round the wire, with points along each in that direction.
+struct SectionLoop {
+    std::vector<TopoDS_Edge> edges;
+    std::vector<gp_XYZ> samples;
+    gp_XYZ centre;
+};
+
+SectionLoop sectionLoop(const TopoDS_Wire& wire) {
+    SectionLoop loop;
+    for (BRepTools_WireExplorer it(wire); it.More(); it.Next()) {
+        const TopoDS_Edge& edge = it.Current();
+        loop.edges.push_back(edge);
+        const BRepAdaptor_Curve curve(edge);
+        const double first = curve.FirstParameter(), last = curve.LastParameter();
+        const bool forward = edge.Orientation() != TopAbs_REVERSED;
+        for (int k = 0; k < kSamplesPerEdge; k++) {
+            const double t = (k + 0.5) / kSamplesPerEdge;
+            loop.samples.push_back(curve.Value(forward ? first + t * (last - first) : last - t * (last - first)).XYZ());
+        }
+    }
+    loop.centre = gp_XYZ(0, 0, 0);
+    for (const gp_XYZ& p : loop.samples) loop.centre += p / static_cast<double>(loop.samples.size());
+    return loop;
+}
+
+/// `loop`'s samples relative to its centre, read from edge `offset`, backwards if `reversed`.
+std::vector<gp_XYZ> samplesFrom(const SectionLoop& loop, int offset, bool reversed) {
+    const int count = static_cast<int>(loop.edges.size());
+    std::vector<gp_XYZ> out;
+    out.reserve(loop.samples.size());
+    for (int j = 0; j < count; j++) {
+        const int edge = reversed ? ((offset - 1 - j) % count + count) % count : (offset + j) % count;
+        for (int k = 0; k < kSamplesPerEdge; k++) {
+            out.push_back(loop.samples[edge * kSamplesPerEdge + (reversed ? kSamplesPerEdge - 1 - k : k)] - loop.centre);
+        }
+    }
+    return out;
+}
+
+TopoDS_Wire wireFrom(const SectionLoop& loop, int offset, bool reversed) {
+    const int count = static_cast<int>(loop.edges.size());
+    BRepBuilderAPI_MakeWire wire;
+    for (int j = 0; j < count; j++) {
+        if (reversed) {
+            wire.Add(TopoDS::Edge(loop.edges[((offset - 1 - j) % count + count) % count].Reversed()));
+        } else {
+            wire.Add(loop.edges[(offset + j) % count]);
+        }
+    }
+    return wire.Wire();
+}
+
+} // namespace
+
+// ThruSections picks where each closed section starts, and with sections a
+// quarter turn or more apart it can pick badly and twist the loft into a smaller
+// valid solid. Here each section starts where the one before it does, carried
+// along the loop: its points are turned from one section's direction of travel
+// to the next, and the start and direction that land closest are taken.
+std::vector<TopoDS_Shape> alignLoopSections(const std::vector<TopoDS_Shape>& sections) {
+    std::vector<SectionLoop> loops;
+    for (const TopoDS_Shape& s : sections) {
+        const TopoDS_Wire& wire = TopoDS::Wire(s);
+        if (!BRep_Tool::IsClosed(wire)) return {};
+        loops.push_back(sectionLoop(wire));
+        if (loops.back().edges.size() != loops.front().edges.size()) return {};
+    }
+    const int count = static_cast<int>(loops.size()), edges = static_cast<int>(loops.front().edges.size());
+    std::vector<gp_XYZ> travel;
+    for (int i = 0; i < count; i++) travel.push_back(loops[(i + 1) % count].centre - loops[(i + count - 1) % count].centre);
+
+    std::vector<TopoDS_Shape> aligned{wireFrom(loops[0], 0, false)};
+    std::vector<gp_XYZ> carried = samplesFrom(loops[0], 0, false);
+    for (int i = 1; i < count; i++) {
+        if (travel[i - 1].Modulus() > 1.0e-9 && travel[i].Modulus() > 1.0e-9) {
+            const gp_Dir from(travel[i - 1]), to(travel[i]);
+            const double angle = from.Angle(to);
+            if (angle > 1.0e-9 && angle < M_PI - 1.0e-9) {
+                gp_Trsf turn;
+                turn.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), from.Crossed(to)), angle);
+                for (gp_XYZ& p : carried) turn.Transforms(p);
+            }
+        }
+        double closest = std::numeric_limits<double>::max();
+        int offset = 0;
+        bool reversed = false;
+        for (int backwards = 0; backwards < 2; backwards++) {
+            for (int o = 0; o < edges; o++) {
+                const std::vector<gp_XYZ> candidate = samplesFrom(loops[i], o, backwards == 1);
+                double distance = 0;
+                for (size_t q = 0; q < candidate.size(); q++) distance += (candidate[q] - carried[q]).SquareModulus();
+                if (distance < closest - 1.0e-9) {
+                    closest = distance;
+                    offset = o;
+                    reversed = backwards == 1;
+                }
+            }
+        }
+        aligned.push_back(wireFrom(loops[i], offset, reversed));
+        carried = samplesFrom(loops[i], offset, reversed);
+    }
+    return aligned;
 }
 
 namespace {

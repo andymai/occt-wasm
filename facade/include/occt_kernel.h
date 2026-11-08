@@ -31,6 +31,11 @@ TopoDS_Shape readStl(const std::string& data);
 void volumeProperties(const TopoDS_Shape& shape, GProp_GProps& props);
 void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props);
 
+// The closed sections of a loft that returns to its first section, each starting
+// where the one before it does. Empty when they do not all have the same number
+// of edges, so that there is no start to match.
+std::vector<TopoDS_Shape> alignLoopSections(const std::vector<TopoDS_Shape>& sections);
+
 // Surface-tight bounds. BRepBndLib::AddOptimal can stop short of a BSpline
 // surface's extreme (its sampling skips the cell that holds it), so each
 // BSpline/Bezier face's extremes are certified against its control net.
