@@ -1,0 +1,39 @@
+xtask/src/codegen/config.rs
+  s_926d227690c023::t_31b099b0138ef4 5533-5534,5536-5537,5542-5543
+  s_926d227690c023::t_72c11cd24635c0 468,470-477,480,489-491,521,4884-4885
+facade/include/occt_kernel.h
+  s_926d227690c023::t_0d6182a5709cb3 19
+  s_926d227690c023::t_df78d93b0652ea 54
+  s_926d227690c023::t_f5c44350e9e517 40-50,53,55
+  s_926d227690c023::t_034c9be5b0e564 51-52
+test/unify-shared-edges.test.ts
+  s_926d227690c023::t_284394cd7d326f 9,26,60
+  s_926d227690c023::t_7ba684c1ac7533 79-96
+  s_926d227690c023::t_b49d99a35c3a2e 1-8,10-25,27-59,61-78,97
+facade/src/kernel.cpp
+  s_926d227690c023::t_31b099b0138ef4 434-436
+  s_926d227690c023::t_df78d93b0652ea 433,439-442,446-447
+  s_926d227690c023::t_07ecc92e2328cd 48
+  s_926d227690c023::t_950f8a342b5400 7
+  s_926d227690c023::t_a34ffafd59ea5d 19
+  s_926d227690c023::t_6596d9ba532daa 432,437-438,443,449-459
+  s_926d227690c023::t_c6b5c055f9ad9c 444-445,448
+facade/generated/kernel.cpp
+  s_926d227690c023::t_43f46fd3d2c309 1703,1705-1712,1715,1743,4888,5370-5371,5373-5374
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e34402cdaa12fd7787ca0e9702add7034d3bb207",
+  "prompts": {},
+  "sessions": {
+    "s_926d227690c023": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a4d48dd-346d-49c9-849f-5f120e05e095",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
