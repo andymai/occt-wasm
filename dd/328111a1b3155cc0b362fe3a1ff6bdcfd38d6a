@@ -1,0 +1,28 @@
+facade/include/occt_kernel.h
+  s_926d227690c023::t_dfd219c8898112 18,36-39
+facade/src/kernel.cpp
+  s_926d227690c023::t_dfd219c8898112 18,482-484,488-489,499-500,502-504,515-516,528-529,533-538,540-541,543-544,555-556,566-567,581-594
+  s_926d227690c023::t_2af2c057db367f 595-599
+test/loft-closed.test.ts
+  s_926d227690c023::t_2a84b84e1e2f53 34-39,42
+xtask/src/codegen/config.rs
+  s_926d227690c023::t_dfd219c8898112 4403-4405,4432-4434,5487-5489
+facade/generated/kernel.cpp
+  s_926d227690c023::t_7a62391049d053 4688-4690,4707-4709,5383-5385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd328111a1b3155cc0b362fe3a1ff6bdcfd38d6a",
+  "prompts": {},
+  "sessions": {
+    "s_926d227690c023": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a4d48dd-346d-49c9-849f-5f120e05e095",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
