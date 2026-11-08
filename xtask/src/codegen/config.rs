@@ -4529,6 +4529,9 @@ switch (mode) {
         maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
         break;
     }
+    case 4:
+        maker.SetMode(gp::XOY());
+        break;
     default:
         throw std::runtime_error(\"sweepOriented: invalid mode\");
 }
@@ -4561,6 +4564,7 @@ return store(maker.Shape());",
             "BRepFill_TypeOfContact.hxx",
             "TopoDS.hxx",
             "gp_Dir.hxx",
+            "gp.hxx",
         ],
         category: "sweep",
         return_type: ReturnType::ShapeId,
@@ -4633,6 +4637,9 @@ switch (mode) {
         maker.SetMode(TopoDS::Wire(get(auxSpineId)), curvilinearEquivalence, contact);
         break;
     }
+    case 4:
+        maker.SetMode(gp::XOY());
+        break;
     default:
         throw std::runtime_error(\"sweepAdvanced: invalid mode\");
 }
@@ -4670,6 +4677,7 @@ return store(maker.Shape());",
             "BRepFill_TypeOfContact.hxx",
             "TopoDS.hxx",
             "gp_Dir.hxx",
+            "gp.hxx",
         ],
         category: "sweep",
         return_type: ReturnType::ShapeId,

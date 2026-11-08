@@ -149,6 +149,31 @@ describe("extrudeWithHistory", () => {
     });
 });
 
+describe("SweepMode.Parallel", () => {
+    // Up 10, then a quarter arc that turns the spine horizontal at (10, 0, 20).
+    const bend = (): ShapeHandle =>
+        kernel.makeWire([
+            kernel.makeLineEdge(p(0, 0, 0), p(0, 0, 10)),
+            kernel.makeArcEdge(p(0, 0, 10), p(10 - 10 * Math.SQRT1_2, 0, 10 + 10 * Math.SQRT1_2), p(10, 0, 20)),
+        ]);
+    const square = (): ShapeHandle => polygon([p(-1, -1, 0), p(1, -1, 0), p(1, 1, 0), p(-1, 1, 0)]);
+    const endCap = (mode: number) => {
+        const evo = kernel.sweepWithHistory(square(), bend(), [], BOUND, { mode });
+        return kernel.getBoundingBox(byHash(facesOf(evo.result)).get(evo.lastShape[0]!)!);
+    };
+
+    it("keeps the section as drawn round a bend, where the default turns it with the spine", () => {
+        // Parallel: the end cap is the square, moved, still flat in a horizontal plane.
+        const parallel = endCap(4);
+        expect(parallel.zmax - parallel.zmin).toBeCloseTo(0, 6);
+        expect(parallel.xmax - parallel.xmin).toBeCloseTo(2, 6);
+        // The default mode turns the section a quarter turn with the spine: the end cap stands upright.
+        const turned = endCap(0);
+        expect(turned.zmax - turned.zmin).toBeCloseTo(2, 6);
+        expect(turned.xmax - turned.xmin).toBeCloseTo(0, 6);
+    });
+});
+
 describe("revolveWithHistory", () => {
     const profile = (): ShapeHandle =>
         kernel.makeFace(polygon([p(5, 0, 0), p(8, 0, 0), p(8, 0, 4), p(5, 0, 4)]));

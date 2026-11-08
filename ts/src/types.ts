@@ -325,6 +325,8 @@ export enum SweepMode {
     FixedUp = 2,
     /** Orientation driven by an auxiliary guide spine (requires `auxSpine`). */
     Auxiliary = 3,
+    /** Profile keeps one orientation along the whole spine: it only moves. */
+    Parallel = 4,
 }
 
 /** How the swept section relates to the guide spine (BRepFill_TypeOfContact). */
