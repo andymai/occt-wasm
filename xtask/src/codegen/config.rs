@@ -465,11 +465,19 @@ op->Build();
 if (!op->IsDone() || op->HasErrors()) {
     throw std::runtime_error(\"booleanOp: operation failed\");
 }
+TopoDS_Shape result = op->Shape();
 if (simplifyAngularTolerance > 0.0) {
-    op->SimplifyResult(Standard_True, Standard_True, simplifyAngularTolerance);
+    // SimplifyResult would merge in place, into faces the operands still hold.
+    UnifyOptions options;
+    options.linearTolerance = op->FuzzyValue();
+    options.angularTolerance = simplifyAngularTolerance;
+    options.concatBSplines = true;
+    Handle(BRepTools_History) simplified;
+    result = unifyCopy(result, options, &simplified);
+    op->History()->Merge(simplified);
 }
 EvolutionData evo;
-evo.resultId = store(op->Shape());
+evo.resultId = store(result);
 if (hashUpperBound > 0) {
     std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
     for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, tracked, hashUpperBound);
@@ -478,8 +486,9 @@ if (hashUpperBound > 0) {
 return evo;",
         includes: &[
             "BRepAlgoAPI_Fuse.hxx", "BRepAlgoAPI_Cut.hxx", "BRepAlgoAPI_Common.hxx",
-            "BRepAlgoAPI_BooleanOperation.hxx", "BOPAlgo_GlueEnum.hxx", "NCollection_List.hxx",
-            "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx", "memory", "unordered_set",
+            "BRepAlgoAPI_BooleanOperation.hxx", "BOPAlgo_GlueEnum.hxx", "BRepTools_History.hxx",
+            "NCollection_List.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx", "memory",
+            "unordered_set",
         ],
         category: "booleans",
         return_type: ReturnType::EvolutionData,
@@ -509,15 +518,12 @@ for (size_t i = 0; i < opCodes.size(); i++) {
     default: throw std::runtime_error(\"booleanPipeline: unknown opCode\");
     }
     if (isLast) {
-        ShapeUpgrade_UnifySameDomain upgrader(current, Standard_True, Standard_True, Standard_False);
-        upgrader.Build();
-        current = upgrader.Shape();
+        current = unifyCopy(current, {}, nullptr);
     }
 }
 return store(current);",
         includes: &[
             "BRepAlgoAPI_Fuse.hxx", "BRepAlgoAPI_Cut.hxx", "BRepAlgoAPI_Common.hxx",
-            "ShapeUpgrade_UnifySameDomain.hxx",
         ],
         category: "booleans",
         return_type: ReturnType::ShapeId,
@@ -4875,10 +4881,8 @@ return store(fixer.Shape());",
         occt_class: "",
         ctor_args: "",
         setup_code: "\
-ShapeUpgrade_UnifySameDomain upgrader(get(id), true, true, false);
-upgrader.Build();
-return store(upgrader.Shape());",
-        includes: &["ShapeUpgrade_UnifySameDomain.hxx"],
+return store(unifyCopy(get(id), {}, nullptr));",
+        includes: &[],
         category: "healing",
         return_type: ReturnType::ShapeId,
     },
@@ -5526,17 +5530,17 @@ return evo;",
         ctor_args: "",
         setup_code: "\
 const auto& shape = get(id);
-ShapeUpgrade_UnifySameDomain upgrader(shape, true, true, false);
-upgrader.Build();
+Handle(BRepTools_History) history;
+const TopoDS_Shape result = unifyCopy(shape, {}, &history);
 BatchScope batch(*this, 1);
-uint32_t resultId = batch.add(upgrader.Shape());
-HistoryMaker maker(upgrader.History());
+uint32_t resultId = batch.add(result);
+HistoryMaker maker(history);
 EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
 batch.take();
 return evo;",
         includes: &[
-            "BRepBuilderAPI_MakeShape.hxx", "BRepTools_History.hxx", "ShapeUpgrade_UnifySameDomain.hxx",
-            "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx",
+            "BRepBuilderAPI_MakeShape.hxx", "BRepTools_History.hxx", "TopExp_Explorer.hxx",
+            "TopTools_ShapeMapHasher.hxx",
         ],
         category: "evolution",
         return_type: ReturnType::EvolutionData,

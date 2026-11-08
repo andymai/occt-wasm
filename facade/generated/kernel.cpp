@@ -1700,11 +1700,19 @@ EvolutionData OcctKernel::booleanOp(int opCode, std::vector<uint32_t> argIds, st
         if (!op->IsDone() || op->HasErrors()) {
             throw std::runtime_error("booleanOp: operation failed");
         }
+        TopoDS_Shape result = op->Shape();
         if (simplifyAngularTolerance > 0.0) {
-            op->SimplifyResult(Standard_True, Standard_True, simplifyAngularTolerance);
+            // SimplifyResult would merge in place, into faces the operands still hold.
+            UnifyOptions options;
+            options.linearTolerance = op->FuzzyValue();
+            options.angularTolerance = simplifyAngularTolerance;
+            options.concatBSplines = true;
+            Handle(BRepTools_History) simplified;
+            result = unifyCopy(result, options, &simplified);
+            op->History()->Merge(simplified);
         }
         EvolutionData evo;
-        evo.resultId = store(op->Shape());
+        evo.resultId = store(result);
         if (hashUpperBound > 0) {
             std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
             for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, tracked, hashUpperBound);
@@ -1732,9 +1740,7 @@ uint32_t OcctKernel::booleanPipeline(uint32_t baseId, std::vector<int> opCodes, 
             default: throw std::runtime_error("booleanPipeline: unknown opCode");
             }
             if (isLast) {
-                ShapeUpgrade_UnifySameDomain upgrader(current, Standard_True, Standard_True, Standard_False);
-                upgrader.Build();
-                current = upgrader.Shape();
+                current = unifyCopy(current, {}, nullptr);
             }
         }
         return store(current);
@@ -4879,9 +4885,7 @@ uint32_t OcctKernel::fixShape(uint32_t id) {
 
 uint32_t OcctKernel::unifySameDomain(uint32_t id) {
     try {
-        ShapeUpgrade_UnifySameDomain upgrader(get(id), true, true, false);
-        upgrader.Build();
-        return store(upgrader.Shape());
+        return store(unifyCopy(get(id), {}, nullptr));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("unifySameDomain: ") + e.what());
     }
@@ -5363,11 +5367,11 @@ EvolutionData OcctKernel::loftWithHistory(std::vector<uint32_t> wireIds, bool is
 EvolutionData OcctKernel::unifySameDomainWithHistory(uint32_t id, std::vector<int> inputFaceHashes, int hashUpperBound) {
     try {
         const auto& shape = get(id);
-        ShapeUpgrade_UnifySameDomain upgrader(shape, true, true, false);
-        upgrader.Build();
+        Handle(BRepTools_History) history;
+        const TopoDS_Shape result = unifyCopy(shape, {}, &history);
         BatchScope batch(*this, 1);
-        uint32_t resultId = batch.add(upgrader.Shape());
-        HistoryMaker maker(upgrader.History());
+        uint32_t resultId = batch.add(result);
+        HistoryMaker maker(history);
         EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
         batch.take();
         return evo;
