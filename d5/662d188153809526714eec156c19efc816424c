@@ -1,0 +1,23 @@
+xtask/src/codegen/emitter.rs
+  s_926d227690c023::t_e2ab94d8f910ff 728,730-731
+test/fuse-lost-operand.test.ts
+  s_926d227690c023::t_e2ab94d8f910ff 28-37
+facade/generated/kernel.cpp
+  s_926d227690c023::t_6f9b4c6c8d7a52 396,398-399
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d5662d188153809526714eec156c19efc816424c",
+  "prompts": {},
+  "sessions": {
+    "s_926d227690c023": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a4d48dd-346d-49c9-849f-5f120e05e095",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
