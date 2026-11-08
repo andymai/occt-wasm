@@ -29,4 +29,12 @@ describe("a fuse that would lose an operand", () => {
         expect(kernel.getVolume(kernel.fuse(load("seam-body"), load("seam-fin")))).toBeGreaterThan(expected);
         expect(kernel.getVolume(kernel.booleanOp(BooleanOp.Fuse, [load("seam-body")], [load("seam-fin")]).result)).toBeGreaterThan(expected);
     });
+
+    it("keeps an operand's absorption inside the other as it is", () => {
+        // Every face of the inner box is gone from the result, as for a lost operand.
+        const outer = kernel.makeBox(10, 10, 10);
+        const inner = kernel.translate(kernel.makeBox(2, 2, 2), 4, 4, 4);
+        expect(kernel.getVolume(kernel.fuse(outer, inner))).toBeCloseTo(1000, 6);
+        expect(kernel.getVolume(kernel.fuse(inner, outer))).toBeCloseTo(1000, 6);
+    });
 });

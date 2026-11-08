@@ -379,9 +379,12 @@ static void buildBoolean(BRepAlgoAPI_BooleanOperation& op, const TopoDS_Shape& a
 /// A fuse can drop a whole operand without an error: where two edges lie a
 /// few 1e-7 apart, closer than they should be but further than their
 /// tolerances reach, the split faces do not close and the solid they came
-/// from is left out. A union is never smaller than its largest operand, so
-/// that shows in the volume, and a fuzzy value lets the edges meet. The
-/// margin is wide of BRepGProp's error on spline faces.
+/// from is left out. No face of that operand, nor any piece of one, is then
+/// in the result, as for an operand inside the others; only the volume tells
+/// the two apart, as a union never holds less than any operand. So the volume
+/// is read only for an operand that left nothing in the result, and a fuzzy
+/// value lets the edges meet. The margin is wide of BRepGProp's error on
+/// spline faces.
 static void recoverLostFuse(BRepAlgoAPI_BooleanOperation& op,
                             const std::vector<TopoDS_Shape>& operands) {
     const auto volume = [](const TopoDS_Shape& shape) {
@@ -389,10 +392,31 @@ static void recoverLostFuse(BRepAlgoAPI_BooleanOperation& op,
         volumeProperties(shape, props);
         return std::abs(props.Mass());
     };
-    double largest = 0;
-    for (const TopoDS_Shape& s : operands) largest = std::max(largest, volume(s));
+    std::vector<double> volumes(operands.size(), -1.0);
     for (double fuzzy : {1.0e-6, 1.0e-5}) {
-        if (op.HasErrors() || volume(op.Shape()) >= 0.99 * largest) return;
+        if (op.HasErrors()) return;
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> kept;
+        TopExp::MapShapes(op.Shape(), TopAbs_FACE, kept);
+        // The history alone cannot say: a face of a lost operand can be
+        // neither deleted nor modified, and still be missing.
+        const auto vanished = [&](const TopoDS_Shape& shape) {
+            TopExp_Explorer ex(shape, TopAbs_FACE);
+            if (!ex.More()) return false;
+            for (; ex.More(); ex.Next()) {
+                if (kept.Contains(ex.Current())) return false;
+                for (const TopoDS_Shape& piece : op.Modified(ex.Current())) {
+                    if (kept.Contains(piece)) return false;
+                }
+            }
+            return true;
+        };
+        double needed = 0;
+        for (size_t i = 0; i < operands.size(); ++i) {
+            if (!vanished(operands[i])) continue;
+            if (volumes[i] < 0) volumes[i] = volume(operands[i]);
+            needed = std::max(needed, volumes[i]);
+        }
+        if (needed == 0 || volume(op.Shape()) >= 0.99 * needed) return;
         op.SetFuzzyValue(fuzzy);
         op.Build();
     }
