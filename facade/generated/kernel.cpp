@@ -160,6 +160,7 @@
 #include <XCAFDoc_ColorType.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <gp.hxx>
@@ -188,6 +189,7 @@
 #include <stdexcept>
 #include <thread_groove.h>
 #include <unordered_set>
+#include <vector>
 
 #include <algorithm>
 #include <cmath>
@@ -372,6 +374,55 @@ static void buildBoolean(BRepAlgoAPI_BooleanOperation& op, const TopoDS_Shape& a
     op.SetTools(tools);
     op.SetUseOBB(allFinite(args) && allFinite(tools));
     op.Build();
+}
+
+/// A fuse can drop a whole operand without an error: where two edges lie a
+/// few 1e-7 apart, closer than they should be but further than their
+/// tolerances reach, the split faces do not close and the solid they came
+/// from is left out. No face of that operand, nor any piece of one, is then
+/// in the result, as for an operand inside the others; only the volume tells
+/// the two apart, as a union never holds less than any operand. So the volume
+/// is read only for an operand that left nothing in the result, and a fuzzy
+/// value lets the edges meet. The margin is wide of BRepGProp's error on
+/// spline faces.
+static void recoverLostFuse(BRepAlgoAPI_BooleanOperation& op,
+                            const std::vector<TopoDS_Shape>& operands) {
+    const auto volume = [](const TopoDS_Shape& shape) {
+        GProp_GProps props;
+        volumeProperties(shape, props);
+        return std::abs(props.Mass());
+    };
+    std::vector<double> volumes(operands.size(), -1.0);
+    const double asked = op.FuzzyValue();
+    for (double fuzzy : {1.0e-6, 1.0e-5}) {
+        // A retry never narrows the gaps the caller asked to merge.
+        if (fuzzy <= asked) continue;
+        if (op.HasErrors()) return;
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> kept;
+        TopExp::MapShapes(op.Shape(), TopAbs_FACE, kept);
+        // The history alone cannot say: a face of a lost operand can be
+        // neither deleted nor modified, and still be missing.
+        const auto vanished = [&](const TopoDS_Shape& shape) {
+            TopExp_Explorer ex(shape, TopAbs_FACE);
+            if (!ex.More()) return false;
+            for (; ex.More(); ex.Next()) {
+                if (kept.Contains(ex.Current())) return false;
+                for (const TopoDS_Shape& piece : op.Modified(ex.Current())) {
+                    if (kept.Contains(piece)) return false;
+                }
+            }
+            return true;
+        };
+        double needed = 0;
+        for (size_t i = 0; i < operands.size(); ++i) {
+            if (!vanished(operands[i])) continue;
+            if (volumes[i] < 0) volumes[i] = volume(operands[i]);
+            needed = std::max(needed, volumes[i]);
+        }
+        if (needed == 0 || volume(op.Shape()) >= 0.99 * needed) return;
+        op.SetFuzzyValue(fuzzy);
+        op.Build();
+    }
 }
 
 /// `<op>: operation failed`, plus the caller's ids of the edges that lie on a
@@ -1504,6 +1555,7 @@ uint32_t OcctKernel::fuse(uint32_t a, uint32_t b) {
     try {
         BRepAlgoAPI_Fuse op;
         buildBoolean(op, get(a), get(b));
+        recoverLostFuse(op, {get(a), get(b)});
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("fuse: boolean operation failed");
         }
@@ -1697,6 +1749,12 @@ EvolutionData OcctKernel::booleanOp(int opCode, std::vector<uint32_t> argIds, st
         op->SetRunParallel(true);
         op->SetUseOBB(allFinite(args) && allFinite(tools));
         op->Build();
+        if (opCode == 0) {
+            std::vector<TopoDS_Shape> operands;
+            for (const TopoDS_Shape& s : args) operands.push_back(s);
+            for (const TopoDS_Shape& s : tools) operands.push_back(s);
+            recoverLostFuse(*op, operands);
+        }
         if (!op->IsDone() || op->HasErrors()) {
             throw std::runtime_error("booleanOp: operation failed");
         }
