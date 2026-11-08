@@ -2178,6 +2178,29 @@ return store(wire);",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "threadGroove",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::Double("px"), FacadeParam::Double("py"), FacadeParam::Double("pz"),
+            FacadeParam::Double("dx"), FacadeParam::Double("dy"), FacadeParam::Double("dz"),
+            FacadeParam::Double("pitch"), FacadeParam::Double("length"),
+            FacadeParam::Double("coverRadius"), FacadeParam::Double("rootRadius"),
+            FacadeParam::Double("coverHalfWidth"), FacadeParam::Double("rootHalfWidth"),
+            FacadeParam::Double("phase"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        // The solid a right-handed thread removes from a cylinder of coverRadius
+        // about the axis, built from known curves (see facade/src/thread_groove.cpp).
+        setup_code: "\
+gp_Ax3 frame(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz));
+occtwasm::ThreadGrooveSpec spec{pitch, length, coverRadius, rootRadius, coverHalfWidth, rootHalfWidth, phase};
+return store(occtwasm::buildThreadGroove(frame, spec));",
+        includes: &["gp_Ax3.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "thread_groove.h"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "makeNonPlanarFace",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("wireId")],

@@ -362,6 +362,9 @@ class OcctKernel {
                            double pitch, double height, double radius);
     uint32_t makeHelixWireHanded(double px, double py, double pz, double dx, double dy, double dz,
                                  double pitch, double height, double radius, bool leftHanded);
+    uint32_t threadGroove(double px, double py, double pz, double dx, double dy, double dz,
+                          double pitch, double length, double coverRadius, double rootRadius,
+                          double coverHalfWidth, double rootHalfWidth, double phase);
     uint32_t makeWire(std::vector<uint32_t> edgeIds);
     uint32_t makeFace(uint32_t wireId);
     uint32_t makeNonPlanarFace(uint32_t wireId);

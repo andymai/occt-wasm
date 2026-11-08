@@ -1457,3 +1457,39 @@ fn loft_and_unify_with_history_report_their_inputs() {
     assert!(moved.first_shape.is_empty());
     assert!(!moved.edge_modified.is_empty());
 }
+
+#[test]
+fn thread_groove_is_a_valid_solid_of_the_exact_volume() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    // An ISO 68-1 M6 x 1 shaft groove, 10 long: the trapezoid in the meridian
+    // plane swept round the axis as many turns as the length holds (Pappus).
+    let (pitch, length) = (1.0_f64, 10.0_f64);
+    let h = 3.0_f64.sqrt() / 2.0 * pitch;
+    let (cover, root) = (3.0, (-5.0 / 8.0_f64).mul_add(h, 3.0));
+    let (cover_half, root_half) = (7.0 * pitch / 16.0, pitch / 8.0);
+    let r = [cover, root, root, cover];
+    let z = [-cover_half, -root_half, root_half, cover_half];
+    let (mut area, mut moment) = (0.0, 0.0);
+    for i in 0..4 {
+        let j = (i + 1) % 4;
+        let cross = r[i].mul_add(z[j], -(r[j] * z[i]));
+        area += cross;
+        moment = (r[i] + r[j]).mul_add(cross, moment);
+    }
+    let exact =
+        (area / 2.0).abs() * std::f64::consts::TAU * (moment / (3.0 * area)) * (length / pitch);
+
+    let groove = kernel
+        .thread_groove(
+            0.0, 0.0, 0.0, 0.0, 0.0, 1.0, pitch, length, cover, root, cover_half, root_half, 0.137,
+        )
+        .unwrap();
+    assert!(kernel.is_valid(groove).unwrap());
+    let volume = kernel.get_volume(groove).unwrap();
+    assert!(
+        (volume / exact - 1.0).abs() < 1e-4,
+        "volume {volume}, exact {exact}"
+    );
+}

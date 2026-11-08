@@ -65,6 +65,7 @@ export {
     type SweepAdvancedOptions,
     type SweepFullOptions,
     type SweepOrientedOptions,
+    type ThreadGroove,
     type StepExportOptions,
     type StepSchema,
     type SweepToleranceOptions,
@@ -138,6 +139,7 @@ import type {
     SweepAdvancedOptions,
     SweepFullOptions,
     SweepOrientedOptions,
+    ThreadGroove,
     TessellateOptions,
     WireframeOptions,
     BoundingBoxOptions,
@@ -1024,6 +1026,28 @@ export class OcctKernel {
                 origin.x, origin.y, origin.z,
                 axis.x, axis.y, axis.z,
                 pitch, height, radius, leftHanded,
+            )),
+        );
+    }
+
+    /**
+     * The solid a right-handed thread removes from a cylinder, built from its
+     * known curves rather than swept, so cutting it needs no intersection to
+     * be found. It runs `length` along `axis` from `origin`, and its cover
+     * faces lie on the cylinder of `coverRadius` about that axis: a root
+     * outside the cover is a tapped hole's groove, one inside a shaft's.
+     * The ends are flat, level with `origin` and `length`.
+     *
+     * Faces come in order: cover, lower flank, root, upper flank, in patches
+     * of under a turn, then the end at `origin` and the end at `length`.
+     */
+    threadGroove(origin: Vec3, axis: Vec3, groove: ThreadGroove): ShapeHandle {
+        return wrap("threadGroove", () =>
+            handle(this.#raw.threadGroove(
+                origin.x, origin.y, origin.z,
+                axis.x, axis.y, axis.z,
+                groove.pitch, groove.length, groove.coverRadius, groove.rootRadius,
+                groove.coverHalfWidth, groove.rootHalfWidth, groove.phase ?? 0,
             )),
         );
     }

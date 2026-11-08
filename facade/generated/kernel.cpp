@@ -186,6 +186,7 @@
 #include <gp_Vec.hxx>
 #include <memory>
 #include <stdexcept>
+#include <thread_groove.h>
 #include <unordered_set>
 
 #include <algorithm>
@@ -2997,6 +2998,16 @@ uint32_t OcctKernel::makeHelixWireHanded(double px, double py, double pz, double
         return store(wire);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeHelixWireHanded: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::threadGroove(double px, double py, double pz, double dx, double dy, double dz, double pitch, double length, double coverRadius, double rootRadius, double coverHalfWidth, double rootHalfWidth, double phase) {
+    try {
+        gp_Ax3 frame(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz));
+        occtwasm::ThreadGrooveSpec spec{pitch, length, coverRadius, rootRadius, coverHalfWidth, rootHalfWidth, phase};
+        return store(occtwasm::buildThreadGroove(frame, spec));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("threadGroove: ") + e.what());
     }
 }
 

@@ -293,6 +293,7 @@ export interface OcctRawKernel {
     makeTangentArc(x1: number, y1: number, z1: number, tx: number, ty: number, tz: number, x2: number, y2: number, z2: number): number;
     makeHelixWire(px: number, py: number, pz: number, dx: number, dy: number, dz: number, pitch: number, height: number, radius: number): number;
     makeHelixWireHanded(px: number, py: number, pz: number, dx: number, dy: number, dz: number, pitch: number, height: number, radius: number, leftHanded: boolean): number;
+    threadGroove(px: number, py: number, pz: number, dx: number, dy: number, dz: number, pitch: number, length: number, coverRadius: number, rootRadius: number, coverHalfWidth: number, rootHalfWidth: number, phase: number): number;
     makeWire(edgeIds: EmbindVectorU32): number;
     makeFace(wireId: number): number;
     makeNonPlanarFace(wireId: number): number;
