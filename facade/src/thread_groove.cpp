@@ -53,12 +53,22 @@ namespace {
 
 constexpr double kTwoPi = 2.0 * M_PI;
 constexpr double kTolerance = 1.0e-6;
-// Quintic Hermite pieces this short follow a helix within 1e-8 of its radius.
-// Pcurves get as many spans, as BRepGProp integrates along them span by span.
-constexpr int kSpansPerTurn = 24;
+// Quintic Hermite pieces a 24th of a turn long follow a helix within 1e-8 of
+// its radius. Their error grows with the radius and falls with the sixth power
+// of their length, so wider grooves get more spans to stay within a tenth of
+// kTolerance. Pcurves get as many spans, as BRepGProp integrates along them
+// span by span.
+constexpr int kMinSpansPerTurn = 24;
+// More turns than any real thread has; it bounds the work a bad length asks for.
+constexpr double kMaxTurns = 10000;
 // Faces stay under a turn: a face on a cylinder must not overlap itself in u,
 // and BRepGProp loses accuracy over a long face.
 constexpr double kLongestPatch = 1.75 * M_PI;
+
+int spansPerTurn(double radius) {
+    return std::max(kMinSpansPerTurn,
+                    static_cast<int>(std::ceil(kMinSpansPerTurn * std::pow(radius / 10.0, 1.0 / 6))));
+}
 
 struct Derivatives {
     gp_XYZ point, first, second;
@@ -90,8 +100,8 @@ Handle(Geom_BSplineCurve) hermiteCurve(const CurveFn& f, double from, double to,
     return curve;
 }
 
-int spansOver(double from, double to) {
-    return std::max(2, static_cast<int>(std::ceil(std::abs(to - from) / kTwoPi * kSpansPerTurn)));
+int spansOver(double from, double to, int perTurn) {
+    return std::max(2, static_cast<int>(std::ceil(std::abs(to - from) / kTwoPi * perTurn)));
 }
 
 /// An edge with its parameter range and its (angle, height) at both ends.
@@ -116,7 +126,9 @@ struct Strip {
 
 class GrooveBuilder {
 public:
-    explicit GrooveBuilder(const ThreadGrooveSpec& spec) : length_(spec.length), rise_(spec.pitch / kTwoPi) {
+    explicit GrooveBuilder(const ThreadGrooveSpec& spec)
+        : length_(spec.length), rise_(spec.pitch / kTwoPi),
+          perTurn_(spansPerTurn(std::max(spec.coverRadius, spec.rootRadius))) {
         radius_[0] = radius_[3] = spec.coverRadius;
         radius_[1] = radius_[2] = spec.rootRadius;
         height_[0] = spec.phase - spec.coverHalfWidth;
@@ -124,6 +136,9 @@ public:
         height_[2] = spec.phase + spec.rootHalfWidth;
         height_[3] = spec.phase + spec.coverHalfWidth;
         internal_ = spec.coverRadius < spec.rootRadius;
+        // An outline step whose chord sags a tenth of the groove's depth at most.
+        sampleStep_ = std::sqrt(0.8 * std::abs(spec.coverRadius - spec.rootRadius) /
+                                std::max(spec.coverRadius, spec.rootRadius));
         for (int i = 0; i < 4; i++) {
             start_[i] = -height_[i] / rise_;
             end_[i] = (length_ - height_[i]) / rise_;
@@ -150,6 +165,8 @@ public:
 
 private:
     double length_, rise_;
+    int perTurn_;
+    double sampleStep_ = 0;
     double radius_[4], height_[4], start_[4], end_[4];
     bool internal_ = false;
     std::vector<double> cuts_;
@@ -238,7 +255,7 @@ private:
         const std::vector<double> at = divided(start_[i], end_[i]);
         for (size_t q = 0; q + 1 < at.size(); q++) {
             const double a = at[q], b = at[q + 1];
-            Handle(Geom_Curve) curve = hermiteCurve(helixAt(radius, height), a, b, spansOver(a, b));
+            Handle(Geom_Curve) curve = hermiteCurve(helixAt(radius, height), a, b, spansOver(a, b, perTurn_));
             const double za = height + rise_ * a, zb = height + rise_ * b;
             helix_[i].push_back(Edge{makeEdge(curve, pointAt(radius, a, za), pointAt(radius, b, zb), a, b), a, b, a, za, b, zb, {}});
         }
@@ -260,7 +277,7 @@ private:
             return Derivatives{gp_XYZ(r * c, r * n, plane), gp_XYZ(slope * c - r * n, slope * n + r * c, 0),
                                gp_XYZ(-2 * slope * n - r * c, 2 * slope * c - r * n, 0)};
         };
-        Handle(Geom_BSplineCurve) curve = hermiteCurve(spiral, a, b, spansOver(a, b));
+        Handle(Geom_BSplineCurve) curve = hermiteCurve(spiral, a, b, spansOver(a, b, perTurn_));
         Edge e{makeEdge(curve, pointAt(ra, a, plane), pointAt(rb, b, plane), a, b), a, b, a, plane, b, plane, {}};
         NCollection_Array1<gp_Pnt2d> poles(1, curve->NbPoles());
         for (int n = 1; n <= curve->NbPoles(); n++) poles(n) = gp_Pnt2d(curve->Pole(n).X(), curve->Pole(n).Y());
@@ -303,8 +320,8 @@ private:
     }
 
     /// A straight pcurve with a span per piece of a turn, in the edge's own parameter.
-    static Handle(Geom2d_Curve) straightPcurve(double u0, double v0, double u1, double v1, double first, double last) {
-        const int spans = std::max(1, static_cast<int>(std::ceil(std::abs(u1 - u0) / kTwoPi * kSpansPerTurn)));
+    Handle(Geom2d_Curve) straightPcurve(double u0, double v0, double u1, double v1, double first, double last) const {
+        const int spans = std::max(1, static_cast<int>(std::ceil(std::abs(u1 - u0) / kTwoPi * perTurn_)));
         NCollection_Array1<gp_Pnt2d> poles(1, spans + 1);
         NCollection_Array1<double> knots(1, spans + 1);
         NCollection_Array1<int> mults(1, spans + 1);
@@ -335,7 +352,7 @@ private:
     /// A flank over [a, b]: straight across, between the strip's two helices.
     Handle(Geom_Surface) flankSurface(const Strip& s, double a, double b) const {
         const double from = a - 0.01, to = b + 0.01;
-        const int spans = spansOver(from, to);
+        const int spans = spansOver(from, to, perTurn_);
         Handle(Geom_BSplineCurve) low = hermiteCurve(helixAt(radius_[s.lower], height_[s.lower]), from, to, spans);
         Handle(Geom_BSplineCurve) high = hermiteCurve(helixAt(radius_[s.upper], height_[s.upper]), from, to, spans);
         const int count = low->NbPoles();
@@ -419,8 +436,9 @@ private:
         std::vector<gp_Pnt2d> outline;
         for (const Side& side : sides) {
             const Edge& e = *side.edge;
-            for (int q = 0; q < 8; q++) {
-                const double w = side.forward ? q / 8.0 : 1 - q / 8.0;
+            const int samples = std::max(8, static_cast<int>(std::ceil(std::abs(e.angle1 - e.angle0) / sampleStep_)));
+            for (int q = 0; q < samples; q++) {
+                const double w = side.forward ? static_cast<double>(q) / samples : 1 - static_cast<double>(q) / samples;
                 outline.push_back(e.onPlane->Value(e.first + w * (e.last - e.first)));
             }
         }
@@ -441,6 +459,10 @@ private:
 }  // namespace
 
 TopoDS_Shape buildThreadGroove(const gp_Ax3& frame, const ThreadGrooveSpec& spec) {
+    for (double value : {spec.pitch, spec.length, spec.coverRadius, spec.rootRadius,
+                         spec.coverHalfWidth, spec.rootHalfWidth, spec.phase}) {
+        if (!std::isfinite(value)) throw std::runtime_error("threadGroove: every value must be finite");
+    }
     if (!(spec.pitch > 0) || !(spec.length > 0)) {
         throw std::runtime_error("threadGroove: pitch and length must be positive");
     }
@@ -449,6 +471,9 @@ TopoDS_Shape buildThreadGroove(const gp_Ax3& frame, const ThreadGrooveSpec& spec
     }
     if (!(spec.rootHalfWidth > 0) || !(spec.coverHalfWidth > spec.rootHalfWidth) || !(2 * spec.coverHalfWidth < spec.pitch)) {
         throw std::runtime_error("threadGroove: the groove must narrow to its root and stay under a pitch wide");
+    }
+    if (spec.length / spec.pitch > kMaxTurns) {
+        throw std::runtime_error("threadGroove: at most 10000 turns");
     }
     TopoDS_Shape groove = GrooveBuilder(spec).build();
     gp_Trsf place;
