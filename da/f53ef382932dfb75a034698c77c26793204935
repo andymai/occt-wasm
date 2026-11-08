@@ -1,9 +1,9 @@
-facade/generated/kernel.cpp
-  s_926d227690c023::t_b67fcc140a87c7 395,397-398
-test/fuse-lost-operand.test.ts
-  s_926d227690c023::t_20e4bca6f11f32 28-37
 xtask/src/codegen/emitter.rs
-  s_926d227690c023::t_088999f27a2a16 728,730-731
+  s_926d227690c023::t_e2ab94d8f910ff 728,730-731
+test/fuse-lost-operand.test.ts
+  s_926d227690c023::t_e2ab94d8f910ff 28-37
+facade/generated/kernel.cpp
+  s_926d227690c023::t_6f9b4c6c8d7a52 395,397-398
 ---
 {
   "schema_version": "authorship/3.0.0",
