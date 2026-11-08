@@ -34,6 +34,8 @@ describe("closed lofts", () => {
     const lofts: [string, (wires: ShapeHandle[]) => ShapeHandle][] = [
         ["loftWithHistory", (wires) => kernel.loftWithHistory(wires, true, true, [], 1 << 20).result],
         ["loft", (wires) => kernel.loft(wires, true, true)],
+        // 0 is the raw kernel's "no vertex".
+        ["loftWithVertices", (wires) => kernel.loftWithVertices(wires, true, true, 0 as ShapeHandle, 0 as ShapeHandle)],
     ];
 
     it.each(lofts)("%s does not twist sections a quarter turn apart, wherever their wires start", (_, loft) => {
