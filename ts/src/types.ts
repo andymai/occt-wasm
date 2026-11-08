@@ -315,6 +315,22 @@ export enum TransitionMode {
     RoundCorner = 2,
 }
 
+/** A thread's groove: a trapezoid in the meridian plane, for {@link OcctKernel.threadGroove}. */
+export interface ThreadGroove {
+    pitch: number;
+    /** Along the axis. */
+    length: number;
+    /** The cylinder the groove is cut into. */
+    coverRadius: number;
+    rootRadius: number;
+    /** Half the groove's width at the cover. Under half the pitch. */
+    coverHalfWidth: number;
+    /** Half its width at the root. Under `coverHalfWidth`. */
+    rootHalfWidth: number;
+    /** Where along the axis the groove's centre sits at angle 0. Defaults to 0. */
+    phase?: number;
+}
+
 /** Profile-orientation mode for {@link OcctKernel.sweepOriented}. */
 export enum SweepMode {
     /** Minimal-torsion parallel transport — profile does not rotate (corrected Frenet). */

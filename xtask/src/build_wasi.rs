@@ -49,7 +49,10 @@ fn compile_facade(sh: &Shell, root: &Path) -> Result<Vec<PathBuf>> {
     }
     let facade_inc = root.join("facade/include");
 
-    let mut sources: Vec<PathBuf> = vec![root.join("facade/src/kernel.cpp")];
+    let mut sources: Vec<PathBuf> = vec![
+        root.join("facade/src/kernel.cpp"),
+        root.join("facade/src/thread_groove.cpp"),
+    ];
 
     let gen_dir = root.join("facade/generated");
     if gen_dir.is_dir() {

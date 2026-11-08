@@ -230,6 +230,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("makeEllipseArcOriented", &OcctKernel::makeEllipseArcOriented)
         .function("makeHelixWire", &OcctKernel::makeHelixWire)
         .function("makeHelixWireHanded", &OcctKernel::makeHelixWireHanded)
+        .function("threadGroove", &OcctKernel::threadGroove)
         .function("makeNonPlanarFace", &OcctKernel::makeNonPlanarFace)
         .function("fillSurface", &OcctKernel::fillSurface)
         .function("edgeOnSurface", &OcctKernel::edgeOnSurface)
