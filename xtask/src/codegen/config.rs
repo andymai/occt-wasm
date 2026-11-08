@@ -462,6 +462,12 @@ if (fuzzyValue > 0.0) op->SetFuzzyValue(fuzzyValue);
 op->SetRunParallel(true);
 op->SetUseOBB(allFinite(args) && allFinite(tools));
 op->Build();
+if (opCode == 0) {
+    std::vector<TopoDS_Shape> operands;
+    for (const TopoDS_Shape& s : args) operands.push_back(s);
+    for (const TopoDS_Shape& s : tools) operands.push_back(s);
+    recoverLostFuse(*op, operands);
+}
 if (!op->IsDone() || op->HasErrors()) {
     throw std::runtime_error(\"booleanOp: operation failed\");
 }

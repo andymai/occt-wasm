@@ -160,6 +160,7 @@
 #include <XCAFDoc_ColorType.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <gp.hxx>
@@ -187,6 +188,7 @@
 #include <memory>
 #include <stdexcept>
 #include <unordered_set>
+#include <vector>
 
 #include <algorithm>
 #include <cmath>
@@ -371,6 +373,28 @@ static void buildBoolean(BRepAlgoAPI_BooleanOperation& op, const TopoDS_Shape& a
     op.SetTools(tools);
     op.SetUseOBB(allFinite(args) && allFinite(tools));
     op.Build();
+}
+
+/// A fuse can drop a whole operand without an error: where two edges lie a
+/// few 1e-7 apart, closer than they should be but further than their
+/// tolerances reach, the split faces do not close and the solid they came
+/// from is left out. A union is never smaller than its largest operand, so
+/// that shows in the volume, and a fuzzy value lets the edges meet. The
+/// margin is wide of BRepGProp's error on spline faces.
+static void recoverLostFuse(BRepAlgoAPI_BooleanOperation& op,
+                            const std::vector<TopoDS_Shape>& operands) {
+    const auto volume = [](const TopoDS_Shape& shape) {
+        GProp_GProps props;
+        volumeProperties(shape, props);
+        return std::abs(props.Mass());
+    };
+    double largest = 0;
+    for (const TopoDS_Shape& s : operands) largest = std::max(largest, volume(s));
+    for (double fuzzy : {1.0e-6, 1.0e-5}) {
+        if (op.HasErrors() || volume(op.Shape()) >= 0.99 * largest) return;
+        op.SetFuzzyValue(fuzzy);
+        op.Build();
+    }
 }
 
 /// `<op>: operation failed`, plus the caller's ids of the edges that lie on a
@@ -1500,6 +1524,7 @@ uint32_t OcctKernel::fuse(uint32_t a, uint32_t b) {
     try {
         BRepAlgoAPI_Fuse op;
         buildBoolean(op, get(a), get(b));
+        recoverLostFuse(op, {get(a), get(b)});
         if (!op.IsDone() || op.HasErrors()) {
             throw std::runtime_error("fuse: boolean operation failed");
         }
@@ -1693,6 +1718,12 @@ EvolutionData OcctKernel::booleanOp(int opCode, std::vector<uint32_t> argIds, st
         op->SetRunParallel(true);
         op->SetUseOBB(allFinite(args) && allFinite(tools));
         op->Build();
+        if (opCode == 0) {
+            std::vector<TopoDS_Shape> operands;
+            for (const TopoDS_Shape& s : args) operands.push_back(s);
+            for (const TopoDS_Shape& s : tools) operands.push_back(s);
+            recoverLostFuse(*op, operands);
+        }
         if (!op->IsDone() || op->HasErrors()) {
             throw std::runtime_error("booleanOp: operation failed");
         }
