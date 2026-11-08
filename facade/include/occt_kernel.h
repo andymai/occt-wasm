@@ -15,6 +15,7 @@
 #include <TopoDS_Shape.hxx>
 #include <UnitsMethods_LengthUnit.hxx>
 
+class BRepOffsetAPI_ThruSections;
 class Bnd_Box;
 class BRepTools_History;
 class GProp_GProps;
@@ -32,10 +33,10 @@ TopoDS_Shape readStl(const std::string& data);
 void volumeProperties(const TopoDS_Shape& shape, GProp_GProps& props);
 void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props);
 
-// The closed sections of a loft that returns to its first section, each starting
-// where the one before it does. Empty when they do not all have the same number
-// of edges, so that there is no start to match.
-std::vector<TopoDS_Shape> alignLoopSections(const std::vector<TopoDS_Shape>& sections);
+// Adds a loft's sections to `maker`. A closed loft lists its first wire again at
+// the end; when its sections all have the same number of edges, each is added
+// starting where the one before it does, as ThruSections can twist them.
+void addLoftSections(BRepOffsetAPI_ThruSections& maker, const std::vector<TopoDS_Shape>& wires);
 
 // ShapeUpgrade_UnifySameDomain's controls. Zero tolerances keep its defaults.
 struct UnifyOptions {

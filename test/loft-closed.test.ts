@@ -31,10 +31,15 @@ describe("closed lofts", () => {
         return kernel.makeWire([0, 1, 2, 3].map((i) => kernel.makeLineEdge(at(i), at(i + 1))));
     }
 
-    it("does not twist sections a quarter turn apart, wherever their wires start", () => {
+    const lofts: [string, (wires: ShapeHandle[]) => ShapeHandle][] = [
+        ["loftWithHistory", (wires) => kernel.loftWithHistory(wires, true, true, [], 1 << 20).result],
+        ["loft", (wires) => kernel.loft(wires, true, true)],
+    ];
+
+    it.each(lofts)("%s does not twist sections a quarter turn apart, wherever their wires start", (_, loft) => {
         for (const count of [3, 4, 5]) {
             const angles = Array.from({ length: count }, (_, i) => (i * 2 * Math.PI) / count);
-            const looped = (wires: ShapeHandle[]) => kernel.getVolume(kernel.loftWithHistory([...wires, wires[0]!], true, true, [], 1 << 20).result);
+            const looped = (wires: ShapeHandle[]) => kernel.getVolume(loft([...wires, wires[0]!]));
             const truth = looped(angles.map((a) => section(a, 0, false)));
             for (let trial = 0; trial < 8; trial++) {
                 const wires = angles.map((a, i) => section(a, (trial + 3 * i) % 4, (trial + i) % 2 === 0));

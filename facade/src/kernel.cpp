@@ -15,6 +15,7 @@
 #include <BRepGProp_Vinert.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
+#include <BRepOffsetAPI_ThruSections.hxx>
 #include <BRepTools.hxx>
 #include <BRepTools_History.hxx>
 #include <BRepTools_WireExplorer.hxx>
@@ -478,11 +479,14 @@ SectionLoop sectionLoop(const TopoDS_Wire& wire) {
         const bool forward = edge.Orientation() != TopAbs_REVERSED;
         for (int k = 0; k < kSamplesPerEdge; k++) {
             const double t = (k + 0.5) / kSamplesPerEdge;
-            loop.samples.push_back(curve.Value(forward ? first + t * (last - first) : last - t * (last - first)).XYZ());
+            loop.samples.push_back(
+                curve.Value(forward ? first + t * (last - first) : last - t * (last - first))
+                    .XYZ());
         }
     }
     loop.centre = gp_XYZ(0, 0, 0);
-    for (const gp_XYZ& p : loop.samples) loop.centre += p / static_cast<double>(loop.samples.size());
+    for (const gp_XYZ& p : loop.samples)
+        loop.centre += p / static_cast<double>(loop.samples.size());
     return loop;
 }
 
@@ -492,9 +496,12 @@ std::vector<gp_XYZ> samplesFrom(const SectionLoop& loop, int offset, bool revers
     std::vector<gp_XYZ> out;
     out.reserve(loop.samples.size());
     for (int j = 0; j < count; j++) {
-        const int edge = reversed ? ((offset - 1 - j) % count + count) % count : (offset + j) % count;
+        const int edge =
+            reversed ? ((offset - 1 - j) % count + count) % count : (offset + j) % count;
         for (int k = 0; k < kSamplesPerEdge; k++) {
-            out.push_back(loop.samples[edge * kSamplesPerEdge + (reversed ? kSamplesPerEdge - 1 - k : k)] - loop.centre);
+            out.push_back(
+                loop.samples[edge * kSamplesPerEdge + (reversed ? kSamplesPerEdge - 1 - k : k)] -
+                loop.centre);
         }
     }
     return out;
@@ -505,7 +512,8 @@ TopoDS_Wire wireFrom(const SectionLoop& loop, int offset, bool reversed) {
     BRepBuilderAPI_MakeWire wire;
     for (int j = 0; j < count; j++) {
         if (reversed) {
-            wire.Add(TopoDS::Edge(loop.edges[((offset - 1 - j) % count + count) % count].Reversed()));
+            wire.Add(
+                TopoDS::Edge(loop.edges[((offset - 1 - j) % count + count) % count].Reversed()));
         } else {
             wire.Add(loop.edges[(offset + j) % count]);
         }
@@ -513,24 +521,27 @@ TopoDS_Wire wireFrom(const SectionLoop& loop, int offset, bool reversed) {
     return wire.Wire();
 }
 
-} // namespace
-
 // ThruSections picks where each closed section starts, and with sections a
 // quarter turn or more apart it can pick badly and twist the loft into a smaller
 // valid solid. Here each section starts where the one before it does, carried
 // along the loop: its points are turned from one section's direction of travel
-// to the next, and the start and direction that land closest are taken.
+// to the next, and the start and direction that land closest are taken. Empty
+// when the sections do not all have the same number of edges.
 std::vector<TopoDS_Shape> alignLoopSections(const std::vector<TopoDS_Shape>& sections) {
     std::vector<SectionLoop> loops;
     for (const TopoDS_Shape& s : sections) {
-        const TopoDS_Wire& wire = TopoDS::Wire(s);
-        if (!BRep_Tool::IsClosed(wire)) return {};
-        loops.push_back(sectionLoop(wire));
-        if (loops.back().edges.size() != loops.front().edges.size()) return {};
+        if (s.IsNull() || s.ShapeType() != TopAbs_WIRE || !BRep_Tool::IsClosed(s))
+            return {};
+        loops.push_back(sectionLoop(TopoDS::Wire(s)));
+        if (loops.back().edges.empty() || loops.back().edges.size() != loops.front().edges.size()) {
+            return {};
+        }
     }
-    const int count = static_cast<int>(loops.size()), edges = static_cast<int>(loops.front().edges.size());
+    const int count = static_cast<int>(loops.size()),
+              edges = static_cast<int>(loops.front().edges.size());
     std::vector<gp_XYZ> travel;
-    for (int i = 0; i < count; i++) travel.push_back(loops[(i + 1) % count].centre - loops[(i + count - 1) % count].centre);
+    for (int i = 0; i < count; i++)
+        travel.push_back(loops[(i + 1) % count].centre - loops[(i + count - 1) % count].centre);
 
     std::vector<TopoDS_Shape> aligned{wireFrom(loops[0], 0, false)};
     std::vector<gp_XYZ> carried = samplesFrom(loops[0], 0, false);
@@ -541,7 +552,8 @@ std::vector<TopoDS_Shape> alignLoopSections(const std::vector<TopoDS_Shape>& sec
             if (angle > 1.0e-9 && angle < M_PI - 1.0e-9) {
                 gp_Trsf turn;
                 turn.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), from.Crossed(to)), angle);
-                for (gp_XYZ& p : carried) turn.Transforms(p);
+                for (gp_XYZ& p : carried)
+                    turn.Transforms(p);
             }
         }
         double closest = std::numeric_limits<double>::max();
@@ -551,7 +563,8 @@ std::vector<TopoDS_Shape> alignLoopSections(const std::vector<TopoDS_Shape>& sec
             for (int o = 0; o < edges; o++) {
                 const std::vector<gp_XYZ> candidate = samplesFrom(loops[i], o, backwards == 1);
                 double distance = 0;
-                for (size_t q = 0; q < candidate.size(); q++) distance += (candidate[q] - carried[q]).SquareModulus();
+                for (size_t q = 0; q < candidate.size(); q++)
+                    distance += (candidate[q] - carried[q]).SquareModulus();
                 if (distance < closest - 1.0e-9) {
                     closest = distance;
                     offset = o;
@@ -563,6 +576,25 @@ std::vector<TopoDS_Shape> alignLoopSections(const std::vector<TopoDS_Shape>& sec
         carried = samplesFrom(loops[i], offset, reversed);
     }
     return aligned;
+}
+
+} // namespace
+
+void addLoftSections(BRepOffsetAPI_ThruSections& maker, const std::vector<TopoDS_Shape>& wires) {
+    std::vector<TopoDS_Shape> loop;
+    if (wires.size() >= 4 && wires.front().IsEqual(wires.back())) {
+        loop = alignLoopSections({wires.begin(), wires.end() - 1});
+    }
+    if (loop.empty()) {
+        for (const TopoDS_Shape& wire : wires)
+            maker.AddWire(TopoDS::Wire(wire));
+        return;
+    }
+    // The sections are already matched, start for start.
+    maker.CheckCompatibility(Standard_False);
+    for (const TopoDS_Shape& wire : loop)
+        maker.AddWire(TopoDS::Wire(wire));
+    maker.AddWire(TopoDS::Wire(loop.front()));
 }
 
 namespace {
