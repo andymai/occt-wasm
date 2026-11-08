@@ -82,6 +82,9 @@ fn emit_boolean_op(buf: &mut String, spec: &MethodSpec) {
     let _ = writeln!(buf, "    try {{");
     let _ = writeln!(buf, "        {cls} op;");
     let _ = writeln!(buf, "        buildBoolean(op, {args});");
+    if cls == "BRepAlgoAPI_Fuse" {
+        let _ = writeln!(buf, "        recoverLostFuse(op, {{{args}}});");
+    }
     let _ = writeln!(buf, "        if (!op.IsDone() || op.HasErrors()) {{");
     let _ = writeln!(
         buf,
@@ -345,6 +348,10 @@ fn collect_includes(methods: &[&MethodSpec]) -> BTreeSet<String> {
     }
 
     if needs_build_boolean(methods) {
+        includes.insert("GProp_GProps.hxx".to_owned());
+        includes.insert("algorithm".to_owned());
+        includes.insert("cmath".to_owned());
+        includes.insert("vector".to_owned());
         includes.insert("BRepAlgoAPI_BooleanOperation.hxx".to_owned());
         includes.insert("NCollection_List.hxx".to_owned());
         includes.insert("TopoDS_Shape.hxx".to_owned());
@@ -695,6 +702,28 @@ fn emit_helper_functions(buf: &mut String, methods: &[&MethodSpec]) {
             "    op.SetTools(tools);",
             "    op.SetUseOBB(allFinite(args) && allFinite(tools));",
             "    op.Build();",
+            "}",
+            "",
+            "/// A fuse can drop a whole operand without an error: where two edges lie a",
+            "/// few 1e-7 apart, closer than they should be but further than their",
+            "/// tolerances reach, the split faces do not close and the solid they came",
+            "/// from is left out. A union is never smaller than its largest operand, so",
+            "/// that shows in the volume, and a fuzzy value lets the edges meet. The",
+            "/// margin is wide of BRepGProp's error on spline faces.",
+            "static void recoverLostFuse(BRepAlgoAPI_BooleanOperation& op,",
+            "                            const std::vector<TopoDS_Shape>& operands) {",
+            "    const auto volume = [](const TopoDS_Shape& shape) {",
+            "        GProp_GProps props;",
+            "        volumeProperties(shape, props);",
+            "        return std::abs(props.Mass());",
+            "    };",
+            "    double largest = 0;",
+            "    for (const TopoDS_Shape& s : operands) largest = std::max(largest, volume(s));",
+            "    for (double fuzzy : {1.0e-6, 1.0e-5}) {",
+            "        if (op.HasErrors() || volume(op.Shape()) >= 0.99 * largest) return;",
+            "        op.SetFuzzyValue(fuzzy);",
+            "        op.Build();",
+            "    }",
             "}",
         ] {
             let _ = writeln!(buf, "{line}");
@@ -2210,10 +2239,11 @@ mod tests {
 
         assert!(output.contains("BRepAlgoAPI_Fuse op;"));
         assert!(output.contains("buildBoolean(op, get(a), get(b));"));
+        assert!(output.contains("recoverLostFuse(op, {get(a), get(b)});"));
         assert_eq!(
             output.matches("op.Build();").count(),
-            1,
-            "only the helper builds"
+            2,
+            "only the helper builds, and the retry of a lost fuse"
         );
         assert!(output.contains("static void buildBoolean("));
         assert!(output.contains("static bool isFiniteShape("));
