@@ -4,6 +4,7 @@
 #include <BRepAdaptor_Curve2d.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeShapeOnMesh.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepGProp.hxx>
@@ -15,6 +16,7 @@
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepTools.hxx>
+#include <BRepTools_History.hxx>
 #include <BRepTools_WireExplorer.hxx>
 #include <BRepTopAdaptor_FClass2d.hxx>
 #include <BRep_Builder.hxx>
@@ -43,6 +45,7 @@
 #include <STEPControl_StepModelType.hxx>
 #include <STEPControl_Writer.hxx>
 #include <ShapeProcess.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <Standard_Failure.hxx>
 #include <Standard_ReadLineBuffer.hxx>
 #include <TopAbs_Orientation.hxx>
@@ -424,6 +427,34 @@ void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props) {
         return;
     }
     integrateFaces<BRepGProp_Sinert>(shape, props, BRepGProp_MeshProps::Sinert, false);
+}
+
+TopoDS_Shape unifyCopy(const TopoDS_Shape& shape, const UnifyOptions& options,
+                       Handle(BRepTools_History) * history) {
+    // The merge only reads geometry, except that joining BSplines can make one of
+    // their surfaces periodic in place, so only then is the geometry copied too.
+    BRepBuilderAPI_Copy copy(shape, options.concatBSplines, Standard_False);
+    ShapeUpgrade_UnifySameDomain unifier(copy.Shape(), Standard_True, Standard_True,
+                                         options.concatBSplines);
+    if (options.linearTolerance > 0.0)
+        unifier.SetLinearTolerance(options.linearTolerance);
+    if (options.angularTolerance > 0.0)
+        unifier.SetAngularTolerance(options.angularTolerance);
+    unifier.Build();
+    // Nothing merged: hand back the input, so its faces keep their identity.
+    if (unifier.Shape().IsSame(copy.Shape())) {
+        if (history != nullptr)
+            *history = new BRepTools_History();
+        return shape;
+    }
+    if (history != nullptr) {
+        NCollection_List<TopoDS_Shape> arguments;
+        arguments.Append(shape);
+        Handle(BRepTools_History) composed = new BRepTools_History(arguments, copy);
+        composed->Merge(unifier.History());
+        *history = composed;
+    }
+    return unifier.Shape();
 }
 
 namespace {

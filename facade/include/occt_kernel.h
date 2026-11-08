@@ -16,6 +16,7 @@
 #include <UnitsMethods_LengthUnit.hxx>
 
 class Bnd_Box;
+class BRepTools_History;
 class GProp_GProps;
 
 // XCAF helpers (defined in kernel.cpp, used by generated xcaf methods)
@@ -35,6 +36,22 @@ void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props);
 // where the one before it does. Empty when they do not all have the same number
 // of edges, so that there is no start to match.
 std::vector<TopoDS_Shape> alignLoopSections(const std::vector<TopoDS_Shape>& sections);
+
+// ShapeUpgrade_UnifySameDomain's controls. Zero tolerances keep its defaults.
+struct UnifyOptions {
+    double linearTolerance = 0.0;
+    double angularTolerance = 0.0;
+    bool concatBSplines = false;
+};
+
+// ShapeUpgrade_UnifySameDomain on a copy of `shape`'s topology. The merge writes
+// pcurves and parameter ranges into the edges it is given, even in its safe input
+// mode, and a boolean's result shares every face and edge it did not touch with
+// its operands, so a merge in place corrupts shapes the caller still holds (#462).
+// When nothing merges, the result is `shape` itself. `history`, when not null,
+// maps `shape`'s sub-shapes to the result's.
+TopoDS_Shape unifyCopy(const TopoDS_Shape& shape, const UnifyOptions& options,
+                       Handle(BRepTools_History) * history);
 
 // Surface-tight bounds. BRepBndLib::AddOptimal can stop short of a BSpline
 // surface's extreme (its sampling skips the cell that holds it), so each
