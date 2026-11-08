@@ -94,4 +94,32 @@ describe("unifySameDomain on a shape that shares edges with another", () => {
         expect(evo.modified.length).toBeGreaterThan(0);
         expect(kernel.isValid(kernel.fuse(base, kernel.extrude(top, 0, 0, 3)))).toBe(true);
     });
+
+    // A merge that changes something hands back a copy, so even the faces it did
+    // not touch get new hashes, and the history must name each one.
+    const bottomFace = (shape: ShapeHandle) =>
+        kernel.getSubShapes(shape, "face").find((f) => kernel.getBoundingBox(f).zmax < 1e-6)!;
+    const decode = (runs: number[]) => {
+        const out = new Map<number, number[]>();
+        for (let i = 0; i < runs.length; i += 2 + runs[i + 1]!) out.set(runs[i]!, runs.slice(i + 2, i + 2 + runs[i + 1]!));
+        return out;
+    };
+
+    it("unifySameDomainWithHistory follows a face it did not touch to its copy", () => {
+        const { fused } = setup();
+        const bottom = kernel.hashCode(bottomFace(fused), BOUND);
+        const evo = kernel.unifySameDomainWithHistory(fused, [bottom], BOUND);
+        expect(decode(evo.modified).get(bottom)).toEqual([kernel.hashCode(bottomFace(evo.result), BOUND)]);
+    });
+
+    it("booleanOp's simplify follows a face it did not touch to its copy", () => {
+        const { base, top } = setup();
+        const bottom = kernel.hashCode(bottomFace(base), BOUND);
+        const evo = kernel.booleanOp(BooleanOp.Fuse, [base], [kernel.extrude(top, 0, 0, 5)], {
+            simplifyAngularTolerance: 1e-6,
+            inputFaceHashes: [bottom],
+            hashUpperBound: BOUND,
+        });
+        expect(decode(evo.modified).get(bottom)).toEqual([kernel.hashCode(bottomFace(evo.result), BOUND)]);
+    });
 });
