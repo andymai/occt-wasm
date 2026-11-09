@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.2.1](https://github.com/andymai/occt-wasm/compare/crate-v7.2.0...crate-v7.2.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **crate:** keep a split face's pieces on one surface when merging on a copy ([#473](https://github.com/andymai/occt-wasm/issues/473)) ([e6fbef0](https://github.com/andymai/occt-wasm/commit/e6fbef0b30a87ca4573114f48e9b677c15e28ef8))
+
 ## [7.2.0](https://github.com/andymai/occt-wasm/compare/crate-v7.1.0...crate-v7.2.0) (2026-11-09)
 
 
