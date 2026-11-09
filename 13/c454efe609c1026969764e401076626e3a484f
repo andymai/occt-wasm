@@ -1,0 +1,21 @@
+.github/occt-release.md
+  s_83fa79441b6b5c::t_2486dbaf41d87e 1-5
+.github/workflows/occt-watch.yml
+  s_83fa79441b6b5c::t_4ed739a102d04c 1-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "13c454efe609c1026969764e401076626e3a484f",
+  "prompts": {},
+  "sessions": {
+    "s_83fa79441b6b5c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "401134dd-83e9-48f0-9e18-5438d0800438",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
