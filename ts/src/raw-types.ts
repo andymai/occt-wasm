@@ -86,6 +86,17 @@ export interface RawEvolutionData {
     firstShape: EmbindVectorI32;
     lastShape: EmbindVectorI32;
     spineGenerated: EmbindVectorI32;
+    inputShapes: EmbindVectorI32;
+    resultCounts: EmbindVectorI32;
+    modifiedIndexed: EmbindVectorI32;
+    generatedIndexed: EmbindVectorI32;
+    deletedIndexed: EmbindVectorI32;
+    edgeModifiedIndexed: EmbindVectorI32;
+    edgeGeneratedIndexed: EmbindVectorI32;
+    edgeDeletedIndexed: EmbindVectorI32;
+    firstShapeIndexed: EmbindVectorI32;
+    lastShapeIndexed: EmbindVectorI32;
+    spineGeneratedIndexed: EmbindVectorI32;
 }
 
 export interface RawProjectionData {

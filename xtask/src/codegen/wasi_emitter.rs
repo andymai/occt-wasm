@@ -773,6 +773,17 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
         ("first_shape", "firstShape"),
         ("last_shape", "lastShape"),
         ("spine_generated", "spineGenerated"),
+        ("input_shapes", "inputShapes"),
+        ("result_counts", "resultCounts"),
+        ("modified_indexed", "modifiedIndexed"),
+        ("generated_indexed", "generatedIndexed"),
+        ("deleted_indexed", "deletedIndexed"),
+        ("edge_modified_indexed", "edgeModifiedIndexed"),
+        ("edge_generated_indexed", "edgeGeneratedIndexed"),
+        ("edge_deleted_indexed", "edgeDeletedIndexed"),
+        ("first_shape_indexed", "firstShapeIndexed"),
+        ("last_shape_indexed", "lastShapeIndexed"),
+        ("spine_generated_indexed", "spineGeneratedIndexed"),
     ] {
         let _ = writeln!(
             buf,

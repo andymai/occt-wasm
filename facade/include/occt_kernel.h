@@ -139,6 +139,19 @@ struct EdgeData {
 /// `firstShape`/`lastShape` are flat result hashes of the cap faces, filled by extrude,
 /// revolve, pipe, sweep and loft. `spineGenerated`, filled by pipe and sweep, is
 /// run-length encoded as `[spineEdgeHash, profileEdgeHash, count, faceHash...]`.
+///
+/// The `*Indexed` lists say the same by position instead of hash, so two sub-shapes
+/// that share a hash stay apart. A position is 0-based, in `TopExp::MapShapes` order
+/// for the sub-shape's kind within its shape. Inputs are numbered from 0 in the order
+/// the operation reads them, and `inputShapes` holds `[hash, faceCount, edgeCount]`
+/// for each. `resultCounts` is `[faceCount, edgeCount]` of the result.
+/// `modifiedIndexed`/`generatedIndexed`/`edgeModifiedIndexed`/`edgeGeneratedIndexed`
+/// are run-length encoded as `[input, position, count, kind, position...]`, `kind`
+/// being the `TopAbs_ShapeEnum` value, and name only sub-shapes of the result.
+/// `deletedIndexed`/`edgeDeletedIndexed` are `[input, position]` pairs.
+/// `firstShapeIndexed`/`lastShapeIndexed` are result face positions, and
+/// `spineGeneratedIndexed` is `[spineEdge, profileEdge, count, face...]`, the profile
+/// being input 0.
 struct EvolutionData {
     uint32_t resultId = 0;
     std::vector<int> modified;
@@ -150,6 +163,17 @@ struct EvolutionData {
     std::vector<int> firstShape;
     std::vector<int> lastShape;
     std::vector<int> spineGenerated;
+    std::vector<int> inputShapes;
+    std::vector<int> resultCounts;
+    std::vector<int> modifiedIndexed;
+    std::vector<int> generatedIndexed;
+    std::vector<int> deletedIndexed;
+    std::vector<int> edgeModifiedIndexed;
+    std::vector<int> edgeGeneratedIndexed;
+    std::vector<int> edgeDeletedIndexed;
+    std::vector<int> firstShapeIndexed;
+    std::vector<int> lastShapeIndexed;
+    std::vector<int> spineGeneratedIndexed;
 };
 
 /// Projection result (hidden line removal).

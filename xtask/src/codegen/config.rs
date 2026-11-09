@@ -486,8 +486,9 @@ EvolutionData evo;
 evo.resultId = store(result);
 if (hashUpperBound > 0) {
     std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
-    for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, tracked, hashUpperBound);
-    for (const TopoDS_Shape& s : tools) appendEvolution(evo, *op, s, tracked, hashUpperBound);
+    SubShapePositions positions(result);
+    for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, positions, tracked, hashUpperBound);
+    for (const TopoDS_Shape& s : tools) appendEvolution(evo, *op, s, positions, tracked, hashUpperBound);
 }
 return evo;",
         includes: &[
@@ -5294,7 +5295,7 @@ if (!maker.IsDone()) {
 BatchScope batch(*this, 1);
 const TopoDS_Shape result = normalizeSolidOrientation(maker.Shape());
 uint32_t resultId = batch.add(result);
-EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);
 appendSweepCaps(evo, maker, result, hashUpperBound);
 batch.take();
 return evo;",
@@ -5325,7 +5326,7 @@ BatchScope batch(*this, 1);
 const TopoDS_Shape result = normalizeSolidOrientation(maker.Shape());
 uint32_t resultId = batch.add(result);
 RevolHistory history(maker, result);
-EvolutionData evo = buildEvolution(history, resultId, shape, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(history, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);
 appendSweepCaps(evo, maker, result, hashUpperBound);
 batch.take();
 return evo;",
@@ -5358,7 +5359,7 @@ BatchScope batch(*this, 1);
 const TopoDS_Shape result = maker.Shape();
 uint32_t resultId = batch.add(result);
 PipeHistory history(maker, spine);
-EvolutionData evo = buildEvolution(history, resultId, profile, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(history, resultId, get(resultId), {profile}, inputFaceHashes, hashUpperBound);
 appendSweepCaps(evo, maker, result, hashUpperBound);
 appendSpineGenerated(evo, spine, profile, result, hashUpperBound,
     [&maker](const TopoDS_Shape& spineEdge, const TopoDS_Shape& profileEdge) {
@@ -5437,7 +5438,7 @@ maker.MakeSolid();
 BatchScope batch(*this, 1);
 const TopoDS_Shape result = maker.Shape();
 uint32_t resultId = batch.add(result);
-EvolutionData evo = buildEvolution(maker, resultId, profile, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {profile}, inputFaceHashes, hashUpperBound);
 appendSweepCaps(evo, maker, result, hashUpperBound);
 // BRepFill_PipeShell binds a spine edge to the faces swept along it as well as a
 // profile edge to the faces it swept, so a pair's faces are the ones in both lists.
@@ -5506,10 +5507,11 @@ const TopoDS_Shape result = maker.Shape();
 EvolutionData evo;
 evo.resultId = batch.add(result);
 std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
+SubShapePositions positions(result);
 // A closed loft's first wire is reported once.
 std::unordered_set<uint32_t> seen;
 for (uint32_t wid : wireIds) {
-    if (seen.insert(wid).second) appendEvolution(evo, maker, get(wid), tracked, hashUpperBound);
+    if (seen.insert(wid).second) appendEvolution(evo, maker, get(wid), positions, tracked, hashUpperBound);
 }
 appendSweepCaps(evo, maker, result, hashUpperBound);
 batch.take();
@@ -5534,7 +5536,7 @@ const TopoDS_Shape result = unifyCopy(shape, {}, &history);
 BatchScope batch(*this, 1);
 uint32_t resultId = batch.add(result);
 HistoryMaker maker(history);
-EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);
 batch.take();
 return evo;",
         includes: &[
@@ -5564,7 +5566,7 @@ trsf.SetValues(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5],
 BRepBuilderAPI_Transform maker(shape, trsf, true);
 BatchScope batch(*this, 1);
 uint32_t resultId = batch.add(maker.Shape());
-EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);
 batch.take();
 return evo;",
         includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
@@ -5587,7 +5589,7 @@ gp_Trsf trsf;
 trsf.SetTranslation(gp_Vec(dx, dy, dz));
 BRepBuilderAPI_Transform maker(shape, trsf, true);
 uint32_t resultId = store(maker.Shape());
-return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+return buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);",
         includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "gp_Vec.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
         return_type: ReturnType::EvolutionData,
@@ -5611,17 +5613,8 @@ if (!op.IsDone() || op.HasErrors()) {
 }
 uint32_t resultId = store(op.Shape());
 
-// Build evolution from both input shapes
-EvolutionData evo = buildEvolution(op, resultId, shapeA, inputFaceHashes, hashUpperBound);
-// Also check shapeB
-EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashUpperBound);
-// Merge B into A
-evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
-evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
-evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
-evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
-evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
-evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
+EvolutionData evo = buildEvolution(op, resultId, get(resultId), {shapeA, shapeB}, inputFaceHashes,
+                                   hashUpperBound);
 return evo;",
         includes: &["BRepAlgoAPI_Fuse.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
@@ -5646,14 +5639,8 @@ if (!op.IsDone() || op.HasErrors()) {
 }
 uint32_t resultId = store(op.Shape());
 
-EvolutionData evo = buildEvolution(op, resultId, shapeA, inputFaceHashes, hashUpperBound);
-EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashUpperBound);
-evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
-evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
-evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
-evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
-evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
-evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
+EvolutionData evo = buildEvolution(op, resultId, get(resultId), {shapeA, shapeB}, inputFaceHashes,
+                                   hashUpperBound);
 return evo;",
         includes: &["BRepAlgoAPI_Cut.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
@@ -5684,7 +5671,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletWithHistory\", false));
-EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
@@ -5709,7 +5696,7 @@ gp_Trsf trsf;
 trsf.SetRotation(gp_Ax1(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz)), angle);
 BRepBuilderAPI_Transform maker(shape, trsf, true);
 uint32_t resultId = store(maker.Shape());
-return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+return buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);",
         includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "gp_Ax1.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
         return_type: ReturnType::EvolutionData,
@@ -5731,7 +5718,7 @@ gp_Trsf trsf;
 trsf.SetMirror(gp_Ax2(gp_Pnt(px, py, pz), gp_Dir(nx, ny, nz)));
 BRepBuilderAPI_Transform maker(shape, trsf, true);
 uint32_t resultId = store(maker.Shape());
-return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+return buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);",
         includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "gp_Ax2.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
         return_type: ReturnType::EvolutionData,
@@ -5753,7 +5740,7 @@ gp_Trsf trsf;
 trsf.SetScale(gp_Pnt(cx, cy, cz), factor);
 BRepBuilderAPI_Transform maker(shape, trsf, true);
 uint32_t resultId = store(maker.Shape());
-return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+return buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);",
         includes: &["BRepBuilderAPI_Transform.hxx", "gp_Trsf.hxx", "gp_Pnt.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
         return_type: ReturnType::EvolutionData,
@@ -5776,14 +5763,8 @@ if (!op.IsDone() || op.HasErrors()) {
     throw std::runtime_error(\"intersectWithHistory: operation failed\");
 }
 uint32_t resultId = store(op.Shape());
-EvolutionData evo = buildEvolution(op, resultId, shapeA, inputFaceHashes, hashUpperBound);
-EvolutionData evoB = buildEvolution(op, resultId, shapeB, inputFaceHashes, hashUpperBound);
-evo.modified.insert(evo.modified.end(), evoB.modified.begin(), evoB.modified.end());
-evo.generated.insert(evo.generated.end(), evoB.generated.begin(), evoB.generated.end());
-evo.deleted.insert(evo.deleted.end(), evoB.deleted.begin(), evoB.deleted.end());
-evo.edgeModified.insert(evo.edgeModified.end(), evoB.edgeModified.begin(), evoB.edgeModified.end());
-evo.edgeGenerated.insert(evo.edgeGenerated.end(), evoB.edgeGenerated.begin(), evoB.edgeGenerated.end());
-evo.edgeDeleted.insert(evo.edgeDeleted.end(), evoB.edgeDeleted.begin(), evoB.edgeDeleted.end());
+EvolutionData evo = buildEvolution(op, resultId, get(resultId), {shapeA, shapeB}, inputFaceHashes,
+                                   hashUpperBound);
 return evo;",
         includes: &["BRepAlgoAPI_Common.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
@@ -5814,7 +5795,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferWithHistory\", false));
-EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
@@ -5855,7 +5836,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"filletRadiiWithHistory\", false));
-EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &["BRepFilletAPI_MakeFillet.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
@@ -5893,7 +5874,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistancesWithHistory\", false));
-EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
@@ -5935,7 +5916,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(validateFilletResult(unwrapSingletonSolid(maker.Shape()), \"chamferDistAnglesWithHistory\", false));
-EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &["BRepFilletAPI_MakeChamfer.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
@@ -6008,7 +5989,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(maker.Shape());
-EvolutionData evo = buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &["BRepOffsetAPI_DraftAngle.hxx", "NCollection_IndexedMap.hxx", "TopExp.hxx", "TopTools_ShapeMapHasher.hxx", "TopoDS.hxx", "gp.hxx", "gp_Dir.hxx", "gp_Pln.hxx", "gp_Pnt.hxx", "gp_Vec.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
@@ -6041,7 +6022,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(maker.Shape());
-EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &["BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
@@ -6067,7 +6048,7 @@ if (!maker.IsDone()) {
     throw std::runtime_error(\"offsetWithHistory: operation failed\");
 }
 uint32_t resultId = store(maker.Shape());
-return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);",
+return buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);",
         includes: &["BRepOffsetAPI_MakeOffsetShape.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
         category: "evolution",
         return_type: ReturnType::EvolutionData,
@@ -6101,7 +6082,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(maker.Shape());
-EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &[
@@ -6134,7 +6115,7 @@ if (!maker.IsDone()) {
 }
 BatchScope result(*this, 1);
 uint32_t resultId = result.add(maker.Shape());
-EvolutionData evo = buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
+EvolutionData evo = buildEvolution(maker, resultId, get(resultId), {solid}, inputFaceHashes, hashUpperBound);
 result.take();
 return evo;",
         includes: &[
@@ -6182,7 +6163,7 @@ if (!maker.IsDone()) {
     throw std::runtime_error(\"thickenWithHistory: operation failed\");
 }
 uint32_t resultId = store(maker.Shape());
-return buildEvolution(maker, resultId, shape, inputFaceHashes, hashUpperBound);",
+return buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, hashUpperBound);",
         includes: &[
             "BRepOffset_MakeOffset.hxx", "BRepOffset_Mode.hxx",
             "BRepOffsetAPI_MakeThickSolid.hxx", "NCollection_List.hxx",
