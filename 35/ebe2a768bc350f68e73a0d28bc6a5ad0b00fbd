@@ -1,0 +1,30 @@
+crate/src/lib.rs
+  s_926d227690c023::t_72e0fb99ca9b3a 49,51
+release-please-config.json
+  s_926d227690c023::t_72e0fb99ca9b3a 50-54
+  s_926d227690c023::t_ea20d1b58a56f7 3-4,32-49,55
+.github/workflows/publish-crate.yml
+  s_926d227690c023::t_458fd33978f1c1 6-8,15-16
+.github/workflows/release.yml
+  s_926d227690c023::t_389041a747e352 31-33,94-114
+.release-please-manifest.json
+  s_926d227690c023::t_54ae66800a8387 2-3
+CLAUDE.md
+  s_926d227690c023::t_d8904377e51cfd 58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "35ebe2a768bc350f68e73a0d28bc6a5ad0b00fbd",
+  "prompts": {},
+  "sessions": {
+    "s_926d227690c023": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a4d48dd-346d-49c9-849f-5f120e05e095",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
