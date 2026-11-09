@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.17.1](https://github.com/andymai/occt-wasm/compare/v5.17.0...v5.17.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **crate:** keep a split face's pieces on one surface when merging on a copy ([#473](https://github.com/andymai/occt-wasm/issues/473)) ([e6fbef0](https://github.com/andymai/occt-wasm/commit/e6fbef0b30a87ca4573114f48e9b677c15e28ef8))
+* **facade:** keep a split face's pieces on one surface when merging on a copy ([#471](https://github.com/andymai/occt-wasm/issues/471)) ([85def8d](https://github.com/andymai/occt-wasm/commit/85def8d87763b9f897945733259faedeb59e4cdd))
+
 ## [5.17.0](https://github.com/andymai/occt-wasm/compare/v5.16.0...v5.17.0) (2026-11-09)
 
 
