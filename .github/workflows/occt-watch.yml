@@ -1,0 +1,55 @@
+name: OCCT Watch
+
+# Weekly: opens an issue from .github/occt-release.md when the latest
+# Open-Cascade-SAS/OCCT release is not in the occt submodule's commit, unless
+# an issue for that release exists. A closed issue counts, so a decision to
+# stay holds.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: occt-watch
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  watch:
+    name: Watch OCCT releases
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compare the submodule with the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pinned=$(git ls-tree HEAD occt | awk '$2 == "commit" { print $3 }')
+          [[ "$pinned" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no occt submodule commit"; exit 1; }
+          fork=$(git config -f .gitmodules submodule.occt.url | sed -E 's#^https://github\.com/##; s#\.git$##')
+          [[ "$fork" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::the occt submodule is not a GitHub repository"; exit 1; }
+          release=$(gh release view --repo Open-Cascade-SAS/OCCT --json tagName --jq .tagName)
+          [[ "$release" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "::error::unexpected release tag '$release'"; exit 1; }
+          # The submodule commit is in the fork, so the compare names it as owner:repo:sha.
+          missing=$(gh api "repos/Open-Cascade-SAS/OCCT/compare/$release...${fork%/*}:${fork#*/}:$pinned" --jq .behind_by)
+          if [ "$missing" = 0 ]; then
+            echo "The occt submodule commit $pinned contains OCCT $release."
+            exit 0
+          fi
+          title="OCCT $release released"
+          seen=$(gh issue list --state all --search "\"$title\" in:title" --json title --jq "map(select(.title == \"$title\")) | length")
+          if [ "$seen" != 0 ]; then
+            echo "An issue for OCCT $release already exists."
+            exit 0
+          fi
+          body=$(sed -e "s|{{ release }}|$release|g" -e "s|{{ commit }}|${pinned:0:10}|g" -e "s|{{ fork }}|$fork|g" .github/occt-release.md)
+          gh issue create --title "$title" --body "$body"
