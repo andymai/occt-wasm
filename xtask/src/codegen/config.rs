@@ -4400,9 +4400,9 @@ return store(maker.Shape());",
         ctor_args: "",
         setup_code: "\
 BRepOffsetAPI_ThruSections maker(isSolid, ruled);
-for (uint32_t wid : wireIds) {
-    maker.AddWire(TopoDS::Wire(get(wid)));
-}
+std::vector<TopoDS_Shape> wires;
+for (uint32_t wid : wireIds) wires.push_back(get(wid));
+addLoftSections(maker, wires);
 maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"loft: operation failed\");
@@ -4429,9 +4429,9 @@ BRepOffsetAPI_ThruSections maker(isSolid, ruled);
 if (startVertexId != 0) {
     maker.AddVertex(TopoDS::Vertex(get(startVertexId)));
 }
-for (uint32_t wid : wireIds) {
-    maker.AddWire(TopoDS::Wire(get(wid)));
-}
+std::vector<TopoDS_Shape> wires;
+for (uint32_t wid : wireIds) wires.push_back(get(wid));
+addLoftSections(maker, wires);
 if (endVertexId != 0) {
     maker.AddVertex(TopoDS::Vertex(get(endVertexId)));
 }
@@ -5484,23 +5484,9 @@ BRepOffsetAPI_ThruSections maker(isSolid, ruled);
 if (startVertexId != 0) {
     maker.AddVertex(TopoDS::Vertex(get(startVertexId)));
 }
-// A closed loft lists its first wire again at the end. Its sections are lined up
-// here, as ThruSections can twist them; sections of different edge counts cannot be.
-std::vector<TopoDS_Shape> loop;
-if (wireIds.size() >= 4 && wireIds.front() == wireIds.back()) {
-    std::vector<TopoDS_Shape> sections;
-    for (size_t i = 0; i + 1 < wireIds.size(); i++) sections.push_back(get(wireIds[i]));
-    loop = alignLoopSections(sections);
-}
-if (!loop.empty()) {
-    maker.CheckCompatibility(Standard_False);
-    for (const TopoDS_Shape& wire : loop) maker.AddWire(TopoDS::Wire(wire));
-    maker.AddWire(TopoDS::Wire(loop.front()));
-} else {
-    for (uint32_t wid : wireIds) {
-        maker.AddWire(TopoDS::Wire(get(wid)));
-    }
-}
+std::vector<TopoDS_Shape> wires;
+for (uint32_t wid : wireIds) wires.push_back(get(wid));
+addLoftSections(maker, wires);
 if (endVertexId != 0) {
     maker.AddVertex(TopoDS::Vertex(get(endVertexId)));
 }
