@@ -4,7 +4,7 @@
 #include <BRepAdaptor_Curve2d.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepBndLib.hxx>
-#include <BRepBuilderAPI_Copy.hxx>
+#include <BRepBuilderAPI_ModifyShape.hxx>
 #include <BRepBuilderAPI_MakeShapeOnMesh.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepGProp.hxx>
@@ -17,6 +17,7 @@
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepOffsetAPI_ThruSections.hxx>
 #include <BRepTools.hxx>
+#include <BRepTools_CopyModification.hxx>
 #include <BRepTools_History.hxx>
 #include <BRepTools_WireExplorer.hxx>
 #include <BRepTopAdaptor_FClass2d.hxx>
@@ -31,6 +32,8 @@
 #include <GeomConvert_BSplineSurfaceToBezierSurface.hxx>
 #include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierSurface.hxx>
+#include <Geom_Curve.hxx>
+#include <Geom_Surface.hxx>
 #include <IFSelect_ReturnStatus.hxx>
 #include <Message_ProgressRange.hxx>
 #include <NCollection_Array1.hxx>
@@ -76,6 +79,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -430,11 +434,69 @@ void surfaceProperties(const TopoDS_Shape& shape, GProp_GProps& props) {
     integrateFaces<BRepGProp_Sinert>(shape, props, BRepGProp_MeshProps::Sinert, false);
 }
 
+namespace {
+
+// The copy BRepBuilderAPI_Copy makes, except that each surface and curve is copied
+// once: faces that share a surface before the copy share its copy after it. The
+// merge tells two faces on a surface that is neither a plane nor an elementary
+// surface apart by the surface object alone, so a copy per face would keep the
+// pieces of a face a boolean split from merging back.
+class SharedGeometryCopy final : public BRepTools_CopyModification {
+  public:
+    explicit SharedGeometryCopy(bool copyGeometry)
+        : BRepTools_CopyModification(copyGeometry, Standard_False), copyGeometry_(copyGeometry) {}
+
+    bool NewSurface(const TopoDS_Face& face, Handle(Geom_Surface) & surface,
+                    TopLoc_Location& location, double& tolerance, bool& reverseWires,
+                    bool& reverseFace) override {
+        surface = BRep_Tool::Surface(face, location);
+        tolerance = BRep_Tool::Tolerance(face);
+        reverseWires = reverseFace = false;
+        if (copyGeometry_ && !surface.IsNull())
+            surface = once(surfaces_, surface);
+        return true;
+    }
+
+    bool NewCurve(const TopoDS_Edge& edge, Handle(Geom_Curve) & curve, TopLoc_Location& location,
+                  double& tolerance) override {
+        double first = 0, last = 0;
+        curve = BRep_Tool::Curve(edge, location, first, last);
+        tolerance = BRep_Tool::Tolerance(edge);
+        if (copyGeometry_ && !curve.IsNull())
+            curve = once(curves_, curve);
+        return true;
+    }
+
+  private:
+    template <class T>
+    static Handle(T)
+        once(std::unordered_map<const T*, Handle(T)>& copies, const Handle(T) & original) {
+        auto [it, added] = copies.try_emplace(original.get());
+        if (added)
+            it->second = occ::down_cast<T>(original->Copy());
+        return it->second;
+    }
+
+    bool copyGeometry_;
+    std::unordered_map<const Geom_Surface*, Handle(Geom_Surface)> surfaces_;
+    std::unordered_map<const Geom_Curve*, Handle(Geom_Curve)> curves_;
+};
+
+class SharedCopy final : public BRepBuilderAPI_ModifyShape {
+  public:
+    SharedCopy(const TopoDS_Shape& shape, bool copyGeometry)
+        : BRepBuilderAPI_ModifyShape(new SharedGeometryCopy(copyGeometry)) {
+        DoModif(shape);
+    }
+};
+
+} // namespace
+
 TopoDS_Shape unifyCopy(const TopoDS_Shape& shape, const UnifyOptions& options,
                        Handle(BRepTools_History) * history) {
     // The merge only reads geometry, except that joining BSplines can make one of
     // their surfaces periodic in place, so only then is the geometry copied too.
-    BRepBuilderAPI_Copy copy(shape, options.concatBSplines, Standard_False);
+    SharedCopy copy(shape, options.concatBSplines);
     ShapeUpgrade_UnifySameDomain unifier(copy.Shape(), Standard_True, Standard_True,
                                          options.concatBSplines);
     if (options.linearTolerance > 0.0)
