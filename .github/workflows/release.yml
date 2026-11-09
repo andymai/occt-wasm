@@ -105,6 +105,7 @@ jobs:
       needs.release-please.outputs.crate_release_created == 'true'
     permissions:
       actions: write
+      contents: write
     steps:
       - name: Run publish-crate.yml at the release tag
         env:
@@ -112,3 +113,13 @@ jobs:
           TAG: ${{ needs.release-please.outputs.crate_tag_name }}
           VERSION: ${{ needs.release-please.outputs.crate_version }}
         run: gh workflow run publish-crate.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" -f version="$VERSION"
+
+      # GitHub marks the newest release Latest, so a crate release would take
+      # the repo page and releases/latest from the npm package.
+      - name: Keep the newest npm release as Latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
+            --limit 50 --json tagName --jq '[.[].tagName | select(startswith("v"))][0] // empty')
+          if [ -n "$tag" ]; then gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --latest; fi
