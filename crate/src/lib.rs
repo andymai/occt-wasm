@@ -46,7 +46,9 @@
 //! The crate re-exports [`wasmtime`], so engines, modules and store limits
 //! you build come from the same version the kernel links against.
 
+// x-release-please-start-version
 #![doc(html_root_url = "https://docs.rs/occt-wasm/7.1.0")]
+// x-release-please-end
 // Generated code does cross-boundary integer casting (u32 <-> i32 for WASM ABI)
 // and has parameter names from the C++ facade that trigger similar_names.
 #![allow(
