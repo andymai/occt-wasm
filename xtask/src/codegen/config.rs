@@ -4900,6 +4900,43 @@ return store(unifyCopy(get(id), {}, nullptr));",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        // unifySameDomain within the given tolerances: faces whose surfaces are
+        // the same within them merge, as the facets of a mesh whose coordinates
+        // are rounded do. Zero keeps a tolerance's default.
+        name: "unifySameDomainWithin",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::Double("linearTolerance"),
+            FacadeParam::Double("angularTolerance"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+if (!std::isfinite(linearTolerance) || !std::isfinite(angularTolerance) || linearTolerance < 0.0 ||
+    angularTolerance < 0.0) {
+    throw std::runtime_error(\"unifySameDomainWithin: tolerances must be finite and not negative\");
+}
+UnifyOptions options;
+options.linearTolerance = linearTolerance;
+options.angularTolerance = angularTolerance;
+const TopoDS_Shape& shape = get(id);
+TopoDS_Shape result = unifyCopy(shape, options, nullptr);
+// A face merged within the tolerances holds edges and vertices that lie on its
+// surface only within them, and the result is not valid until they are
+// repaired. The repair works on the merge's own copy; nothing merged leaves
+// the input itself, which is not touched.
+if (!result.IsSame(shape)) {
+    ShapeFix_Shape fixer(result);
+    fixer.Perform();
+    result = fixer.Shape();
+}
+return store(result);",
+        includes: &["ShapeFix_Shape.hxx", "cmath"],
+        category: "healing",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "isValid",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("id")],

@@ -675,6 +675,7 @@ class OcctKernel {
     // --- Healing / Repair ---
     uint32_t fixShape(uint32_t id);
     uint32_t unifySameDomain(uint32_t id);
+    uint32_t unifySameDomainWithin(uint32_t id, double linearTolerance, double angularTolerance);
     bool isValid(uint32_t id);
     uint32_t healSolid(uint32_t id, double tolerance);
     uint32_t healFace(uint32_t id, double tolerance);

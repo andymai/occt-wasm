@@ -2787,6 +2787,15 @@ export class OcctKernel {
         return wrap("unifySameDomain", () => handle(this.#raw.unifySameDomain(shape)));
     }
 
+    /**
+     * {@link OcctKernel.unifySameDomain} within the given tolerances: faces whose
+     * surfaces agree within `linear` (model units) and `angular` (radians) merge,
+     * as the facets of a mesh with rounded coordinates do. Zero keeps the default.
+     */
+    unifySameDomainWithin(shape: ShapeHandle, linear: number, angular: number): ShapeHandle {
+        return wrap("unifySameDomainWithin", () => handle(this.#raw.unifySameDomainWithin(shape, linear, angular)));
+    }
+
     isValid(shape: ShapeHandle): boolean {
         return wrap("isValid", () => this.#raw.isValid(shape));
     }
