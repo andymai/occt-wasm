@@ -3,17 +3,17 @@ name: Publish crate to crates.io
 # Publishes the `occt-wasm` Rust crate at `crate/` to crates.io.
 #
 # Triggers:
-#   - workflow_dispatch (manual, with version sanity check)
-#   - push of a tag like `crate-v3.0.0` (recommended path)
+#   - workflow_dispatch: release.yml runs it at the `crate-vX.Y.Z` tag when
+#     release-please releases the crate. Run it by hand to retry a publish.
+#   - push of a tag like `crate-v3.0.0` from a person's token
 #
 # Auth: OIDC trusted publishing via crates.io. Requires a one-time setup
 # on crates.io → Account Settings → Trusted Publishers, adding this repo
 # + this workflow filename + the `crates-io` environment name.
 #
 # The embedded WASM (`crate/src/occt-wasm.wasm.br`) is read from the repo
-# as-is. Refresh it locally with `cargo xtask build-wasi --release && brotli
-# -q 11 -o crate/src/occt-wasm.wasm.br target/wasm32-wasip1/release/occt-wasm.wasm`
-# and commit before tagging.
+# as-is. Every facade PR re-embeds CI's build of it (scripts/reembed-wasmbr.sh),
+# so the tag carries the kernel its source describes.
 
 on:
   push:

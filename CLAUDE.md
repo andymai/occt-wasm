@@ -55,8 +55,8 @@ That translation has a hard floor: a bad access inside OCCT is a **WASM trap**, 
 ## CI shape
 - **lint** (no WASM): `cargo fmt --check`, `clippy -D warnings`, `tsgo --noEmit` (TS 7 native compiler; `typescript@6` stays for eslint/typedoc's JS API), `eslint`, plus the codegen drift check. Also `npm run typecheck:tests` (`tsconfig.test.json` covers `test/`, which the `ts/` config excludes) and `npm run typecheck:docs`.
 - **build-test**: builds the Embind WASM in the builder container, runs the full vitest suite + the bench gate.
-- **build-wasi**: the `wasm.br` stale-check above. Releases ship via release-please → npm (OIDC) and a `crate-v*` tag → crates.io.
-- release-please versions **only** the npm package; `crate` and `Cargo.lock` are in its `exclude-paths`, so a Rust-only change cuts no npm release. The crate's own version is bumped by hand in a `chore(crate): release X.Y.Z` PR, then tagged. A commit that touches `xtask/` as well still bumps npm, since codegen changes can reach the facade.
+- **build-wasi**: the `wasm.br` stale-check above.
+- Releases: release-please keeps two components, each with its own release PR. The npm package (path `.`) publishes to npm (OIDC) from `release.yml`. The crate (path `crate`, tag `crate-vX.Y.Z`) bumps `crate/Cargo.toml`, `Cargo.lock` and `html_root_url`, and `release.yml` then dispatches `publish-crate.yml` (OIDC). A commit counts for the crate when it touches `crate/`, which every facade PR does through its `wasm.br` re-embed. `crate` and `Cargo.lock` are in the npm package's `exclude-paths`, so a Rust-only change cuts no npm release; a commit that touches `xtask/` as well still bumps npm, since codegen changes can reach the facade.
 
 ## Conventions
 - Rust edition 2024, brepkit-level lints (deny `unsafe`/`unwrap`/`panic`). C++ clang-format (LLVM, 4-space, 100 col). TS strict, ESM-only, branded `ShapeHandle`.
