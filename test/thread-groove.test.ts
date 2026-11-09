@@ -140,6 +140,8 @@ describe("threadGroove", () => {
         expect(() => kernel.threadGroove(origin, up, { ...good, pitch: 1e-6, coverHalfWidth: 4e-7, rootHalfWidth: 1e-7 })).toThrow(/10000 turns/);
         expect(() => kernel.threadGroove(origin, up, { ...good, coverRadius: 1000, rootRadius: 1000 - 1e-13 })).toThrow(/too shallow/);
         expect(() => kernel.threadGroove(origin, up, iso(2e6, 3, 9000))).toThrow(/fewer on a wide thread/);
+        // A short thread still has its end curves, a turn's worth of spans.
+        expect(() => kernel.threadGroove(origin, up, { ...iso(6, 1, 0.001), coverRadius: 1e36, rootRadius: 9e35 })).toThrow(/fewer on a wide thread/);
     });
 
     it("stays valid and exact on wide threads, for a shaft and a tapped hole", () => {
