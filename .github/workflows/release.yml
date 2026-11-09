@@ -105,7 +105,21 @@ jobs:
       needs.release-please.outputs.crate_release_created == 'true'
     permissions:
       actions: write
+      contents: write
     steps:
+      # GitHub marks the newest release Latest, so a crate release would take
+      # the repo page and releases/latest from the npm package. It runs before
+      # the dispatch so a failed dispatch cannot skip it, and it cannot block
+      # the publish itself.
+      - name: Keep the newest npm release as Latest
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
+            --limit 50 --json tagName --jq '[.[].tagName | select(startswith("v"))][0] // empty')
+          if [ -n "$tag" ]; then gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --latest; fi
+
       - name: Run publish-crate.yml at the release tag
         env:
           GH_TOKEN: ${{ github.token }}
