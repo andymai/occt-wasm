@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.17.0](https://github.com/andymai/occt-wasm/compare/v5.16.0...v5.17.0) (2026-11-09)
+
+
+### Features
+
+* **facade:** SweepMode.Parallel, a sweep that keeps the section as drawn ([#458](https://github.com/andymai/occt-wasm/issues/458)) ([85e365d](https://github.com/andymai/occt-wasm/commit/85e365d79b67f7893c5a4e6564faf8bb931c0df0))
+* **facade:** threadGroove, a thread's groove built from its known curves ([#461](https://github.com/andymai/occt-wasm/issues/461)) ([e699dfc](https://github.com/andymai/occt-wasm/commit/e699dfc91120935b795adf42452361d143a691f3))
+
+
+### Bug Fixes
+
+* **facade:** keep threadGroove valid on wide threads and bad input ([#467](https://github.com/andymai/occt-wasm/issues/467)) ([cc6abe0](https://github.com/andymai/occt-wasm/commit/cc6abe074ad1194ac594afe8a0965c65725d8dc1))
+* **facade:** line up a closed loft's sections so ThruSections cannot twist them ([#459](https://github.com/andymai/occt-wasm/issues/459)) ([0c760a2](https://github.com/andymai/occt-wasm/commit/0c760a25fac7462a3b3561b5342e30d7a195f686))
+* **facade:** line up a closed loop's sections in every loft ([#466](https://github.com/andymai/occt-wasm/issues/466)) ([11f815d](https://github.com/andymai/occt-wasm/commit/11f815d93d1562c34319a08a10cdb4bda00b1e77))
+* **facade:** merge same-domain faces on a copy, not in place ([#463](https://github.com/andymai/occt-wasm/issues/463)) ([90c0636](https://github.com/andymai/occt-wasm/commit/90c06360fe72123b5e20c5d29dc94bc8326144cb))
+* **facade:** rebuild a fuse that lost an operand with a fuzzy value ([#464](https://github.com/andymai/occt-wasm/issues/464)) ([45cb7d6](https://github.com/andymai/occt-wasm/commit/45cb7d63384c4b6114946451c2e94f4de4df127b))
+
 ## [5.16.0](https://github.com/andymai/occt-wasm/compare/v5.15.0...v5.16.0) (2026-11-07)
 
 
