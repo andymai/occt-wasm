@@ -3070,6 +3070,13 @@ uint32_t OcctKernel::makeHelixWireHanded(double px, double py, double pz, double
 
 uint32_t OcctKernel::threadGroove(double px, double py, double pz, double dx, double dy, double dz, double pitch, double length, double coverRadius, double rootRadius, double coverHalfWidth, double rootHalfWidth, double phase) {
     try {
+        for (double value : {px, py, pz, dx, dy, dz}) {
+            if (!std::isfinite(value)) throw std::runtime_error("threadGroove: every value must be finite");
+        }
+        // gp_Dir's own zero-length check is compiled out of OCCT release builds.
+        if (gp_Vec(dx, dy, dz).Magnitude() <= gp::Resolution()) {
+            throw std::runtime_error("threadGroove: the axis is zero");
+        }
         gp_Ax3 frame(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz));
         occtwasm::ThreadGrooveSpec spec{pitch, length, coverRadius, rootRadius, coverHalfWidth, rootHalfWidth, phase};
         return store(occtwasm::buildThreadGroove(frame, spec));

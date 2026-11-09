@@ -127,4 +127,30 @@ describe("threadGroove", () => {
         expect(() => kernel.threadGroove(origin, up, { ...good, rootRadius: good.coverRadius })).toThrow(/different/);
         expect(() => kernel.threadGroove(origin, up, { ...good, length: 0 })).toThrow(/positive/);
     });
+
+    it("refuses values that are not finite, a zero axis and a length of too many turns", () => {
+        const good = iso(6, 1, 10);
+        for (const bad of [Infinity, -Infinity, NaN]) {
+            expect(() => kernel.threadGroove(origin, up, { ...good, length: bad })).toThrow(/finite/);
+            expect(() => kernel.threadGroove(origin, up, { ...good, phase: bad })).toThrow(/finite/);
+            expect(() => kernel.threadGroove(origin, up, { ...good, coverRadius: bad })).toThrow(/finite/);
+            expect(() => kernel.threadGroove(origin, { ...up, z: bad }, good)).toThrow(/finite/);
+        }
+        expect(() => kernel.threadGroove(origin, { x: 0, y: 0, z: 0 }, good)).toThrow(/axis is zero/);
+        expect(() => kernel.threadGroove(origin, up, { ...good, pitch: 1e-6, coverHalfWidth: 4e-7, rootHalfWidth: 1e-7 })).toThrow(/10000 turns/);
+        expect(() => kernel.threadGroove(origin, up, { ...good, coverRadius: 1000, rootRadius: 1000 - 1e-13 })).toThrow(/too shallow/);
+        expect(() => kernel.threadGroove(origin, up, iso(2e6, 3, 9000))).toThrow(/fewer on a wide thread/);
+        // A short thread still has its end curves, a turn's worth of spans.
+        expect(() => kernel.threadGroove(origin, up, { ...iso(6, 1, 0.001), coverRadius: 1e36, rootRadius: 9e35 })).toThrow(/fewer on a wide thread/);
+    });
+
+    it("stays valid and exact on wide threads, for a shaft and a tapped hole", () => {
+        // A helix's error grows with its radius, and an end face's arcs sag further
+        // from their chords: at 200 both need more points per turn.
+        for (const groove of [iso(400, 3, 9), iso(400, 3, 9, 397)]) {
+            const tool = kernel.threadGroove(origin, up, groove);
+            expect(kernel.isValid(tool)).toBe(true);
+            expect(kernel.getVolume(tool) / exactVolume(groove)).toBeCloseTo(1, 5);
+        }
+    });
 });

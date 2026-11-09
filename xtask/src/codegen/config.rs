@@ -2205,10 +2205,17 @@ return store(wire);",
         // The solid a right-handed thread removes from a cylinder of coverRadius
         // about the axis, built from known curves (see facade/src/thread_groove.cpp).
         setup_code: "\
+for (double value : {px, py, pz, dx, dy, dz}) {
+    if (!std::isfinite(value)) throw std::runtime_error(\"threadGroove: every value must be finite\");
+}
+// gp_Dir's own zero-length check is compiled out of OCCT release builds.
+if (gp_Vec(dx, dy, dz).Magnitude() <= gp::Resolution()) {
+    throw std::runtime_error(\"threadGroove: the axis is zero\");
+}
 gp_Ax3 frame(gp_Pnt(px, py, pz), gp_Dir(dx, dy, dz));
 occtwasm::ThreadGrooveSpec spec{pitch, length, coverRadius, rootRadius, coverHalfWidth, rootHalfWidth, phase};
 return store(occtwasm::buildThreadGroove(frame, spec));",
-        includes: &["gp_Ax3.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "thread_groove.h"],
+        includes: &["gp.hxx", "gp_Ax3.hxx", "gp_Pnt.hxx", "gp_Dir.hxx", "gp_Vec.hxx", "thread_groove.h", "cmath"],
         category: "construction",
         return_type: ReturnType::ShapeId,
     },
