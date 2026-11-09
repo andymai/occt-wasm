@@ -1,0 +1,25 @@
+test/thread-groove.test.ts
+  s_926d227690c023::t_30d12167f5067b 130-151
+xtask/src/codegen/config.rs
+  s_926d227690c023::t_d6d7166533860b 2208-2214,2218
+facade/generated/kernel.cpp
+  s_926d227690c023::t_6e0ae03f5fa768 3073-3079
+facade/src/thread_groove.cpp
+  s_926d227690c023::t_a1bf8716eb39d4 56-63,68-72,103-104,129-131,139-141,168-169,258,280,323-324,355,439-441,462-465,475-477
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "41143fb7563b45d8ae3bd1c7a149a50299f3a9dd",
+  "prompts": {},
+  "sessions": {
+    "s_926d227690c023": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a4d48dd-346d-49c9-849f-5f120e05e095",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
