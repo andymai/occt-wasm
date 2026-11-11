@@ -4727,6 +4727,26 @@ uint32_t OcctKernel::loftWithVertices(std::vector<uint32_t> wireIds, bool isSoli
     }
 }
 
+uint32_t OcctKernel::loftWithContinuity(std::vector<uint32_t> wireIds, bool isSolid, bool ruled, int continuity) {
+    try {
+        BRepOffsetAPI_ThruSections maker(isSolid, ruled);
+        if (continuity < 0 || continuity > 4) {
+            throw std::runtime_error("loftWithContinuity: continuity must be in 0..4 (GeomAbs_Shape)");
+        }
+        maker.SetContinuity(static_cast<GeomAbs_Shape>(continuity));
+        std::vector<TopoDS_Shape> wires;
+        for (uint32_t wid : wireIds) wires.push_back(get(wid));
+        addLoftSections(maker, wires);
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("loftWithContinuity: operation failed");
+        }
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("loftWithContinuity: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::sweep(uint32_t wireId, uint32_t spineId, int transitionMode) {
     try {
         BRepOffsetAPI_MakePipeShell maker(TopoDS::Wire(get(spineId)));

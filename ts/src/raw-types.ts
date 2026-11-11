@@ -270,6 +270,7 @@ export interface OcctRawKernel {
     simplePipe(profileId: number, spineId: number): number;
     loft(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean): number;
     loftWithVertices(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean, startVertexId: number, endVertexId: number): number;
+    loftWithContinuity(wireIds: EmbindVectorU32, isSolid: boolean, ruled: boolean, continuity: number): number;
     sweep(wireId: number, spineId: number, transitionMode: number): number;
     sweepPipeShell(profileId: number, spineId: number, freenet: boolean, smooth: boolean): number;
     sweepOriented(profileId: number, spineId: number, mode: number, upX: number, upY: number, upZ: number, auxSpineId: number, curvilinearEquivalence: boolean, contactMode: number, tol3d: number, boundTol: number, tolAngular: number): number;

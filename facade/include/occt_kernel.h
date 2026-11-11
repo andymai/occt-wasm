@@ -338,6 +338,8 @@ class OcctKernel {
     uint32_t loft(std::vector<uint32_t> wireIds, bool isSolid, bool ruled);
     uint32_t loftWithVertices(std::vector<uint32_t> wireIds, bool isSolid, bool ruled,
                               uint32_t startVertexId, uint32_t endVertexId);
+    uint32_t loftWithContinuity(std::vector<uint32_t> wireIds, bool isSolid, bool ruled,
+                                int continuity);
     uint32_t sweep(uint32_t wireId, uint32_t spineId, int transitionMode);
     uint32_t sweepPipeShell(uint32_t profileId, uint32_t spineId, bool freenet, bool smooth);
     uint32_t sweepOriented(uint32_t profileId, uint32_t spineId, int mode, double upX, double upY,
