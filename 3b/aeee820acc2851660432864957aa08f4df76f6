@@ -1,0 +1,19 @@
+Cargo.lock
+  s_b186411a5500e2::t_7f7ca6377be742 936,938
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3baeee820acc2851660432864957aa08f4df76f6",
+  "prompts": {},
+  "sessions": {
+    "s_b186411a5500e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "29c571c3-b085-432f-bd71-19daf3b6ade6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
