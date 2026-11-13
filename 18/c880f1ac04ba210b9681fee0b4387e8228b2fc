@@ -1,0 +1,19 @@
+README.md
+  s_3f0f1294d8b317::t_d501af4e020611 12,14,18,22-28,32,34-38,88,90,97-100,104,122,126,151,176,191,207-210,214,236,240,290,294,318,335,366-368,372-374,402,436,440,448,470,479-482,491,497-499,501,503-510,514,522
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "18c880f1ac04ba210b9681fee0b4387e8228b2fc",
+  "prompts": {},
+  "sessions": {
+    "s_3f0f1294d8b317": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a188bf6-7f7c-4f93-badd-64051f15d4c7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
