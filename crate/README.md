@@ -158,4 +158,4 @@ For higher-level CAD in TypeScript, see [brepjs](https://github.com/andymai/brep
 - **Crate / wrapper code**: MIT OR Apache-2.0
 - **Embedded WASM binary** (the OCCT build): LGPL-2.1-only, inherited from [OCCT](https://dev.opencascade.org/resources/download)
 
-The LGPL requires that end users can replace the LGPL component. Because this crate ships a pre-built WASM, replacement is possible by forking and rebuilding from the [`occt-wasm` repo](https://github.com/andymai/occt-wasm). If you're shipping a closed-source product, consult the [LGPL-2.1 FAQ](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html).
+The LGPL requires that end users can replace the LGPL component. Because this crate ships a pre-built WASM, replacement is possible by forking and rebuilding from the [`occt-wasm` repo](https://github.com/andymai/occt-wasm). If you ship a closed-source product, read the [GNU licenses FAQ](https://www.gnu.org/licenses/gpl-faq.html), which covers the LGPL.
