@@ -313,6 +313,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("revolveVec", &OcctKernel::revolveVec)
         .function("loft", &OcctKernel::loft)
         .function("loftWithVertices", &OcctKernel::loftWithVertices)
+        .function("loftWithContinuity", &OcctKernel::loftWithContinuity)
         .function("sweep", &OcctKernel::sweep)
         .function("sweepPipeShell", &OcctKernel::sweepPipeShell)
         .function("sweepOriented", &OcctKernel::sweepOriented)

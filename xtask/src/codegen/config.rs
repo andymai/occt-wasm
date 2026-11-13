@@ -4452,6 +4452,35 @@ return store(maker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "loftWithContinuity",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::VectorShapeIds("wireIds"),
+            FacadeParam::Bool("isSolid"),
+            FacadeParam::Bool("ruled"),
+            FacadeParam::Int("continuity"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepOffsetAPI_ThruSections maker(isSolid, ruled);
+if (continuity < 0 || continuity > 4) {
+    throw std::runtime_error(\"loftWithContinuity: continuity must be in 0..4 (GeomAbs_Shape)\");
+}
+maker.SetContinuity(static_cast<GeomAbs_Shape>(continuity));
+std::vector<TopoDS_Shape> wires;
+for (uint32_t wid : wireIds) wires.push_back(get(wid));
+addLoftSections(maker, wires);
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"loftWithContinuity: operation failed\");
+}
+return store(maker.Shape());",
+        includes: &["BRepOffsetAPI_ThruSections.hxx", "TopoDS.hxx", "GeomAbs_Shape.hxx"],
+        category: "sweep",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "sweep",
         kind: MethodKind::CustomBody,
         params: &[

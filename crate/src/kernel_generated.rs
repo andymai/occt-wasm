@@ -269,6 +269,7 @@ pub(crate) struct GeneratedFuncs {
     fn_revolve_vec: TypedFunc<(u32, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_loft: TypedFunc<(i32, i32, i32, i32), u32>,
     fn_loft_with_vertices: TypedFunc<(i32, i32, i32, i32, u32, u32), u32>,
+    fn_loft_with_continuity: TypedFunc<(i32, i32, i32, i32, i32), u32>,
     fn_sweep: TypedFunc<(u32, u32, i32), u32>,
     fn_sweep_pipe_shell: TypedFunc<(u32, u32, i32, i32), u32>,
     fn_sweep_oriented: TypedFunc<(u32, u32, i32, f64, f64, f64, u32, i32, i32, f64, f64, f64), u32>,
@@ -565,6 +566,8 @@ impl GeneratedFuncs {
             fn_loft: instance.get_typed_func(&mut store, "occt_loft")?,
             fn_loft_with_vertices: instance
                 .get_typed_func(&mut store, "occt_loft_with_vertices")?,
+            fn_loft_with_continuity: instance
+                .get_typed_func(&mut store, "occt_loft_with_continuity")?,
             fn_sweep: instance.get_typed_func(&mut store, "occt_sweep")?,
             fn_sweep_pipe_shell: instance.get_typed_func(&mut store, "occt_sweep_pipe_shell")?,
             fn_sweep_oriented: instance.get_typed_func(&mut store, "occt_sweep_oriented")?,
@@ -4001,6 +4004,35 @@ impl crate::kernel::OcctKernel {
         self.check_error("loft_with_vertices")?;
         if result == 0 {
             return Err(self.read_last_error("loft_with_vertices"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn loft_with_continuity(
+        &mut self,
+        wire_ids: &[ShapeHandle],
+        is_solid: bool,
+        ruled: bool,
+        continuity: i32,
+    ) -> OcctResult<ShapeHandle> {
+        let wire_ids_bytes: Vec<u8> = wire_ids.iter().flat_map(|h| h.0.to_le_bytes()).collect();
+        let wire_ids_ptr = self.write_bytes(&wire_ids_bytes)?;
+        let wire_ids_len = wire_ids.len() as u32;
+        let result = self.generated.fn_loft_with_continuity.call(
+            &mut self.store,
+            (
+                wire_ids_ptr as i32,
+                wire_ids_len as i32,
+                i32::from(is_solid),
+                i32::from(ruled),
+                continuity,
+            ),
+        );
+        self.free_bytes(wire_ids_ptr)?;
+        let result = result?;
+        self.check_error("loft_with_continuity")?;
+        if result == 0 {
+            return Err(self.read_last_error("loft_with_continuity"));
         }
         Ok(ShapeHandle(result))
     }

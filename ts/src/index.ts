@@ -738,6 +738,33 @@ export class OcctKernel {
         });
     }
 
+    /**
+     * Loft a solid (or shell) through a sequence of wire profiles with an
+     * explicit approximation continuity, via
+     * `BRepOffsetAPI_ThruSections::SetContinuity`. Same construction as
+     * {@link OcctKernel.loft}, but exposes the `GeomAbs_Shape` ordinal that
+     * `loft()` otherwise leaves at OCCT's default.
+     *
+     * @param wires - Section wires (at least 2), in order along the loft.
+     * @param isSolid - When `true`, close the loft into a solid.
+     * @param ruled - Ruled (linear) vs. smooth (B-spline) interpolation.
+     * @param continuity - `GeomAbs_Shape` ordinal: 0=C0, 1=G1, 2=C1, 3=G2,
+     *     4=C2. Values outside 0..4 are rejected by the facade.
+     * @throws OcctError if the continuity is out of range or the loft fails.
+     */
+    loftWithContinuity(
+        wires: ShapeHandle[],
+        isSolid: boolean,
+        ruled: boolean,
+        continuity: number = 2,
+    ): ShapeHandle {
+        return wrap("loftWithContinuity", () => {
+            return this.#withU32(wires, (wireVec) =>
+                handle(this.#raw.loftWithContinuity(wireVec, isSolid, ruled, continuity)),
+            );
+        });
+    }
+
     sweep(wire: ShapeHandle, spine: ShapeHandle, transitionMode: TransitionMode = TransitionMode.Transformed): ShapeHandle {
         return wrap("sweep", () => handle(this.#raw.sweep(wire, spine, transitionMode)));
     }
