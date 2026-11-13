@@ -519,4 +519,4 @@ This project is open source. Bug reports and feature requests are welcome in Git
 
 **Compiled WASM output**: LGPL-2.1-only (inherits from [OCCT](https://dev.opencascade.org/resources/download))
 
-The LGPL requires that end users can replace the LGPL component. A web application meets this requirement when it loads the `.wasm` file from a URL. Users can override that URL with `OcctKernel.init({ wasm: '...' })`. If you ship a desktop app with the WASM embedded, read the [LGPL-2.1 FAQ](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html).
+The LGPL requires that end users can replace the LGPL component. A web application meets this requirement when it loads the `.wasm` file from a URL. Users can override that URL with `OcctKernel.init({ wasm: '...' })`. If you ship a desktop app with the WASM embedded, read the [GNU licenses FAQ](https://www.gnu.org/licenses/gpl-faq.html), which covers the LGPL.
