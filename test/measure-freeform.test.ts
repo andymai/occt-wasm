@@ -121,3 +121,90 @@ describe("mass properties on BSpline faces", () => {
         expect(row.centerOfMass.z).toBeCloseTo(5, 6);
     });
 });
+
+// A flat spiral strip between two interpolated splines. A prism or a revolve of
+// it has swept side walls: one extrusion or revolution surface whose basis curve
+// has 20 spans for each turn.
+function spiralStrip(turns: number) {
+    const r0 = 2;
+    const r1 = 7;
+    const thick = 0.2;
+    const n = Math.ceil(turns * 20);
+    const side = (offset: number) =>
+        Array.from({ length: n + 1 }, (_, i) => {
+            const angle = (i / n) * turns * 2 * Math.PI;
+            const r = r0 + ((r1 - r0) * i) / n + offset;
+            return { x: r * Math.cos(angle), y: r * Math.sin(angle), z: 0 };
+        });
+    const inner = side(-thick / 2);
+    const outer = side(thick / 2).reverse();
+    const innerEdge = kernel.interpolatePoints(inner);
+    const outerEdge = kernel.interpolatePoints(outer);
+    const face = kernel.makeFace(
+        kernel.makeWire([
+            innerEdge,
+            kernel.makeLineEdge(inner[n], outer[0]),
+            outerEdge,
+            kernel.makeLineEdge(outer[n], inner[0]),
+        ]),
+    );
+    return {
+        face,
+        area: kernel.getSurfaceArea(face) as number,
+        nominalArea: thick * Math.PI * (r0 + r1) * turns,
+        perimeter: kernel.getLength(innerEdge) + kernel.getLength(outerEdge) + 2 * thick,
+    };
+}
+
+describe("mass properties on swept and offset faces", () => {
+    it.each([1, 3, 8, 19.5])("integrates a prism on a %s-turn spiral strip", (turns) => {
+        const strip = spiralStrip(turns);
+        const height = 1.5;
+        const prism = kernel.extrude(strip.face, 0, 0, height);
+        const walls = kernel.getSubShapes(prism, "face").map((f: number) => kernel.surfaceType(f));
+        expect(walls).toContain("extrusion");
+
+        expectRelative(strip.area, strip.nominalArea, 1e-4);
+        expectRelative(kernel.getVolume(prism), strip.area * height, 1e-9);
+        expectRelative(kernel.getSurfaceArea(prism), 2 * strip.area + strip.perimeter * height, 1e-9);
+        expect(kernel.getCenterOfMass(prism).z).toBeCloseTo(height / 2, 9);
+    });
+
+    it("integrates a full revolve of a spiral strip", () => {
+        const strip = spiralStrip(3);
+        const centroid = kernel.getCenterOfMass(kernel.extrude(strip.face, 0, 0, 1));
+        const axis = { point: { x: 20, y: 0, z: 0 }, direction: { x: 0, y: 1, z: 0 } };
+        const ring = kernel.revolve(strip.face, axis, 2 * Math.PI);
+        const walls = kernel.getSubShapes(ring, "face").map((f: number) => kernel.surfaceType(f));
+        expect(walls).toContain("revolution");
+
+        // Pappus: the area times the path of its centroid.
+        expectRelative(kernel.getVolume(ring), 2 * Math.PI * (20 - centroid.x) * strip.area, 2e-6);
+    });
+
+    it("integrates an offset of a prism on a closed spline", () => {
+        const n = 24;
+        const oval = kernel.interpolatePoints(
+            Array.from({ length: n }, (_, i) => {
+                const angle = (i / n) * 2 * Math.PI;
+                return { x: 10 * Math.cos(angle), y: 3 * Math.sin(angle), z: 0 };
+            }),
+            true,
+        );
+        const face = kernel.makeFace(kernel.makeWire([oval]));
+        const area = kernel.getSurfaceArea(face);
+        const perimeter = kernel.getLength(oval);
+        const height = 10;
+        const d = 1;
+        const grown = kernel.offset(kernel.extrude(face, 0, 0, height), d, 1e-6);
+        const kinds = kernel.getSubShapes(grown, "face").map((f: number) => kernel.surfaceType(f));
+        expect(kinds).toContain("offset");
+
+        // Steiner's formula for a convex body grown by a ball of radius d.
+        const meanWidth = Math.PI * height + (Math.PI / 2) * perimeter;
+        const volume = area * height + d * (2 * area + perimeter * height) + d * d * meanWidth + (4 / 3) * Math.PI * d ** 3;
+        const surface = 2 * area + perimeter * height + 2 * d * meanWidth + 4 * Math.PI * d * d;
+        expectRelative(kernel.getVolume(grown), volume, 1e-5);
+        expectRelative(kernel.getSurfaceArea(grown), surface, 1e-5);
+    });
+});

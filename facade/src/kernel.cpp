@@ -7,6 +7,7 @@
 #include <BRepBuilderAPI_MakeShapeOnMesh.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_ModifyShape.hxx>
+#include <BRepBuilderAPI_NurbsConvert.hxx>
 #include <BRepGProp.hxx>
 #include <BRepGProp_Domain.hxx>
 #include <BRepGProp_Face.hxx>
@@ -333,6 +334,28 @@ bool needsAdaptiveIntegration(const TopoDS_Face& face) {
     return false;
 }
 
+// The adaptive pass refines only along a boundary curve. Across the surface it
+// takes one fixed-order rule for each knot span, and it reads spans from BSpline
+// surfaces alone. A swept or an offset surface is one span to it, however many
+// spans the basis curve has, and the error it reports stays near zero: a prism
+// on a 60-span spline came out 10% off (#481). Such a face is integrated on its
+// BSpline form, which is exact for a sweep and approximate for an offset.
+TopoDS_Face withKnotSpans(const TopoDS_Face& face) {
+    const GeomAbs_SurfaceType type = BRepAdaptor_Surface(face, false).GetType();
+    if (isElementarySurface(type) || type == GeomAbs_BSplineSurface ||
+        type == GeomAbs_BezierSurface) {
+        return face;
+    }
+    try {
+        BRepBuilderAPI_NurbsConvert converter(face, false);
+        if (converter.IsDone() && converter.Shape().ShapeType() == TopAbs_FACE) {
+            return TopoDS::Face(converter.Shape());
+        }
+    } catch (const Standard_Failure&) {
+    }
+    return face;
+}
+
 bool hasSurface(const TopoDS_Face& face) {
     TopLoc_Location location;
     return !BRep_Tool::Surface(face, location).IsNull();
@@ -363,7 +386,8 @@ gp_Pnt vertexCentroid(const TopoDS_Shape& shape) {
 constexpr double kAdaptiveEps = 1e-8;
 
 // BRepGProp's own face loop, choosing per face between its fixed-order Gauss
-// quadrature (exact and fast on elementary faces) and its adaptive one.
+// quadrature (exact and fast on elementary faces) and its adaptive one, which
+// gets a face with knot spans to work on.
 // `Integrator` is BRepGProp_Vinert (volume) or BRepGProp_Sinert (area);
 // `orientedOnly` skips INTERNAL/EXTERNAL faces, as the volume loop does.
 template <typename Integrator>
@@ -382,26 +406,28 @@ void integrateFaces(const TopoDS_Shape& shape, GProp_GProps& props,
     BRepGProp_Domain domain;
 
     for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
-        const TopoDS_Face& face = TopoDS::Face(ex.Current());
-        const TopAbs_Orientation orientation = face.Orientation();
+        const TopoDS_Face& original = TopoDS::Face(ex.Current());
+        const TopAbs_Orientation orientation = original.Orientation();
         if (orientedOnly && orientation != TopAbs_FORWARD && orientation != TopAbs_REVERSED) {
             continue;
         }
-        if (!hasSurface(face)) {
+        if (!hasSurface(original)) {
             TopLoc_Location location;
-            const Handle(Poly_Triangulation)& mesh = BRep_Tool::Triangulation(face, location);
+            const Handle(Poly_Triangulation)& mesh = BRep_Tool::Triangulation(original, location);
             if (!mesh.IsNull() && mesh->NbTriangles() > 0) {
                 meshProps.Perform(mesh, location, orientation);
                 props.Add(meshProps);
             }
             continue;
         }
+        const bool adaptive = needsAdaptiveIntegration(original);
+        const TopoDS_Face face = adaptive ? withKnotSpans(original) : original;
         faceIntegrand.Load(face);
         const bool naturalBounds = face.NbChildren() == 0;
         if (!naturalBounds) {
             domain.Init(face);
         }
-        if (needsAdaptiveIntegration(face)) {
+        if (adaptive) {
             if (naturalBounds) {
                 integrator.Perform(faceIntegrand, kAdaptiveEps);
             } else {
