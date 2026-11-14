@@ -1,0 +1,25 @@
+test/measure-freeform.test.ts
+  s_5576f18d3ed353::t_e111b4fcdfb327 185-206,210
+  s_5576f18d3ed353::t_fb8b59a31bac00 207-208
+  s_5576f18d3ed353::t_b32fed5c3a5c7b 124-184,209
+ts/src/index.ts
+  s_5576f18d3ed353::t_b32fed5c3a5c7b 1823-1825
+facade/src/kernel.cpp
+  s_5576f18d3ed353::t_1f63f1c711faf5 10,337-358,389-390,409-410,414,416,423-424,430
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fd4ad247045523d35217e1b59fb3069bc18a8efe",
+  "prompts": {},
+  "sessions": {
+    "s_5576f18d3ed353": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f675ec9-fea6-407a-ab96-23dc89113694",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
