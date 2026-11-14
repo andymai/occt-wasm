@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.17.2](https://github.com/andymai/occt-wasm/compare/v5.17.1...v5.17.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **facade:** integrate swept and offset faces on their BSpline form ([#483](https://github.com/andymai/occt-wasm/issues/483)) ([9c6ad10](https://github.com/andymai/occt-wasm/commit/9c6ad105747f3d300fc6500375da54a30484e556))
+
 ## [5.17.1](https://github.com/andymai/occt-wasm/compare/v5.17.0...v5.17.1) (2026-11-09)
 
 
