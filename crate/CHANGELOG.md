@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.2.2](https://github.com/andymai/occt-wasm/compare/crate-v7.2.1...crate-v7.2.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **facade:** integrate swept and offset faces on their BSpline form ([#483](https://github.com/andymai/occt-wasm/issues/483)) ([9c6ad10](https://github.com/andymai/occt-wasm/commit/9c6ad105747f3d300fc6500375da54a30484e556))
+
 ## [7.2.1](https://github.com/andymai/occt-wasm/compare/crate-v7.2.0...crate-v7.2.1) (2026-11-09)
 
 
