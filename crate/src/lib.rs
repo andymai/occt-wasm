@@ -47,7 +47,7 @@
 //! you build come from the same version the kernel links against.
 
 // x-release-please-start-version
-#![doc(html_root_url = "https://docs.rs/occt-wasm/7.2.1")]
+#![doc(html_root_url = "https://docs.rs/occt-wasm/7.2.2")]
 // x-release-please-end
 // Generated code does cross-boundary integer casting (u32 <-> i32 for WASM ABI)
 // and has parameter names from the C++ facade that trigger similar_names.
