@@ -3261,6 +3261,17 @@ export class OcctKernel {
         const firstShape = this.#drainVector(raw.firstShape, Int32Array);
         const lastShape = this.#drainVector(raw.lastShape, Int32Array);
         const spineGenerated = this.#drainVector(raw.spineGenerated, Int32Array);
+        const inputShapes = this.#drainVector(raw.inputShapes, Int32Array);
+        const resultCounts = this.#drainVector(raw.resultCounts, Int32Array);
+        const modifiedIndexed = this.#drainVector(raw.modifiedIndexed, Int32Array);
+        const generatedIndexed = this.#drainVector(raw.generatedIndexed, Int32Array);
+        const deletedIndexed = this.#drainVector(raw.deletedIndexed, Int32Array);
+        const edgeModifiedIndexed = this.#drainVector(raw.edgeModifiedIndexed, Int32Array);
+        const edgeGeneratedIndexed = this.#drainVector(raw.edgeGeneratedIndexed, Int32Array);
+        const edgeDeletedIndexed = this.#drainVector(raw.edgeDeletedIndexed, Int32Array);
+        const firstShapeIndexed = this.#drainVector(raw.firstShapeIndexed, Int32Array);
+        const lastShapeIndexed = this.#drainVector(raw.lastShapeIndexed, Int32Array);
+        const spineGeneratedIndexed = this.#drainVector(raw.spineGeneratedIndexed, Int32Array);
         return {
             result: handle(raw.resultId),
             modified,
@@ -3272,6 +3283,17 @@ export class OcctKernel {
             firstShape,
             lastShape,
             spineGenerated,
+            inputShapes,
+            resultCounts,
+            modifiedIndexed,
+            generatedIndexed,
+            deletedIndexed,
+            edgeModifiedIndexed,
+            edgeGeneratedIndexed,
+            edgeDeletedIndexed,
+            firstShapeIndexed,
+            lastShapeIndexed,
+            spineGeneratedIndexed,
         };
     }
 }

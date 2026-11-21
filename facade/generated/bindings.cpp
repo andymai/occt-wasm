@@ -123,7 +123,18 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("edgeDeleted", &EvolutionData::edgeDeleted)
         .property("firstShape", &EvolutionData::firstShape)
         .property("lastShape", &EvolutionData::lastShape)
-        .property("spineGenerated", &EvolutionData::spineGenerated);
+        .property("spineGenerated", &EvolutionData::spineGenerated)
+        .property("inputShapes", &EvolutionData::inputShapes)
+        .property("resultCounts", &EvolutionData::resultCounts)
+        .property("modifiedIndexed", &EvolutionData::modifiedIndexed)
+        .property("generatedIndexed", &EvolutionData::generatedIndexed)
+        .property("deletedIndexed", &EvolutionData::deletedIndexed)
+        .property("edgeModifiedIndexed", &EvolutionData::edgeModifiedIndexed)
+        .property("edgeGeneratedIndexed", &EvolutionData::edgeGeneratedIndexed)
+        .property("edgeDeletedIndexed", &EvolutionData::edgeDeletedIndexed)
+        .property("firstShapeIndexed", &EvolutionData::firstShapeIndexed)
+        .property("lastShapeIndexed", &EvolutionData::lastShapeIndexed)
+        .property("spineGeneratedIndexed", &EvolutionData::spineGeneratedIndexed);
 
     // XCAFLabelInfo
     value_object<XCAFLabelInfo>("XCAFLabelInfo")

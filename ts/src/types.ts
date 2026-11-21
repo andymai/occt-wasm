@@ -644,6 +644,16 @@ export interface EdgeData {
  * Hash a wire's edges as {@link OcctKernel.getSubShapes} returns them, not the
  * edges given to {@link OcctKernel.makeWire}, which can copy an edge to share a
  * vertex.
+ *
+ * Hashes are remainders and two sub-shapes can share one. The `*Indexed` lists
+ * say the same as their hash lists by position instead, so they never mix two
+ * sub-shapes up. A position is 0-based, in the order
+ * {@link OcctKernel.getSubShapes} returns that kind of sub-shape of its shape
+ * (`TopExp::MapShapes` order). Inputs are numbered from 0 in the order the
+ * operation reads them: its shape arguments in order, a boolean's arguments then
+ * its tools, a loft's distinct wires. The indexed lists name only sub-shapes the
+ * result holds, and a `kind` is a `TopAbs_ShapeEnum` value: 0 compound,
+ * 1 compsolid, 2 solid, 3 shell, 4 face, 5 wire, 6 edge, 7 vertex.
  */
 export interface EvolutionData {
     /** Result shape handle. */
@@ -669,6 +679,31 @@ export interface EvolutionData {
      * as `[spineEdgeHash, profileEdgeHash, count, faceHash, ...]`.
      */
     spineGenerated: number[];
+    /** `[hash, faceCount, edgeCount]` of each input, in input order. */
+    inputShapes: number[];
+    /** `[faceCount, edgeCount]` of the result. */
+    resultCounts: number[];
+    /** `modified` by position: `[input, face, count, kind, position, ...]`. */
+    modifiedIndexed: number[];
+    /** `generated` by position: `[input, face, count, kind, position, ...]`. */
+    generatedIndexed: number[];
+    /** `deleted` by position: `[input, face]` pairs. */
+    deletedIndexed: number[];
+    /** `edgeModified` by position: `[input, edge, count, kind, position, ...]`. */
+    edgeModifiedIndexed: number[];
+    /** `edgeGenerated` by position: `[input, edge, count, kind, position, ...]`. */
+    edgeGeneratedIndexed: number[];
+    /** `edgeDeleted` by position: `[input, edge]` pairs. */
+    edgeDeletedIndexed: number[];
+    /** `firstShape` by position: result face positions. */
+    firstShapeIndexed: number[];
+    /** `lastShape` by position: result face positions. */
+    lastShapeIndexed: number[];
+    /**
+     * `spineGenerated` by position: `[spineEdge, profileEdge, count, face, ...]`,
+     * the profile being input 0.
+     */
+    spineGeneratedIndexed: number[];
 }
 
 /** HLR (hidden line removal) projection result, split by visibility and edge category. */
