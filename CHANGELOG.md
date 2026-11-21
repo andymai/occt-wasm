@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.18.0](https://github.com/andymai/occt-wasm/compare/v5.17.2...v5.18.0) (2026-11-21)
+
+
+### Features
+
+* **facade:** report history by sub-shape position beside the hashes ([#492](https://github.com/andymai/occt-wasm/issues/492)) ([93eaa42](https://github.com/andymai/occt-wasm/commit/93eaa4203f0f177de6dc0ebc57810a7a5caafb11))
+* **facade:** unifySameDomainWithin, a same-domain merge within given tolerances ([#491](https://github.com/andymai/occt-wasm/issues/491)) ([1b40f77](https://github.com/andymai/occt-wasm/commit/1b40f7742395ddaefd92474779d6b7a4698413a4))
+
+
+### Bug Fixes
+
+* **facade:** pass heap addresses to JavaScript unsigned ([#490](https://github.com/andymai/occt-wasm/issues/490)) ([dbaa876](https://github.com/andymai/occt-wasm/commit/dbaa8767a1dfc7bb54151b15df1d4e249b1a1f84))
+
 ## [5.17.2](https://github.com/andymai/occt-wasm/compare/v5.17.1...v5.17.2) (2026-11-14)
 
 
