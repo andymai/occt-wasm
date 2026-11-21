@@ -491,6 +491,7 @@ export interface OcctRawKernel {
     unifySameDomain(id: number): number;
     isValid(id: number): boolean;
     healSolid(id: number, tolerance: number): number;
+    unifySameDomainWithin(id: number, linearTolerance: number, angularTolerance: number): number;
     healFace(id: number, tolerance: number): number;
     healWire(id: number, tolerance: number): number;
     fixFaceOrientations(id: number): number;

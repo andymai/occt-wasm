@@ -4956,6 +4956,32 @@ uint32_t OcctKernel::unifySameDomain(uint32_t id) {
     }
 }
 
+uint32_t OcctKernel::unifySameDomainWithin(uint32_t id, double linearTolerance, double angularTolerance) {
+    try {
+        if (!std::isfinite(linearTolerance) || !std::isfinite(angularTolerance) || linearTolerance < 0.0 ||
+            angularTolerance < 0.0) {
+            throw std::runtime_error("unifySameDomainWithin: tolerances must be finite and not negative");
+        }
+        UnifyOptions options;
+        options.linearTolerance = linearTolerance;
+        options.angularTolerance = angularTolerance;
+        const TopoDS_Shape& shape = get(id);
+        TopoDS_Shape result = unifyCopy(shape, options, nullptr);
+        // A face merged within the tolerances holds edges and vertices that lie on its
+        // surface only within them, and the result is not valid until they are
+        // repaired. The repair works on the merge's own copy; nothing merged leaves
+        // the input itself, which is not touched.
+        if (!result.IsSame(shape)) {
+            ShapeFix_Shape fixer(result);
+            fixer.Perform();
+            result = fixer.Shape();
+        }
+        return store(result);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("unifySameDomainWithin: ") + e.what());
+    }
+}
+
 bool OcctKernel::isValid(uint32_t id) {
     try {
         BRepCheck_Analyzer checker(get(id));

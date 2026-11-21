@@ -295,6 +295,7 @@ pub(crate) struct GeneratedFuncs {
     fn_draft_prism: TypedFunc<(u32, f64, f64, f64, f64), u32>,
     fn_fix_shape: TypedFunc<(u32,), u32>,
     fn_unify_same_domain: TypedFunc<(u32,), u32>,
+    fn_unify_same_domain_within: TypedFunc<(u32, f64, f64), u32>,
     fn_is_valid: TypedFunc<(u32,), i32>,
     fn_heal_solid: TypedFunc<(u32, f64), u32>,
     fn_heal_face: TypedFunc<(u32, f64), u32>,
@@ -572,6 +573,8 @@ impl GeneratedFuncs {
             fn_draft_prism: instance.get_typed_func(&mut store, "occt_draft_prism")?,
             fn_fix_shape: instance.get_typed_func(&mut store, "occt_fix_shape")?,
             fn_unify_same_domain: instance.get_typed_func(&mut store, "occt_unify_same_domain")?,
+            fn_unify_same_domain_within: instance
+                .get_typed_func(&mut store, "occt_unify_same_domain_within")?,
             fn_is_valid: instance.get_typed_func(&mut store, "occt_is_valid")?,
             fn_heal_solid: instance.get_typed_func(&mut store, "occt_heal_solid")?,
             fn_heal_face: instance.get_typed_func(&mut store, "occt_heal_face")?,
@@ -4165,6 +4168,23 @@ impl crate::kernel::OcctKernel {
         self.check_error("unify_same_domain")?;
         if result == 0 {
             return Err(self.read_last_error("unify_same_domain"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn unify_same_domain_within(
+        &mut self,
+        id: ShapeHandle,
+        linear_tolerance: f64,
+        angular_tolerance: f64,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_unify_same_domain_within
+            .call(&mut self.store, (id.0, linear_tolerance, angular_tolerance))?;
+        self.check_error("unify_same_domain_within")?;
+        if result == 0 {
+            return Err(self.read_last_error("unify_same_domain_within"));
         }
         Ok(ShapeHandle(result))
     }

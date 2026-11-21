@@ -322,6 +322,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         // healing
         .function("fixShape", &OcctKernel::fixShape)
         .function("unifySameDomain", &OcctKernel::unifySameDomain)
+        .function("unifySameDomainWithin", &OcctKernel::unifySameDomainWithin)
         .function("isValid", &OcctKernel::isValid)
         .function("healSolid", &OcctKernel::healSolid)
         .function("healFace", &OcctKernel::healFace)
