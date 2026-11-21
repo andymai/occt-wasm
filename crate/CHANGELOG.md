@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.3.0](https://github.com/andymai/occt-wasm/compare/crate-v7.2.2...crate-v7.3.0) (2026-11-21)
+
+
+### Features
+
+* **facade:** unifySameDomainWithin, a same-domain merge within given tolerances ([#491](https://github.com/andymai/occt-wasm/issues/491)) ([1b40f77](https://github.com/andymai/occt-wasm/commit/1b40f7742395ddaefd92474779d6b7a4698413a4))
+
+
+### Bug Fixes
+
+* **crate:** re-embed occt-wasm.wasm.br after [#491](https://github.com/andymai/occt-wasm/issues/491) and [#492](https://github.com/andymai/occt-wasm/issues/492) ([#495](https://github.com/andymai/occt-wasm/issues/495)) ([c79d757](https://github.com/andymai/occt-wasm/commit/c79d7574a3f0ecfa3f1971405262e0a266afe7a8))
+
 ## [7.2.2](https://github.com/andymai/occt-wasm/compare/crate-v7.2.1...crate-v7.2.2) (2026-11-14)
 
 
