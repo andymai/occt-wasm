@@ -102,11 +102,11 @@ struct MeshData {
     ~MeshData();
     MeshData(const MeshData& other);
     MeshData& operator=(const MeshData&) = delete;
-    int getPositionsPtr() const;
-    int getNormalsPtr() const;
-    int getUvsPtr() const;
-    int getIndicesPtr() const;
-    int getFaceGroupsPtr() const;
+    uint32_t getPositionsPtr() const;
+    uint32_t getNormalsPtr() const;
+    uint32_t getUvsPtr() const;
+    uint32_t getIndicesPtr() const;
+    uint32_t getFaceGroupsPtr() const;
 };
 
 /// Bounding box result.
@@ -125,8 +125,8 @@ struct EdgeData {
     ~EdgeData();
     EdgeData(const EdgeData& other);
     EdgeData& operator=(const EdgeData&) = delete;
-    int getPointsPtr() const;
-    int getEdgeGroupsPtr() const;
+    uint32_t getPointsPtr() const;
+    uint32_t getEdgeGroupsPtr() const;
 };
 
 /// Evolution data from an operation.
@@ -245,10 +245,10 @@ struct MeshBatchData {
     ~MeshBatchData();
     MeshBatchData(const MeshBatchData& other);
     MeshBatchData& operator=(const MeshBatchData&) = delete;
-    int getPositionsPtr() const;
-    int getNormalsPtr() const;
-    int getIndicesPtr() const;
-    int getShapeOffsetsPtr() const;
+    uint32_t getPositionsPtr() const;
+    uint32_t getNormalsPtr() const;
+    uint32_t getIndicesPtr() const;
+    uint32_t getShapeOffsetsPtr() const;
 };
 
 /// XCAF label info returned from queries.
@@ -685,11 +685,13 @@ class OcctKernel {
     // --- Bulk array marshalling (Embind heap transfer) ---
     // Lets the JS wrapper hand large arrays to the kernel in one HEAP copy
     // instead of N per-element push_back() boundary crossings.
-    int allocBytes(int byteCount);
-    void freeBytes(int ptr);
-    std::vector<double> vectorF64FromHeap(int ptr, int count);
-    std::vector<uint32_t> vectorU32FromHeap(int ptr, int count);
-    std::vector<int> vectorI32FromHeap(int ptr, int count);
+    // Addresses cross as uint32_t: the heap may grow past 2 GB, where an int
+    // address would reach JavaScript as a negative number.
+    uint32_t allocBytes(int byteCount);
+    void freeBytes(uint32_t ptr);
+    std::vector<double> vectorF64FromHeap(uint32_t ptr, int count);
+    std::vector<uint32_t> vectorU32FromHeap(uint32_t ptr, int count);
+    std::vector<int> vectorI32FromHeap(uint32_t ptr, int count);
 
   private:
     /// Collects shapes a multi-result method stores before it returns.

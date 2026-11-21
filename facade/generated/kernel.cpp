@@ -6770,32 +6770,32 @@ std::string OcctKernel::xcafExportGLB(uint32_t docId, double linDeflection, doub
 
 // === marshal ===
 
-int OcctKernel::allocBytes(int byteCount) {
+uint32_t OcctKernel::allocBytes(int byteCount) {
     void* p = std::malloc(static_cast<size_t>(byteCount));
     if (!p) {
         throw std::runtime_error("allocBytes: malloc failed (out of WASM linear memory)");
     }
-    return static_cast<int>(reinterpret_cast<uintptr_t>(p));
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(p));
 }
 
-void OcctKernel::freeBytes(int ptr) {
-    std::free(reinterpret_cast<void*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr))));
+void OcctKernel::freeBytes(uint32_t ptr) {
+    std::free(reinterpret_cast<void*>(static_cast<uintptr_t>(ptr)));
 }
 
-std::vector<double> OcctKernel::vectorF64FromHeap(int ptr, int count) {
+std::vector<double> OcctKernel::vectorF64FromHeap(uint32_t ptr, int count) {
     const double* p =
-        reinterpret_cast<const double*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+        reinterpret_cast<const double*>(static_cast<uintptr_t>(ptr));
     return std::vector<double>(p, p + count);
 }
 
-std::vector<uint32_t> OcctKernel::vectorU32FromHeap(int ptr, int count) {
+std::vector<uint32_t> OcctKernel::vectorU32FromHeap(uint32_t ptr, int count) {
     const uint32_t* p =
-        reinterpret_cast<const uint32_t*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+        reinterpret_cast<const uint32_t*>(static_cast<uintptr_t>(ptr));
     return std::vector<uint32_t>(p, p + count);
 }
 
-std::vector<int> OcctKernel::vectorI32FromHeap(int ptr, int count) {
+std::vector<int> OcctKernel::vectorI32FromHeap(uint32_t ptr, int count) {
     const int* p =
-        reinterpret_cast<const int*>(static_cast<uintptr_t>(static_cast<uint32_t>(ptr)));
+        reinterpret_cast<const int*>(static_cast<uintptr_t>(ptr));
     return std::vector<int>(p, p + count);
 }

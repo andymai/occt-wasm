@@ -1215,24 +1215,24 @@ MeshData::MeshData(const MeshData& other)
     mut.faceGroups = nullptr;
 }
 
-int MeshData::getPositionsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(positions));
+uint32_t MeshData::getPositionsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(positions));
 }
 
-int MeshData::getNormalsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(normals));
+uint32_t MeshData::getNormalsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(normals));
 }
 
-int MeshData::getUvsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(uvs));
+uint32_t MeshData::getUvsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(uvs));
 }
 
-int MeshData::getIndicesPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(indices));
+uint32_t MeshData::getIndicesPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(indices));
 }
 
-int MeshData::getFaceGroupsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(faceGroups));
+uint32_t MeshData::getFaceGroupsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(faceGroups));
 }
 
 // --- OcctKernel implementation ---
@@ -1495,20 +1495,20 @@ MeshBatchData::MeshBatchData(const MeshBatchData& other)
     mut.shapeOffsets = nullptr;
 }
 
-int MeshBatchData::getPositionsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(positions));
+uint32_t MeshBatchData::getPositionsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(positions));
 }
 
-int MeshBatchData::getNormalsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(normals));
+uint32_t MeshBatchData::getNormalsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(normals));
 }
 
-int MeshBatchData::getIndicesPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(indices));
+uint32_t MeshBatchData::getIndicesPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(indices));
 }
 
-int MeshBatchData::getShapeOffsetsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(shapeOffsets));
+uint32_t MeshBatchData::getShapeOffsetsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(shapeOffsets));
 }
 
 // --- EdgeData implementation ---
@@ -1526,10 +1526,10 @@ EdgeData::EdgeData(const EdgeData& other)
     mut.edgeGroups = nullptr;
 }
 
-int EdgeData::getPointsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(points));
+uint32_t EdgeData::getPointsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(points));
 }
 
-int EdgeData::getEdgeGroupsPtr() const {
-    return static_cast<int>(reinterpret_cast<uintptr_t>(edgeGroups));
+uint32_t EdgeData::getEdgeGroupsPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(edgeGroups));
 }
