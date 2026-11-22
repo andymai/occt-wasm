@@ -3,15 +3,21 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <BRepBuilderAPI_MakeShape.hxx>
+#include <BRepTools_Modifier.hxx>
 #include <DESTEP_Parameters.hxx>
+#include <NCollection_IndexedMap.hxx>
+#include <NCollection_List.hxx>
 #include <TCollection_AsciiString.hxx>
 #include <TDF_Label.hxx>
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
+#include <TopTools_ShapeMapHasher.hxx>
 #include <TopoDS_Shape.hxx>
 #include <UnitsMethods_LengthUnit.hxx>
 
@@ -53,6 +59,38 @@ struct UnifyOptions {
 // maps `shape`'s sub-shapes to the result's.
 TopoDS_Shape unifyCopy(const TopoDS_Shape& shape, const UnifyOptions& options,
                        Handle(BRepTools_History) * history);
+
+// `shape` with a line on each straight edge that carries a Bezier or BSpline of
+// degree 1 instead, as every straight edge a ruled loft makes does. OCCT picks
+// its exact line solutions by curve type, so such an edge sends each intersection
+// it is part of down the general numeric path. `shape` itself when it has none.
+TopoDS_Shape straightenEdges(const TopoDS_Shape& shape);
+
+// A built loft with its edges straightened, and the loft's history in terms of
+// that result.
+class StraightenedLoft final : public BRepBuilderAPI_MakeShape {
+  public:
+    explicit StraightenedLoft(BRepOffsetAPI_ThruSections& loft);
+
+    const NCollection_List<TopoDS_Shape>& Generated(const TopoDS_Shape& shape) override;
+    const NCollection_List<TopoDS_Shape>& Modified(const TopoDS_Shape& shape) override;
+    bool IsDeleted(const TopoDS_Shape& shape) override;
+    const TopoDS_Shape& FirstShape() const {
+        return first_;
+    }
+    const TopoDS_Shape& LastShape() const {
+        return last_;
+    }
+
+  private:
+    TopoDS_Shape image(const TopoDS_Shape& shape) const;
+    const NCollection_List<TopoDS_Shape>& images(const NCollection_List<TopoDS_Shape>& shapes);
+
+    BRepOffsetAPI_ThruSections& loft_;
+    std::unique_ptr<BRepTools_Modifier> modifier_;
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> lofted_;
+    TopoDS_Shape first_, last_;
+};
 
 // Surface-tight bounds. BRepBndLib::AddOptimal can stop short of a BSpline
 // surface's extreme (its sampling skips the cell that holds it), so each

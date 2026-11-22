@@ -20,21 +20,34 @@
 #include <BRepTools.hxx>
 #include <BRepTools_CopyModification.hxx>
 #include <BRepTools_History.hxx>
+#include <BRepTools_Modification.hxx>
+#include <BRepTools_Modifier.hxx>
 #include <BRepTools_WireExplorer.hxx>
 #include <BRepTopAdaptor_FClass2d.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
+#include <Convert_ParameterisationType.hxx>
 #include <DESTEP_Parameters.hxx>
 #include <ElCLib.hxx>
 #include <GProp_GProps.hxx>
+#include <Geom2dConvert.hxx>
+#include <Geom2d_BSplineCurve.hxx>
+#include <Geom2d_BezierCurve.hxx>
+#include <Geom2d_Curve.hxx>
+#include <Geom2d_Line.hxx>
+#include <Geom2d_TrimmedCurve.hxx>
 #include <GeomAbs_CurveType.hxx>
 #include <GeomAbs_SurfaceType.hxx>
 #include <GeomConvert_BSplineSurfaceToBezierSurface.hxx>
+#include <Geom_BSplineCurve.hxx>
 #include <Geom_BSplineSurface.hxx>
+#include <Geom_BezierCurve.hxx>
 #include <Geom_BezierSurface.hxx>
 #include <Geom_Curve.hxx>
+#include <Geom_Line.hxx>
 #include <Geom_Surface.hxx>
+#include <Geom_TrimmedCurve.hxx>
 #include <IFSelect_ReturnStatus.hxx>
 #include <Message_ProgressRange.hxx>
 #include <NCollection_Array1.hxx>
@@ -54,6 +67,7 @@
 #include <Standard_Failure.hxx>
 #include <Standard_ReadLineBuffer.hxx>
 #include <TopAbs_Orientation.hxx>
+#include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
 #include <TopTools_ShapeMapHasher.hxx>
@@ -517,6 +531,220 @@ class SharedCopy final : public BRepBuilderAPI_ModifyShape {
 };
 
 } // namespace
+
+namespace {
+
+// Replaces an edge's curve by a line when the curve is one in all but type: a
+// Bezier or BSpline of degree 1 with two poles, as a ruled loft gives each
+// straight edge it makes. OCCT picks its exact line solutions by curve type, so
+// such an edge sends every intersection down the general numeric path.
+class StraightEdgeModification final : public BRepTools_Modification {
+  public:
+    bool NewSurface(const TopoDS_Face&, Handle(Geom_Surface) &, TopLoc_Location&, double&, bool&,
+                    bool&) override {
+        return false;
+    }
+
+    bool NewCurve(const TopoDS_Edge& edge, Handle(Geom_Curve) & curve, TopLoc_Location& location,
+                  double& tolerance) override {
+        Span span;
+        if (!spanOf(edge, span))
+            return false;
+        double first = 0, last = 0;
+        BRep_Tool::Curve(edge, location, first, last);
+        curve = new Geom_Line(span.origin, span.direction);
+        tolerance = BRep_Tool::Tolerance(edge);
+        return true;
+    }
+
+    bool NewPoint(const TopoDS_Vertex&, gp_Pnt&, double&) override {
+        return false;
+    }
+
+    bool NewCurve2d(const TopoDS_Edge& edge, const TopoDS_Face& face, const TopoDS_Edge&,
+                    const TopoDS_Face&, Handle(Geom2d_Curve) & curve, double& tolerance) override {
+        Span span;
+        if (!spanOf(edge, span))
+            return false;
+        double first = 0, last = 0;
+        Handle(Geom2d_Curve) old = BRep_Tool::CurveOnSurface(edge, face, first, last);
+        if (old.IsNull())
+            return false;
+        tolerance = BRep_Tool::Tolerance(edge);
+        const double newFirst = span.map(first);
+        const double newLast = span.map(last);
+        const gp_Pnt2d start = old->Value(first);
+        const gp_Pnt2d end = old->Value(last);
+        const double reach = start.Distance(end);
+        if (isLinear(old) && reach > gp::Resolution()) {
+            const gp_Dir2d direction(gp_Vec2d(start, end));
+            if (std::abs(reach - (newLast - newFirst)) <= Precision::PConfusion()) {
+                const gp_Pnt2d origin = start.Translated(gp_Vec2d(direction) * -newFirst);
+                curve = new Geom2d_Line(origin, direction);
+                return true;
+            }
+            NCollection_Array1<gp_Pnt2d> poles(1, 2);
+            poles(1) = start;
+            poles(2) = end;
+            NCollection_Array1<double> knots(1, 2);
+            knots(1) = newFirst;
+            knots(2) = newLast;
+            NCollection_Array1<int> multiplicities(1, 2);
+            multiplicities.Init(2);
+            curve = new Geom2d_BSplineCurve(poles, knots, multiplicities, 1);
+            return true;
+        }
+        Handle(Geom2d_BSplineCurve) spline = Geom2dConvert::CurveToBSplineCurve(
+            new Geom2d_TrimmedCurve(old, first, last), Convert_QuasiAngular);
+        NCollection_Array1<double> knots(spline->Knots());
+        for (int i = knots.Lower(); i <= knots.Upper(); ++i)
+            knots(i) = span.map(knots(i));
+        spline->SetKnots(knots);
+        curve = spline;
+        return true;
+    }
+
+    bool NewParameter(const TopoDS_Vertex& vertex, const TopoDS_Edge& edge, double& parameter,
+                      double& tolerance) override {
+        Span span;
+        if (!spanOf(edge, span))
+            return false;
+        parameter = span.map(BRep_Tool::Parameter(vertex, edge));
+        tolerance = BRep_Tool::Tolerance(vertex);
+        return true;
+    }
+
+    GeomAbs_Shape Continuity(const TopoDS_Edge& edge, const TopoDS_Face& face1,
+                             const TopoDS_Face& face2, const TopoDS_Edge&, const TopoDS_Face&,
+                             const TopoDS_Face&) override {
+        return BRep_Tool::Continuity(edge, face1, face2);
+    }
+
+    static bool applies(const TopoDS_Edge& edge) {
+        Span span;
+        return spanOf(edge, span);
+    }
+
+  private:
+    // The line of an edge's curve, in the curve's own frame, and the map from the
+    // curve's parameter to the line's, which is a length.
+    struct Span {
+        gp_Pnt origin;
+        gp_Dir direction;
+        double start = 0;
+        double scale = 1;
+        double map(double parameter) const {
+            return (parameter - start) * scale;
+        }
+    };
+
+    static bool spanOf(const TopoDS_Edge& edge, Span& span) {
+        if (BRep_Tool::Degenerated(edge))
+            return false;
+        TopLoc_Location location;
+        double first = 0, last = 0;
+        Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, location, first, last);
+        while (!curve.IsNull() && curve->IsKind(STANDARD_TYPE(Geom_TrimmedCurve)))
+            curve = occ::down_cast<Geom_TrimmedCurve>(curve)->BasisCurve();
+        if (curve.IsNull())
+            return false;
+        gp_Pnt from, to;
+        if (Handle(Geom_BezierCurve) bezier = occ::down_cast<Geom_BezierCurve>(curve)) {
+            if (bezier->NbPoles() != 2 || bezier->IsRational())
+                return false;
+            from = bezier->Pole(1);
+            to = bezier->Pole(2);
+        } else if (Handle(Geom_BSplineCurve) spline = occ::down_cast<Geom_BSplineCurve>(curve)) {
+            if (spline->NbPoles() != 2 || spline->Degree() != 1 || spline->IsRational())
+                return false;
+            from = spline->Pole(1);
+            to = spline->Pole(2);
+        } else {
+            return false;
+        }
+        const double length = from.Distance(to);
+        const double width = curve->LastParameter() - curve->FirstParameter();
+        if (length <= Precision::Confusion() || width <= Precision::PConfusion())
+            return false;
+        span.origin = from;
+        span.direction = gp_Dir(gp_Vec(from, to));
+        span.start = curve->FirstParameter();
+        span.scale = length / width;
+        return true;
+    }
+
+    static bool isLinear(Handle(Geom2d_Curve) curve) {
+        while (curve->IsKind(STANDARD_TYPE(Geom2d_TrimmedCurve)))
+            curve = occ::down_cast<Geom2d_TrimmedCurve>(curve)->BasisCurve();
+        if (curve->IsKind(STANDARD_TYPE(Geom2d_Line)))
+            return true;
+        if (Handle(Geom2d_BezierCurve) bezier = occ::down_cast<Geom2d_BezierCurve>(curve))
+            return bezier->NbPoles() == 2 && !bezier->IsRational();
+        if (Handle(Geom2d_BSplineCurve) spline = occ::down_cast<Geom2d_BSplineCurve>(curve))
+            return spline->NbPoles() == 2 && spline->Degree() == 1 && !spline->IsRational();
+        return false;
+    }
+};
+
+} // namespace
+
+static bool hasStraightSplineEdge(const TopoDS_Shape& shape) {
+    for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
+        if (StraightEdgeModification::applies(TopoDS::Edge(ex.Current())))
+            return true;
+    }
+    return false;
+}
+
+TopoDS_Shape straightenEdges(const TopoDS_Shape& shape) {
+    if (!hasStraightSplineEdge(shape))
+        return shape;
+    BRepTools_Modifier modifier(shape, new StraightEdgeModification());
+    return modifier.IsDone() ? modifier.ModifiedShape(shape) : shape;
+}
+
+StraightenedLoft::StraightenedLoft(BRepOffsetAPI_ThruSections& loft) : loft_(loft) {
+    const TopoDS_Shape& lofted = loft.Shape();
+    myShape = lofted;
+    if (hasStraightSplineEdge(lofted)) {
+        modifier_ = std::make_unique<BRepTools_Modifier>(lofted, new StraightEdgeModification());
+        if (modifier_->IsDone()) {
+            TopExp::MapShapes(lofted, lofted_);
+            myShape = modifier_->ModifiedShape(lofted);
+        } else {
+            modifier_.reset();
+        }
+    }
+    first_ = image(loft.FirstShape());
+    last_ = image(loft.LastShape());
+    Done();
+}
+
+TopoDS_Shape StraightenedLoft::image(const TopoDS_Shape& shape) const {
+    if (!modifier_ || shape.IsNull() || !lofted_.Contains(shape))
+        return shape;
+    return modifier_->ModifiedShape(shape);
+}
+
+const NCollection_List<TopoDS_Shape>&
+StraightenedLoft::images(const NCollection_List<TopoDS_Shape>& shapes) {
+    myGenerated.Clear();
+    for (const TopoDS_Shape& shape : shapes)
+        myGenerated.Append(image(shape));
+    return myGenerated;
+}
+
+const NCollection_List<TopoDS_Shape>& StraightenedLoft::Generated(const TopoDS_Shape& shape) {
+    return images(loft_.Generated(shape));
+}
+
+const NCollection_List<TopoDS_Shape>& StraightenedLoft::Modified(const TopoDS_Shape& shape) {
+    return images(loft_.Modified(shape));
+}
+
+bool StraightenedLoft::IsDeleted(const TopoDS_Shape& shape) {
+    return loft_.IsDeleted(shape);
+}
 
 TopoDS_Shape unifyCopy(const TopoDS_Shape& shape, const UnifyOptions& options,
                        Handle(BRepTools_History) * history) {
