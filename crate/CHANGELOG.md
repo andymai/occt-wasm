@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.3.1](https://github.com/andymai/occt-wasm/compare/crate-v7.3.0...crate-v7.3.1) (2026-11-22)
+
+
+### Performance
+
+* **facade:** give a ruled loft's straight edges a line ([#496](https://github.com/andymai/occt-wasm/issues/496)) ([815ea58](https://github.com/andymai/occt-wasm/commit/815ea58bc2361dc2efb0f217cb86e980b1cb692c))
+* **occt:** solve a line against a plane and coaxial quadrics exactly ([#499](https://github.com/andymai/occt-wasm/issues/499)) ([33c249b](https://github.com/andymai/occt-wasm/commit/33c249bcfe42eca94a916f97b15207fe8865a0e3))
+
 ## [7.3.0](https://github.com/andymai/occt-wasm/compare/crate-v7.2.2...crate-v7.3.0) (2026-11-21)
 
 
