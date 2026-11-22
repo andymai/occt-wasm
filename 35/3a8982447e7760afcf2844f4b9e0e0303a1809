@@ -1,0 +1,35 @@
+xtask/src/codegen/config.rs
+  s_f5ebe617f2ec28::t_3266d58f25a64b 4418,4450
+  s_f5ebe617f2ec28::t_ec639a5a380433 5543-5544,5552,5554
+test/loft-straight-edges.test.ts
+  s_f5ebe617f2ec28::t_16375e9738a4ec 1-134
+facade/include/occt_kernel.h
+  s_f5ebe617f2ec28::t_b9b4341ecf63f4 6,11-12,14-15,20
+  s_f5ebe617f2ec28::t_3266d58f25a64b 67,94
+  s_f5ebe617f2ec28::t_1fcba7af1a0eac 78-83
+  s_f5ebe617f2ec28::t_ec639a5a380433 63-66,68-77,84-93
+facade/src/kernel.cpp
+  s_f5ebe617f2ec28::t_b9b4341ecf63f4 70
+  s_f5ebe617f2ec28::t_ec639a5a380433 691-698,700,703-724,726-728,731-742,744
+  s_f5ebe617f2ec28::t_1fcba7af1a0eac 30,34-39,43,45,48,50,560-562,636-638,729-730,745-747
+  s_f5ebe617f2ec28::t_3266d58f25a64b 23-24,535-559,563-635,639-690,699,701-702,725,743
+  s_f5ebe617f2ec28::t_d5827ab4d637ea 748
+facade/generated/kernel.cpp
+  s_f5ebe617f2ec28::t_4c2e4a81022870 4788,4810,5513-5514,5522,5524
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "353a8982447e7760afcf2844f4b9e0e0303a1809",
+  "prompts": {},
+  "sessions": {
+    "s_f5ebe617f2ec28": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8396284b-762e-44ab-b73b-9e1a9761418f",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
