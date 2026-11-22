@@ -4415,7 +4415,7 @@ maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"loft: operation failed\");
 }
-return store(maker.Shape());",
+return store(straightenEdges(maker.Shape()));",
         includes: &["BRepOffsetAPI_ThruSections.hxx", "TopoDS.hxx"],
         category: "sweep",
         return_type: ReturnType::ShapeId,
@@ -4447,7 +4447,7 @@ maker.Build();
 if (!maker.IsDone()) {
     throw std::runtime_error(\"loftWithVertices: operation failed\");
 }
-return store(maker.Shape());",
+return store(straightenEdges(maker.Shape()));",
         includes: &["BRepOffsetAPI_ThruSections.hxx", "TopoDS.hxx"],
         category: "sweep",
         return_type: ReturnType::ShapeId,
@@ -5540,7 +5540,8 @@ if (!maker.IsDone()) {
     throw std::runtime_error(\"loftWithHistory: operation failed\");
 }
 BatchScope batch(*this, 1);
-const TopoDS_Shape result = maker.Shape();
+StraightenedLoft straight(maker);
+const TopoDS_Shape result = straight.Shape();
 EvolutionData evo;
 evo.resultId = batch.add(result);
 std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
@@ -5548,9 +5549,9 @@ SubShapePositions positions(result);
 // A closed loft's first wire is reported once.
 std::unordered_set<uint32_t> seen;
 for (uint32_t wid : wireIds) {
-    if (seen.insert(wid).second) appendEvolution(evo, maker, get(wid), positions, tracked, hashUpperBound);
+    if (seen.insert(wid).second) appendEvolution(evo, straight, get(wid), positions, tracked, hashUpperBound);
 }
-appendSweepCaps(evo, maker, result, hashUpperBound);
+appendSweepCaps(evo, straight, result, hashUpperBound);
 batch.take();
 return evo;",
         includes: &["BRepOffsetAPI_ThruSections.hxx", "TopoDS.hxx", "TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],

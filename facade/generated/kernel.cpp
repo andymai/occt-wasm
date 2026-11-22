@@ -4785,7 +4785,7 @@ uint32_t OcctKernel::loft(std::vector<uint32_t> wireIds, bool isSolid, bool rule
         if (!maker.IsDone()) {
             throw std::runtime_error("loft: operation failed");
         }
-        return store(maker.Shape());
+        return store(straightenEdges(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("loft: ") + e.what());
     }
@@ -4807,7 +4807,7 @@ uint32_t OcctKernel::loftWithVertices(std::vector<uint32_t> wireIds, bool isSoli
         if (!maker.IsDone()) {
             throw std::runtime_error("loftWithVertices: operation failed");
         }
-        return store(maker.Shape());
+        return store(straightenEdges(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("loftWithVertices: ") + e.what());
     }
@@ -5510,7 +5510,8 @@ EvolutionData OcctKernel::loftWithHistory(std::vector<uint32_t> wireIds, bool is
             throw std::runtime_error("loftWithHistory: operation failed");
         }
         BatchScope batch(*this, 1);
-        const TopoDS_Shape result = maker.Shape();
+        StraightenedLoft straight(maker);
+        const TopoDS_Shape result = straight.Shape();
         EvolutionData evo;
         evo.resultId = batch.add(result);
         std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
@@ -5518,9 +5519,9 @@ EvolutionData OcctKernel::loftWithHistory(std::vector<uint32_t> wireIds, bool is
         // A closed loft's first wire is reported once.
         std::unordered_set<uint32_t> seen;
         for (uint32_t wid : wireIds) {
-            if (seen.insert(wid).second) appendEvolution(evo, maker, get(wid), positions, tracked, hashUpperBound);
+            if (seen.insert(wid).second) appendEvolution(evo, straight, get(wid), positions, tracked, hashUpperBound);
         }
-        appendSweepCaps(evo, maker, result, hashUpperBound);
+        appendSweepCaps(evo, straight, result, hashUpperBound);
         batch.take();
         return evo;
     } catch (const Standard_Failure& e) {
