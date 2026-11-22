@@ -1,0 +1,30 @@
+facade/src/kernel.cpp
+  s_f5ebe617f2ec28::t_0a8daa17c6b47c 23-35,534-696
+  s_f5ebe617f2ec28::t_92d9631945e32f 697
+facade/include/occt_kernel.h
+  s_f5ebe617f2ec28::t_0a8daa17c6b47c 57-60
+perf-patches/0001-extrema-line-plane-crossing.patch
+  s_f5ebe617f2ec28::t_d0c003e871d66f 1-42
+xtask/src/codegen/config.rs
+  s_f5ebe617f2ec28::t_a731d9f1d30cd4 4418,4450
+perf-patches/0002-quadquadgeo-same-axis-rounding.patch
+  s_f5ebe617f2ec28::t_d0c003e871d66f 1-25
+facade/generated/kernel.cpp
+  s_f5ebe617f2ec28::t_b77a630b5343b3 4788,4810
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7294879f35d7eb6557e3275f9e2a59f9826549cd",
+  "prompts": {},
+  "sessions": {
+    "s_f5ebe617f2ec28": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8396284b-762e-44ab-b73b-9e1a9761418f",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
