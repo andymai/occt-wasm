@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.18.2](https://github.com/andymai/occt-wasm/compare/v5.18.1...v5.18.2) (2026-11-23)
+
+
+### Performance
+
+* **occt:** find the stick vertices of two faces from an index ([#501](https://github.com/andymai/occt-wasm/issues/501)) ([fcb03e7](https://github.com/andymai/occt-wasm/commit/fcb03e73557f8cee2944e6f2253024c911e998e0))
+
 ## [5.18.1](https://github.com/andymai/occt-wasm/compare/v5.18.0...v5.18.1) (2026-11-22)
 
 
