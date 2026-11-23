@@ -1,0 +1,21 @@
+CHANGELOG.md
+  s_50176789fd4794::t_523c3cbce43e7a 3-9
+ts/package.json
+  s_50176789fd4794::t_f53ec103dd67e6 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b6b1978b9d85d0a57f15a0f486267b9bd31e8b3",
+  "prompts": {},
+  "sessions": {
+    "s_50176789fd4794": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5f010690-c6bb-4905-bb27-930216b5f3d6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
