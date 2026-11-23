@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.18.3](https://github.com/andymai/occt-wasm/compare/v5.18.2...v5.18.3) (2026-11-23)
+
+
+### Bug Fixes
+
+* **occt:** end a fillet on a line edge where the edge ends ([#506](https://github.com/andymai/occt-wasm/issues/506)) ([85ab222](https://github.com/andymai/occt-wasm/commit/85ab222cf22821e3fae1921a90a3a312923138e8))
+
 ## [5.18.2](https://github.com/andymai/occt-wasm/compare/v5.18.1...v5.18.2) (2026-11-23)
 
 
