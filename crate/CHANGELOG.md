@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.2](https://github.com/andymai/occt-wasm/compare/crate-v7.3.1...crate-v7.3.2) (2026-11-23)
+
+
+### Performance
+
+* **occt:** find the stick vertices of two faces from an index ([#501](https://github.com/andymai/occt-wasm/issues/501)) ([fcb03e7](https://github.com/andymai/occt-wasm/commit/fcb03e73557f8cee2944e6f2253024c911e998e0))
+
 ## [7.3.1](https://github.com/andymai/occt-wasm/compare/crate-v7.3.0...crate-v7.3.1) (2026-11-22)
 
 
