@@ -1,0 +1,21 @@
+test/fillet-line-edge-ends.test.ts
+  s_c841a60f78b473::t_b77489143a161d 1-101
+occt
+  s_c841a60f78b473::t_adee5db3b4f3ec 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "50477d541419addcc2dbfce2138b710bea84e11a",
+  "prompts": {},
+  "sessions": {
+    "s_c841a60f78b473": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fc7126d7-c8e2-4b2b-b82e-359d69a58281",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
