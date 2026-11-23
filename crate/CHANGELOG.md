@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.3](https://github.com/andymai/occt-wasm/compare/crate-v7.3.2...crate-v7.3.3) (2026-11-23)
+
+
+### Bug Fixes
+
+* **occt:** end a fillet on a line edge where the edge ends ([#506](https://github.com/andymai/occt-wasm/issues/506)) ([85ab222](https://github.com/andymai/occt-wasm/commit/85ab222cf22821e3fae1921a90a3a312923138e8))
+
 ## [7.3.2](https://github.com/andymai/occt-wasm/compare/crate-v7.3.1...crate-v7.3.2) (2026-11-23)
 
 
