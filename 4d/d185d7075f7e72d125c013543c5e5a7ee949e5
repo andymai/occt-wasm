@@ -1,0 +1,23 @@
+test/fixtures/fillet-oob.brep
+  s_45c87034741aa0::t_d765f4987c930f 1-416
+test/fillet-short-edge-refusal.test.ts
+  s_45c87034741aa0::t_15609b72b9cb2a 1-67
+occt
+  s_45c87034741aa0::t_2eefd9e04246c2 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4dd185d7075f7e72d125c013543c5e5a7ee949e5",
+  "prompts": {},
+  "sessions": {
+    "s_45c87034741aa0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7bcdcf35-a5eb-4a4d-8975-876872da7fe5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
