@@ -1,0 +1,19 @@
+occt
+  s_45c87034741aa0::t_e174d2a2b34410 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7ff6eb232271c79edb67aa88828b56c1bababa05",
+  "prompts": {},
+  "sessions": {
+    "s_45c87034741aa0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7bcdcf35-a5eb-4a4d-8975-876872da7fe5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
