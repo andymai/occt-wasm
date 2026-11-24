@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.4](https://github.com/andymai/occt-wasm/compare/crate-v7.3.3...crate-v7.3.4) (2026-11-24)
+
+
+### Bug Fixes
+
+* **occt:** refuse, not trap, when a fillet outgrows the short edges at its ends ([#509](https://github.com/andymai/occt-wasm/issues/509)) ([364f99d](https://github.com/andymai/occt-wasm/commit/364f99dd01a74e73f5ece612bfe046fc49cd6848))
+
 ## [7.3.3](https://github.com/andymai/occt-wasm/compare/crate-v7.3.2...crate-v7.3.3) (2026-11-23)
 
 
