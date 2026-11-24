@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.18.4](https://github.com/andymai/occt-wasm/compare/v5.18.3...v5.18.4) (2026-11-24)
+
+
+### Bug Fixes
+
+* **occt:** refuse, not trap, when a fillet outgrows the short edges at its ends ([#509](https://github.com/andymai/occt-wasm/issues/509)) ([364f99d](https://github.com/andymai/occt-wasm/commit/364f99dd01a74e73f5ece612bfe046fc49cd6848))
+
 ## [5.18.3](https://github.com/andymai/occt-wasm/compare/v5.18.2...v5.18.3) (2026-11-23)
 
 
