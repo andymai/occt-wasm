@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.3.5](https://github.com/andymai/occt-wasm/compare/crate-v7.3.4...crate-v7.3.5) (2026-11-24)
+
+
+### Bug Fixes
+
+* **occt:** bump submodule to V8.0.2 ([#512](https://github.com/andymai/occt-wasm/issues/512)) ([b17eecb](https://github.com/andymai/occt-wasm/commit/b17eecbb0d760497287fdb251935dfaacb9d0d33))
+
 ## [7.3.4](https://github.com/andymai/occt-wasm/compare/crate-v7.3.3...crate-v7.3.4) (2026-11-24)
 
 
