@@ -60,7 +60,7 @@ describe("a fillet that outgrows the short edges at its ends", () => {
     it("keeps the kernel usable after each refusal", () => {
         const { solid, edge } = body();
         for (const radius of [0.08, 0.1, 0.12, 0.15]) {
-            failure(() => kernel.fillet(solid, [edge], radius));
+            expect(failure(() => kernel.fillet(solid, [edge], radius)).code).toBe(OcctErrorCode.ConstructionFailed);
         }
         expect(kernel.isValid(kernel.fillet(solid, [edge], 0.05))).toBe(true);
     });
