@@ -1,0 +1,31 @@
+test/fixtures/fclass2d-no-polygon.brep
+  s_5cf0f9c671647a::t_156073c6d344de 1-115
+test/face-classifier-no-polygon.test.ts
+  s_5cf0f9c671647a::t_766b6ad20b2450 1-45
+occt
+  s_45c87034741aa0::t_ceeb3ab0a7eb4c 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0e7a84088fd2e06b8339c7869513366207528c12",
+  "prompts": {},
+  "sessions": {
+    "s_45c87034741aa0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7bcdcf35-a5eb-4a4d-8975-876872da7fe5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    },
+    "s_5cf0f9c671647a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "32bbf0b7-66f2-4c81-ba22-a20c1e0bc72b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Andy Aragon <hi@andymai.com>"
+    }
+  }
+}
