@@ -268,6 +268,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("shapeOrientation", &OcctKernel::shapeOrientation)
         .function("iterShapes", &OcctKernel::iterShapes)
         .function("edgeToFaceMap", &OcctKernel::edgeToFaceMap)
+        .function("subShapesIndexed", &OcctKernel::subShapesIndexed)
         .function("downcast", &OcctKernel::downcast)
         .function("adjacentFaces", &OcctKernel::adjacentFaces)
         .function("sharedEdges", &OcctKernel::sharedEdges)
@@ -414,6 +415,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("releaseSince", &OcctKernel::releaseSince)
         .function("getShapeCount", &OcctKernel::getShapeCount)
         .function("makeNullShape", &OcctKernel::makeNullShape)
+
+        // testing
+        .function("topologyIndexCount", &OcctKernel::topologyIndexCount)
 
         // xcaf
         .function("xcafNewDocument", &OcctKernel::xcafNewDocument)

@@ -1575,6 +1575,26 @@ export class OcctKernel {
         });
     }
 
+    /**
+     * Where each of `part`'s sub-shapes of one type sits in `shape`, by position:
+     * entry `i` is the index in `getSubShapes(shape, type)` of
+     * `getSubShapes(part, type)[i]` (the one that {@link isSame} finds), or -1
+     * where `shape` does not hold it. Unlike a hash, no two sub-shapes of a shape
+     * share a position.
+     *
+     * One call maps a whole part, such as one solid of a boolean's result, into
+     * the result, with no handle per sub-shape. A type includes `part` itself, so
+     * `subShapesIndexed(shape, solid, "solid")[0]` is where one solid sits. Pass an
+     * operation's input as `part` to find where the sub-shapes it left untouched
+     * sit in its result. `shape` keeps an index of its sub-shapes, freed with it,
+     * so asking again of the same shape does not list it again.
+     */
+    subShapesIndexed(shape: ShapeHandle, part: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): number[] {
+        return wrap("subShapesIndexed", () =>
+            this.#drainVector(this.#raw.subShapesIndexed(shape, part, type), Int32Array),
+        );
+    }
+
     // =======================================================================
     // Tessellation
     // =======================================================================
