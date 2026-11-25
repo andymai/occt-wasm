@@ -1638,7 +1638,13 @@ export class OcctKernel {
                         raw.getEdgeGroupsPtr() + raw.edgeGroupCount * 4,
                     ),
                 );
-                return { points, edgeGroups, pointCount: raw.pointCount, edgeCount };
+                const edgeGroupsIndexed = new Int32Array(
+                    this.#module.HEAP32.buffer.slice(
+                        raw.getEdgeGroupsIndexedPtr(),
+                        raw.getEdgeGroupsIndexedPtr() + raw.edgeGroupsIndexedCount * 4,
+                    ),
+                );
+                return { points, edgeGroups, edgeGroupsIndexed, pointCount: raw.pointCount, edgeCount };
             } finally {
                 raw.delete();
             }
@@ -3215,6 +3221,12 @@ export class OcctKernel {
                     this.#module.HEAP32.buffer.slice(
                         raw.getFaceGroupsPtr(),
                         raw.getFaceGroupsPtr() + raw.faceGroupCount * 4,
+                    ),
+                );
+                mesh.faceGroupsIndexed = new Int32Array(
+                    this.#module.HEAP32.buffer.slice(
+                        raw.getFaceGroupsIndexedPtr(),
+                        raw.getFaceGroupsIndexedPtr() + raw.faceGroupsIndexedCount * 4,
                     ),
                 );
                 mesh.faceCount = raw.faceGroupCount / 3;

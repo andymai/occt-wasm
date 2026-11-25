@@ -64,6 +64,10 @@ pub struct Mesh {
     pub indices: Vec<u32>,
     /// Per-face groups: `[tri_start, tri_count, face_hash]` repeated.
     pub face_groups: Vec<i32>,
+    /// Each face group's face by position, one per group: its index in
+    /// `get_sub_shapes(shape, "face")`. Unlike the group's hash, no two faces
+    /// share one.
+    pub face_groups_indexed: Vec<i32>,
 }
 
 /// Batched mesh data for multiple shapes.
@@ -86,6 +90,11 @@ pub struct EdgeData {
     pub points: Vec<f32>,
     /// Per-edge groups: `[point_start, point_count, edge_hash]` repeated.
     pub edge_groups: Vec<i32>,
+    /// Each edge group's edge by position, one per group: its index in
+    /// `get_sub_shapes(shape, "edge")`. Unlike the group's hash, no two edges
+    /// share one. A degenerate edge has no group, so a group's index is not
+    /// always its edge's position.
+    pub edge_groups_indexed: Vec<i32>,
 }
 
 /// NURBS/BSpline curve data.

@@ -48,10 +48,12 @@ export interface RawMeshData {
     normalCount: number;
     indexCount: number;
     faceGroupCount: number;
+    faceGroupsIndexedCount: number;
     getPositionsPtr(): number;
     getNormalsPtr(): number;
     getIndicesPtr(): number;
     getFaceGroupsPtr(): number;
+    getFaceGroupsIndexedPtr(): number;
     delete(): void;
 }
 
@@ -70,8 +72,10 @@ export interface RawMeshBatchData {
 export interface RawEdgeData {
     pointCount: number;
     edgeGroupCount: number;
+    edgeGroupsIndexedCount: number;
     getPointsPtr(): number;
     getEdgeGroupsPtr(): number;
+    getEdgeGroupsIndexedPtr(): number;
     delete(): void;
 }
 

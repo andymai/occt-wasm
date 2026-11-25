@@ -6260,7 +6260,7 @@ return buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, 
         ],
         occt_class: "",
         ctor_args: "",
-        setup_code: "return buildMeshData(get(id), linearDeflection, angularDeflection, false);",
+        setup_code: "return buildMeshData(id, linearDeflection, angularDeflection, false);",
         includes: &[],
         category: "tessellate",
         return_type: ReturnType::MeshData,
@@ -6277,7 +6277,7 @@ return buildEvolution(maker, resultId, get(resultId), {shape}, inputFaceHashes, 
         ctor_args: "",
         // Scale-independent meshing: linearDeflection is interpreted relative to
         // each edge's length (OCCT isRelative).
-        setup_code: "return buildMeshData(get(id), linearDeflection, angularDeflection, true);",
+        setup_code: "return buildMeshData(id, linearDeflection, angularDeflection, true);",
         includes: &[],
         category: "tessellate",
         return_type: ReturnType::MeshData,
@@ -6484,6 +6484,7 @@ const bool fromTriangulation = source == 1;
 struct EdgeSample {
     std::vector<gp_Pnt> pts;
     int hash;
+    int position;
 };
 std::vector<EdgeSample> edgeSamples;
 int totalPoints = 0;
@@ -6499,9 +6500,10 @@ auto appendNodes = [](std::vector<gp_Pnt>& pts, const TopLoc_Location& loc, int 
     }
 };
 
-// Use IndexedMap to avoid duplicate edges (shared between faces)
-NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
-TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+// The shape's edges, each once (not once per face that uses it) and in position
+// order, so an edge this skips leaves the others' positions as they are.
+TopologyIndex scratch(shape);
+const TopologyIndex::Map& edgeMap = topologyFor(id, scratch).of(TopAbs_EDGE);
 for (int ei = 1; ei <= edgeMap.Extent(); ei++) {
     const TopoDS_Edge& edge = TopoDS::Edge(edgeMap.FindKey(ei));
     if (BRep_Tool::Degenerated(edge)) {
@@ -6546,6 +6548,7 @@ for (int ei = 1; ei <= edgeMap.Extent(); ei++) {
         continue;
     }
     es.hash = static_cast<int>(TopTools_ShapeMapHasher{}(edge) % 2147483647);
+    es.position = ei - 1;
     totalPoints += static_cast<int>(es.pts.size());
     edgeSamples.push_back(std::move(es));
 }
@@ -6557,6 +6560,9 @@ int numEdges = static_cast<int>(edgeSamples.size());
 result.edgeGroupCount = numEdges * 3;
 result.edgeGroups =
     static_cast<int32_t*>(std::malloc(result.edgeGroupCount * sizeof(int32_t)));
+result.edgeGroupsIndexedCount = numEdges;
+result.edgeGroupsIndexed =
+    static_cast<int32_t*>(std::malloc(result.edgeGroupsIndexedCount * sizeof(int32_t)));
 if (!result.points && result.pointCount > 0) {
     throw std::runtime_error(\"wireframe: allocation failed\");
 }
@@ -6575,6 +6581,9 @@ for (const auto& es : edgeSamples) {
         result.edgeGroups[edgeIdx * 3] = edgeStart;
         result.edgeGroups[edgeIdx * 3 + 1] = offset - edgeStart;
         result.edgeGroups[edgeIdx * 3 + 2] = es.hash;
+    }
+    if (result.edgeGroupsIndexed) {
+        result.edgeGroupsIndexed[edgeIdx] = es.position;
     }
     edgeIdx++;
 }

@@ -19,6 +19,12 @@ export interface Mesh {
     triangleCount: number;
     /** Per-face triangle groups: [triStart, triCount, faceHash] triples. Present when using meshShape(). */
     faceGroups?: Int32Array | undefined;
+    /**
+     * Each face group's face by position, one per group: its index in
+     * `getSubShapes(shape, "face")`. Unlike the group's hash, no two faces share
+     * one. Present when using meshShape().
+     */
+    faceGroupsIndexed?: Int32Array | undefined;
     /** Number of face groups. Present when using meshShape(). */
     faceCount?: number | undefined;
 }
@@ -617,6 +623,13 @@ export interface EdgeData {
     points: Float32Array;
     /** Per-edge groups: [pointStart, pointCount, edgeHash] triples. */
     edgeGroups: Int32Array;
+    /**
+     * Each edge group's edge by position, one per group: its index in
+     * `getSubShapes(shape, "edge")`. Unlike the group's hash, no two edges share
+     * one. A skipped (degenerate) edge has no group, so a group's index is not
+     * always its edge's position.
+     */
+    edgeGroupsIndexed: Int32Array;
     /** Total number of floats in points (= number of XYZ coords). */
     pointCount: number;
     /** Number of distinct edges. */

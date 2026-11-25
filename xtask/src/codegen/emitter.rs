@@ -2069,7 +2069,15 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
     );
     let _ = writeln!(
         buf,
-        "        .property(\"faceGroupCount\", &MeshData::faceGroupCount);"
+        "        .function(\"getFaceGroupsIndexedPtr\", &MeshData::getFaceGroupsIndexedPtr)"
+    );
+    let _ = writeln!(
+        buf,
+        "        .property(\"faceGroupCount\", &MeshData::faceGroupCount)"
+    );
+    let _ = writeln!(
+        buf,
+        "        .property(\"faceGroupsIndexedCount\", &MeshData::faceGroupsIndexedCount);"
     );
     let _ = writeln!(buf);
 
@@ -2113,11 +2121,19 @@ pub fn emit_bindings(methods: &[&MethodSpec]) -> String {
     );
     let _ = writeln!(
         buf,
+        "        .function(\"getEdgeGroupsIndexedPtr\", &EdgeData::getEdgeGroupsIndexedPtr)"
+    );
+    let _ = writeln!(
+        buf,
         "        .property(\"pointCount\", &EdgeData::pointCount)"
     );
     let _ = writeln!(
         buf,
-        "        .property(\"edgeGroupCount\", &EdgeData::edgeGroupCount);"
+        "        .property(\"edgeGroupCount\", &EdgeData::edgeGroupCount)"
+    );
+    let _ = writeln!(
+        buf,
+        "        .property(\"edgeGroupsIndexedCount\", &EdgeData::edgeGroupsIndexedCount);"
     );
     let _ = writeln!(buf);
 

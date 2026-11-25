@@ -132,11 +132,13 @@ struct MeshData {
     float* uvs = nullptr;
     uint32_t* indices = nullptr;
     int32_t* faceGroups = nullptr; // [triStart, triCount, faceHash] per face
+    int32_t* faceGroupsIndexed = nullptr; // each face group's face, by position in the shape
     int positionCount = 0;
     int normalCount = 0;
     int uvCount = 0;
     int indexCount = 0;
     int faceGroupCount = 0; // number of int32s (faceCount * 3)
+    int faceGroupsIndexedCount = 0; // one per face group
 
     MeshData() = default;
     ~MeshData();
@@ -147,6 +149,7 @@ struct MeshData {
     uint32_t getUvsPtr() const;
     uint32_t getIndicesPtr() const;
     uint32_t getFaceGroupsPtr() const;
+    uint32_t getFaceGroupsIndexedPtr() const;
 };
 
 /// Bounding box result.
@@ -158,8 +161,10 @@ struct BBoxData {
 struct EdgeData {
     float* points = nullptr;
     int32_t* edgeGroups = nullptr; // [pointStart, pointCount, edgeHash] per edge
+    int32_t* edgeGroupsIndexed = nullptr; // each edge group's edge, by position in the shape
     int pointCount = 0;
     int edgeGroupCount = 0; // number of int32s (edgeCount * 3)
+    int edgeGroupsIndexedCount = 0; // one per edge group
 
     EdgeData() = default;
     ~EdgeData();
@@ -167,6 +172,7 @@ struct EdgeData {
     EdgeData& operator=(const EdgeData&) = delete;
     uint32_t getPointsPtr() const;
     uint32_t getEdgeGroupsPtr() const;
+    uint32_t getEdgeGroupsIndexedPtr() const;
 };
 
 /// Evolution data from an operation.
@@ -820,7 +826,7 @@ class OcctKernel {
     /// the caller drops when the call ends. Either lists the same order.
     TopologyIndex& topologyFor(uint32_t id, TopologyIndex& scratch);
     TopoDS_Shape normalizeSolidOrientation(const TopoDS_Shape& shape);
-    MeshData buildMeshData(const TopoDS_Shape& shape, double linearDeflection,
+    MeshData buildMeshData(uint32_t id, double linearDeflection,
                            double angularDeflection, bool relative);
 
     /// A stored shape and, once a position query has asked for it, its topology

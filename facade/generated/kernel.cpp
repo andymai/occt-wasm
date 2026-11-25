@@ -5981,7 +5981,7 @@ EvolutionData OcctKernel::thickenWithHistory(uint32_t shapeId, double thickness,
 
 MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double angularDeflection) {
     try {
-        return buildMeshData(get(id), linearDeflection, angularDeflection, false);
+        return buildMeshData(id, linearDeflection, angularDeflection, false);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("tessellate: ") + e.what());
     }
@@ -5989,7 +5989,7 @@ MeshData OcctKernel::tessellate(uint32_t id, double linearDeflection, double ang
 
 MeshData OcctKernel::tessellateRelative(uint32_t id, double linearDeflection, double angularDeflection) {
     try {
-        return buildMeshData(get(id), linearDeflection, angularDeflection, true);
+        return buildMeshData(id, linearDeflection, angularDeflection, true);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("tessellateRelative: ") + e.what());
     }
@@ -6167,6 +6167,7 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection, int source) {
         struct EdgeSample {
             std::vector<gp_Pnt> pts;
             int hash;
+            int position;
         };
         std::vector<EdgeSample> edgeSamples;
         int totalPoints = 0;
@@ -6182,9 +6183,10 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection, int source) {
             }
         };
         
-        // Use IndexedMap to avoid duplicate edges (shared between faces)
-        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
-        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+        // The shape's edges, each once (not once per face that uses it) and in position
+        // order, so an edge this skips leaves the others' positions as they are.
+        TopologyIndex scratch(shape);
+        const TopologyIndex::Map& edgeMap = topologyFor(id, scratch).of(TopAbs_EDGE);
         for (int ei = 1; ei <= edgeMap.Extent(); ei++) {
             const TopoDS_Edge& edge = TopoDS::Edge(edgeMap.FindKey(ei));
             if (BRep_Tool::Degenerated(edge)) {
@@ -6229,6 +6231,7 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection, int source) {
                 continue;
             }
             es.hash = static_cast<int>(TopTools_ShapeMapHasher{}(edge) % 2147483647);
+            es.position = ei - 1;
             totalPoints += static_cast<int>(es.pts.size());
             edgeSamples.push_back(std::move(es));
         }
@@ -6240,6 +6243,9 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection, int source) {
         result.edgeGroupCount = numEdges * 3;
         result.edgeGroups =
             static_cast<int32_t*>(std::malloc(result.edgeGroupCount * sizeof(int32_t)));
+        result.edgeGroupsIndexedCount = numEdges;
+        result.edgeGroupsIndexed =
+            static_cast<int32_t*>(std::malloc(result.edgeGroupsIndexedCount * sizeof(int32_t)));
         if (!result.points && result.pointCount > 0) {
             throw std::runtime_error("wireframe: allocation failed");
         }
@@ -6258,6 +6264,9 @@ EdgeData OcctKernel::wireframe(uint32_t id, double deflection, int source) {
                 result.edgeGroups[edgeIdx * 3] = edgeStart;
                 result.edgeGroups[edgeIdx * 3 + 1] = offset - edgeStart;
                 result.edgeGroups[edgeIdx * 3 + 2] = es.hash;
+            }
+            if (result.edgeGroupsIndexed) {
+                result.edgeGroupsIndexed[edgeIdx] = es.position;
             }
             edgeIdx++;
         }

@@ -78,6 +78,8 @@ pub struct OcctKernel {
     pub(crate) fn_get_mesh_indices_len: TypedFunc<(), i32>,
     pub(crate) fn_get_mesh_face_groups: TypedFunc<(), i32>,
     pub(crate) fn_get_mesh_face_groups_len: TypedFunc<(), i32>,
+    pub(crate) fn_get_mesh_face_groups_indexed: TypedFunc<(), i32>,
+    pub(crate) fn_get_mesh_face_groups_indexed_len: TypedFunc<(), i32>,
 
     // MeshBatch accessors
     pub(crate) fn_get_mesh_batch_positions: TypedFunc<(), i32>,
@@ -94,6 +96,8 @@ pub struct OcctKernel {
     pub(crate) fn_get_edge_points_len: TypedFunc<(), i32>,
     pub(crate) fn_get_edge_groups: TypedFunc<(), i32>,
     pub(crate) fn_get_edge_groups_len: TypedFunc<(), i32>,
+    pub(crate) fn_get_edge_groups_indexed: TypedFunc<(), i32>,
+    pub(crate) fn_get_edge_groups_indexed_len: TypedFunc<(), i32>,
 
     // NURBS accessors
     pub(crate) fn_get_nurbs_degree: TypedFunc<(), i32>,
@@ -352,6 +356,8 @@ impl OcctKernel {
             fn_get_mesh_indices_len: get_fn!("occt_get_mesh_indices_len" => i32),
             fn_get_mesh_face_groups: get_fn!("occt_get_mesh_face_groups" => i32),
             fn_get_mesh_face_groups_len: get_fn!("occt_get_mesh_face_groups_len" => i32),
+            fn_get_mesh_face_groups_indexed: get_fn!("occt_get_mesh_face_groups_indexed" => i32),
+            fn_get_mesh_face_groups_indexed_len: get_fn!("occt_get_mesh_face_groups_indexed_len" => i32),
 
             fn_get_mesh_batch_positions: get_fn!("occt_get_mesh_batch_positions" => i32),
             fn_get_mesh_batch_positions_len: get_fn!("occt_get_mesh_batch_positions_len" => i32),
@@ -366,6 +372,8 @@ impl OcctKernel {
             fn_get_edge_points_len: get_fn!("occt_get_edge_points_len" => i32),
             fn_get_edge_groups: get_fn!("occt_get_edge_groups" => i32),
             fn_get_edge_groups_len: get_fn!("occt_get_edge_groups_len" => i32),
+            fn_get_edge_groups_indexed: get_fn!("occt_get_edge_groups_indexed" => i32),
+            fn_get_edge_groups_indexed_len: get_fn!("occt_get_edge_groups_indexed_len" => i32),
 
             fn_get_nurbs_degree: get_fn!("occt_get_nurbs_degree" => i32),
             fn_get_nurbs_rational: get_fn!("occt_get_nurbs_rational" => i32),
@@ -634,12 +642,19 @@ impl OcctKernel {
         let idx_len = self.fn_get_mesh_indices_len.call(&mut self.store, ())?;
         let fg_ptr = self.fn_get_mesh_face_groups.call(&mut self.store, ())?;
         let fg_len = self.fn_get_mesh_face_groups_len.call(&mut self.store, ())?;
+        let fgi_ptr = self
+            .fn_get_mesh_face_groups_indexed
+            .call(&mut self.store, ())?;
+        let fgi_len = self
+            .fn_get_mesh_face_groups_indexed_len
+            .call(&mut self.store, ())?;
 
         Ok(Mesh {
             positions: self.read_f32_slice(pos_ptr as u32, pos_len as u32)?,
             normals: self.read_f32_slice(norm_ptr as u32, norm_len as u32)?,
             indices: self.read_u32_slice(idx_ptr as u32, idx_len as u32)?,
             face_groups: self.read_i32_slice(fg_ptr as u32, fg_len as u32)?,
+            face_groups_indexed: self.read_i32_slice(fgi_ptr as u32, fgi_len as u32)?,
         })
     }
 
@@ -678,10 +693,15 @@ impl OcctKernel {
         let pts_len = self.fn_get_edge_points_len.call(&mut self.store, ())?;
         let grp_ptr = self.fn_get_edge_groups.call(&mut self.store, ())?;
         let grp_len = self.fn_get_edge_groups_len.call(&mut self.store, ())?;
+        let grpi_ptr = self.fn_get_edge_groups_indexed.call(&mut self.store, ())?;
+        let grpi_len = self
+            .fn_get_edge_groups_indexed_len
+            .call(&mut self.store, ())?;
 
         Ok(EdgeData {
             points: self.read_f32_slice(pts_ptr as u32, pts_len as u32)?,
             edge_groups: self.read_i32_slice(grp_ptr as u32, grp_len as u32)?,
+            edge_groups_indexed: self.read_i32_slice(grpi_ptr as u32, grpi_len as u32)?,
         })
     }
 
