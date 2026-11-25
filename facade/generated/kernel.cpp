@@ -3793,6 +3793,33 @@ std::vector<int> OcctKernel::subShapesIndexed(uint32_t shapeId, uint32_t partId,
     }
 }
 
+std::vector<int> OcctKernel::ancestorsIndexed(uint32_t id, const std::string& subType, const std::string& ancestorType) {
+    try {
+        auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+            if (t == "vertex") return TopAbs_VERTEX;
+            if (t == "edge") return TopAbs_EDGE;
+            if (t == "wire") return TopAbs_WIRE;
+            if (t == "face") return TopAbs_FACE;
+            if (t == "shell") return TopAbs_SHELL;
+            if (t == "solid") return TopAbs_SOLID;
+            if (t == "compsolid") return TopAbs_COMPSOLID;
+            if (t == "compound") return TopAbs_COMPOUND;
+            throw std::runtime_error("Unknown shape type: " + t);
+        };
+        const TopAbs_ShapeEnum sub = parseType(subType);
+        const TopAbs_ShapeEnum ancestor = parseType(ancestorType);
+        const TopologyIndex::Ancestors& found = keptTopology(id).ancestors(sub, ancestor);
+        std::vector<int> result;
+        result.reserve(1 + found.offsets.size() + found.values.size());
+        result.push_back(static_cast<int>(found.offsets.size()) - 1);
+        result.insert(result.end(), found.offsets.begin(), found.offsets.end());
+        result.insert(result.end(), found.values.begin(), found.values.end());
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("ancestorsIndexed: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::downcast(uint32_t id, const std::string& targetType) {
     try {
         const auto& shape = get(id);

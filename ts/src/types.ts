@@ -617,6 +617,17 @@ export interface CurvatureData {
     mean: number;
 }
 
+/**
+ * Which sub-shapes of one kind hold each sub-shape of a lower kind, all by
+ * position: sub-shape `i`'s holders are `values[offsets[i]]` up to
+ * `values[offsets[i + 1]]`, each once and ascending. `offsets` has one entry
+ * more than there are sub-shapes. From {@link OcctKernel.ancestorsIndexed}.
+ */
+export interface IndexedAncestors {
+    offsets: Int32Array;
+    values: Int32Array;
+}
+
 /** Polyline edge data from wireframe tessellation. */
 export interface EdgeData {
     /** XYZ interleaved edge sample points. Length = pointCount. */

@@ -3078,6 +3078,49 @@ return result;",
         return_type: ReturnType::VectorInt,
     },
     MethodSpec {
+        name: "ancestorsIndexed",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("id"),
+            FacadeParam::String("subType"),
+            FacadeParam::String("ancestorType"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        // Which of the shape's sub-shapes of ancestorType hold each of its
+        // sub-shapes of subType, all by position, as TopExp::MapShapesAndAncestors
+        // answers by shape:
+        //   [n, n + 1 offsets, then the values]
+        // sub-shape i's holders being values[offsets[i]] up to values[offsets[i + 1]],
+        // each once (a seam edge names its face once) and ascending. A sub-shape no
+        // holder holds, such as a free edge, has none. The shape keeps its index,
+        // and the answer with it.
+        setup_code: "\
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compsolid\") return TopAbs_COMPSOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+const TopAbs_ShapeEnum sub = parseType(subType);
+const TopAbs_ShapeEnum ancestor = parseType(ancestorType);
+const TopologyIndex::Ancestors& found = keptTopology(id).ancestors(sub, ancestor);
+std::vector<int> result;
+result.reserve(1 + found.offsets.size() + found.values.size());
+result.push_back(static_cast<int>(found.offsets.size()) - 1);
+result.insert(result.end(), found.offsets.begin(), found.offsets.end());
+result.insert(result.end(), found.values.begin(), found.values.end());
+return result;",
+        includes: &["TopAbs_ShapeEnum.hxx"],
+        category: "topology",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
         name: "downcast",
         kind: MethodKind::CustomBody,
         params: &[FacadeParam::ShapeId("id"), FacadeParam::String("targetType")],

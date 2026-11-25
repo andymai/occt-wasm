@@ -235,6 +235,15 @@ class TopologyIndex {
   public:
     using Map = NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>;
 
+    /// Which of the shape's sub-shapes of one kind hold each of its sub-shapes of a
+    /// lower kind, all by position: sub-shape `i`'s holders are `values[offsets[i]]`
+    /// up to `values[offsets[i + 1]]`, each once and ascending. `offsets` has one
+    /// entry more than there are sub-shapes.
+    struct Ancestors {
+        std::vector<int> offsets;
+        std::vector<int> values;
+    };
+
     explicit TopologyIndex(const TopoDS_Shape& shape) : shape_(shape) {}
 
     /// The shape's sub-shapes of `kind`, in position order.
@@ -243,10 +252,14 @@ class TopologyIndex {
     /// `s`'s position among the shape's sub-shapes of its kind, or -1 where the shape
     /// does not hold it.
     int positionOf(const TopoDS_Shape& s);
+    /// The shape's `ancestor` sub-shapes that hold each of its `sub` sub-shapes, built
+    /// the first time a pair is asked for. `ancestor` must be a kind that holds `sub`.
+    const Ancestors& ancestors(TopAbs_ShapeEnum sub, TopAbs_ShapeEnum ancestor);
 
   private:
     TopoDS_Shape shape_;
     std::array<std::unique_ptr<Map>, TopAbs_SHAPE> maps_;
+    std::map<int, std::unique_ptr<Ancestors>> ancestors_;
 };
 
 /// Projection result (hidden line removal).
@@ -551,6 +564,8 @@ class OcctKernel {
     std::vector<int> edgeToFaceMap(uint32_t id, int hashUpperBound);
     std::vector<int> subShapesIndexed(uint32_t shapeId, uint32_t partId,
                                       const std::string& shapeType);
+    std::vector<int> ancestorsIndexed(uint32_t id, const std::string& subType,
+                                      const std::string& ancestorType);
 
     // --- Tessellation / Mesh ---
     MeshData tessellate(uint32_t id, double linearDeflection, double angularDeflection);

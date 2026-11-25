@@ -1488,6 +1488,51 @@ int TopologyIndex::positionOf(const TopoDS_Shape& s) {
     return s.IsNull() ? -1 : of(s.ShapeType()).FindIndex(s) - 1;
 }
 
+const TopologyIndex::Ancestors& TopologyIndex::ancestors(TopAbs_ShapeEnum sub,
+                                                         TopAbs_ShapeEnum ancestor) {
+    // TopAbs orders kinds from the compound down to the vertex, so a holder's kind
+    // comes first.
+    if (static_cast<int>(ancestor) >= static_cast<int>(sub)) {
+        throw std::runtime_error("an ancestor's kind must hold the sub-shape's kind");
+    }
+    const int key = static_cast<int>(sub) * TopAbs_SHAPE + static_cast<int>(ancestor);
+    auto held = ancestors_.find(key);
+    if (held != ancestors_.end()) {
+        return *held->second;
+    }
+    const Map& subs = of(sub);
+    const Map& holders = of(ancestor);
+    // A holder's own map lists each of its sub-shapes once (a seam edge too), so a
+    // holder is named once per sub-shape it holds. Holders are walked in position
+    // order, so each sub-shape's holders come out ascending.
+    std::vector<std::pair<int, int>> heldBy;
+    std::vector<int> counts(static_cast<size_t>(subs.Extent()), 0);
+    for (int a = 1; a <= holders.Extent(); a++) {
+        Map own;
+        TopExp::MapShapes(holders.FindKey(a), sub, own);
+        for (int k = 1; k <= own.Extent(); k++) {
+            const int at = subs.FindIndex(own.FindKey(k)) - 1;
+            if (at < 0) {
+                throw std::runtime_error("a sub-shape's holder holds a sub-shape its shape does not");
+            }
+            heldBy.emplace_back(at, a - 1);
+            counts[static_cast<size_t>(at)]++;
+        }
+    }
+    auto built = std::make_unique<Ancestors>();
+    built->offsets.assign(static_cast<size_t>(subs.Extent()) + 1, 0);
+    for (size_t i = 0; i < counts.size(); i++) {
+        built->offsets[i + 1] = built->offsets[i] + counts[i];
+    }
+    built->values.resize(heldBy.size());
+    std::vector<int> next(built->offsets.begin(), built->offsets.end() - 1);
+    for (const auto& [at, a] : heldBy) {
+        built->values[static_cast<size_t>(next[static_cast<size_t>(at)]++)] = a;
+    }
+    // Kept only once it is whole, as a kind's map is.
+    return *ancestors_.emplace(key, std::move(built)).first->second;
+}
+
 // --- OcctKernel implementation ---
 
 OcctKernel::OcctKernel() {

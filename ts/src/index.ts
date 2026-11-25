@@ -40,6 +40,7 @@ export {
     type FillSurfaceOptions,
     type FilletRadius,
     type GLTFExportOptions,
+    type IndexedAncestors,
     type InitOptions,
     type LabelInfo,
     type LabelOptions,
@@ -119,6 +120,7 @@ import type {
     FillSurfaceBoundary,
     FillSurfaceOptions,
     FilletRadius,
+    IndexedAncestors,
     InitOptions,
     Mesh,
     MeshBatchData,
@@ -1593,6 +1595,40 @@ export class OcctKernel {
         return wrap("subShapesIndexed", () =>
             this.#drainVector(this.#raw.subShapesIndexed(shape, part, type), Int32Array),
         );
+    }
+
+    /**
+     * Which of a shape's sub-shapes of `ancestorType` hold each of its sub-shapes
+     * of `subType`, all by position (index in {@link getSubShapes} order), as
+     * `TopExp::MapShapesAndAncestors` answers by shape. One call answers edge to
+     * faces, vertex to edges, vertex to faces, or any other pair.
+     *
+     * Sub-shape `i`'s holders are `values` from `offsets[i]` up to
+     * `offsets[i + 1]`, each once and ascending: a seam edge names its face once,
+     * and a sub-shape that nothing of `ancestorType` holds, such as a free edge,
+     * has none. {@link edgeToFaceMap} answers edge to faces by hash, which two
+     * sub-shapes can share. `shape` keeps its index of sub-shapes, and the answer
+     * with it, until it is released.
+     *
+     * @throws When `ancestorType` is not a kind that holds `subType`.
+     */
+    ancestorsIndexed(
+        shape: ShapeHandle,
+        subType: "vertex" | "edge" | "wire" | "face" | "shell",
+        ancestorType: "edge" | "wire" | "face" | "shell" | "solid",
+    ): IndexedAncestors {
+        return wrap("ancestorsIndexed", () => {
+            const vec = this.#raw.ancestorsIndexed(shape, subType, ancestorType);
+            try {
+                const size = vec.size();
+                const ptr = vec.dataPtr();
+                const flat = new Int32Array((this.#module.HEAPU32.buffer as ArrayBuffer).slice(ptr, ptr + size * 4));
+                const count = flat[0]!;
+                return { offsets: flat.subarray(1, count + 2), values: flat.subarray(count + 2) };
+            } finally {
+                vec.delete();
+            }
+        });
     }
 
     // =======================================================================

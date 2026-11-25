@@ -273,6 +273,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("iterShapes", &OcctKernel::iterShapes)
         .function("edgeToFaceMap", &OcctKernel::edgeToFaceMap)
         .function("subShapesIndexed", &OcctKernel::subShapesIndexed)
+        .function("ancestorsIndexed", &OcctKernel::ancestorsIndexed)
         .function("downcast", &OcctKernel::downcast)
         .function("adjacentFaces", &OcctKernel::adjacentFaces)
         .function("sharedEdges", &OcctKernel::sharedEdges)

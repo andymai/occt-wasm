@@ -367,6 +367,7 @@ export interface OcctRawKernel {
     iterShapes(id: number): EmbindVectorU32;
     edgeToFaceMap(id: number, hashUpperBound: number): EmbindVectorI32;
     subShapesIndexed(shapeId: number, partId: number, shapeType: string): EmbindVectorI32;
+    ancestorsIndexed(id: number, subType: string, ancestorType: string): EmbindVectorI32;
 
     // Tessellation
     tessellate(id: number, linDefl: number, angDefl: number): RawMeshData;
