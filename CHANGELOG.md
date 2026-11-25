@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.18.6](https://github.com/andymai/occt-wasm/compare/v5.18.5...v5.18.6) (2026-11-25)
+
+
+### Bug Fixes
+
+* **occt:** report a face invalid, not trap, when its wire polygon cannot be made denser ([#517](https://github.com/andymai/occt-wasm/issues/517)) ([5948c1c](https://github.com/andymai/occt-wasm/commit/5948c1c560fd1368c74b8a804151782b4426b5af))
+
 ## [5.18.5](https://github.com/andymai/occt-wasm/compare/v5.18.4...v5.18.5) (2026-11-24)
 
 
