@@ -39,7 +39,7 @@ Layering: **OCCT C++ → C++ facade (`OcctKernel`) → Embind / WASI C-ABI → T
 ### Codegen (the central seam)
 `xtask/src/codegen/config.rs` holds a declarative `MethodSpec` list — the single source of truth for the facade surface. Most entries are `MethodKind::CustomBody`, storing the full C++ body as a Rust string literal; a few use templated kinds (`SimpleShape`/`BooleanOp`/`FilletLike`). `cargo xtask codegen` emits the four generated files from these specs and runs `config::validate` first.
 
-The generated files are **committed** (force-tracked despite `.gitignore`). After any change under `xtask/src/codegen/` or to a spec, run `cargo xtask codegen && cargo fmt --all` and commit the result — the CI lint job fails on drift.
+Three of them are **committed** (force-tracked despite `.gitignore`): `facade/generated/kernel.cpp`, `facade/generated/bindings.cpp` and `crate/src/kernel_generated.rs`. `facade/generated/wasi_exports.cpp` is not tracked. `cargo xtask build-wasi` runs codegen only when that file is missing, so a stale local copy goes into the WASI build unchanged. After any change under `xtask/src/codegen/` or to a spec, run `cargo xtask codegen && cargo fmt --all` and commit the result — the CI lint job fails on drift.
 
 ### Two build targets, one facade
 - **npm** (`cargo xtask build`): facade + OCCT linked with Embind + JS glue → `dist/occt-wasm.{js,wasm}`.
