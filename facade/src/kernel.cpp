@@ -1463,6 +1463,24 @@ uint32_t MeshData::getFaceGroupsPtr() const {
     return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(faceGroups));
 }
 
+// --- TopologyIndex implementation ---
+
+const TopologyIndex::Map& TopologyIndex::of(TopAbs_ShapeEnum kind) {
+    std::unique_ptr<Map>& held = maps_[static_cast<size_t>(kind)];
+    if (!held) {
+        // Filled before it is kept, so a throw partway leaves nothing behind for a
+        // later call to read as the whole list.
+        auto map = std::make_unique<Map>();
+        TopExp::MapShapes(shape_, kind, *map);
+        held = std::move(map);
+    }
+    return *held;
+}
+
+int TopologyIndex::positionOf(const TopoDS_Shape& s) {
+    return s.IsNull() ? -1 : of(s.ShapeType()).FindIndex(s) - 1;
+}
+
 // --- OcctKernel implementation ---
 
 OcctKernel::OcctKernel() {
@@ -1475,7 +1493,7 @@ OcctKernel::~OcctKernel() {
 
 uint32_t OcctKernel::store(const TopoDS_Shape& shape) {
     uint32_t id = nextId_++;
-    arena_.emplace(id, shape);
+    arena_.emplace(id, ArenaEntry{shape, nullptr});
     return id;
 }
 
@@ -1513,7 +1531,28 @@ const TopoDS_Shape& OcctKernel::get(uint32_t id) const {
     if (it == arena_.end()) {
         throw std::runtime_error("Invalid shape ID: " + std::to_string(id));
     }
-    return it->second;
+    return it->second.shape;
+}
+
+TopologyIndex& OcctKernel::keptTopology(uint32_t id) {
+    auto it = arena_.find(id);
+    if (it == arena_.end()) {
+        throw std::runtime_error("Invalid shape ID: " + std::to_string(id));
+    }
+    // Held through a unique_ptr, so the reference survives the arena growing.
+    std::unique_ptr<TopologyIndex>& index = it->second.topology;
+    if (!index) {
+        index = std::make_unique<TopologyIndex>(it->second.shape);
+    }
+    return *index;
+}
+
+TopologyIndex& OcctKernel::topologyFor(uint32_t id, TopologyIndex& scratch) {
+    auto it = arena_.find(id);
+    if (it == arena_.end()) {
+        throw std::runtime_error("Invalid shape ID: " + std::to_string(id));
+    }
+    return it->second.topology ? *it->second.topology : scratch;
 }
 
 // A profile face whose normal opposes the sweep direction yields an inside-out

@@ -625,10 +625,14 @@ export interface EdgeData {
 
 /**
  * Shape history data from an operation that tracks face and edge evolution.
- * Faces are reported for the input face hashes passed in. Edges are reported
+ * Faces are reported for the input face hashes passed in; to report every face,
+ * pass every input face's hash (`subShapeHashes(shape, "face", bound)`), and
+ * an empty list reports none. Edges are reported
  * for every edge of the input, best effort: if OCCT fails while answering for
  * an input's edges, that input contributes no edge entries and the operation
- * still succeeds.
+ * still succeeds. Where an input sub-shape the operation left untouched sits in
+ * the result is `subShapesIndexed(result, input, type)`
+ * ({@link OcctKernel.subShapesIndexed}).
  *
  * `modified`, `generated`, `edgeModified` and `edgeGenerated` are run-length
  * encoded as `[inputHash, count, resultHash, ...]`, one group per input shape

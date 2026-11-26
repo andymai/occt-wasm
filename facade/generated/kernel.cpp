@@ -1076,35 +1076,6 @@ static TopoDS_Shape validateFilletResult(const TopoDS_Shape& shape, const char* 
     throw std::runtime_error(std::string(op) + ": produced an invalid solid");
 }
 
-/// The sub-shapes of one shape by kind, each at its 0-based position in
-/// `TopExp::MapShapes` order. A kind is mapped the first time it is asked for.
-class SubShapePositions {
-  public:
-    explicit SubShapePositions(const TopoDS_Shape& shape) : shape_(shape) {}
-
-    /// The position of `s` among the sub-shapes of its kind, or -1 if the shape has no such sub-shape.
-    int positionOf(const TopoDS_Shape& s) {
-        return s.IsNull() ? -1 : map(s.ShapeType()).FindIndex(s) - 1;
-    }
-
-    int count(TopAbs_ShapeEnum kind) { return map(kind).Extent(); }
-
-  private:
-    using Map = NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>;
-
-    Map& map(TopAbs_ShapeEnum kind) {
-        std::unique_ptr<Map>& held = maps_[static_cast<size_t>(kind)];
-        if (!held) {
-            held = std::make_unique<Map>();
-            TopExp::MapShapes(shape_, kind, *held);
-        }
-        return *held;
-    }
-
-    TopoDS_Shape shape_;
-    std::array<std::unique_ptr<Map>, TopAbs_SHAPE> maps_;
-};
-
 /// One kind of input sub-shape's history, by hash and by position.
 struct EvolutionLists {
     std::vector<int> modified, generated, deleted;
@@ -1112,14 +1083,14 @@ struct EvolutionLists {
 };
 
 /// Append the Modified/Generated/Deleted history of `inputShape` to `evo`: its
-/// faces whose hash is in `tracked`, and all of its edges. `result` holds the
-/// result's sub-shapes, which the indexed lists name by position. The input is
+/// faces whose hash is in `tracked`, and all of its edges. `result` is the result's
+/// topology index, by which the indexed lists name its sub-shapes. The input is
 /// numbered after the ones already appended.
 ///
 /// Edge history is best effort. A maker that fails while answering for an edge
 /// leaves this input's edge lists empty rather than failing the operation.
 static void appendEvolution(EvolutionData& evo, BRepBuilderAPI_MakeShape& maker,
-                            const TopoDS_Shape& inputShape, SubShapePositions& result,
+                            const TopoDS_Shape& inputShape, TopologyIndex& result,
                             const std::unordered_set<int>& tracked, int hashUpperBound) {
     // Every hash is a remainder by this bound, and a zero divisor traps.
     if (hashUpperBound <= 0) {
@@ -1167,10 +1138,11 @@ static void appendEvolution(EvolutionData& evo, BRepBuilderAPI_MakeShape& maker,
         to.insert(to.end(), from.begin(), from.end());
     };
 
-    // A map holds each sub-shape once, where an explorer visits it once per parent.
-    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> faces, edges;
-    TopExp::MapShapes(inputShape, TopAbs_FACE, faces);
-    TopExp::MapShapes(inputShape, TopAbs_EDGE, edges);
+    // The input's sub-shapes in position order, each once, where an explorer visits
+    // one once per parent.
+    TopologyIndex inputIndex(inputShape);
+    const TopologyIndex::Map& faces = inputIndex.of(TopAbs_FACE);
+    const TopologyIndex::Map& edges = inputIndex.of(TopAbs_EDGE);
     evo.inputShapes.push_back(hashShape(inputShape));
     evo.inputShapes.push_back(faces.Extent());
     evo.inputShapes.push_back(edges.Extent());
@@ -1217,7 +1189,7 @@ static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t re
     EvolutionData evo;
     evo.resultId = resultId;
     std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
-    SubShapePositions positions(result);
+    TopologyIndex positions(result);
     for (const TopoDS_Shape& inputShape : inputShapes) {
         appendEvolution(evo, maker, inputShape, positions, tracked, hashUpperBound);
     }
@@ -1346,8 +1318,8 @@ static void buildSweep(BRepOffsetAPI_MakePipeShell& maker, const TopoDS_Shape& p
 template <class Maker>
 static void appendSweepCaps(EvolutionData& evo, Maker& maker, const TopoDS_Shape& result,
                             int hashUpperBound) {
-    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> faces;
-    TopExp::MapShapes(result, TopAbs_FACE, faces);
+    TopologyIndex index(result);
+    const TopologyIndex::Map& faces = index.of(TopAbs_FACE);
     auto capFaces = [&](const TopoDS_Shape& cap, std::vector<int>& hashes,
                         std::vector<int>& positions) {
         if (cap.IsNull()) {
@@ -1383,10 +1355,10 @@ static void appendSpineGenerated(EvolutionData& evo, const TopoDS_Shape& spine,
     auto hashShape = [&](const TopoDS_Shape& s) -> int {
         return static_cast<int>(TopTools_ShapeMapHasher{}(s) % static_cast<size_t>(hashUpperBound));
     };
-    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> faces, spineEdges, profileEdges;
-    TopExp::MapShapes(result, TopAbs_FACE, faces);
-    TopExp::MapShapes(spine, TopAbs_EDGE, spineEdges);
-    TopExp::MapShapes(profile, TopAbs_EDGE, profileEdges);
+    TopologyIndex resultIndex(result), spineIndex(spine), profileIndex(profile);
+    const TopologyIndex::Map& faces = resultIndex.of(TopAbs_FACE);
+    const TopologyIndex::Map& spineEdges = spineIndex.of(TopAbs_EDGE);
+    const TopologyIndex::Map& profileEdges = profileIndex.of(TopAbs_EDGE);
     std::vector<int> generated, generatedAt;
     try {
         for (int i = 1; i <= spineEdges.Extent(); ++i) {
@@ -1858,7 +1830,7 @@ EvolutionData OcctKernel::booleanOp(int opCode, std::vector<uint32_t> argIds, st
         evo.resultId = store(result);
         if (hashUpperBound > 0) {
             std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
-            SubShapePositions positions(result);
+            TopologyIndex positions(result);
             for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, positions, tracked, hashUpperBound);
             for (const TopoDS_Shape& s : tools) appendEvolution(evo, *op, s, positions, tracked, hashUpperBound);
         }
@@ -3628,9 +3600,8 @@ std::vector<uint32_t> OcctKernel::getSubShapes(uint32_t id, const std::string& s
             if (t == "compound") return TopAbs_COMPOUND;
             throw std::runtime_error("Unknown shape type: " + t);
         };
-        TopAbs_ShapeEnum toExplore = parseType(shapeType);
-        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
-        TopExp::MapShapes(get(id), toExplore, map);
+        TopologyIndex scratch(get(id));
+        const TopologyIndex::Map& map = topologyFor(id, scratch).of(parseType(shapeType));
         BatchScope result(*this, static_cast<size_t>(map.Extent()));
         for (int i = 1; i <= map.Extent(); i++) {
             result.add(map.FindKey(i));
@@ -3654,9 +3625,8 @@ int OcctKernel::subShapeCount(uint32_t id, const std::string& shapeType) {
             if (t == "compound") return TopAbs_COMPOUND;
             throw std::runtime_error("Unknown shape type: " + t);
         };
-        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
-        TopExp::MapShapes(get(id), parseType(shapeType), map);
-        return map.Extent();
+        TopologyIndex scratch(get(id));
+        return topologyFor(id, scratch).count(parseType(shapeType));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("subShapeCount: ") + e.what());
     }
@@ -3675,8 +3645,8 @@ std::vector<int> OcctKernel::subShapeHashes(uint32_t id, const std::string& shap
             if (t == "compound") return TopAbs_COMPOUND;
             throw std::runtime_error("Unknown shape type: " + t);
         };
-        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
-        TopExp::MapShapes(get(id), parseType(shapeType), map);
+        TopologyIndex scratch(get(id));
+        const TopologyIndex::Map& map = topologyFor(id, scratch).of(parseType(shapeType));
         std::vector<int> result;
         result.reserve(map.Extent());
         for (int i = 1; i <= map.Extent(); i++) {
@@ -3792,6 +3762,34 @@ std::vector<int> OcctKernel::edgeToFaceMap(uint32_t id, int hashUpperBound) {
         return result;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("edgeToFaceMap: ") + e.what());
+    }
+}
+
+std::vector<int> OcctKernel::subShapesIndexed(uint32_t shapeId, uint32_t partId, const std::string& shapeType) {
+    try {
+        auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+            if (t == "vertex") return TopAbs_VERTEX;
+            if (t == "edge") return TopAbs_EDGE;
+            if (t == "wire") return TopAbs_WIRE;
+            if (t == "face") return TopAbs_FACE;
+            if (t == "shell") return TopAbs_SHELL;
+            if (t == "solid") return TopAbs_SOLID;
+            if (t == "compsolid") return TopAbs_COMPSOLID;
+            if (t == "compound") return TopAbs_COMPOUND;
+            throw std::runtime_error("Unknown shape type: " + t);
+        };
+        const TopAbs_ShapeEnum kind = parseType(shapeType);
+        TopologyIndex scratch(get(partId));
+        TopologyIndex& whole = keptTopology(shapeId);
+        const TopologyIndex::Map& subs = topologyFor(partId, scratch).of(kind);
+        std::vector<int> result;
+        result.reserve(static_cast<size_t>(subs.Extent()));
+        for (int i = 1; i <= subs.Extent(); i++) {
+            result.push_back(whole.positionOf(subs.FindKey(i)));
+        }
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("subShapesIndexed: ") + e.what());
     }
 }
 
@@ -5515,7 +5513,7 @@ EvolutionData OcctKernel::loftWithHistory(std::vector<uint32_t> wireIds, bool is
         EvolutionData evo;
         evo.resultId = batch.add(result);
         std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
-        SubShapePositions positions(result);
+        TopologyIndex positions(result);
         // A closed loft's first wire is reported once.
         std::unordered_set<uint32_t> seen;
         for (uint32_t wid : wireIds) {
@@ -6367,6 +6365,22 @@ uint32_t OcctKernel::makeNullShape() {
         return store(TopoDS_Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeNullShape: ") + e.what());
+    }
+}
+
+// === testing ===
+
+uint32_t OcctKernel::topologyIndexCount() {
+    try {
+        uint32_t count = 0;
+        for (const auto& entry : arena_) {
+            if (entry.second.topology) {
+                count++;
+            }
+        }
+        return count;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("topologyIndexCount: ") + e.what());
     }
 }
 

@@ -486,7 +486,7 @@ EvolutionData evo;
 evo.resultId = store(result);
 if (hashUpperBound > 0) {
     std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
-    SubShapePositions positions(result);
+    TopologyIndex positions(result);
     for (const TopoDS_Shape& s : args) appendEvolution(evo, *op, s, positions, tracked, hashUpperBound);
     for (const TopoDS_Shape& s : tools) appendEvolution(evo, *op, s, positions, tracked, hashUpperBound);
 }
@@ -2821,9 +2821,8 @@ auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
     if (t == \"compound\") return TopAbs_COMPOUND;
     throw std::runtime_error(\"Unknown shape type: \" + t);
 };
-TopAbs_ShapeEnum toExplore = parseType(shapeType);
-NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
-TopExp::MapShapes(get(id), toExplore, map);
+TopologyIndex scratch(get(id));
+const TopologyIndex::Map& map = topologyFor(id, scratch).of(parseType(shapeType));
 BatchScope result(*this, static_cast<size_t>(map.Extent()));
 for (int i = 1; i <= map.Extent(); i++) {
     result.add(map.FindKey(i));
@@ -2854,9 +2853,8 @@ auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
     if (t == \"compound\") return TopAbs_COMPOUND;
     throw std::runtime_error(\"Unknown shape type: \" + t);
 };
-NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
-TopExp::MapShapes(get(id), parseType(shapeType), map);
-return map.Extent();",
+TopologyIndex scratch(get(id));
+return topologyFor(id, scratch).count(parseType(shapeType));",
         includes: &[
             "TopAbs_ShapeEnum.hxx", "TopExp.hxx",
             "NCollection_IndexedMap.hxx", "TopTools_ShapeMapHasher.hxx",
@@ -2888,8 +2886,8 @@ auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
     if (t == \"compound\") return TopAbs_COMPOUND;
     throw std::runtime_error(\"Unknown shape type: \" + t);
 };
-NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> map;
-TopExp::MapShapes(get(id), parseType(shapeType), map);
+TopologyIndex scratch(get(id));
+const TopologyIndex::Map& map = topologyFor(id, scratch).of(parseType(shapeType));
 std::vector<int> result;
 result.reserve(map.Extent());
 for (int i = 1; i <= map.Extent(); i++) {
@@ -3035,6 +3033,47 @@ for (TopExp_Explorer exE(shape, TopAbs_EDGE); exE.More(); exE.Next()) {
 }
 return result;",
         includes: &["TopExp_Explorer.hxx", "TopTools_ShapeMapHasher.hxx"],
+        category: "topology",
+        return_type: ReturnType::VectorInt,
+    },
+    MethodSpec {
+        name: "subShapesIndexed",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::ShapeId("partId"),
+            FacadeParam::String("shapeType"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        // Where each of `part`'s sub-shapes of one kind sits in `shape`: one position
+        // per sub-shape, in `part`'s own position order, or -1 where `shape` does not
+        // hold it. A kind includes the part itself, as getSubShapes does, so one
+        // sub-shape is one call too. `shape` keeps its index for the next query;
+        // `part` is read once, so it keeps none.
+        setup_code: "\
+auto parseType = [](const std::string& t) -> TopAbs_ShapeEnum {
+    if (t == \"vertex\") return TopAbs_VERTEX;
+    if (t == \"edge\") return TopAbs_EDGE;
+    if (t == \"wire\") return TopAbs_WIRE;
+    if (t == \"face\") return TopAbs_FACE;
+    if (t == \"shell\") return TopAbs_SHELL;
+    if (t == \"solid\") return TopAbs_SOLID;
+    if (t == \"compsolid\") return TopAbs_COMPSOLID;
+    if (t == \"compound\") return TopAbs_COMPOUND;
+    throw std::runtime_error(\"Unknown shape type: \" + t);
+};
+const TopAbs_ShapeEnum kind = parseType(shapeType);
+TopologyIndex scratch(get(partId));
+TopologyIndex& whole = keptTopology(shapeId);
+const TopologyIndex::Map& subs = topologyFor(partId, scratch).of(kind);
+std::vector<int> result;
+result.reserve(static_cast<size_t>(subs.Extent()));
+for (int i = 1; i <= subs.Extent(); i++) {
+    result.push_back(whole.positionOf(subs.FindKey(i)));
+}
+return result;",
+        includes: &["TopAbs_ShapeEnum.hxx"],
         category: "topology",
         return_type: ReturnType::VectorInt,
     },
@@ -5545,7 +5584,7 @@ const TopoDS_Shape result = straight.Shape();
 EvolutionData evo;
 evo.resultId = batch.add(result);
 std::unordered_set<int> tracked(inputFaceHashes.begin(), inputFaceHashes.end());
-SubShapePositions positions(result);
+TopologyIndex positions(result);
 // A closed loft's first wire is reported once.
 std::unordered_set<uint32_t> seen;
 for (uint32_t wid : wireIds) {
@@ -6675,6 +6714,26 @@ for (auto it = arena_.begin(); it != arena_.end();) {
         setup_code: "return static_cast<uint32_t>(arena_.size());",
         includes: &[],
         category: "kernel",
+        return_type: ReturnType::Uint32,
+    },
+    MethodSpec {
+        name: "topologyIndexCount",
+        kind: MethodKind::CustomBody,
+        params: &[],
+        occt_class: "",
+        ctor_args: "",
+        // How many stored shapes keep a topology index, so a test can see a call
+        // keep one or not, and see it freed with its shape.
+        setup_code: "\
+uint32_t count = 0;
+for (const auto& entry : arena_) {
+    if (entry.second.topology) {
+        count++;
+    }
+}
+return count;",
+        includes: &[],
+        category: "testing",
         return_type: ReturnType::Uint32,
     },
     MethodSpec {
