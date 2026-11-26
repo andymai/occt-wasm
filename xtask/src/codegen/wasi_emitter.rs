@@ -547,6 +547,14 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
         buf,
         "int32_t occt_get_mesh_face_groups_len() {{ return g_mesh_buf.faceGroupCount; }}"
     );
+    let _ = writeln!(
+        buf,
+        "const int32_t* occt_get_mesh_face_groups_indexed() {{ return g_mesh_buf.faceGroupsIndexed; }}"
+    );
+    let _ = writeln!(
+        buf,
+        "int32_t occt_get_mesh_face_groups_indexed_len() {{ return g_mesh_buf.faceGroupsIndexedCount; }}"
+    );
     let _ = writeln!(buf);
 
     // MeshBatch result accessors
@@ -602,6 +610,14 @@ pub fn emit_wasi_exports(methods: &[&MethodSpec]) -> String {
     let _ = writeln!(
         buf,
         "int32_t occt_get_edge_groups_len() {{ return g_edge_buf.edgeGroupCount; }}"
+    );
+    let _ = writeln!(
+        buf,
+        "const int32_t* occt_get_edge_groups_indexed() {{ return g_edge_buf.edgeGroupsIndexed; }}"
+    );
+    let _ = writeln!(
+        buf,
+        "int32_t occt_get_edge_groups_indexed_len() {{ return g_edge_buf.edgeGroupsIndexedCount; }}"
     );
     let _ = writeln!(buf);
 

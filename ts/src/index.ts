@@ -40,6 +40,7 @@ export {
     type FillSurfaceOptions,
     type FilletRadius,
     type GLTFExportOptions,
+    type IndexedAncestors,
     type InitOptions,
     type LabelInfo,
     type LabelOptions,
@@ -119,6 +120,7 @@ import type {
     FillSurfaceBoundary,
     FillSurfaceOptions,
     FilletRadius,
+    IndexedAncestors,
     InitOptions,
     Mesh,
     MeshBatchData,
@@ -1575,6 +1577,60 @@ export class OcctKernel {
         });
     }
 
+    /**
+     * Where each of `part`'s sub-shapes of one type sits in `shape`, by position:
+     * entry `i` is the index in `getSubShapes(shape, type)` of
+     * `getSubShapes(part, type)[i]` (the one that {@link isSame} finds), or -1
+     * where `shape` does not hold it. Unlike a hash, no two sub-shapes of a shape
+     * share a position.
+     *
+     * One call maps a whole part, such as one solid of a boolean's result, into
+     * the result, with no handle per sub-shape. A type includes `part` itself, so
+     * `subShapesIndexed(shape, solid, "solid")[0]` is where one solid sits. Pass an
+     * operation's input as `part` to find where the sub-shapes it left untouched
+     * sit in its result. `shape` keeps an index of its sub-shapes, freed with it,
+     * so asking again of the same shape does not list it again.
+     */
+    subShapesIndexed(shape: ShapeHandle, part: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): number[] {
+        return wrap("subShapesIndexed", () =>
+            this.#drainVector(this.#raw.subShapesIndexed(shape, part, type), Int32Array),
+        );
+    }
+
+    /**
+     * Which of a shape's sub-shapes of `ancestorType` hold each of its sub-shapes
+     * of `subType`, all by position (index in {@link getSubShapes} order), as
+     * `TopExp::MapShapesAndAncestors` answers by shape. One call answers edge to
+     * faces, vertex to edges, vertex to faces, or any other pair.
+     *
+     * Sub-shape `i`'s holders are `values` from `offsets[i]` up to
+     * `offsets[i + 1]`, each once and ascending: a seam edge names its face once,
+     * and a sub-shape that nothing of `ancestorType` holds, such as a free edge,
+     * has none. {@link edgeToFaceMap} answers edge to faces by hash, which two
+     * sub-shapes can share. `shape` keeps its index of sub-shapes, and the answer
+     * with it, until it is released.
+     *
+     * @throws When `ancestorType` is not a kind that holds `subType`.
+     */
+    ancestorsIndexed(
+        shape: ShapeHandle,
+        subType: "vertex" | "edge" | "wire" | "face" | "shell",
+        ancestorType: "edge" | "wire" | "face" | "shell" | "solid",
+    ): IndexedAncestors {
+        return wrap("ancestorsIndexed", () => {
+            const vec = this.#raw.ancestorsIndexed(shape, subType, ancestorType);
+            try {
+                const size = vec.size();
+                const ptr = vec.dataPtr();
+                const flat = new Int32Array((this.#module.HEAPU32.buffer as ArrayBuffer).slice(ptr, ptr + size * 4));
+                const count = flat[0]!;
+                return { offsets: flat.subarray(1, count + 2), values: flat.subarray(count + 2) };
+            } finally {
+                vec.delete();
+            }
+        });
+    }
+
     // =======================================================================
     // Tessellation
     // =======================================================================
@@ -1618,7 +1674,13 @@ export class OcctKernel {
                         raw.getEdgeGroupsPtr() + raw.edgeGroupCount * 4,
                     ),
                 );
-                return { points, edgeGroups, pointCount: raw.pointCount, edgeCount };
+                const edgeGroupsIndexed = new Int32Array(
+                    this.#module.HEAP32.buffer.slice(
+                        raw.getEdgeGroupsIndexedPtr(),
+                        raw.getEdgeGroupsIndexedPtr() + raw.edgeGroupsIndexedCount * 4,
+                    ),
+                );
+                return { points, edgeGroups, edgeGroupsIndexed, pointCount: raw.pointCount, edgeCount };
             } finally {
                 raw.delete();
             }
@@ -3195,6 +3257,12 @@ export class OcctKernel {
                     this.#module.HEAP32.buffer.slice(
                         raw.getFaceGroupsPtr(),
                         raw.getFaceGroupsPtr() + raw.faceGroupCount * 4,
+                    ),
+                );
+                mesh.faceGroupsIndexed = new Int32Array(
+                    this.#module.HEAP32.buffer.slice(
+                        raw.getFaceGroupsIndexedPtr(),
+                        raw.getFaceGroupsIndexedPtr() + raw.faceGroupsIndexedCount * 4,
                     ),
                 );
                 mesh.faceCount = raw.faceGroupCount / 3;

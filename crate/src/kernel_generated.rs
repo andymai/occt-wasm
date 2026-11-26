@@ -217,6 +217,8 @@ pub(crate) struct GeneratedFuncs {
     fn_shape_orientation: TypedFunc<(u32,), i32>,
     fn_iter_shapes: TypedFunc<(u32,), i32>,
     fn_edge_to_face_map: TypedFunc<(u32, i32), i32>,
+    fn_sub_shapes_indexed: TypedFunc<(u32, u32, i32, i32), i32>,
+    fn_ancestors_indexed: TypedFunc<(u32, i32, i32, i32, i32), i32>,
     fn_downcast: TypedFunc<(u32, i32, i32), u32>,
     fn_adjacent_faces: TypedFunc<(u32, u32), i32>,
     fn_shared_edges: TypedFunc<(u32, u32), i32>,
@@ -499,6 +501,9 @@ impl GeneratedFuncs {
             fn_shape_orientation: instance.get_typed_func(&mut store, "occt_shape_orientation")?,
             fn_iter_shapes: instance.get_typed_func(&mut store, "occt_iter_shapes")?,
             fn_edge_to_face_map: instance.get_typed_func(&mut store, "occt_edge_to_face_map")?,
+            fn_sub_shapes_indexed: instance
+                .get_typed_func(&mut store, "occt_sub_shapes_indexed")?,
+            fn_ancestors_indexed: instance.get_typed_func(&mut store, "occt_ancestors_indexed")?,
             fn_downcast: instance.get_typed_func(&mut store, "occt_downcast")?,
             fn_adjacent_faces: instance.get_typed_func(&mut store, "occt_adjacent_faces")?,
             fn_shared_edges: instance.get_typed_func(&mut store, "occt_shared_edges")?,
@@ -3226,6 +3231,66 @@ impl crate::kernel::OcctKernel {
             .call(&mut self.store, (id.0, hash_upper_bound))?;
         if len < 0 {
             return Err(self.read_last_error("edge_to_face_map"));
+        }
+        self.read_vec_i32_result()
+    }
+
+    pub fn sub_shapes_indexed(
+        &mut self,
+        shape_id: ShapeHandle,
+        part_id: ShapeHandle,
+        shape_type: &str,
+    ) -> OcctResult<Vec<i32>> {
+        let shape_type_ptr = self.write_bytes(shape_type.as_bytes())?;
+        let shape_type_len = shape_type.len() as u32;
+        let len = self.generated.fn_sub_shapes_indexed.call(
+            &mut self.store,
+            (
+                shape_id.0,
+                part_id.0,
+                shape_type_ptr as i32,
+                shape_type_len as i32,
+            ),
+        );
+        self.free_bytes(shape_type_ptr)?;
+        let len = len?;
+        if len < 0 {
+            return Err(self.read_last_error("sub_shapes_indexed"));
+        }
+        self.read_vec_i32_result()
+    }
+
+    pub fn ancestors_indexed(
+        &mut self,
+        id: ShapeHandle,
+        sub_type: &str,
+        ancestor_type: &str,
+    ) -> OcctResult<Vec<i32>> {
+        let sub_type_ptr = self.write_bytes(sub_type.as_bytes())?;
+        let sub_type_len = sub_type.len() as u32;
+        let ancestor_type_ptr = match self.write_bytes(ancestor_type.as_bytes()) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let _ = self.free_bytes(sub_type_ptr);
+                return Err(e);
+            }
+        };
+        let ancestor_type_len = ancestor_type.len() as u32;
+        let len = self.generated.fn_ancestors_indexed.call(
+            &mut self.store,
+            (
+                id.0,
+                sub_type_ptr as i32,
+                sub_type_len as i32,
+                ancestor_type_ptr as i32,
+                ancestor_type_len as i32,
+            ),
+        );
+        self.free_bytes(sub_type_ptr)?;
+        self.free_bytes(ancestor_type_ptr)?;
+        let len = len?;
+        if len < 0 {
+            return Err(self.read_last_error("ancestors_indexed"));
         }
         self.read_vec_i32_result()
     }

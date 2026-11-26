@@ -48,10 +48,12 @@ export interface RawMeshData {
     normalCount: number;
     indexCount: number;
     faceGroupCount: number;
+    faceGroupsIndexedCount: number;
     getPositionsPtr(): number;
     getNormalsPtr(): number;
     getIndicesPtr(): number;
     getFaceGroupsPtr(): number;
+    getFaceGroupsIndexedPtr(): number;
     delete(): void;
 }
 
@@ -70,8 +72,10 @@ export interface RawMeshBatchData {
 export interface RawEdgeData {
     pointCount: number;
     edgeGroupCount: number;
+    edgeGroupsIndexedCount: number;
     getPointsPtr(): number;
     getEdgeGroupsPtr(): number;
+    getEdgeGroupsIndexedPtr(): number;
     delete(): void;
 }
 
@@ -198,6 +202,8 @@ export interface OcctRawKernel {
     release(id: number): void;
     releaseAll(): void;
     getShapeCount(): number;
+    /** How many stored shapes keep a topology index. For tests; not on {@link OcctKernel}. */
+    topologyIndexCount(): number;
     checkpoint(): number;
     releaseSince(mark: number): void;
 
@@ -360,6 +366,8 @@ export interface OcctRawKernel {
     adjacentFaces(shapeId: number, faceId: number): EmbindVectorU32;
     iterShapes(id: number): EmbindVectorU32;
     edgeToFaceMap(id: number, hashUpperBound: number): EmbindVectorI32;
+    subShapesIndexed(shapeId: number, partId: number, shapeType: string): EmbindVectorI32;
+    ancestorsIndexed(id: number, subType: string, ancestorType: string): EmbindVectorI32;
 
     // Tessellation
     tessellate(id: number, linDefl: number, angDefl: number): RawMeshData;

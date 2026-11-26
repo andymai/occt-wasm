@@ -19,6 +19,12 @@ export interface Mesh {
     triangleCount: number;
     /** Per-face triangle groups: [triStart, triCount, faceHash] triples. Present when using meshShape(). */
     faceGroups?: Int32Array | undefined;
+    /**
+     * Each face group's face by position, one per group: its index in
+     * `getSubShapes(shape, "face")`. Unlike the group's hash, no two faces share
+     * one. Present when using meshShape().
+     */
+    faceGroupsIndexed?: Int32Array | undefined;
     /** Number of face groups. Present when using meshShape(). */
     faceCount?: number | undefined;
 }
@@ -611,12 +617,30 @@ export interface CurvatureData {
     mean: number;
 }
 
+/**
+ * Which sub-shapes of one kind hold each sub-shape of a lower kind, all by
+ * position: sub-shape `i`'s holders are `values[offsets[i]]` up to
+ * `values[offsets[i + 1]]`, each once and ascending. `offsets` has one entry
+ * more than there are sub-shapes. From {@link OcctKernel.ancestorsIndexed}.
+ */
+export interface IndexedAncestors {
+    offsets: Int32Array;
+    values: Int32Array;
+}
+
 /** Polyline edge data from wireframe tessellation. */
 export interface EdgeData {
     /** XYZ interleaved edge sample points. Length = pointCount. */
     points: Float32Array;
     /** Per-edge groups: [pointStart, pointCount, edgeHash] triples. */
     edgeGroups: Int32Array;
+    /**
+     * Each edge group's edge by position, one per group: its index in
+     * `getSubShapes(shape, "edge")`. Unlike the group's hash, no two edges share
+     * one. A skipped (degenerate) edge has no group, so a group's index is not
+     * always its edge's position.
+     */
+    edgeGroupsIndexed: Int32Array;
     /** Total number of floats in points (= number of XYZ coords). */
     pointCount: number;
     /** Number of distinct edges. */
@@ -625,10 +649,14 @@ export interface EdgeData {
 
 /**
  * Shape history data from an operation that tracks face and edge evolution.
- * Faces are reported for the input face hashes passed in. Edges are reported
+ * Faces are reported for the input face hashes passed in; to report every face,
+ * pass every input face's hash (`subShapeHashes(shape, "face", bound)`), and
+ * an empty list reports none. Edges are reported
  * for every edge of the input, best effort: if OCCT fails while answering for
  * an input's edges, that input contributes no edge entries and the operation
- * still succeeds.
+ * still succeeds. Where an input sub-shape the operation left untouched sits in
+ * the result is `subShapesIndexed(result, input, type)`
+ * ({@link OcctKernel.subShapesIndexed}).
  *
  * `modified`, `generated`, `edgeModified` and `edgeGenerated` are run-length
  * encoded as `[inputHash, count, resultHash, ...]`, one group per input shape

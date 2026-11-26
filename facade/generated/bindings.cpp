@@ -32,7 +32,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .property("normalCount", &MeshData::normalCount)
         .property("indexCount", &MeshData::indexCount)
         .function("getFaceGroupsPtr", &MeshData::getFaceGroupsPtr)
-        .property("faceGroupCount", &MeshData::faceGroupCount);
+        .function("getFaceGroupsIndexedPtr", &MeshData::getFaceGroupsIndexedPtr)
+        .property("faceGroupCount", &MeshData::faceGroupCount)
+        .property("faceGroupsIndexedCount", &MeshData::faceGroupsIndexedCount);
 
     // MeshBatchData
     class_<MeshBatchData>("MeshBatchData")
@@ -58,8 +60,10 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
     class_<EdgeData>("EdgeData")
         .function("getPointsPtr", &EdgeData::getPointsPtr)
         .function("getEdgeGroupsPtr", &EdgeData::getEdgeGroupsPtr)
+        .function("getEdgeGroupsIndexedPtr", &EdgeData::getEdgeGroupsIndexedPtr)
         .property("pointCount", &EdgeData::pointCount)
-        .property("edgeGroupCount", &EdgeData::edgeGroupCount);
+        .property("edgeGroupCount", &EdgeData::edgeGroupCount)
+        .property("edgeGroupsIndexedCount", &EdgeData::edgeGroupsIndexedCount);
 
     // ProjectionData
     value_object<ProjectionData>("ProjectionData")
@@ -268,6 +272,8 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("shapeOrientation", &OcctKernel::shapeOrientation)
         .function("iterShapes", &OcctKernel::iterShapes)
         .function("edgeToFaceMap", &OcctKernel::edgeToFaceMap)
+        .function("subShapesIndexed", &OcctKernel::subShapesIndexed)
+        .function("ancestorsIndexed", &OcctKernel::ancestorsIndexed)
         .function("downcast", &OcctKernel::downcast)
         .function("adjacentFaces", &OcctKernel::adjacentFaces)
         .function("sharedEdges", &OcctKernel::sharedEdges)
@@ -414,6 +420,9 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("releaseSince", &OcctKernel::releaseSince)
         .function("getShapeCount", &OcctKernel::getShapeCount)
         .function("makeNullShape", &OcctKernel::makeNullShape)
+
+        // testing
+        .function("topologyIndexCount", &OcctKernel::topologyIndexCount)
 
         // xcaf
         .function("xcafNewDocument", &OcctKernel::xcafNewDocument)
