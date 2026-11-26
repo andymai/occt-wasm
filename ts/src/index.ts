@@ -1575,6 +1575,26 @@ export class OcctKernel {
         });
     }
 
+    /**
+     * Where each of `part`'s sub-shapes of one type sits in `shape`, by position:
+     * entry `i` is the index in `getSubShapes(shape, type)` of
+     * `getSubShapes(part, type)[i]` (the one that {@link isSame} finds), or -1
+     * where `shape` does not hold it. Unlike a hash, no two sub-shapes of a shape
+     * share a position.
+     *
+     * One call maps a whole part, such as one solid of a boolean's result, into
+     * the result, with no handle per sub-shape. A type includes `part` itself, so
+     * `subShapesIndexed(shape, solid, "solid")[0]` is where one solid sits. Pass an
+     * operation's input as `part` to find where the sub-shapes it left untouched
+     * sit in its result. `shape` keeps an index of its sub-shapes, freed with it,
+     * so asking again of the same shape does not list it again.
+     */
+    subShapesIndexed(shape: ShapeHandle, part: ShapeHandle, type: "vertex" | "edge" | "wire" | "face" | "shell" | "solid"): number[] {
+        return wrap("subShapesIndexed", () =>
+            this.#drainVector(this.#raw.subShapesIndexed(shape, part, type), Int32Array),
+        );
+    }
+
     // =======================================================================
     // Tessellation
     // =======================================================================
@@ -1618,7 +1638,13 @@ export class OcctKernel {
                         raw.getEdgeGroupsPtr() + raw.edgeGroupCount * 4,
                     ),
                 );
-                return { points, edgeGroups, pointCount: raw.pointCount, edgeCount };
+                const edgeGroupsIndexed = new Int32Array(
+                    this.#module.HEAP32.buffer.slice(
+                        raw.getEdgeGroupsIndexedPtr(),
+                        raw.getEdgeGroupsIndexedPtr() + raw.edgeGroupsIndexedCount * 4,
+                    ),
+                );
+                return { points, edgeGroups, edgeGroupsIndexed, pointCount: raw.pointCount, edgeCount };
             } finally {
                 raw.delete();
             }
@@ -3195,6 +3221,12 @@ export class OcctKernel {
                     this.#module.HEAP32.buffer.slice(
                         raw.getFaceGroupsPtr(),
                         raw.getFaceGroupsPtr() + raw.faceGroupCount * 4,
+                    ),
+                );
+                mesh.faceGroupsIndexed = new Int32Array(
+                    this.#module.HEAP32.buffer.slice(
+                        raw.getFaceGroupsIndexedPtr(),
+                        raw.getFaceGroupsIndexedPtr() + raw.faceGroupsIndexedCount * 4,
                     ),
                 );
                 mesh.faceCount = raw.faceGroupCount / 3;

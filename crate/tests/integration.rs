@@ -256,6 +256,77 @@ fn tessellate_box() {
     assert_eq!(mesh.positions.len(), mesh.normals.len());
 }
 
+/// The bound the hashes in mesh and wireframe groups are taken with.
+const GROUP_HASH_BOUND: i32 = i32::MAX;
+
+/// Asserts that no two of `hashes` are equal, so that each names one sub-shape.
+fn assert_distinct(hashes: &[i32]) {
+    let mut sorted = hashes.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    assert_eq!(sorted.len(), hashes.len(), "two sub-shapes share a hash");
+}
+
+#[test]
+fn mesh_face_groups_indexed() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    let shape = kernel.make_box(10.0, 20.0, 30.0).unwrap();
+    let mesh = kernel.mesh_shape(shape, 0.1, 0.5).unwrap();
+    let hashes = kernel
+        .sub_shape_hashes(shape, "face", GROUP_HASH_BOUND)
+        .unwrap();
+    assert_distinct(&hashes);
+
+    let groups: Vec<&[i32]> = mesh.face_groups.chunks_exact(3).collect();
+    assert_eq!(groups.len(), 6, "one group per face of the box");
+    assert_eq!(
+        mesh.face_groups_indexed.len(),
+        groups.len(),
+        "one position per face group"
+    );
+    for (g, (group, &position)) in groups.iter().zip(&mesh.face_groups_indexed).enumerate() {
+        assert_eq!(
+            hashes[usize::try_from(position).unwrap()],
+            group[2],
+            "group {g}: the face at its position has its hash"
+        );
+    }
+}
+
+#[test]
+fn wireframe_edge_groups_indexed() {
+    let Some(mut kernel) = try_kernel() else {
+        return;
+    };
+    // A sphere's poles are degenerate edges, which the wireframe does not draw.
+    let sphere = kernel.make_sphere(10.0).unwrap();
+    let drawn = kernel.wireframe(sphere, 0.1, 0).unwrap();
+    let hashes = kernel
+        .sub_shape_hashes(sphere, "edge", GROUP_HASH_BOUND)
+        .unwrap();
+    assert_distinct(&hashes);
+
+    let groups: Vec<&[i32]> = drawn.edge_groups.chunks_exact(3).collect();
+    assert!(groups.len() < hashes.len(), "the poles have no group");
+    assert_eq!(
+        drawn.edge_groups_indexed.len(),
+        groups.len(),
+        "one position per edge group"
+    );
+    for (g, (group, &position)) in groups.iter().zip(&drawn.edge_groups_indexed).enumerate() {
+        assert_eq!(
+            hashes[usize::try_from(position).unwrap()],
+            group[2],
+            "group {g}: the edge at its position has its hash"
+        );
+    }
+    // A drawn edge comes after a skipped one, so a group's index is not its position.
+    let in_group_order: Vec<i32> = (0..).take(groups.len()).collect();
+    assert_ne!(drawn.edge_groups_indexed, in_group_order);
+}
+
 #[test]
 fn step_roundtrip() {
     let Some(mut kernel) = try_kernel() else {

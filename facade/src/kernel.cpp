@@ -1428,19 +1428,22 @@ MeshData::~MeshData() {
     std::free(uvs);
     std::free(indices);
     std::free(faceGroups);
+    std::free(faceGroupsIndexed);
 }
 
 MeshData::MeshData(const MeshData& other)
     : positions(other.positions), normals(other.normals), uvs(other.uvs), indices(other.indices),
-      faceGroups(other.faceGroups), positionCount(other.positionCount),
-      normalCount(other.normalCount), uvCount(other.uvCount), indexCount(other.indexCount),
-      faceGroupCount(other.faceGroupCount) {
+      faceGroups(other.faceGroups), faceGroupsIndexed(other.faceGroupsIndexed),
+      positionCount(other.positionCount), normalCount(other.normalCount), uvCount(other.uvCount),
+      indexCount(other.indexCount), faceGroupCount(other.faceGroupCount),
+      faceGroupsIndexedCount(other.faceGroupsIndexedCount) {
     auto& mut = const_cast<MeshData&>(other);
     mut.positions = nullptr;
     mut.normals = nullptr;
     mut.uvs = nullptr;
     mut.indices = nullptr;
     mut.faceGroups = nullptr;
+    mut.faceGroupsIndexed = nullptr;
 }
 
 uint32_t MeshData::getPositionsPtr() const {
@@ -1463,6 +1466,28 @@ uint32_t MeshData::getFaceGroupsPtr() const {
     return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(faceGroups));
 }
 
+uint32_t MeshData::getFaceGroupsIndexedPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(faceGroupsIndexed));
+}
+
+// --- TopologyIndex implementation ---
+
+const TopologyIndex::Map& TopologyIndex::of(TopAbs_ShapeEnum kind) {
+    std::unique_ptr<Map>& held = maps_[static_cast<size_t>(kind)];
+    if (!held) {
+        // Filled before it is kept, so a throw partway leaves nothing behind for a
+        // later call to read as the whole list.
+        auto map = std::make_unique<Map>();
+        TopExp::MapShapes(shape_, kind, *map);
+        held = std::move(map);
+    }
+    return *held;
+}
+
+int TopologyIndex::positionOf(const TopoDS_Shape& s) {
+    return s.IsNull() ? -1 : of(s.ShapeType()).FindIndex(s) - 1;
+}
+
 // --- OcctKernel implementation ---
 
 OcctKernel::OcctKernel() {
@@ -1475,7 +1500,7 @@ OcctKernel::~OcctKernel() {
 
 uint32_t OcctKernel::store(const TopoDS_Shape& shape) {
     uint32_t id = nextId_++;
-    arena_.emplace(id, shape);
+    arena_.emplace(id, ArenaEntry{shape, nullptr});
     return id;
 }
 
@@ -1513,7 +1538,28 @@ const TopoDS_Shape& OcctKernel::get(uint32_t id) const {
     if (it == arena_.end()) {
         throw std::runtime_error("Invalid shape ID: " + std::to_string(id));
     }
-    return it->second;
+    return it->second.shape;
+}
+
+TopologyIndex& OcctKernel::keptTopology(uint32_t id) {
+    auto it = arena_.find(id);
+    if (it == arena_.end()) {
+        throw std::runtime_error("Invalid shape ID: " + std::to_string(id));
+    }
+    // Held through a unique_ptr, so the reference survives the arena growing.
+    std::unique_ptr<TopologyIndex>& index = it->second.topology;
+    if (!index) {
+        index = std::make_unique<TopologyIndex>(it->second.shape);
+    }
+    return *index;
+}
+
+TopologyIndex& OcctKernel::topologyFor(uint32_t id, TopologyIndex& scratch) {
+    auto it = arena_.find(id);
+    if (it == arena_.end()) {
+        throw std::runtime_error("Invalid shape ID: " + std::to_string(id));
+    }
+    return it->second.topology ? *it->second.topology : scratch;
 }
 
 // A profile face whose normal opposes the sweep direction yields an inside-out
@@ -1546,9 +1592,13 @@ TopoDS_Shape OcctKernel::normalizeSolidOrientation(const TopoDS_Shape& shape) {
 }
 
 // Shared mesh builder for tessellate() and tessellateRelative(). `relative`
-// selects per-edge size-relative deflection vs. absolute.
-MeshData OcctKernel::buildMeshData(const TopoDS_Shape& shape, double linearDeflection,
-                                   double angularDeflection, bool relative) {
+// selects per-edge size-relative deflection vs. absolute. Each face group is
+// named twice: by its face's hash, and by its face's position in the shape.
+MeshData OcctKernel::buildMeshData(uint32_t id, double linearDeflection, double angularDeflection,
+                                   bool relative) {
+    const TopoDS_Shape& shape = get(id);
+    TopologyIndex scratch(shape);
+    TopologyIndex& index = topologyFor(id, scratch);
     BRepMesh_IncrementalMesh mesher(shape, linearDeflection, relative, angularDeflection, false);
     if (!mesher.IsDone()) {
         throw std::runtime_error("tessellate: meshing failed");
@@ -1590,11 +1640,15 @@ MeshData OcctKernel::buildMeshData(const TopoDS_Shape& shape, double linearDefle
     result.indices = static_cast<uint32_t*>(std::malloc(result.indexCount * sizeof(uint32_t)));
     result.faceGroupCount = totalFaces * 3;
     result.faceGroups = static_cast<int32_t*>(std::malloc(result.faceGroupCount * sizeof(int32_t)));
+    result.faceGroupsIndexedCount = totalFaces;
+    result.faceGroupsIndexed =
+        static_cast<int32_t*>(std::malloc(result.faceGroupsIndexedCount * sizeof(int32_t)));
 
     if ((!result.positions && result.positionCount > 0) ||
         (!result.normals && result.normalCount > 0) || (!result.uvs && result.uvCount > 0) ||
         (!result.indices && result.indexCount > 0) ||
-        (!result.faceGroups && result.faceGroupCount > 0)) {
+        (!result.faceGroups && result.faceGroupCount > 0) ||
+        (!result.faceGroupsIndexed && result.faceGroupsIndexedCount > 0)) {
         throw std::runtime_error("tessellate: memory allocation failed");
     }
 
@@ -1695,6 +1749,9 @@ MeshData OcctKernel::buildMeshData(const TopoDS_Shape& shape, double linearDefle
         result.faceGroups[faceGroupIdx + 0] = faceTriStart;
         result.faceGroups[faceGroupIdx + 1] = nbTri * 3;
         result.faceGroups[faceGroupIdx + 2] = faceHash;
+        // The explorer visits a face once per parent; its position is its one place
+        // in the shape, so a face visited twice names one position both times.
+        result.faceGroupsIndexed[faceGroupIdx / 3] = index.positionOf(face);
         faceGroupIdx += 3;
 
         vertexOffset += nbNodes;
@@ -1744,14 +1801,17 @@ uint32_t MeshBatchData::getShapeOffsetsPtr() const {
 EdgeData::~EdgeData() {
     std::free(points);
     std::free(edgeGroups);
+    std::free(edgeGroupsIndexed);
 }
 
 EdgeData::EdgeData(const EdgeData& other)
-    : points(other.points), edgeGroups(other.edgeGroups), pointCount(other.pointCount),
-      edgeGroupCount(other.edgeGroupCount) {
+    : points(other.points), edgeGroups(other.edgeGroups),
+      edgeGroupsIndexed(other.edgeGroupsIndexed), pointCount(other.pointCount),
+      edgeGroupCount(other.edgeGroupCount), edgeGroupsIndexedCount(other.edgeGroupsIndexedCount) {
     auto& mut = const_cast<EdgeData&>(other);
     mut.points = nullptr;
     mut.edgeGroups = nullptr;
+    mut.edgeGroupsIndexed = nullptr;
 }
 
 uint32_t EdgeData::getPointsPtr() const {
@@ -1760,4 +1820,8 @@ uint32_t EdgeData::getPointsPtr() const {
 
 uint32_t EdgeData::getEdgeGroupsPtr() const {
     return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(edgeGroups));
+}
+
+uint32_t EdgeData::getEdgeGroupsIndexedPtr() const {
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(edgeGroupsIndexed));
 }

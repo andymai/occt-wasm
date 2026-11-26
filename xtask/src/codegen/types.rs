@@ -216,9 +216,10 @@ impl MethodSpec {
     /// helpers (`allocBytes`, `freeBytes`, `vector*FromHeap`) only speed up the
     /// Embind/JS boundary; the crate marshals through wasmtime linear memory
     /// directly. The "vfs" methods hand data over through Emscripten's virtual
-    /// filesystem, which the standalone WASI build does not have.
+    /// filesystem, which the standalone WASI build does not have. The "testing"
+    /// methods let the npm package's suite see inside the facade, and are not API.
     pub fn embind_only(&self) -> bool {
-        matches!(self.category, "marshal" | "vfs")
+        matches!(self.category, "marshal" | "vfs" | "testing")
     }
 
     /// Whether this method can be reached from the wasmtime host binding.

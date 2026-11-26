@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -17,6 +18,7 @@
 #include <TDF_Label.hxx>
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
+#include <TopAbs_ShapeEnum.hxx>
 #include <TopTools_ShapeMapHasher.hxx>
 #include <TopoDS_Shape.hxx>
 #include <UnitsMethods_LengthUnit.hxx>
@@ -130,11 +132,13 @@ struct MeshData {
     float* uvs = nullptr;
     uint32_t* indices = nullptr;
     int32_t* faceGroups = nullptr; // [triStart, triCount, faceHash] per face
+    int32_t* faceGroupsIndexed = nullptr; // each face group's face, by position in the shape
     int positionCount = 0;
     int normalCount = 0;
     int uvCount = 0;
     int indexCount = 0;
     int faceGroupCount = 0; // number of int32s (faceCount * 3)
+    int faceGroupsIndexedCount = 0; // one per face group
 
     MeshData() = default;
     ~MeshData();
@@ -145,6 +149,7 @@ struct MeshData {
     uint32_t getUvsPtr() const;
     uint32_t getIndicesPtr() const;
     uint32_t getFaceGroupsPtr() const;
+    uint32_t getFaceGroupsIndexedPtr() const;
 };
 
 /// Bounding box result.
@@ -156,8 +161,10 @@ struct BBoxData {
 struct EdgeData {
     float* points = nullptr;
     int32_t* edgeGroups = nullptr; // [pointStart, pointCount, edgeHash] per edge
+    int32_t* edgeGroupsIndexed = nullptr; // each edge group's edge, by position in the shape
     int pointCount = 0;
     int edgeGroupCount = 0; // number of int32s (edgeCount * 3)
+    int edgeGroupsIndexedCount = 0; // one per edge group
 
     EdgeData() = default;
     ~EdgeData();
@@ -165,6 +172,7 @@ struct EdgeData {
     EdgeData& operator=(const EdgeData&) = delete;
     uint32_t getPointsPtr() const;
     uint32_t getEdgeGroupsPtr() const;
+    uint32_t getEdgeGroupsIndexedPtr() const;
 };
 
 /// Evolution data from an operation.
@@ -190,6 +198,11 @@ struct EdgeData {
 /// `firstShapeIndexed`/`lastShapeIndexed` are result face positions, and
 /// `spineGeneratedIndexed` is `[spineEdge, profileEdge, count, face...]`, the profile
 /// being input 0.
+///
+/// Faces are tracked only where their hash is in the hash list passed in; to track
+/// every face, pass every face's hash (`subShapeHashes(shape, "face", bound)`).
+/// Where an input sub-shape the operation left untouched sits in the result is
+/// `subShapesIndexed(result, input, kind)`.
 struct EvolutionData {
     uint32_t resultId = 0;
     std::vector<int> modified;
@@ -212,6 +225,28 @@ struct EvolutionData {
     std::vector<int> firstShapeIndexed;
     std::vector<int> lastShapeIndexed;
     std::vector<int> spineGeneratedIndexed;
+};
+
+/// A shape's sub-shapes by kind, each at its 0-based position in `TopExp::MapShapes`
+/// order: the order `getSubShapes` lists them in, and the one every position the
+/// facade reports means. A position is found by `IsSame`, so no two sub-shapes share
+/// one. Each kind is mapped the first time it is asked for.
+class TopologyIndex {
+  public:
+    using Map = NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>;
+
+    explicit TopologyIndex(const TopoDS_Shape& shape) : shape_(shape) {}
+
+    /// The shape's sub-shapes of `kind`, in position order.
+    const Map& of(TopAbs_ShapeEnum kind);
+    int count(TopAbs_ShapeEnum kind) { return of(kind).Extent(); }
+    /// `s`'s position among the shape's sub-shapes of its kind, or -1 where the shape
+    /// does not hold it.
+    int positionOf(const TopoDS_Shape& s);
+
+  private:
+    TopoDS_Shape shape_;
+    std::array<std::unique_ptr<Map>, TopAbs_SHAPE> maps_;
 };
 
 /// Projection result (hidden line removal).
@@ -334,6 +369,7 @@ class OcctKernel {
     void release(uint32_t id);
     void releaseAll();
     uint32_t getShapeCount();
+    uint32_t topologyIndexCount();
     uint32_t checkpoint();
     void releaseSince(uint32_t mark);
 
@@ -513,6 +549,8 @@ class OcctKernel {
     std::vector<uint32_t> adjacentFaces(uint32_t shapeId, uint32_t faceId);
     std::vector<uint32_t> iterShapes(uint32_t id);
     std::vector<int> edgeToFaceMap(uint32_t id, int hashUpperBound);
+    std::vector<int> subShapesIndexed(uint32_t shapeId, uint32_t partId,
+                                      const std::string& shapeType);
 
     // --- Tessellation / Mesh ---
     MeshData tessellate(uint32_t id, double linearDeflection, double angularDeflection);
@@ -780,11 +818,26 @@ class OcctKernel {
 
     uint32_t store(const TopoDS_Shape& shape);
     const TopoDS_Shape& get(uint32_t id) const;
+    /// The stored shape's topology index, kept in its arena entry from now until the
+    /// shape is released. Only a call that answers by position asks for this.
+    TopologyIndex& keptTopology(uint32_t id);
+    /// The stored shape's index for one call: the one its arena entry keeps, if a
+    /// position query made one, or else `scratch`, an index of the same shape that
+    /// the caller drops when the call ends. Either lists the same order.
+    TopologyIndex& topologyFor(uint32_t id, TopologyIndex& scratch);
     TopoDS_Shape normalizeSolidOrientation(const TopoDS_Shape& shape);
-    MeshData buildMeshData(const TopoDS_Shape& shape, double linearDeflection,
+    MeshData buildMeshData(uint32_t id, double linearDeflection,
                            double angularDeflection, bool relative);
 
-    std::unordered_map<uint32_t, TopoDS_Shape> arena_;
+    /// A stored shape and, once a position query has asked for it, its topology
+    /// index. Stored shapes never change, and the index lives in the entry, so
+    /// whatever removes the shape frees its index with it, and an index can never
+    /// describe another shape.
+    struct ArenaEntry {
+        TopoDS_Shape shape;
+        std::unique_ptr<TopologyIndex> topology;
+    };
+    std::unordered_map<uint32_t, ArenaEntry> arena_;
     uint32_t nextId_ = 1;
 
     // XCAF document storage
